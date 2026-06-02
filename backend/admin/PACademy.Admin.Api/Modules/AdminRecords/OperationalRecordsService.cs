@@ -834,6 +834,7 @@ public sealed class OperationalRecordsService(
                        [created_at], [updated_at]
                 FROM (
                     SELECT
+                        0 AS [row_priority],
                         draft.[payload_json],
                         CONVERT(nvarchar(64), applicant.[id]) AS [table_id],
                         NULL AS [admin_record_id],
@@ -863,6 +864,7 @@ public sealed class OperationalRecordsService(
                     UNION ALL
 
                     SELECT
+                        1 AS [row_priority],
                         document.[payload_json],
                         COALESCE(CONVERT(nvarchar(64), applicant.[id]), document.[id]) AS [table_id],
                         document.[id] AS [admin_record_id],
@@ -886,6 +888,7 @@ public sealed class OperationalRecordsService(
                     WHERE document.[module] = N'applicants'
                 ) rows
                 WHERE [admin_record_id] = @id OR [national_id] = @id OR [table_id] = @id
+                ORDER BY [row_priority], [updated_at] DESC
                 """,
                 ct,
                 command => AddParameter(command, "@id", id)),
@@ -1245,21 +1248,27 @@ public sealed class OperationalRecordsService(
         projected["applicantTableId"] = identity.TableId;
         if (!string.IsNullOrWhiteSpace(identity.AdminRecordId)) projected["adminRecordId"] = identity.AdminRecordId;
         projected["id"] ??= identity.AdminRecordId ?? identity.TableId;
-        SetIfPresent(projected, "nationalId", identity.NationalId ?? StringProp(profile, "nationalId"));
-        SetIfPresent(projected, "phoneNumber", identity.PhoneNumber ?? StringProp(profile, "mobile"));
-        SetIfPresent(projected, "name", identity.FullName ?? StringProp(profile, "fullName"));
-        SetIfPresent(projected, "email", identity.Email ?? StringProp(profile, "email"));
-        SetIfPresent(projected, "gender", identity.Gender ?? StringProp(profile, "gender"));
-        SetIfPresent(projected, "religion", identity.Religion ?? StringProp(profile, "religion"));
-        SetIfPresent(projected, "birthDate", identity.BirthDate ?? StringProp(profile, "dateOfBirth"));
-        SetIfPresent(projected, "birthGovernorate", identity.BirthGovernorate ?? StringProp(profile, "birthGovernorate"));
-        SetIfPresent(projected, "birthDistrict", identity.BirthDistrict ?? StringProp(profile, "birthDistrict"));
+        SetIfPresent(projected, "nationalId", StringProp(profile, "nationalId") ?? identity.NationalId);
+        SetIfPresent(projected, "phoneNumber", StringProp(profile, "mobile") ?? identity.PhoneNumber);
+        SetIfPresent(projected, "name", StringProp(profile, "fullName") ?? identity.FullName);
+        SetIfPresent(projected, "email", StringProp(profile, "email") ?? identity.Email);
+        SetIfPresent(projected, "gender", StringProp(profile, "gender") ?? identity.Gender);
+        SetIfPresent(projected, "religion", StringProp(profile, "religion") ?? identity.Religion);
+        SetIfPresent(projected, "birthDate", StringProp(profile, "dateOfBirth") ?? identity.BirthDate);
+        SetIfPresent(projected, "birthGovernorate", StringProp(profile, "birthGovernorate") ?? identity.BirthGovernorate);
+        SetIfPresent(projected, "birthDistrict", StringProp(profile, "birthDistrict") ?? identity.BirthDistrict);
+        SetIfPresent(projected, "maritalStatus", MaritalStatusLabel(StringProp(profile, "maritalStatus")));
+        ApplyPortalProfileSections(projected, profile);
         SetIfPresent(
             projected,
             "certType",
-            identity.CertificateType
+            PortalCertificateType(profile)
+                ?? identity.CertificateType
                 ?? StringProp(profile, "certificateName")
                 ?? StringProp(profile, "qualificationLevel"));
+        SetIfPresent(projected, "certSection", StringProp(profile, "thanawiType"));
+        SetIfPresent(projected, "governorate", StringProp(profile, "addressGovernorate"));
+        SetIfPresent(projected, "city", StringProp(profile, "addressDistrict"));
 
         if (stage is > 0)
         {
@@ -1301,6 +1310,133 @@ public sealed class OperationalRecordsService(
 
     private static int? IntProp(JsonObject obj, string key) =>
         AdminRecordJson.NumberProp(obj, key) is { } value ? Convert.ToInt32(value) : null;
+
+    private static void ApplyPortalProfileSections(JsonObject projected, JsonObject? profile)
+    {
+        if (profile is null) return;
+
+        var currentAddress = ObjectProp(projected, "currentAddress")?.DeepClone().AsObject() ?? [];
+        SetIfPresent(currentAddress, "governorate", StringProp(profile, "addressGovernorate"));
+        SetIfPresent(currentAddress, "city", StringProp(profile, "addressDistrict"));
+        SetIfPresent(currentAddress, "detail", StringProp(profile, "currentAddressDetail"));
+        if (currentAddress.Count > 0) projected["currentAddress"] = currentAddress;
+
+        var contact = ObjectProp(projected, "contact")?.DeepClone().AsObject() ?? [];
+        SetIfPresent(contact, "mobilePhone", StringProp(profile, "mobile"));
+        SetIfPresent(contact, "homePhone", StringProp(profile, "homePhone"));
+        SetIfPresent(contact, "email", StringProp(profile, "email"));
+        SetIfPresent(contact, "socialFacebook", StringProp(profile, "facebook"));
+        SetIfPresent(contact, "socialInstagram", StringProp(profile, "instagram"));
+        SetIfPresent(contact, "socialX", StringProp(profile, "twitter"));
+        if (contact.Count > 0) projected["contact"] = contact;
+
+        var education = BuildPortalEducation(profile);
+        if (education is not null) projected["education"] = education;
+    }
+
+    private static JsonObject? BuildPortalEducation(JsonObject profile)
+    {
+        var qualificationLevel = StringProp(profile, "qualificationLevel");
+        var hasHigherFields =
+            !string.IsNullOrWhiteSpace(qualificationLevel)
+            || !string.IsNullOrWhiteSpace(StringProp(profile, "bachelorUniversity"))
+            || !string.IsNullOrWhiteSpace(StringProp(profile, "bachelorFaculty"))
+            || !string.IsNullOrWhiteSpace(StringProp(profile, "bachelorSpecialization"));
+
+        if (hasHigherFields)
+        {
+            var secondary = new JsonObject();
+            SetIfPresent(secondary, "certificateName", ThanawiCertificateName(profile));
+            SetNumberIfPresent(secondary, "totalScore", NumberProp(profile, "thanawiTotal"));
+            SetIfPresent(secondary, "schoolCategory", StringProp(profile, "thanawiType"));
+            SetIfPresent(secondary, "country", StringProp(profile, "thanawiCountry"));
+            SetNumberIfPresent(secondary, "percentage", NumberProp(profile, "thanawiPercentage"));
+
+            var education = new JsonObject
+            {
+                ["kind"] = "higher",
+                ["secondary"] = secondary,
+            };
+            SetIfPresent(education, "specialization", StringProp(profile, "bachelorSpecialization") ?? StringProp(profile, "bachelorMajor"));
+            SetIfPresent(education, "university", StringProp(profile, "bachelorUniversity"));
+            SetIfPresent(education, "faculty", StringProp(profile, "bachelorFaculty"));
+            SetNumberIfPresent(education, "totalScore", NumberProp(profile, "bachelorPercentage"));
+            SetIfPresent(education, "grade", StringProp(profile, "bachelorGrade"));
+            SetIfPresent(education, "higherSpecialization", StringProp(profile, "qualificationLevel"));
+            SetNumberIfPresent(education, "graduationYear", NumberProp(profile, "bachelorYear"));
+            return education;
+        }
+
+        if (StringProp(profile, "thanawiTotal") is null
+            && StringProp(profile, "schoolNameAr") is null
+            && StringProp(profile, "thanawiType") is null)
+        {
+            return null;
+        }
+
+        var general = new JsonObject
+        {
+            ["kind"] = "general",
+        };
+        SetIfPresent(general, "certificateName", ThanawiCertificateName(profile));
+        SetIfPresent(general, "schoolName", StringProp(profile, "schoolNameAr"));
+        SetNumberIfPresent(general, "totalScore", NumberProp(profile, "thanawiTotal"));
+        SetIfPresent(general, "branch", StringProp(profile, "thanawiType"));
+        SetIfPresent(general, "schoolCategory", StringProp(profile, "thanawiType"));
+        SetNumberIfPresent(general, "graduationYear", GraduationYear(profile));
+        SetNumberIfPresent(general, "percentage", NumberProp(profile, "thanawiPercentage"));
+        return general;
+    }
+
+    private static string? PortalCertificateType(JsonObject? profile)
+    {
+        if (profile is null) return null;
+        var qualificationLevel = StringProp(profile, "qualificationLevel");
+        return qualificationLevel switch
+        {
+            "license" or "bachelor" => "مؤهل جامعي",
+            "master" => "ماجستير",
+            "doctorate" => "دكتوراه",
+            _ => ThanawiCertificateName(profile)
+        };
+    }
+
+    private static string? ThanawiCertificateName(JsonObject profile) =>
+        StringProp(profile, "thanawiType") is { } type
+            ? $"الثانوية العامة أو ما يعادلها · {type}"
+            : "الثانوية العامة أو ما يعادلها";
+
+    private static string? MaritalStatusLabel(string? value) =>
+        value switch
+        {
+            "single" => "أعزب",
+            "married" => "متزوج",
+            "divorced" => "مطلق",
+            "widowed" => "أرمل",
+            _ => value
+        };
+
+    private static double? NumberProp(JsonObject? obj, string key) =>
+        obj is null ? null : AdminRecordJson.NumberProp(obj, key);
+
+    private static double? GraduationYear(JsonObject profile)
+    {
+        if (StringProp(profile, "thanawiGradDate") is { } date
+            && DateTime.TryParse(date, out var parsed))
+        {
+            return parsed.Year;
+        }
+
+        return null;
+    }
+
+    private static void SetNumberIfPresent(JsonObject payload, string key, double? value)
+    {
+        if (value is not null)
+        {
+            payload[key] = value.Value;
+        }
+    }
 
     private static string? ReadString(DbDataReader reader, int ordinal) =>
         reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);

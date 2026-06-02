@@ -38,7 +38,7 @@ import {
   useApplicantTimeline,
 } from '@/features/applicants';
 import { useAuthStore } from '@/features/auth';
-import { date as fmtDate, num, maskNationalId } from '@/shared/lib/format';
+import { date as fmtDate, num } from '@/shared/lib/format';
 import { ROUTES } from '@/config/routes';
 import {
   DEPARTMENT_LABELS,
@@ -151,7 +151,7 @@ export function ApplicantDetailPage(): JSX.Element {
               label="الرقم القومي"
               value={
                 <span className="font-mono" dir="ltr">
-                  {maskNationalId(applicant.nationalId)}
+                  {applicant.nationalId}
                 </span>
               }
             />

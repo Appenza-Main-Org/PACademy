@@ -153,7 +153,7 @@ export const VOTHIQA_EXPIRED_NID = '30501010203456';
 
 export const VOTHIQA_FILLABLE_SESSION: MoiApplicantSession = {
   applicantId: 'APP-2026731',
-  fullName: 'كريم محمود فؤاد العقّاد',
+  fullName: 'أدهم شريف كامل النجار',
   nationalId: VOTHIQA_FILLABLE_NID,
   dateOfBirth: '2005-01-01',
   dateOfBirthAr: '١ يناير ٢٠٠٥',
@@ -167,7 +167,7 @@ export const VOTHIQA_FILLABLE_SESSION: MoiApplicantSession = {
 
 export const VOTHIQA_EXPIRED_SESSION: MoiApplicantSession = {
   applicantId: 'APP-2026732',
-  fullName: 'كريم محمود فؤاد العقّاد',
+  fullName: 'سليم أيمن نادر الخطيب',
   nationalId: VOTHIQA_EXPIRED_NID,
   dateOfBirth: '2005-01-01',
   dateOfBirthAr: '١ يناير ٢٠٠٥',
@@ -185,7 +185,7 @@ export const VOTHIQA_EXPIRED_SESSION: MoiApplicantSession = {
 export const VOTHIQA_SPECIALIZED_OFFICERS_NID = '30502010103456';
 export const VOTHIQA_SPECIALIZED_OFFICERS_SESSION: MoiApplicantSession = {
   applicantId: 'APP-2026733',
-  fullName: 'محمود فؤاد عبد الرحمن العقّاد',
+  fullName: 'باسم عادل مراد الحداد',
   nationalId: VOTHIQA_SPECIALIZED_OFFICERS_NID,
   dateOfBirth: '1990-02-15',
   dateOfBirthAr: '١٥ فبراير ١٩٩٠',
@@ -202,7 +202,7 @@ export const VOTHIQA_SPECIALIZED_OFFICERS_SESSION: MoiApplicantSession = {
 export const VOTHIQA_LAW_BACHELOR_NID = '30503010103456';
 export const VOTHIQA_LAW_BACHELOR_SESSION: MoiApplicantSession = {
   applicantId: 'APP-2026734',
-  fullName: 'يوسف عمر محمد فاروق',
+  fullName: 'ليث حسام فوزي مراد',
   nationalId: VOTHIQA_LAW_BACHELOR_NID,
   dateOfBirth: '1988-09-22',
   dateOfBirthAr: '٢٢ سبتمبر ١٩٨٨',
@@ -238,7 +238,7 @@ export const UAT_GENERAL_FULL_CYCLE_SESSION: MoiApplicantSession = {
 
 export const UAT_SPECIALIZED_FULL_CYCLE_SESSION: MoiApplicantSession = {
   applicantId: 'APP-UAT-SPEC-2026',
-  fullName: 'محمود فؤاد عبد الرحمن العقاد',
+  fullName: 'حسن ياسر كمال عبد الحميد',
   nationalId: UAT_SPECIALIZED_FULL_CYCLE_NID,
   dateOfBirth: '1992-02-15',
   dateOfBirthAr: fmtArabic(new Date('1992-02-15')),

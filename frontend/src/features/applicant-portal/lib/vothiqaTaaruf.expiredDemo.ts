@@ -104,16 +104,16 @@ export const EXPIRED_DEMO_DOCUMENT: VothiqaTaarufDocument = (() => {
 
   /* Cover + personal */
   doc.personal.cover = {
-    fullName: 'كريم محمود فؤاد العقّاد',
+    fullName: 'سليم أيمن نادر الخطيب',
     fileNumber: '2026-0731',
     admissionYear: '2026',
     committee: 'لجنة قسم عام · رقم 4',
     governorate: 'الجيزة',
   };
   doc.personal.personal = {
-    fullName: 'كريم محمود فؤاد العقّاد',
+    fullName: 'سليم أيمن نادر الخطيب',
     fileNumber: '2026-0731',
-    shuhraName: 'كريم العقّاد',
+    shuhraName: 'سليم الخطيب',
     committee: 'لجنة قسم عام · رقم 4',
     dateOfBirth: APPLICANT_DOB,
     nationality: 'مصرية',

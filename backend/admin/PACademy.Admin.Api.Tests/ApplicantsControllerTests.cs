@@ -40,12 +40,20 @@ public sealed class ApplicantsControllerTests
             ["profile"] = new JsonObject
             {
                 ["nationalId"] = identity.NationalId,
-                ["fullName"] = identity.FullName,
+                ["fullName"] = "أحمد محمد إبراهيم سعيد",
                 ["mobile"] = identity.PhoneNumber,
-                ["email"] = identity.Email,
+                ["email"] = "updated.ahmed@example.eg",
                 ["religion"] = identity.Religion,
-                ["maritalStatus"] = "أعزب",
-                ["certificateName"] = "الثانوية العامة"
+                ["maritalStatus"] = "single",
+                ["thanawiType"] = "علمي علوم",
+                ["thanawiTotal"] = 392,
+                ["thanawiPercentage"] = 95.61,
+                ["schoolNameAr"] = "ثانوية النيل النموذجية",
+                ["addressGovernorate"] = "الجيزة",
+                ["addressDistrict"] = "الدقي",
+                ["currentAddressDetail"] = "12 شارع التحرير",
+                ["homePhone"] = "0233456789",
+                ["facebook"] = "ahmed.updated"
             },
             ["payment"] = new JsonObject
             {
@@ -63,6 +71,16 @@ public sealed class ApplicantsControllerTests
 
         Assert.Equal(identity.TableId, row["id"]?.GetValue<string>());
         Assert.Equal(identity.NationalId, row["nationalId"]?.GetValue<string>());
+        Assert.Equal("أحمد محمد إبراهيم سعيد", row["name"]?.GetValue<string>());
+        Assert.Equal("updated.ahmed@example.eg", row["email"]?.GetValue<string>());
+        Assert.Equal("أعزب", row["maritalStatus"]?.GetValue<string>());
+        Assert.Equal("الجيزة", row["governorate"]?.GetValue<string>());
+        Assert.Equal("الدقي", row["city"]?.GetValue<string>());
+        Assert.Equal("12 شارع التحرير", row["currentAddress"]?["detail"]?.GetValue<string>());
+        Assert.Equal("0233456789", row["contact"]?["homePhone"]?.GetValue<string>());
+        Assert.Equal("ahmed.updated", row["contact"]?["socialFacebook"]?.GetValue<string>());
+        Assert.Equal("ثانوية النيل النموذجية", row["education"]?["schoolName"]?.GetValue<string>());
+        Assert.Equal("علمي علوم", row["education"]?["branch"]?.GetValue<string>());
         Assert.Equal("under-review", row["status"]?.GetValue<string>());
         Assert.Equal(8, row["stage"]?.GetValue<int>());
         Assert.Equal("حجز الاختبارات", row["stageLabel"]?.GetValue<string>());

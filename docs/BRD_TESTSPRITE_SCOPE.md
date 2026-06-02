@@ -27,11 +27,15 @@ This scope maps the BRD's admin and applicant requirements to the TestSprite fro
 | Eligible normal flow | `30412180103456` | `01012345678` | أحمد محمد إبراهيم سعد |
 | Over age / ineligible | `28503150103456` | `01098765432` | خالد عبد الرحمن سامي مصطفى |
 | Submitted / paid applicant | `30407010103456` | `01098765432` | يوسف عمر فاروق منصور |
-| وثيقة تعارف fillable | `30501010103456` | `01098765432` | كريم محمود فؤاد العقّاد |
-| وثيقة تعارف expired edit window | `30501010203456` | `01098765433` | كريم محمود فؤاد العقّاد |
-| الضباط المتخصصون | `30502010103456` | `01098765434` | محمود فؤاد عبد الرحمن العقّاد |
-| ليسانس حقوق | `30503010103456` | `01098765435` | يوسف عمر محمد فاروق |
+| وثيقة تعارف fillable | `30501010103456` | `01098765432` | أدهم شريف كامل النجار |
+| وثيقة تعارف expired edit window | `30501010203456` | `01098765433` | سليم أيمن نادر الخطيب |
+| الضباط المتخصصون | `30502010103456` | `01098765434` | باسم عادل مراد الحداد |
+| ليسانس حقوق | `30503010103456` | `01098765435` | ليث حسام فوزي مراد |
 | Manual entry / MOI not found | `30506200103456` | `01011112222` | Created during testing |
+| UAT full cycle / قسم عام | `30606060123451` | `01066000101` | عمر مصطفى عبد العزيز الشيخ |
+| UAT full cycle / الضباط المتخصصون | `29202150167831` | `01066000102` | حسن ياسر كمال عبد الحميد |
+| UAT full cycle / ليسانس حقوق | `29809220145624` | `01066000103` | مريم عادل محمد منصور |
+| UAT closed category / تربية رياضية | `30103150246828` | `01066000104` | نورهان أحمد حسن عبد اللطيف |
 
 ## BRD Coverage Map
 
@@ -64,4 +68,3 @@ This scope maps the BRD's admin and applicant requirements to the TestSprite fro
   - الضباط المتخصصون -> `/applicant/acquaintance-doc` with spouse/children sections available
   - ليسانس حقوق -> `/applicant/acquaintance-doc` with spouse/children sections available
   - Manual entry / MOI not found -> `/applicant/start`
-
