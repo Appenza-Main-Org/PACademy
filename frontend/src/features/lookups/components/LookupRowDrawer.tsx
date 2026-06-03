@@ -50,7 +50,6 @@ import {
   type TestInstructionsMode,
 } from '../types';
 import { useLookup } from '../api/lookups.queries';
-import { normalizeExcellenceCriteria } from '../lib/excellenceCriterion';
 
 interface LookupRowDrawerProps<K extends LookupKey> {
   open: boolean;
@@ -137,9 +136,6 @@ export function LookupRowDrawer<K extends LookupKey>({
       } else {
         next.description = trimmed;
       }
-    }
-    if (lookupKey === 'applicant-categories') {
-      next.excellenceCriterion = normalizeExcellenceCriteria(next.excellenceCriterion);
     }
     onSubmit(next as unknown as LookupRow<K>);
   });
@@ -728,11 +724,6 @@ const STAGE_OPTIONS: { value: ApplicantCategoryType; label: string }[] = [
 
 function ApplicantCategoryFields(): JSX.Element {
   const { control } = useFormContext();
-  const excellenceCriteriaQuery = useLookup('excellence-criteria');
-  const excellenceCriterionOptions = ((excellenceCriteriaQuery.data ?? []) as RowMinimal[])
-    .filter((row) => row.isActive)
-    .map((row) => ({ value: row.code, label: row.name }));
-
   return (
     <>
       <Controller
@@ -791,18 +782,14 @@ function ApplicantCategoryFields(): JSX.Element {
         <Controller
           control={control}
           name="excellenceCriterion"
-          rules={{ validate: (v: unknown) => normalizeExcellenceCriteria(v).length > 0 }}
           render={({ field }) => (
-            <MultiSelect
+            <ForeignKeySelect
+              lookupKey="excellence-criteria"
               label="معيار التمييز"
               required
-              value={normalizeExcellenceCriteria(field.value)}
-              onChange={field.onChange}
-              options={excellenceCriterionOptions}
-              placeholder="اختر معايير التمييز"
-              ariaLabel="معيار التمييز"
-              enableSelectAll
-              error={normalizeExcellenceCriteria(field.value).length === 0 ? 'اختر معيارًا واحدًا على الأقل' : undefined}
+              value={(field.value as string | null | undefined) ?? ''}
+              onChange={(next) => field.onChange(next || null)}
+              error={!field.value ? 'اختر معيارًا واحدًا' : undefined}
             />
           )}
         />
@@ -1122,7 +1109,7 @@ function blankRow(key: LookupKey): Record<string, unknown> {
         minAge: 17,
         facultyCodes: [],
         specializationCodes: [],
-        excellenceCriterion: [],
+        excellenceCriterion: null,
       };
     case 'nationalities-countries':
       return { ...base, iso2: '', isArab: false };
@@ -1160,11 +1147,7 @@ function normalizeDefaults(key: LookupKey, row: Record<string, unknown>): Record
   const minAge = typeof row.minAge === 'number' && Number.isFinite(row.minAge)
     ? row.minAge
     : 17;
-  return {
-    ...row,
-    minAge,
-    excellenceCriterion: normalizeExcellenceCriteria(row.excellenceCriterion),
-  };
+  return { ...row, minAge };
 }
 
 function nextCodeFor(key: LookupKey, rows: readonly { code: string }[]): string {

@@ -41,7 +41,7 @@ export interface CategoryConfigJoined extends ApplicantCategoryConfig {
   implicitSpecId: string | null;
   specializationCount: number;
   yearCount: number;
-  excellenceCriterion: string[];
+  excellenceCriterion: string | null;
 }
 
 export interface CategorySpecializationJoined extends ApplicantCategorySpecialization {

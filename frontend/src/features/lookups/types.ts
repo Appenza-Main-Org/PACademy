@@ -305,10 +305,11 @@ export interface ApplicantCategoryRow extends LookupRowBase {
   expandedConditions?: CategoryConditions;
   requiredTests: RequiredTest[];
   procedures: string[];
-  /** FKs → `excellence-criteria` rows (`code`). The chosen criteria for
-   *  this category — one or more of `EXC-01` (تقدير) and `EXC-02` (درجة).
-   *  Empty array means the admin hasn't picked one yet. */
-  excellenceCriterion: string[];
+  /** FK → `excellence-criteria` (row `code`). The chosen criterion for
+   *  this category — either `EXC-01` (تقدير) or `EXC-02` (درجة). `null`
+   *  when the admin hasn't picked one yet; the wizard then renders an
+   *  «اختر معيار التمييز» placeholder under the row. */
+  excellenceCriterion: string | null;
 }
 
 export interface NationalityCountryRow extends LookupRowBase {
