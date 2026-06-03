@@ -119,8 +119,8 @@ export function useAddAdjustment() {
 export function useToggleAdjustment() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { seat: number; entryId: string }) =>
-      gradesService.toggleAdjustment(input.seat, input.entryId),
+    mutationFn: (input: { seat: number; entryId: string; isActive: boolean }) =>
+      gradesService.toggleAdjustment(input.seat, input.entryId, input.isActive),
     onSuccess: () => qc.invalidateQueries({ queryKey: gradesKeys.all }),
   });
 }

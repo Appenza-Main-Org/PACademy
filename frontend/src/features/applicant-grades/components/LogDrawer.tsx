@@ -147,7 +147,11 @@ export function LogDrawer({
                   key={entry.id}
                   entry={entry}
                   onToggle={() =>
-                    toggleMutation.mutate({ seat: row.seat, entryId: entry.id })
+                    toggleMutation.mutate({
+                      seat: row.seat,
+                      entryId: entry.id,
+                      isActive: !entry.isActive,
+                    })
                   }
                   onDelete={() =>
                     deleteMutation.mutate({ seat: row.seat, entryId: entry.id })

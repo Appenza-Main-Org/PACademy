@@ -15,9 +15,13 @@ const apiClientStub = `
 globalThis.__applicantGradesCommitCalls = [];
 globalThis.__applicantGradesGetCalls = [];
 globalThis.__applicantGradesPostCalls = [];
+globalThis.__applicantGradesDeleteCalls = [];
 export const apiClient = {
   post: async (url, payload) => {
     globalThis.__applicantGradesPostCalls.push({ url, payload });
+    if (url.endsWith('/delete')) {
+      return { deleted: payload.seats.length };
+    }
     if (url.endsWith('/v2/preflight')) {
       return { totals: { received: 1, imported: 1, skipped: 0, failed: 0 }, groups: [] };
     }
@@ -30,7 +34,10 @@ export const apiClient = {
     if (options?.query) return { rows: [], total: 0 };
     return [];
   },
-  delete: async () => null,
+  delete: async (url) => {
+    globalThis.__applicantGradesDeleteCalls.push({ url });
+    return { deleted: 33073 };
+  },
   patch: async () => null
 };
 `;
@@ -88,6 +95,8 @@ await writeFile(
       changedOnly: false
     });
     await gradesService.exportAll({ search: '', sort: null });
+    await gradesService.clearAll();
+    await gradesService.deleteRows([1000992, 1000843]);
     await gradesService.runImportPreflight({
       rows: [{
         nationalId: '30601232335315',
@@ -134,7 +143,8 @@ await writeFile(
     return {
       getCalls: globalThis.__applicantGradesGetCalls,
       postCalls: globalThis.__applicantGradesPostCalls,
-      commitCalls: globalThis.__applicantGradesCommitCalls
+      commitCalls: globalThis.__applicantGradesCommitCalls,
+      deleteCalls: globalThis.__applicantGradesDeleteCalls
     };
   }
   `,
@@ -152,7 +162,7 @@ try {
   });
 
   const { runContractProbe } = await import(pathToFileURL(outFile).href);
-  const { getCalls, postCalls, commitCalls } = await runContractProbe();
+  const { getCalls, postCalls, commitCalls, deleteCalls } = await runContractProbe();
   assert.deepEqual(
     getCalls.map((call) => call.url),
     [
@@ -161,7 +171,10 @@ try {
       '/api/admin/applicant-grades/export',
     ],
   );
-  assert.equal(postCalls[0].url, '/api/admin/applicant-grades/v2/preflight');
+  assert.deepEqual(deleteCalls.map((call) => call.url), ['/api/admin/applicant-grades']);
+  assert.equal(postCalls[0].url, '/api/admin/applicant-grades/delete');
+  assert.deepEqual(postCalls[0].payload, { seats: [1000992, 1000843] });
+  assert.equal(postCalls[1].url, '/api/admin/applicant-grades/v2/preflight');
   assert.equal(commitCalls.length, 1);
   assert.equal(commitCalls[0].url, '/api/admin/applicant-grades/v2/commit');
   assert.deepEqual(commitCalls[0].payload.existingDiffDecisions, [

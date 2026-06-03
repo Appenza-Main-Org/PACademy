@@ -5,14 +5,14 @@
  *   GET    /api/admin/applicant-grades
  *   GET    /api/admin/applicant-grades/export
  *   GET    /api/admin/applicant-grades/by-nid/:nid?cycleId=
- *   POST   /api/grades/clear
- *   POST   /api/grades/delete
- *   POST   /api/grades/:seat/adjustments
- *   POST   /api/grades/:seat/adjustments/:entryId/toggle
- *   DELETE /api/grades/:seat/adjustments/:entryId
- *   PATCH  /api/grades/:seat/override-max
- *   POST   /api/grades/import/stage
- *   POST   /api/grades/import/commit
+ *   DELETE /api/admin/applicant-grades
+ *   POST   /api/admin/applicant-grades/delete
+ *   POST   /api/admin/applicant-grades/:seat/adjustments
+ *   PATCH  /api/admin/applicant-grades/:seat/adjustments/:entryId
+ *   DELETE /api/admin/applicant-grades/:seat/adjustments/:entryId
+ *   PATCH  /api/admin/applicant-grades/:seat/override-max
+ *   POST   /api/admin/applicant-grades/import/stage
+ *   POST   /api/admin/applicant-grades/import/commit
  *   POST   /api/admin/applicant-grades/v2/preflight
  *   POST   /api/admin/applicant-grades/v2/commit
  */
@@ -34,7 +34,6 @@ import type {
   StagedImport,
 } from '../types';
 
-const GRADES_API = '/api/grades';
 const ADMIN_GRADES_API = '/api/admin/applicant-grades';
 const IMPORT_COMMIT_CHUNK_SIZE = 5000;
 const IMPORT_PREFLIGHT_CHUNK_SIZE = 5000;
@@ -155,29 +154,30 @@ export const gradesService = {
   },
 
   async clearAll(): Promise<{ deleted: number }> {
-    return apiClient.post<{ deleted: number }>(`${GRADES_API}/clear`);
+    return apiClient.delete<{ deleted: number }>(ADMIN_GRADES_API);
   },
 
   async deleteRows(seats: readonly number[]): Promise<{ deleted: number }> {
-    return apiClient.post<{ deleted: number }>(`${GRADES_API}/delete`, { seats });
+    return apiClient.post<{ deleted: number }>(`${ADMIN_GRADES_API}/delete`, { seats });
   },
 
   async addAdjustment(
     seat: number,
     payload: { reason: AdjustmentReason; note: string | null; amount: number; isActive: boolean; by: string },
   ): Promise<GradeRow> {
-    return apiClient.post<GradeRow>(`${GRADES_API}/${encodeURIComponent(String(seat))}/adjustments`, payload);
+    return apiClient.post<GradeRow>(`${ADMIN_GRADES_API}/${encodeURIComponent(String(seat))}/adjustments`, payload);
   },
 
-  async toggleAdjustment(seat: number, entryId: string): Promise<GradeRow> {
-    return apiClient.post<GradeRow>(
-      `${GRADES_API}/${encodeURIComponent(String(seat))}/adjustments/${encodeURIComponent(entryId)}/toggle`,
+  async toggleAdjustment(seat: number, entryId: string, isActive: boolean): Promise<GradeRow> {
+    return apiClient.patch<GradeRow>(
+      `${ADMIN_GRADES_API}/${encodeURIComponent(String(seat))}/adjustments/${encodeURIComponent(entryId)}`,
+      { isActive },
     );
   },
 
   async deleteAdjustment(seat: number, entryId: string): Promise<GradeRow> {
     return apiClient.delete<GradeRow>(
-      `${GRADES_API}/${encodeURIComponent(String(seat))}/adjustments/${encodeURIComponent(entryId)}`,
+      `${ADMIN_GRADES_API}/${encodeURIComponent(String(seat))}/adjustments/${encodeURIComponent(entryId)}`,
     );
   },
 
@@ -186,9 +186,9 @@ export const gradesService = {
     overrideMax: number | null,
     by: string,
   ): Promise<GradeRow> {
-    return apiClient.patch<GradeRow>(`${GRADES_API}/${encodeURIComponent(String(seat))}/override-max`, {
+    void by;
+    return apiClient.patch<GradeRow>(`${ADMIN_GRADES_API}/${encodeURIComponent(String(seat))}/override-max`, {
       overrideMax,
-      by,
     });
   },
 
@@ -197,14 +197,14 @@ export const gradesService = {
     maxDegree: number;
     rows: ImportedGradeRow[];
   }): Promise<{ ok: true; staged: StagedImport } | { ok: false; missing: string[] }> {
-    return apiClient.post(`${GRADES_API}/import/stage`, input);
+    return apiClient.post(`${ADMIN_GRADES_API}/import/stage`, input);
   },
 
   async commitImport(
     staged: StagedImport,
     resolutions: Record<string, ImportResolution>,
   ): Promise<CommittedImport> {
-    return apiClient.post(`${GRADES_API}/import/commit`, { staged, resolutions });
+    return apiClient.post(`${ADMIN_GRADES_API}/import/commit`, { staged, resolutions });
   },
 
   async runImportPreflight(input: {

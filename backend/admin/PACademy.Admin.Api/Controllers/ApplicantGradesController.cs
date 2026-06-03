@@ -74,8 +74,8 @@ public sealed class ApplicantGradesController(
     [HttpDelete]
     public async Task<IActionResult> Clear(CancellationToken ct)
     {
-        await clearGrades.ExecuteAsync(ct);
-        return NoContent();
+        var deleted = await clearGrades.ExecuteAsync(ct);
+        return Ok(new { deleted });
     }
 
     [HttpPost("delete")]

@@ -68,10 +68,10 @@ public sealed class FindGradeByNidUseCase(IApplicantGradesAdminDbContext db)
 
 public sealed class ClearGradesUseCase(IApplicantGradesAdminDbContext db)
 {
-    public async Task ExecuteAsync(CancellationToken ct = default)
+    public async Task<int> ExecuteAsync(CancellationToken ct = default)
     {
         await db.ApplicantGradeAdjustments.ExecuteDeleteAsync(ct);
-        await db.ApplicantGrades.ExecuteDeleteAsync(ct);
+        return await db.ApplicantGrades.ExecuteDeleteAsync(ct);
     }
 
     public async Task<int> DeleteRowsAsync(IReadOnlyCollection<int> seats, CancellationToken ct = default)
