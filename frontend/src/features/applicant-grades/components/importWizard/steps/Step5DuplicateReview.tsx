@@ -159,6 +159,16 @@ export function Step5DuplicateReview(): JSX.Element {
   const missing = integrityRows.filter((row) => row.code === 'MISSING_REQUIRED').length;
   const outOfRange = integrityRows.filter((row) => row.code === 'GRADE_OUT_OF_RANGE').length;
   const unreadable = integrityRows.filter((row) => row.code === 'UNREADABLE_VALUE').length;
+  const hardRejectedSourceRows = new Set(
+    integrityRows
+      .filter((row) => row.code !== 'GRADE_OUT_OF_RANGE')
+      .map((row) => row.sourceRowIndex),
+  );
+  const outOfRangeHardRejected = integrityRows.filter(
+    (row) =>
+      row.code === 'GRADE_OUT_OF_RANGE' &&
+      hardRejectedSourceRows.has(row.sourceRowIndex),
+  ).length;
   const alreadyImported = buildAlreadyImported(normalised, allRows ?? []).length;
   const decisionSummary = summarizeIntegrityDecisions(
     integrityRows,
@@ -254,6 +264,16 @@ export function Step5DuplicateReview(): JSX.Element {
         <Summary label="ملغاة" value={skippedCount} />
       </div>
 
+      <ImportCountReconciliation
+        received={report.totals.received}
+        ready={readyToWrite}
+        pending={pendingDecisionCount}
+        rejected={rejectedCount}
+        skipped={skippedCount}
+        outOfRange={outOfRange}
+        outOfRangeHardRejected={outOfRangeHardRejected}
+      />
+
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border-subtle bg-white px-3.5 py-2.5">
         <div className="flex items-center gap-2 text-xs text-ink-600">
           <ShieldCheck size={14} aria-hidden className="text-teal-600" />
@@ -314,6 +334,55 @@ export function Step5DuplicateReview(): JSX.Element {
           )}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function ImportCountReconciliation({
+  received,
+  ready,
+  pending,
+  rejected,
+  skipped,
+  outOfRange,
+  outOfRangeHardRejected,
+}: {
+  received: number;
+  ready: number;
+  pending: number;
+  rejected: number;
+  skipped: number;
+  outOfRange: number;
+  outOfRangeHardRejected: number;
+}): JSX.Element {
+  const reconciled = ready + pending + rejected + skipped;
+  const matches = reconciled === received;
+  return (
+    <div className="rounded-md border border-border-subtle bg-white px-3.5 py-3 text-xs leading-6 text-ink-600">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <ShieldCheck
+          size={14}
+          aria-hidden
+          className={matches ? 'text-teal-600' : 'text-terra-600'}
+        />
+        <span className="font-semibold text-ink-700">تأكيد الأرقام:</span>
+        <span>
+          {ready.toLocaleString('en')} جاهزة + {pending.toLocaleString('en')} تحتاج قرار +{' '}
+          {rejected.toLocaleString('en')} مرفوضة + {skipped.toLocaleString('en')} ملغاة ={' '}
+          <span className="font-en font-semibold">{reconciled.toLocaleString('en')}</span>{' '}
+          من <span className="font-en font-semibold">{received.toLocaleString('en')}</span> صف.
+        </span>
+      </div>
+      {outOfRangeHardRejected > 0 && (
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-gold-700">
+          <AlertTriangle size={14} aria-hidden />
+          <span>
+            من {outOfRange.toLocaleString('en')} صفًا يتجاوز الدرجة العظمى، يوجد{' '}
+            {outOfRangeHardRejected.toLocaleString('en')} صف لديه خطأ لا يمكن تجاوزه، لذلك يُحسب
+            ضمن «مرفوضة» وليس ضمن «تحتاج قرار».
+          </span>
+        </div>
+      )}
     </div>
   );
 }

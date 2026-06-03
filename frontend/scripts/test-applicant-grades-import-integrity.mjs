@@ -71,6 +71,44 @@ try {
   assert.equal(summary.pendingOutOfRangeCount, 0);
   assert.equal(summary.rejectedSourceRows.has(1), true);
 
+  const overlappingRows = [
+    {
+      nationalId: '30602151886',
+      seatingNumber: '1002',
+      nameAr: 'طالب متداخل',
+      gender: 'ذكر',
+      track: 'علمي',
+      graduationYear: 2026,
+      totalGrade: 999,
+      maxGrade: null,
+      schoolCategory: 'SCH-01',
+      examRound: null,
+      schoolName: 'مدرسة اختبار',
+      regionName: 'القاهرة',
+      sourceRowIndex: 2,
+    },
+  ];
+
+  const overlappingIntegrityRows = buildIntegrityAuditRows({
+    rows: overlappingRows,
+    selectedSchoolCategories: ['SCH-01'],
+    maxGradeByCategory: { 'SCH-01': 410 },
+  });
+
+  assert.equal(overlappingIntegrityRows.length, 2);
+  assert.equal(
+    overlappingIntegrityRows.filter((row) => row.code === 'INVALID_NID').length,
+    1,
+  );
+  assert.equal(
+    overlappingIntegrityRows.filter((row) => row.code === 'GRADE_OUT_OF_RANGE').length,
+    1,
+  );
+
+  const overlappingSummary = summarizeIntegrityDecisions(overlappingIntegrityRows, {});
+  assert.equal(overlappingSummary.pendingOutOfRangeCount, 0);
+  assert.equal(overlappingSummary.rejectedSourceRows.has(2), true);
+
   console.log('applicant grades import integrity tests passed');
 } finally {
   await rm(outDir, { recursive: true, force: true });
