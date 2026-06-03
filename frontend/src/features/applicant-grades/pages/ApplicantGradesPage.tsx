@@ -777,6 +777,7 @@ export function ApplicantGradesPage(): JSX.Element {
   ];
 
   const isEmpty = totalsAll === 0;
+  const showFirstImportEmpty = isEmpty && !hasActiveFilters;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   useEffect(() => {
@@ -905,7 +906,7 @@ export function ApplicantGradesPage(): JSX.Element {
         }
       />
 
-      {isEmpty ? (
+      {showFirstImportEmpty ? (
         <EmptyGradesCard onImport={startNewImport} />
       ) : (
         <>
