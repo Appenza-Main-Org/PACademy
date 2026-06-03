@@ -23,7 +23,20 @@ export const apiClient = {
       return { deleted: payload.seats.length };
     }
     if (url.endsWith('/v2/preflight')) {
-      return { totals: { received: 1, imported: 1, skipped: 0, failed: 0 }, groups: [] };
+      return {
+        totals: { received: 1, imported: 0, skipped: 0, failed: 1 },
+        groups: [{
+          code: 'MISSING_REQUIRED',
+          label: 'حقول مطلوبة ناقصة',
+          actions: ['skip', 'export'],
+          rows: [{
+            rowIndex: 1,
+            nationalId: '30601232335315',
+            name: 'طالب تجريبي',
+            message: 'بيانات مطلوبة ناقصة'
+          }]
+        }]
+      };
     }
     globalThis.__applicantGradesCommitCalls.push({ url, payload });
     return { insertedCount: 1, failedCount: 0, alreadyImportedCount: 0 };
@@ -97,7 +110,7 @@ await writeFile(
     await gradesService.exportAll({ search: '', sort: null });
     await gradesService.clearAll();
     await gradesService.deleteRows([1000992, 1000843]);
-    await gradesService.runImportPreflight({
+    const preflightReport = await gradesService.runImportPreflight({
       rows: [{
         nationalId: '30601232335315',
         seatingNumber: '1000992',
@@ -144,7 +157,8 @@ await writeFile(
       getCalls: globalThis.__applicantGradesGetCalls,
       postCalls: globalThis.__applicantGradesPostCalls,
       commitCalls: globalThis.__applicantGradesCommitCalls,
-      deleteCalls: globalThis.__applicantGradesDeleteCalls
+      deleteCalls: globalThis.__applicantGradesDeleteCalls,
+      preflightReport
     };
   }
   `,
@@ -162,7 +176,7 @@ try {
   });
 
   const { runContractProbe } = await import(pathToFileURL(outFile).href);
-  const { getCalls, postCalls, commitCalls, deleteCalls } = await runContractProbe();
+  const { getCalls, postCalls, commitCalls, deleteCalls, preflightReport } = await runContractProbe();
   assert.deepEqual(
     getCalls.map((call) => call.url),
     [
@@ -175,6 +189,11 @@ try {
   assert.equal(postCalls[0].url, '/api/admin/applicant-grades/delete');
   assert.deepEqual(postCalls[0].payload, { seats: [1000992, 1000843] });
   assert.equal(postCalls[1].url, '/api/admin/applicant-grades/v2/preflight');
+  assert.deepEqual(preflightReport.groups[0].availableActions, ['skip', 'export']);
+  assert.equal(preflightReport.groups[0].labelAr, 'حقول مطلوبة ناقصة');
+  assert.equal(preflightReport.groups[0].rows[0].sourceRowIndex, 1);
+  assert.equal(preflightReport.groups[0].rows[0].nameAr, 'طالب تجريبي');
+  assert.equal(preflightReport.groups[0].rows[0].detail, 'بيانات مطلوبة ناقصة');
   assert.equal(commitCalls.length, 1);
   assert.equal(commitCalls[0].url, '/api/admin/applicant-grades/v2/commit');
   assert.deepEqual(commitCalls[0].payload.existingDiffDecisions, [

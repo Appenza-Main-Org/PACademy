@@ -35,6 +35,7 @@ import {
   summarizeIntegrityDecisions,
 } from '../../../lib/duplicateAudit';
 import { useImportValidationRules } from '../../../lib/useImportValidationRules';
+import { normalizeImportReport } from '../../../lib/importReport';
 import type {
   ImportFailureRow,
   ImportGroupCode,
@@ -74,6 +75,10 @@ export function Step6Result(): JSX.Element {
   const fileMeta = useImportWizardStore((s) => s.fileMeta);
   const { data: allRows } = useGrades();
   const validationRules = useImportValidationRules();
+  const normalizedImportResult = useMemo(
+    () => (importResult ? normalizeImportReport(importResult) : null),
+    [importResult],
+  );
 
   const normalised = useMemo(() => {
     const table = parsed?.tables.find((t) => t.name === selectedTableName) ?? null;
@@ -168,24 +173,24 @@ export function Step6Result(): JSX.Element {
         ),
       });
     };
-    for (const group of importResult?.groups ?? []) appendGroup(group);
+    for (const group of normalizedImportResult?.groups ?? []) appendGroup(group);
     for (const group of integrityGroups) appendGroup(group);
     return Array.from(byCode.values());
-  }, [importResult?.groups, integrityGroups]);
+  }, [normalizedImportResult?.groups, integrityGroups]);
   const skippedExistingCount = alreadyImported.length;
   const decisionSummary = summarizeIntegrityDecisions(
     integrityRows,
     outOfRangeDecisions,
   );
   const rejectedCount = Math.max(
-    importResult?.totals.failed ?? 0,
+    normalizedImportResult?.totals.failed ?? 0,
     decisionSummary.rejectedSourceRows.size,
   );
   const pendingDecisionCount = decisionSummary.pendingOutOfRangeCount;
-  const skippedCount = (importResult?.totals.skipped ?? 0) + skippedExistingCount;
+  const skippedCount = (normalizedImportResult?.totals.skipped ?? 0) + skippedExistingCount;
   const importableCount = Math.max(
     0,
-    (importResult?.totals.received ?? normalised.length) -
+    (normalizedImportResult?.totals.received ?? normalised.length) -
       skippedCount -
       rejectedCount -
       pendingDecisionCount,
@@ -218,7 +223,7 @@ export function Step6Result(): JSX.Element {
   function handleDownloadAudit(): void {
     const csv = buildAuditCsv({
       audit,
-      report: importResult,
+      report: normalizedImportResult,
       rows: normalised,
       integrityRows,
       graduationYear,
@@ -265,7 +270,7 @@ export function Step6Result(): JSX.Element {
     );
   }
 
-  if (!importResult) {
+  if (!normalizedImportResult) {
     return (
       <div className="rounded-md border border-border-subtle bg-white p-6 text-center text-sm text-ink-500">
         تشغيل المراجعة في الخطوة السابقة لعرض النتيجة.
@@ -276,7 +281,7 @@ export function Step6Result(): JSX.Element {
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border-subtle md:grid-cols-5">
-        <SummaryBlock label="مستلمة" value={importResult.totals.received} />
+        <SummaryBlock label="مستلمة" value={normalizedImportResult.totals.received} />
         <SummaryBlock label="مستوردة" value={importableCount} tone="success" big />
         <SummaryBlock label="ملغاة" value={skippedCount} />
         <SummaryBlock label="تحتاج قرار" value={pendingDecisionCount} tone="warning" />

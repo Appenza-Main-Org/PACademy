@@ -34,6 +34,7 @@ import type {
   StagedImport,
 } from '../types';
 import type { ImportValidationRule } from '../lib/duplicateAudit';
+import { normalizeImportReport } from '../lib/importReport';
 
 const ADMIN_GRADES_API = '/api/admin/applicant-grades';
 const IMPORT_COMMIT_CHUNK_SIZE = 5000;
@@ -228,10 +229,10 @@ export const gradesService = {
 
     for (let offset = 0; offset < totalRows; offset += IMPORT_PREFLIGHT_CHUNK_SIZE) {
       const chunk = rows.slice(offset, offset + IMPORT_PREFLIGHT_CHUNK_SIZE);
-      const report = await apiClient.post<ImportReport>(
+      const report = normalizeImportReport(await apiClient.post<unknown>(
         `${ADMIN_GRADES_API}/v2/preflight`,
         { ...payload, rows: chunk },
-      );
+      ));
 
       aggregate.totals.received += report.totals.received;
       aggregate.totals.imported += report.totals.imported;
