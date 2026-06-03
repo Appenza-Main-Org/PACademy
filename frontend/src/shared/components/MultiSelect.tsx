@@ -196,7 +196,7 @@ export function MultiSelect({
       window.removeEventListener('resize', onResize);
       list?.removeEventListener('wheel', onWheel, true);
     };
-  }, [open, position, centered]);
+  }, [open, centered]);
 
   useEffect(() => {
     if (open) inputRef.current?.focus();

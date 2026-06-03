@@ -56,6 +56,7 @@ import {
 } from '../types';
 import { readGradingMode } from '../lib/submissionType';
 import { GRADING_MODE_LABELS_AR } from '../lib/gradingModes';
+import { normalizeExcellenceCriteria } from '../lib/excellenceCriterion';
 import { LookupRowDrawer } from './LookupRowDrawer';
 
 export interface LookupTabPanelProps<K extends LookupKey> {
@@ -689,16 +690,23 @@ function extrasFor(
         { key: 'minAge', label: 'الحد الأدنى للسن', sortable: true, width: 120, render: (r: ApplicantCategoryRow) => (
           <span className="font-mono text-sm text-ink-900">{r.minAge ?? 17}</span>
         ) },
-        /* معيار التمييز* — admins pick a single criterion per category
-         * from the `excellence-criteria` lookup. Rows without a
-         * configured criterion render «غير محدد». The value resolves
-         * through the lookup so a label change there flows through
-         * here without a code edit. */
+        /* معيار التمييز* — admins can pick one or more criteria per
+         * category. Values resolve through the lookup so a label change
+         * there flows through here without a code edit. */
         { key: 'excellenceCriterion', label: 'معيار التمييز*', sortable: true, width: 160, render: (r: ApplicantCategoryRow) => {
-          if (!r.excellenceCriterion) {
+          const criteria = normalizeExcellenceCriteria(r.excellenceCriterion);
+          if (criteria.length === 0) {
             return <Badge tone="warning">غير محدد</Badge>;
           }
-          return <Badge tone="info">{labelByCode('excellence-criteria', r.excellenceCriterion)}</Badge>;
+          return (
+            <span className="inline-flex flex-wrap items-center gap-1">
+              {criteria.map((criterion) => (
+                <Badge key={criterion} tone="info">
+                  {labelByCode('excellence-criteria', criterion)}
+                </Badge>
+              ))}
+            </span>
+          );
         } },
       ];
     case 'nationalities-countries':

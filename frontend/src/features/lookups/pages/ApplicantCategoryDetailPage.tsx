@@ -30,6 +30,7 @@ import type {
   FacultyRow,
   SpecializationRow,
 } from '../types';
+import { resolveExcellenceCriteriaLabels } from '../lib/excellenceCriterion';
 
 const STAGE_LABEL: Record<ApplicantCategoryRow['type'], string> = {
   pre_university: 'ثانوي',
@@ -116,11 +117,10 @@ export function ApplicantCategoryDetailPage(): JSX.Element {
   const faculties = (facultiesQuery.data ?? []) as FacultyRow[];
   const specializations = (specializationsQuery.data ?? []) as SpecializationRow[];
   const excellenceCriteria = excellenceCriteriaQuery.data ?? [];
-  const excellenceLabel =
-    row.excellenceCriterion === null
-      ? null
-      : excellenceCriteria.find((c) => c.code === row.excellenceCriterion)?.name ??
-        row.excellenceCriterion;
+  const excellenceLabels = resolveExcellenceCriteriaLabels(
+    row.excellenceCriterion,
+    excellenceCriteria,
+  );
 
   return (
     <CenteredShell>
@@ -203,13 +203,21 @@ export function ApplicantCategoryDetailPage(): JSX.Element {
         </Card>
 
         {/* معيار التمييز Card — only rendered for categories that
-         *  actually carry a criterion. Categories without a configured
-         *  criterion show no card at all rather than an empty Dash. */}
-        {row.excellenceCriterion !== null && (
+         *  actually carry at least one criterion. Categories without a
+         *  configured criterion show no card at all rather than an empty Dash. */}
+        {excellenceLabels.length > 0 && (
           <Card>
             <Field
               label="معيار التمييز"
-              value={<Badge tone="accent">{excellenceLabel}</Badge>}
+              value={
+                <span className="inline-flex flex-wrap items-center gap-1">
+                  {excellenceLabels.map((label) => (
+                    <Badge key={label} tone="accent">
+                      {label}
+                    </Badge>
+                  ))}
+                </span>
+              }
             />
           </Card>
         )}

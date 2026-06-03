@@ -1,14 +1,14 @@
 /**
  * Excellence-mode resolver.
  *
- * The applicant-categories lookup carries a `معيار التمييز`
- * (excellenceCriterion) FK → `excellence-criteria` lookup. The two
+ * The applicant-categories lookup carries one or more `معيار التمييز`
+ * (excellenceCriterion) FKs → `excellence-criteria` lookup. The two
  * seeded rows are `EXC-01` (تقدير) and `EXC-02` (درجة). The application-
- * settings wizard branches the «شروط اللجنة» form on this value:
+ * settings wizard branches the «شروط اللجنة» form on this selection:
  *
  *   • `TAGDIR` (تقدير) → show only الحد الأدنى / الأقصى للتقدير
  *   • `GRADES` (درجة)  → show only الحد الأدنى / الأقصى للدرجة (٪)
- *   • `null`           → criterion not picked yet → show both pairs
+ *   • `null`           → no criterion or multiple criteria → show both pairs
  *
  * Matching priority: stable seed code → Arabic name substring → null.
  * The name fallback covers admins who reseed the lookup with custom
@@ -16,15 +16,18 @@
  */
 
 import type { ExcellenceCriterionRow } from '@/features/lookups/types';
+import { normalizeExcellenceCriteria } from '@/features/lookups';
 
 export type ExcellenceMode = 'TAGDIR' | 'GRADES';
 
 export function deriveExcellenceMode(
-  criterionCode: string | null,
+  criterionValue: readonly string[] | string | null,
   excellenceRows: readonly ExcellenceCriterionRow[],
 ): ExcellenceMode | null {
-  if (!criterionCode) return null;
-  const row = excellenceRows.find((r) => r.code === criterionCode);
+  const criteria = normalizeExcellenceCriteria(criterionValue);
+  if (criteria.length !== 1) return null;
+  const selectedCriterionCode = criteria[0];
+  const row = excellenceRows.find((r) => r.code === selectedCriterionCode);
   if (!row) return null;
   if (row.code === 'EXC-01') return 'TAGDIR';
   if (row.code === 'EXC-02') return 'GRADES';

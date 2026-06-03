@@ -1,0 +1,33 @@
+import type { ApplicantCategoryRow } from '../types';
+
+export const applicantCategoryWithMultipleExcellenceCriteria: ApplicantCategoryRow = {
+  code: 'contract_multi_criteria',
+  name: 'فئة اختبار معيار التمييز المتعدد',
+  isActive: true,
+  minAge: 17,
+  genderScope: ['male', 'female'],
+  type: 'university',
+  facultyCodes: ['FAC-01'],
+  specializationCodes: [],
+  nameEn: 'Multiple criteria contract category',
+  description: '',
+  isOpen: true,
+  conditions: {
+    ageMin: null,
+    ageMax: null,
+    minScorePercent: null,
+    requiredQualification: 'bachelor',
+    gender: 'any',
+    minHeightCm: null,
+    medicalRequired: true,
+    maritalStatus: 'single',
+    conductCheck: true,
+    egyptianNationalityRequired: true,
+    employerApprovalRequired: false,
+    nominationOnly: false,
+    freeText: [],
+  },
+  requiredTests: [],
+  procedures: [],
+  excellenceCriterion: ['EXC-01', 'EXC-02'],
+};
