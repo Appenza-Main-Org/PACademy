@@ -14,8 +14,8 @@
  *                  Available regardless of status.
  *   • إعداد التقديم — pins the row's cycle in sessionStorage and lands
  *                     the user in the first wizard step
- *                     (`application_settings`). Aria-disabled + tooltip
- *                     for draft/review rows.
+ *                     (`application_settings`). Available before publishing
+ *                     so admins can prepare review cycles.
  */
 
 import { useMemo, useState } from 'react';
@@ -39,8 +39,6 @@ import {
   PageHeader,
   SoftDeleteDialog,
   toast,
-  Tooltip,
-  TooltipProvider,
 } from '@/shared/components';
 import type { DataTableColumn, ListActionsConfig } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
@@ -71,7 +69,6 @@ import {
 } from '../components/cycles/cycleListStatus';
 import { CycleStatusToggle } from '../components/cycles/CycleStatusToggle';
 
-const SETUP_LOCKED_HINT = 'متاح فقط للدورة المعتمدة والمنشورة';
 const CYCLE_DEP_LABELS: Record<string, string> = {
   applicants: 'طلب متقدم',
   applications: 'طلب متقدم',
@@ -325,39 +322,15 @@ export function CyclesPage(): JSX.Element {
             </div>
           );
         }
-        const listStatus = toListStatus(c.status);
-        const isSetupDisabled = !isCycleActiveByListStatus(listStatus);
-
-        /* Setup button — primary look on the active row; aria-disabled +
-         * tooltip on every other row. We omit native `disabled` on the
-         * locked variant so the tooltip can still hover/focus-attach. */
-        const setupButton = (
+        const setupSlot = (
           <Button
             variant="primary"
             size="sm"
             leadingIcon={<Settings2 size={12} strokeWidth={1.75} />}
-            aria-disabled={isSetupDisabled || undefined}
-            className={
-              isSetupDisabled
-                ? 'cursor-not-allowed opacity-60 hover:bg-teal-500'
-                : undefined
-            }
-            onClick={() => {
-              if (isSetupDisabled) return;
-              openSetupWizard(c.id);
-            }}
+            onClick={() => openSetupWizard(c.id)}
           >
             إعداد التقديم
           </Button>
-        );
-        const setupSlot = isSetupDisabled ? (
-          <Tooltip content={SETUP_LOCKED_HINT}>
-            <span tabIndex={0} aria-label={SETUP_LOCKED_HINT} className="inline-flex">
-              {setupButton}
-            </span>
-          </Tooltip>
-        ) : (
-          setupButton
         );
 
         /* Edit is unconditional now — every status is editable. */
@@ -397,8 +370,7 @@ export function CyclesPage(): JSX.Element {
   ];
 
   return (
-    <TooltipProvider>
-      <CenteredShell>
+    <CenteredShell>
         <PageHeader
           title="دورات القبول وإعداد التقديم"
           subtitle="إدارة دورات القبول: الاسم وحالة الاعتماد والنشر."
@@ -461,7 +433,7 @@ export function CyclesPage(): JSX.Element {
                   لا توجد دورة نشطة
                 </h2>
                 <p className="m-0 mt-2 font-ar text-sm text-ink-500">
-                  انقل دورة إلى اعتماد ونشر حتى تظهر إعدادات التقديم وباقي مسارات الدورة.
+                  يمكن إعداد التقديم من أي دورة قيد المراجعة. تظهر الدورة للمتقدمين فقط بعد الاعتماد والنشر.
                 </p>
               </div>
               <Button
@@ -528,8 +500,7 @@ export function CyclesPage(): JSX.Element {
           onConfirm={confirmDelete}
         />
 
-      </CenteredShell>
-    </TooltipProvider>
+    </CenteredShell>
   );
 }
 

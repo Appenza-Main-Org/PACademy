@@ -89,6 +89,16 @@ try {
     'publishing a cycle must demote the current approved-and-published cycle',
   );
   assert.doesNotMatch(
+    cyclesPageSource,
+    /SETUP_LOCKED_HINT|isSetupDisabled\s*=\s*!isCycleActiveByListStatus/,
+    'setup wizard must be available for draft/review cycles, not only published cycles',
+  );
+  assert.match(
+    cyclesPageSource,
+    /openSetupWizard\(c\.id\)/,
+    'cycles list setup button must open setup wizard for the selected cycle',
+  );
+  assert.doesNotMatch(
     cyclesServiceSource,
     /cycle\.isActive\s*===\s*true\s*\|\|/,
     'active-cycle predicates must not let a stale isActive flag override draft/review status',
