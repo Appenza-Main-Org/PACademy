@@ -43,7 +43,11 @@ const AUTH_STORAGE_KEYS: Record<AuthSurface, string> = {
 const LEGACY_AUTH_STORAGE_KEY = 'pa-auth';
 
 export function isBackendEnabled(): boolean {
-  const useMocks = firstEnv(import.meta.env.VITE_PROD_USE_MOCKS, import.meta.env.VITE_STAGING_USE_MOCKS);
+  const useMocks = firstFlag(
+    import.meta.env.VITE_PROD_USE_MOCKS,
+    import.meta.env.VITE_STAGING_USE_MOCKS,
+    import.meta.env.VITE_USE_MOCKS,
+  );
   if (import.meta.env.PROD && useMocks === 'true') {
     throw new Error('Mock mode is not allowed in production admin builds.');
   }
@@ -63,14 +67,27 @@ function firstEnv(...values: Array<string | undefined>): string {
   return '';
 }
 
+function firstFlag(...values: Array<string | undefined>): string {
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (trimmed) return trimmed;
+  }
+  return '';
+}
+
 function adminApiBaseUrl(): string {
-  return firstEnv(import.meta.env.VITE_PROD_ADMIN_API_BASE_URL, import.meta.env.VITE_STAGING_ADMIN_API_BASE_URL);
+  return firstEnv(
+    import.meta.env.VITE_PROD_ADMIN_API_BASE_URL,
+    import.meta.env.VITE_STAGING_ADMIN_API_BASE_URL,
+    import.meta.env.VITE_API_BASE_URL,
+  );
 }
 
 function applicantApiBaseUrl(): string {
   return firstEnv(
     import.meta.env.VITE_PROD_APPLICANT_API_BASE_URL,
     import.meta.env.VITE_STAGING_APPLICANT_API_BASE_URL,
+    import.meta.env.VITE_API_BASE_URL,
   );
 }
 

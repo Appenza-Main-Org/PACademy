@@ -2,7 +2,7 @@
  * CycleDetailPage — read-only summary of one admission cycle.
  *
  * Mirrors the visible field set of `/admin/cycles/new` (CycleNewPage):
- * اسم الدورة، حالة الدورة، والتفعيل. Status sits alongside as a Badge in the header.
+ * اسم الدورة وحالة الدورة. Status sits alongside as a Badge in the header.
  * Editing happens from the cycles list (CyclesPage) which routes to
  * the dedicated edit page.
  */
@@ -14,7 +14,6 @@ import {
   Card,
   EmptyState,
   ErrorState,
-  IconStamp,
   LoadingState,
   PageHeader,
 } from '@/shared/components';
@@ -26,9 +25,7 @@ import {
   LIST_STATUS_TONE,
   toListStatus,
 } from '../components/cycles/cycleListStatus';
-
-const ACTIVE_LABEL = 'نشطة';
-const INACTIVE_LABEL = 'غير نشطة';
+import { resolveCycleApplicationPeriod } from '../api/cycles.service';
 
 export function CycleDetailPage(): JSX.Element {
   const { id = '' } = useParams<{ id: string }>();
@@ -57,7 +54,7 @@ export function CycleDetailPage(): JSX.Element {
   }
 
   const listStatus = toListStatus(cycle.status);
-  const isActive = Boolean(cycle.isActive);
+  const applicationPeriod = resolveCycleApplicationPeriod(cycle);
 
   return (
     <CenteredShell>
@@ -66,14 +63,6 @@ export function CycleDetailPage(): JSX.Element {
           <span className="inline-flex items-center gap-3">
             {cycle.nameAr}
             <Badge tone={LIST_STATUS_TONE[listStatus]}>{LIST_STATUS_LABEL[listStatus]}</Badge>
-            {isActive ? (
-              <Badge tone="success">
-                <IconStamp width={12} height={12} className="me-1 inline-block" />
-                {ACTIVE_LABEL}
-              </Badge>
-            ) : (
-              <Badge tone="neutral">{INACTIVE_LABEL}</Badge>
-            )}
           </span>
         }
         breadcrumbs={[
@@ -86,25 +75,14 @@ export function CycleDetailPage(): JSX.Element {
       <Card>
         <div className="grid gap-4 md:grid-cols-3">
           <DetailField label="اسم الدورة" value={cycle.nameAr} />
+          <DetailField label="تاريخ بداية التقديم" value={applicationPeriod.startDate} />
+          <DetailField label="تاريخ نهاية التقديم" value={applicationPeriod.endDate} />
           <DetailField
             label="حالة الدورة"
             value={
               <Badge tone={LIST_STATUS_TONE[listStatus]}>
                 {LIST_STATUS_LABEL[listStatus]}
               </Badge>
-            }
-          />
-          <DetailField
-            label="التفعيل"
-            value={
-              isActive ? (
-                <Badge tone="success">
-                  <IconStamp width={12} height={12} className="me-1 inline-block" />
-                  {ACTIVE_LABEL}
-                </Badge>
-              ) : (
-                <Badge tone="neutral">{INACTIVE_LABEL}</Badge>
-              )
             }
           />
         </div>

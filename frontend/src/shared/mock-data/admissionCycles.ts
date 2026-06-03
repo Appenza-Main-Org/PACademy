@@ -3,14 +3,14 @@
  * extended post-polish (Bucket E) with openCategories + conditionOverrides
  * + createdAt/updatedAt.
  *
- * Demo invariant: ONE active cycle in `إدراج ومراجعة`, every other row
- * is a draft / غير نشطة parked on an old year.
+ * Demo invariant: ONE approved-and-published cycle, every other row is
+ * draft/review and inactive.
  *
  *   2023-M     draft → إدراج ومراجعة / غير نشطة
  *   2024-M     draft → إدراج ومراجعة / غير نشطة
  *   2025-M     draft → إدراج ومراجعة / غير نشطة
  *   2025-F     draft → إدراج ومراجعة / غير نشطة
- *   2026     draft + isActive → إدراج ومراجعة / نشطة — the single active cycle
+ *   2026     active → اعتماد ونشر / نشطة — the single active cycle
  *
  * `CYC-2026-M` lands as the active cycle so /admin/admission-setup
  * opens in editable mode by default. Admins approve+publish it from the
@@ -94,11 +94,9 @@ export const ADMISSION_CYCLES: readonly AdmissionCycle[] = [
     closeDate: '2026-12-31T23:59:59.000Z',
     expectedCapacity: 2000,
     applicantCount: 0,
-    /* Seeded in `draft` (إدراج ومراجعة) so the admission-setup wizard
-     * opens in editable mode. The status flips to `open` only when the
-     * admin clicks "اعتماد ونشر" from the wizard review step. */
-    status: 'draft',
-    /* Single-active invariant — only this cycle carries isActive=true at seed. */
+    /* Approved and published: status itself makes the cycle active. */
+    status: 'active',
+    /* Compatibility mirror for legacy consumers; status is source of truth. */
     isActive: true,
     openCategories: {
       officers_general: {

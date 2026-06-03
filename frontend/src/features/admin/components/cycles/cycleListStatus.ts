@@ -7,13 +7,11 @@
  * admission-setup, audit, and other surfaces continue to differentiate.
  * For the cycles list + add form we collapse the lifecycle to a binary:
  *
- *   review    → draft cycle, still being authored — edits permitted
- *   published → any cycle that has been approved & published — locked
+ *   review    → draft cycle, still being authored — inactive
+ *   published → approved & published cycle — active
  *
- * Edit gating in the list keys off `review`. Submitting `published` from
- * the add form routes through the existing single-active-cycle invariant
- * (cyclesService.create activates the new cycle, conflict dialog handles
- * demotion of an existing active one).
+ * The list no longer exposes a separate activation status. Active/inactive
+ * is derived from this two-state value.
  */
 
 import type { CycleStatus } from '@/shared/types/domain';
@@ -42,4 +40,17 @@ export function toListStatus(s: CycleStatus): CycleListStatus {
 /** Map the list-status back to the domain enum the service layer accepts. */
 export function fromListStatus(s: CycleListStatus): 'draft' | 'active' {
   return s === 'review' ? 'draft' : 'active';
+}
+
+export function isCycleActiveByListStatus(s: CycleListStatus): boolean {
+  return s === 'published';
+}
+
+export function listStatusToCyclePatch(
+  s: CycleListStatus,
+): { status: 'draft' | 'active'; isActive: boolean } {
+  return {
+    status: fromListStatus(s),
+    isActive: isCycleActiveByListStatus(s),
+  };
 }

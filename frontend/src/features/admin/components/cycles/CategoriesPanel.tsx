@@ -27,7 +27,10 @@ import type {
   AdmissionCycleCategoryConfig,
   ApplicantCategory,
 } from '@/shared/types/domain';
-import { validateCategoryConfig } from '@/features/admin/api/cycles.service';
+import {
+  resolveCycleApplicationPeriod,
+  validateCategoryConfig,
+} from '@/features/admin/api/cycles.service';
 
 interface CategoriesPanelProps {
   cycle: AdmissionCycle;
@@ -52,6 +55,7 @@ export function CategoriesPanel({
   onToggle,
 }: CategoriesPanelProps): JSX.Element {
   const yearWindow = formatRange(cycle.openDate, cycle.closeDate);
+  const applicationPeriod = resolveCycleApplicationPeriod(cycle);
   return (
     <section>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -64,6 +68,24 @@ export function CategoriesPanel({
             نطاق العام الدراسي: {yearWindow}
           </span>
         )}
+      </div>
+      <div className="mb-4 grid gap-3 md:grid-cols-2">
+        <div className="rounded-md border border-border-subtle bg-ink-50 px-4 py-3">
+          <span className="block text-2xs uppercase tracking-wide text-ink-500">
+            أول تاريخ متاح للتقديم
+          </span>
+          <strong className="mt-1 block font-numeric text-lg text-ink-900 tnum" dir="ltr">
+            {applicationPeriod.startDate || '—'}
+          </strong>
+        </div>
+        <div className="rounded-md border border-border-subtle bg-ink-50 px-4 py-3">
+          <span className="block text-2xs uppercase tracking-wide text-ink-500">
+            آخر موعد لتسليم الطلب
+          </span>
+          <strong className="mt-1 block font-numeric text-lg text-ink-900 tnum" dir="ltr">
+            {applicationPeriod.endDate || '—'}
+          </strong>
+        </div>
       </div>
       <Card>
         <div className="overflow-x-auto">

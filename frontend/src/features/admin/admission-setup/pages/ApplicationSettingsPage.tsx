@@ -16,7 +16,7 @@
 import { useEffect } from 'react';
 import { PageHeader } from '@/shared/components';
 import { AdmissionSetupShell } from '../components/AdmissionSetupShell';
-import { CategoryAccordion } from '../components/applicationSettings/CategoryAccordion';
+import { CategoryTabs } from '../components/applicationSettings/CategoryTabs';
 import { StickyBulkSaveBar } from '../components/applicationSettings/StickyBulkSaveBar';
 import { UnsavedChangesPrompt } from '../components/applicationSettings/UnsavedChangesPrompt';
 import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
@@ -46,7 +46,7 @@ export function ApplicationSettingsPage(): JSX.Element {
           title="إعدادات التقديم"
           subtitle="مساحة عمل منظمة لإضافة شروط اللجنة لكل فئة على حدة مع متابعة حالة الاكتمال."
         />
-        <CategoryAccordion />
+        <CategoryTabs />
         <StickyBulkSaveBar />
         <UnsavedChangesPrompt />
       </div>

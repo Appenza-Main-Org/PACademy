@@ -1,9 +1,9 @@
 /**
  * CycleEditPage — edit a saved admission cycle.
  *
- * Exposes the admin-editable cycle metadata: name, list-facing lifecycle
- * status, and the orthogonal active flag. System year fields remain internal
- * and are not modified by this form.
+ * Exposes the admin-editable cycle metadata: name, application submission
+ * period, and list-facing lifecycle status. That status determines whether
+ * the cycle is active or inactive.
  *
  * Available regardless of cycle status — the prior published-status gate
  * was lifted in the same commit set.
@@ -11,7 +11,7 @@
 
 import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Controller, useForm, type FieldPath } from 'react-hook-form';
+import { useForm, type FieldPath } from 'react-hook-form';
 import { z } from 'zod';
 import { Save } from 'lucide-react';
 import {
@@ -23,7 +23,6 @@ import {
   LoadingState,
   PageHeader,
   Select,
-  Switch,
   toast,
 } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
@@ -31,10 +30,16 @@ import { isValidationError } from '@/shared/lib/errors';
 import { validationFieldErrors, validationMessage } from '@/shared/lib/validation-errors';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
-import { useCycle, useCycleSetActive, useCycleUpdate } from '../api/cycles.queries';
+import { useCycle, useCycleUpdate, useCycleUpdateStatus, useCycles } from '../api/cycles.queries';
 import {
-  fromListStatus,
+  findActiveCycleApplicationPeriodOverlap,
+  toCycleCloseIso,
+  toCycleOpenIso,
+  validateCycleApplicationPeriod,
+} from '../api/cycles.service';
+import {
   LIST_STATUS_OPTIONS,
+  listStatusToCyclePatch,
   toListStatus,
 } from '../components/cycles/cycleListStatus';
 
@@ -45,8 +50,9 @@ const cycleSchema = z.object({
     .min(1, 'اسم الدورة مطلوب')
     .min(3, 'اسم الدورة يجب ألا يقل عن 3 أحرف')
     .max(80, 'اسم الدورة يجب ألا يزيد عن 80 حرفًا'),
+  startDate: z.string().min(1, 'تاريخ بداية التقديم مطلوب'),
+  endDate: z.string().min(1, 'تاريخ نهاية التقديم مطلوب'),
   status: z.enum(['review', 'published']),
-  isActive: z.boolean(),
 });
 
 type CycleValues = z.infer<typeof cycleSchema>;
@@ -63,11 +69,11 @@ export function CycleEditPage(): JSX.Element {
   const { id = '' } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const cycleQuery = useCycle(id);
+  const cyclesQuery = useCycles();
   const updateMut = useCycleUpdate();
-  const setActiveMut = useCycleSetActive();
+  const updateStatusMut = useCycleUpdateStatus();
 
   const {
-    control,
     register,
     handleSubmit,
     reset,
@@ -75,7 +81,7 @@ export function CycleEditPage(): JSX.Element {
     formState: { errors },
   } = useForm<CycleValues>({
     resolver: zodResolver(cycleSchema),
-    defaultValues: { name: '', status: 'review', isActive: false },
+    defaultValues: { name: '', startDate: '', endDate: '', status: 'review' },
   });
 
   /* Pre-fill once the cycle resolves. We use reset rather than
@@ -85,8 +91,9 @@ export function CycleEditPage(): JSX.Element {
     if (cycleQuery.data) {
       reset({
         name: cycleQuery.data.nameAr,
+        startDate: toInputDate(cycleQuery.data.openDate),
+        endDate: toInputDate(cycleQuery.data.closeDate),
         status: toListStatus(cycleQuery.data.status),
-        isActive: Boolean(cycleQuery.data.isActive),
       });
     }
   }, [cycleQuery.data, reset]);
@@ -123,28 +130,69 @@ export function CycleEditPage(): JSX.Element {
       return;
     }
 
-    const nextStatus = fromListStatus(values.status);
+    const periodErrors = validateCycleApplicationPeriod(values);
+    for (const [field, message] of Object.entries(periodErrors)) {
+      setError(field as FieldPath<CycleValues>, { type: 'manual', message }, { shouldFocus: true });
+    }
+    if (Object.keys(periodErrors).length > 0) return;
+
+    const statusPatch = listStatusToCyclePatch(values.status);
+
+    if (statusPatch.isActive) {
+      if (cyclesQuery.isLoading) {
+        toast('جاري تحميل الدورات الحالية للتحقق من فترة التقديم', 'info');
+        return;
+      }
+      if (cyclesQuery.error) {
+        toast('تعذر تحميل الدورات الحالية للتحقق من تداخل فترة التقديم', 'danger');
+        return;
+      }
+      const overlappingActive = findActiveCycleApplicationPeriodOverlap(
+        cyclesQuery.data,
+        { startDate: values.startDate, endDate: values.endDate },
+        cycle.id,
+      );
+      if (overlappingActive) {
+        const message = `فترة التقديم تتداخل مع الدورة النشطة "${overlappingActive.nameAr}"`;
+        setError('startDate', { type: 'manual', message }, { shouldFocus: true });
+        setError('endDate', { type: 'manual', message });
+        toast(message, 'danger');
+        return;
+      }
+    }
 
     try {
-      if (values.isActive && !cycle.isActive) {
-        await setActiveMut.mutateAsync(id);
-      }
-
       await updateMut.mutateAsync({
         id,
         patch: {
           nameAr: name,
-          status: nextStatus,
-          isActive: values.isActive,
+          year: Number(values.startDate.slice(0, 4)),
+          openDate: toCycleOpenIso(values.startDate),
+          closeDate: toCycleCloseIso(values.endDate),
         },
       });
+
+      if (toListStatus(cycle.status) !== values.status) {
+        await updateStatusMut.mutateAsync({
+          id,
+          next: statusPatch.status,
+          demoteCurrentActive: statusPatch.isActive,
+        });
+      }
 
       toast('تم حفظ تعديلات الدورة', 'success');
       navigate(ROUTES.admin.cycles);
     } catch (err) {
       if (isValidationError(err)) {
         for (const [field, message] of Object.entries(validationFieldErrors(err))) {
-          const fieldName = field === 'nameAr' ? 'name' : field;
+          const fieldName =
+            field === 'nameAr'
+              ? 'name'
+              : field === 'openDate'
+                ? 'startDate'
+                : field === 'closeDate'
+                  ? 'endDate'
+                  : field;
           setError(fieldName as FieldPath<CycleValues>, { type: 'server', message });
         }
       }
@@ -152,7 +200,7 @@ export function CycleEditPage(): JSX.Element {
     }
   };
 
-  const isSaving = updateMut.isPending || setActiveMut.isPending;
+  const isSaving = updateMut.isPending || updateStatusMut.isPending;
 
   return (
     <CenteredShell size="default">
@@ -177,35 +225,29 @@ export function CycleEditPage(): JSX.Element {
             />
 
             <div className="grid gap-4 md:grid-cols-2">
-              <Select
-                label="حالة الدورة"
+              <Input
+                type="date"
+                label="تاريخ بداية التقديم"
                 required
-                options={LIST_STATUS_OPTIONS}
-                {...register('status')}
-                error={errors.status?.message}
+                {...register('startDate')}
+                error={errors.startDate?.message}
               />
-
-              <Controller
-                control={control}
-                name="isActive"
-                render={({ field }) => (
-                  <div className="flex min-h-[4.625rem] flex-col justify-end gap-2 rounded-md border border-ink-200 bg-white px-4 py-3">
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      label="التفعيل"
-                      helper={field.value ? 'نشطة' : 'غير نشطة'}
-                      disabled={isSaving}
-                    />
-                    {errors.isActive?.message && (
-                      <span className="text-xs text-terra-700">
-                        {errors.isActive.message}
-                      </span>
-                    )}
-                  </div>
-                )}
+              <Input
+                type="date"
+                label="تاريخ نهاية التقديم"
+                required
+                {...register('endDate')}
+                error={errors.endDate?.message}
               />
             </div>
+
+            <Select
+              label="حالة الدورة"
+              required
+              options={LIST_STATUS_OPTIONS}
+              {...register('status')}
+              error={errors.status?.message}
+            />
 
             <div className="mt-2 flex items-center justify-end gap-2">
               <Button
@@ -230,4 +272,8 @@ export function CycleEditPage(): JSX.Element {
       </form>
     </CenteredShell>
   );
+}
+
+function toInputDate(value: string): string {
+  return value.slice(0, 10);
 }

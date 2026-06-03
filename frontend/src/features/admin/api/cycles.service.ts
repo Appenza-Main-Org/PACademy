@@ -65,6 +65,108 @@ export function validateCategoryConfig(
   return issues;
 }
 
+export interface CycleApplicationPeriod {
+  startDate: string;
+  endDate: string;
+}
+
+export type CycleApplicationPeriodErrors = Partial<Record<keyof CycleApplicationPeriod, string>>;
+
+export function resolveCycleApplicationPeriod(cycle: AdmissionCycle): CycleApplicationPeriod {
+  const categoryPeriods = Object.values(cycle.openCategories ?? {})
+    .filter((config): config is AdmissionCycleCategoryConfig => Boolean(config))
+    .filter((config) => config.isOpen && Boolean(config.startDate) && Boolean(config.endDate))
+    .map((config) => ({
+      startDate: dateOnly(config.startDate),
+      endDate: dateOnly(config.endDate),
+    }))
+    .filter((period): period is CycleApplicationPeriod =>
+      Boolean(period.startDate) && Boolean(period.endDate),
+    );
+
+  if (categoryPeriods.length > 0) {
+    return {
+      startDate: categoryPeriods.reduce(
+        (min, period) => (period.startDate < min ? period.startDate : min),
+        categoryPeriods[0]!.startDate,
+      ),
+      endDate: categoryPeriods.reduce(
+        (max, period) => (period.endDate > max ? period.endDate : max),
+        categoryPeriods[0]!.endDate,
+      ),
+    };
+  }
+
+  return {
+    startDate: dateOnly(cycle.openDate) ?? '',
+    endDate: dateOnly(cycle.closeDate) ?? '',
+  };
+}
+
+export function validateCycleApplicationPeriod(
+  period: Partial<CycleApplicationPeriod>,
+): CycleApplicationPeriodErrors {
+  const errors: CycleApplicationPeriodErrors = {};
+  const startDate = normalizeDateOnly(period.startDate);
+  const endDate = normalizeDateOnly(period.endDate);
+
+  if (!startDate) {
+    errors.startDate = 'تاريخ بداية التقديم مطلوب';
+  }
+  if (!endDate) {
+    errors.endDate = 'تاريخ نهاية التقديم مطلوب';
+  }
+  if (startDate && endDate && endDate < startDate) {
+    errors.endDate = 'تاريخ نهاية التقديم يجب ألا يسبق تاريخ البداية';
+  }
+
+  return errors;
+}
+
+export function findActiveCycleApplicationPeriodOverlap(
+  cycles: readonly AdmissionCycle[] | undefined,
+  period: CycleApplicationPeriod,
+  currentCycleId?: string,
+): AdmissionCycle | null {
+  const errors = validateCycleApplicationPeriod(period);
+  if (Object.keys(errors).length > 0) return null;
+
+  return (
+    cycles?.find((cycle) => {
+      const isActiveCycle =
+        cycle.status === 'active' ||
+        cycle.status === 'open' ||
+        cycle.status === 'extended';
+      if (cycle.id === currentCycleId || cycle.deletedAt || !isActiveCycle) return false;
+      const activePeriod = resolveCycleApplicationPeriod(cycle);
+      return rangesOverlap(period, activePeriod);
+    }) ?? null
+  );
+}
+
+export function toCycleOpenIso(date: string): string {
+  return `${normalizeDateOnly(date) ?? date}T00:00:00.000Z`;
+}
+
+export function toCycleCloseIso(date: string): string {
+  return `${normalizeDateOnly(date) ?? date}T23:59:59.000Z`;
+}
+
+function rangesOverlap(a: CycleApplicationPeriod, b: CycleApplicationPeriod): boolean {
+  return a.startDate <= b.endDate && b.startDate <= a.endDate;
+}
+
+function dateOnly(value: string | null | undefined): string | null {
+  return normalizeDateOnly(value?.slice(0, 10));
+}
+
+function normalizeDateOnly(value: string | null | undefined): string | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return value;
+}
+
 const NORMALIZE_STATUS: Record<CycleStatus, 'draft' | 'active' | 'closed' | 'archived'> = {
   draft: 'draft',
   open: 'active',
@@ -83,7 +185,6 @@ export function normalizeCycleStatus(status: CycleStatus): 'draft' | 'active' | 
 export function resolveActiveCycle(cycles: AdmissionCycle[] | undefined): AdmissionCycle | null {
   if (!cycles?.length) return null;
   return (
-    cycles.find((cycle) => cycle.isActive === true) ??
     cycles.find((cycle) => cycle.status === 'active' || cycle.status === 'open' || cycle.status === 'extended') ??
     null
   );
@@ -118,6 +219,7 @@ export const cyclesService = {
   ): Promise<AdmissionCycle> {
     return apiClient.post(`/api/cycles/${encodeURIComponent(id)}/transition`, {
       status: next,
+      isActive: next === 'active' || next === 'open' || next === 'extended',
       demoteCurrentActive: options.demoteCurrentActive,
     });
   },

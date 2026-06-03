@@ -987,15 +987,12 @@ export interface AdmissionCycle extends SoftDeleteFields {
   applicantCount: number;
   status: CycleStatus;
   /**
-   * Active flag — orthogonal to `status`. At most ONE cycle in the system
-   * may have `isActive === true`; the cycles service enforces the invariant
-   * atomically (see `cyclesService.setActive`). A draft cycle (status:
-   * 'review' in cycles-UI terms) can still be marked active; conversely a
-   * published cycle can be inactive (e.g. historical). The cycles list
-   * surfaces this as a dedicated "نشطة / غير نشطة" column.
+   * Compatibility mirror for older backend payloads. New admin UI treats
+   * `status` as the source of truth: `draft` / review is inactive, while
+   * `active` / `open` / `extended` is approved, published, and active.
    *
-   * Optional for backwards compatibility with seeded data; treat missing
-   * as `false`.
+   * Optional for backwards compatibility with seeded data; prefer status
+   * predicates for new code.
    */
   isActive?: boolean;
   /** English label, optional — defaults to a computed transliteration in UI. */

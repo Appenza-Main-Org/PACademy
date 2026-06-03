@@ -1,10 +1,10 @@
 /**
- * CategoryAccordion — `@radix-ui/react-accordion` (single-open mode).
+ * CategoryTabs — backend-driven category tabs for step 1.
  *
  * Sources every applicant-category from the
  * `admin/lookups/applicant-categories` lookup (no hardcoded list). Each
  * row carries a `type` (`university` | `pre_university`) that decides
- * which editor section is rendered inside the accordion body:
+ * which editor section is rendered inside the active tab panel:
  *
  *   • `university` (جامعي)     → <GeneralRulesSection /> — implicit
  *     single-form categories stay compact; `specialized_officers` gets
@@ -12,10 +12,9 @@
  *   • `pre_university` (ثانوي) → <ThanawiRulesSection /> — exam-round +
  *     committee + graduation-year + school-category grid.
  *
- * Active toggle on the row uses the underlying
- * `ApplicantCategoryConfig.isActive` (mirrors the prior wiring); the
- * lookup row's `isActive` is the master flag for whether the category
- * is shown to applicants. Both stay in sync at this seam.
+ * The tab order mirrors the backend lookup order as-is. When backend
+ * returns more categories than fit in the row, the tablist remains one
+ * line and scrolls horizontally instead of wrapping.
  *
  * «معيار التمييز» rendering:
  *   • Every active category renders here regardless of its criterion
@@ -29,11 +28,10 @@
 import { useMemo, useState } from 'react';
 import {
   Check,
-  ChevronDown,
   Circle,
   CircleDashed,
 } from 'lucide-react';
-import { Accordion, ErrorState, LoadingState } from '@/shared/components';
+import { ErrorState, LoadingState, Tabs } from '@/shared/components';
 import {
   useLookup,
   type ApplicantCategoryRow,
@@ -57,12 +55,12 @@ import {
 import { GeneralRulesSection } from './GeneralRulesSection';
 import { ThanawiRulesSection } from './ThanawiRulesSection';
 
-export function CategoryAccordion(): JSX.Element {
+export function CategoryTabs(): JSX.Element {
   const configsQuery = useCategoryConfigs();
   const categoriesQuery = useLookup('applicant-categories', applicationSettingsQueryOptions);
   const excellenceQuery = useLookup('excellence-criteria', applicationSettingsQueryOptions);
 
-  const [openId, setOpenId] = useState<string | undefined>(undefined);
+  const [activeId, setActiveId] = useState<string | undefined>(undefined);
 
   if (
     configsQuery.isLoading ||
@@ -103,35 +101,114 @@ export function CategoryAccordion(): JSX.Element {
     (excellenceQuery.data ?? []).map((row) => [row.code, row.name] as const),
   );
   const excellenceRows = excellenceQuery.data ?? [];
+  const selectedId = activeId && visibleConfigs.some((config) => config.id === activeId)
+    ? activeId
+    : visibleConfigs[0]?.id;
+
+  if (!selectedId) {
+    return (
+      <ErrorState
+        title="لا توجد فئات نشطة"
+        description="فعّل فئة واحدة على الأقل من دليل فئات المتقدمين ثم عُد إلى إعدادات التقديم."
+        onRetry={() => {
+          configsQuery.refetch();
+          categoriesQuery.refetch();
+          excellenceQuery.refetch();
+        }}
+      />
+    );
+  }
 
   return (
-    <Accordion.Root
-      type="single"
-      collapsible
-      dir="rtl"
-      value={openId}
-      onValueChange={setOpenId}
-      className="flex flex-col gap-3"
+    <Tabs
+      value={selectedId}
+      onValueChange={setActiveId}
+      activationMode="automatic"
+      className="gap-4"
     >
+      <div className="rounded-lg border border-border-subtle bg-surface-card px-3 pt-3 shadow-xs">
+        <Tabs.List
+          aria-label="فئات إعدادات التقديم"
+          className="flex-nowrap gap-2 overflow-x-auto overflow-y-hidden border-b-0 pb-3"
+        >
+          {visibleConfigs.map((config) => (
+            <ConfigTab
+              key={config.id}
+              config={config}
+              excellenceLabel={
+                /* Label only renders when the category actually carries a
+                 * criterion. The tab itself stays visible either way. */
+                config.excellenceCriterion === null
+                  ? null
+                  : criterionLabelByCode.get(config.excellenceCriterion) ??
+                    config.excellenceCriterion
+              }
+            />
+          ))}
+        </Tabs.List>
+      </div>
+
       {visibleConfigs.map((config) => (
-        <ConfigItem
-          key={config.id}
-          config={config}
-          excellenceLabel={
-            /* Label only renders when the category actually carries a
-             * criterion. The row itself stays visible either way. */
-            config.excellenceCriterion === null
-              ? null
-              : criterionLabelByCode.get(config.excellenceCriterion) ??
-                config.excellenceCriterion
-          }
-          excellenceMode={deriveExcellenceMode(
-            config.excellenceCriterion,
-            excellenceRows,
-          )}
-        />
+        <Tabs.Panel key={config.id} value={config.id}>
+          <div className="rounded-lg border border-border-subtle bg-ink-50/30 p-4 shadow-xs">
+            <ConfigPanel
+              config={config}
+              excellenceMode={deriveExcellenceMode(
+                config.excellenceCriterion,
+                excellenceRows,
+              )}
+            />
+          </div>
+        </Tabs.Panel>
       ))}
-    </Accordion.Root>
+    </Tabs>
+  );
+}
+
+interface ConfigTabProps {
+  config: CategoryConfigJoined;
+  excellenceLabel: string | null;
+}
+
+function ConfigTab({
+  config,
+  excellenceLabel,
+}: ConfigTabProps): JSX.Element {
+  const completion = useCategoryCompletion(config);
+  const typeLabel = config.categoryType === 'university' ? 'جامعي' : 'ثانوي';
+
+  return (
+    <Tabs.Tab
+      value={config.id}
+      className={cn(
+        'min-h-20 min-w-[14rem] max-w-[18rem] flex-shrink-0 items-start rounded-md border border-border-subtle bg-surface-card px-3 py-3 text-start',
+        'hover:border-border-default hover:bg-ink-50/70',
+        'data-[state=active]:border-[color:var(--accent-500)] data-[state=active]:bg-[color:var(--accent-50)]',
+        'data-[state=active]:shadow-xs',
+      )}
+    >
+      <span className="flex min-w-0 flex-col items-start gap-2">
+        <span className="flex w-full min-w-0 items-start justify-between gap-3">
+          <span className="min-w-0 truncate font-ar text-sm font-bold leading-6 text-ink-900">
+            {config.categoryNameAr}
+          </span>
+          <CompletionBadge state={completion} compact />
+        </span>
+        <span className="flex max-w-full flex-wrap items-center gap-1.5">
+          <span className="rounded-full bg-ink-50 px-2 py-0.5 font-ar text-2xs font-medium text-ink-600">
+            {typeLabel}
+          </span>
+          {excellenceLabel && (
+            <span
+              className="max-w-full truncate rounded-full bg-gold-50 px-2 py-0.5 font-ar text-2xs font-medium text-gold-700"
+              aria-label={`معيار التمييز: ${excellenceLabel}`}
+            >
+              معيار التمييز: {excellenceLabel}
+            </span>
+          )}
+        </span>
+      </span>
+    </Tabs.Tab>
   );
 }
 
@@ -140,67 +217,47 @@ function mergeCategoryConfigsWithActiveLookups(
   categories: readonly ApplicantCategoryRow[],
 ): CategoryConfigJoined[] {
   const activeCategories = categories.filter((category) => category.isActive);
-  const activeCategoryCodes = new Set(
-    activeCategories.map((category) => category.code),
-  );
-  const activeCategoryByCode = new Map(
-    activeCategories.map((category) => [category.code, category] as const),
-  );
   const configByCode = new Map(
     configs.map((config) => [config.categoryCode, config] as const),
   );
-  const visibleConfigs = configs
-    .filter((config) => activeCategoryCodes.has(config.categoryCode))
-    .map((config) => {
-      const category = activeCategoryByCode.get(config.categoryCode);
-      return {
-        ...config,
-        categoryNameAr: category?.name ?? config.categoryNameAr,
-        categoryType: normalizeApplicantCategoryType(
-          config.categoryType,
-          category,
-        ),
-        categoryFacultyCodes: category?.facultyCodes ?? config.categoryFacultyCodes,
-        categorySpecializationCodes:
-          category?.specializationCodes ?? config.categorySpecializationCodes,
-        lockedGender: category
-          ? category.genderScope.length === 1
-            ? category.genderScope[0]
-            : null
-          : config.lockedGender,
-        excellenceCriterion:
-          category?.excellenceCriterion ?? config.excellenceCriterion,
-      };
-    });
 
-  for (const category of activeCategories) {
-    if (configByCode.has(category.code)) {
-      continue;
+  return activeCategories.map((category, index) => {
+    const config = configByCode.get(category.code);
+
+    if (!config) {
+      return {
+        id: `lookup:${category.code}`,
+        categoryId: category.code,
+        categoryCode: category.code,
+        categoryNameAr: category.name,
+        categoryType: category.type,
+        categoryFacultyCodes: category.facultyCodes,
+        categorySpecializationCodes: category.specializationCodes,
+        lockedGender:
+          category.genderScope.length === 1 ? category.genderScope[0] : null,
+        singleAxis: false,
+        implicitSpecId: null,
+        specializationCount: category.specializationCodes.length,
+        yearCount: 0,
+        excellenceCriterion: category.excellenceCriterion,
+        isActive: true,
+        sortOrder: index + 1,
+        createdAt: '',
+        updatedAt: '',
+      };
     }
 
-    visibleConfigs.push({
-      id: `lookup:${category.code}`,
-      categoryId: category.code,
-      categoryCode: category.code,
+    return {
+      ...config,
       categoryNameAr: category.name,
-      categoryType: category.type,
+      categoryType: normalizeApplicantCategoryType(config.categoryType, category),
       categoryFacultyCodes: category.facultyCodes,
       categorySpecializationCodes: category.specializationCodes,
       lockedGender:
         category.genderScope.length === 1 ? category.genderScope[0] : null,
-      singleAxis: false,
-      implicitSpecId: null,
-      specializationCount: category.specializationCodes.length,
-      yearCount: 0,
       excellenceCriterion: category.excellenceCriterion,
-      isActive: true,
-      sortOrder: visibleConfigs.length + 1,
-      createdAt: '',
-      updatedAt: '',
-    });
-  }
-
-  return visibleConfigs;
+    };
+  });
 }
 
 function normalizeApplicantCategoryType(
@@ -215,20 +272,34 @@ function normalizeApplicantCategoryType(
   return 'university';
 }
 
-interface ConfigItemProps {
+interface ConfigPanelProps {
   config: CategoryConfigJoined;
-  excellenceLabel: string | null;
   /** Resolved «معيار التمييز» discriminator — TAGDIR (تقدير) hides the
    *  score pair, GRADES (درجة) hides the grade pair. `null` (no
    *  criterion picked) keeps both pairs visible. */
   excellenceMode: ExcellenceMode | null;
 }
 
-function ConfigItem({
+function ConfigPanel({
   config,
-  excellenceLabel,
   excellenceMode,
-}: ConfigItemProps): JSX.Element {
+}: ConfigPanelProps): JSX.Element {
+  return config.categoryType === 'university' ? (
+    <GeneralRulesSection
+      categoryCode={config.categoryCode}
+      facultyCodes={config.categoryFacultyCodes}
+      specializationCodes={config.categorySpecializationCodes}
+      excellenceMode={excellenceMode}
+    />
+  ) : (
+    <ThanawiRulesSection
+      categoryCode={config.categoryCode}
+      excellenceMode={excellenceMode}
+    />
+  );
+}
+
+function useCategoryCompletion(config: CategoryConfigJoined): CategoryCompletionState {
   /* Selector reads both buckets — see `selectCategoryCompletion` JSDoc.
    * Authored rows that haven't been promoted via the section-level
    * «اعتماد» button still count, so the badge tracks what the admin
@@ -253,66 +324,7 @@ function ConfigItem({
     ],
   );
 
-  const typeLabel = config.categoryType === 'university' ? 'جامعي' : 'ثانوي';
-
-  return (
-    <Accordion.Item
-      value={config.id}
-      className="group overflow-hidden rounded-lg border border-border-subtle bg-surface-card shadow-xs transition-colors duration-fast data-[state=open]:border-teal-100"
-    >
-      <Accordion.Trigger
-        hideChevron
-        contentClassName="flex min-w-0 flex-1 items-center justify-between gap-4"
-        className="group w-full px-5 py-4 transition-colors duration-fast hover:bg-ink-50/50 focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-      >
-        <span className="flex min-w-0 items-start gap-3">
-          <span className="mt-1 grid size-8 shrink-0 place-items-center rounded-full bg-teal-50 text-teal-700 transition-colors duration-fast group-data-[state=closed]:bg-ink-50 group-data-[state=closed]:text-ink-600">
-            <ChevronDown
-              size={15}
-              strokeWidth={2}
-              className="transition-transform duration-fast group-data-[state=closed]:rotate-180"
-              aria-hidden
-            />
-          </span>
-          <span className="min-w-0">
-            <span className="block truncate font-ar text-lg font-bold leading-7 text-ink-900">
-              {config.categoryNameAr}
-            </span>
-            <span className="mt-1 flex flex-wrap items-center gap-1.5">
-              <span className="rounded-full bg-ink-50 px-2 py-0.5 font-ar text-2xs font-medium text-ink-600">
-                {typeLabel}
-              </span>
-              {excellenceLabel && (
-                <span
-                  className="rounded-full bg-gold-50 px-2 py-0.5 font-ar text-2xs font-medium text-gold-700"
-                  aria-label={`معيار التمييز: ${excellenceLabel}`}
-                >
-                  معيار التمييز: {excellenceLabel}
-                </span>
-              )}
-            </span>
-          </span>
-        </span>
-        <CompletionBadge state={completion} />
-      </Accordion.Trigger>
-
-      <Accordion.Content className="border-t border-border-subtle bg-ink-50/30 p-4">
-        {config.categoryType === 'university' ? (
-          <GeneralRulesSection
-            categoryCode={config.categoryCode}
-            facultyCodes={config.categoryFacultyCodes}
-            specializationCodes={config.categorySpecializationCodes}
-            excellenceMode={excellenceMode}
-          />
-        ) : (
-          <ThanawiRulesSection
-            categoryCode={config.categoryCode}
-            excellenceMode={excellenceMode}
-          />
-        )}
-      </Accordion.Content>
-    </Accordion.Item>
-  );
+  return completion;
 }
 
 interface CompletionMeta {
@@ -345,20 +357,24 @@ const COMPLETION_META: Record<CategoryCompletionState, CompletionMeta> = {
 
 function CompletionBadge({
   state,
+  compact = false,
 }: {
   state: CategoryCompletionState;
+  compact?: boolean;
 }): JSX.Element {
   const meta = COMPLETION_META[state];
   return (
     <span
       className={cn(
         'inline-flex shrink-0 items-center gap-2 rounded-pill border px-2.5 py-1.5 font-ar text-2xs font-semibold leading-none',
+        compact && 'gap-1.5 px-2 py-1',
         meta.className,
       )}
     >
       <span
         className={cn(
           'grid size-5 shrink-0 place-items-center rounded-full',
+          compact && 'size-4',
           meta.iconClassName,
         )}
       >

@@ -1,5 +1,5 @@
 /**
- * SpecializationList — body of one CategoryAccordion item.
+ * SpecializationList — body of one CategoryTabs panel.
  *
  * The "إضافة تخصص" picker sits at the *top* of the section so it stays
  * in the viewport regardless of how many specializations are already

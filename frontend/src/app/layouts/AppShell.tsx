@@ -82,7 +82,7 @@ export function AppShell({ app, sidebar, children }: AppShellProps): JSX.Element
 
   const handleLogout = (): void => {
     logoutMutation.mutate(undefined, {
-      onSuccess: () => {
+      onSettled: () => {
         setLogoutDialogOpen(false);
         toast('تم تسجيل الخروج بنجاح', 'success');
         navigate('/staff-login', { replace: true });

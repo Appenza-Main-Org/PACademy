@@ -68,7 +68,17 @@ try {
   assert.equal(
     canDeleteAdmissionCycle({ isActive: true, applicantCount: 0 }),
     false,
-    'active cycles must not expose delete',
+    'legacy active cycles without status must not expose delete',
+  );
+  assert.equal(
+    canDeleteAdmissionCycle({ status: 'draft', isActive: true, applicantCount: 0 }),
+    true,
+    'draft/review cycles are inactive even if a legacy isActive flag is stale',
+  );
+  assert.equal(
+    canDeleteAdmissionCycle({ status: 'active', isActive: false, applicantCount: 0 }),
+    false,
+    'approved-and-published cycles must not expose delete because status is source of truth',
   );
   assert.match(
     cycleDeleteBlockedReason({ isActive: false, applicantCount: 3 }) ?? '',

@@ -1,25 +1,21 @@
 /**
  * CyclesPage — list of admission cycles.
  *
- * Columns mirror the Add form (CycleNewPage) field set 1:1, plus the
- * orthogonal active flag and per-row actions:
- *   اسم الدورة · حالة الدورة · حالة التفعيل · إجراءات.
+ * Columns mirror the Add form (CycleNewPage) field set 1:1, plus per-row
+ * actions:
+ *   اسم الدورة · حالة الدورة · إجراءات.
  *
- * Status (review/published) and isActive are independent — see
- * cycleListStatus.ts and AdmissionCycle.isActive. Activating a cycle is a
- * separate concern from editing its status, and the mock service upholds
- * the single-active invariant atomically.
+ * Status (review/published) is the source of truth for active/inactive:
+ * review means inactive; published means active. There is no separate
+ * activation status on this surface.
  *
  * Per-row actions:
  *   • تعديل      — routes to the dedicated edit page for this cycle.
  *                  Available regardless of status.
- *   • تفعيل      — flips isActive on the row (and clears it on every
- *                  other cycle). Confirms via AlertDialog. The currently
- *                  active row gets a "نشطة" badge in place of the button.
  *   • إعداد التقديم — pins the row's cycle in sessionStorage and lands
  *                     the user in the first wizard step
  *                     (`application_settings`). Aria-disabled + tooltip
- *                     ("متاح فقط للدورة النشطة") for non-active rows.
+ *                     for draft/review rows.
  */
 
 import { useMemo, useState } from 'react';
@@ -28,7 +24,6 @@ import {
   CalendarRange,
   Pencil,
   Plus,
-  Power,
   RotateCcw,
   Settings2,
   Trash2,
@@ -41,9 +36,7 @@ import {
   Card,
   DataTable,
   EmptyState,
-  IconStamp,
   PageHeader,
-  Select,
   SoftDeleteDialog,
   toast,
   Tooltip,
@@ -57,24 +50,28 @@ import {
   useCycles,
   useCycleDependencies,
   useCycleRestore,
-  useCycleSetActive,
   useCycleSoftDelete,
   useCycleUpdateStatus,
 } from '../api/cycles.queries';
+import {
+  findActiveCycleApplicationPeriodOverlap,
+  resolveCycleApplicationPeriod,
+} from '../api/cycles.service';
 import {
   canDeleteAdmissionCycle,
   cycleDeleteBlockedReason,
 } from '../lib/cycle-delete-guard';
 import {
-  fromListStatus,
   LIST_STATUS_LABEL,
-  LIST_STATUS_OPTIONS,
   LIST_STATUS_TONE,
+  isCycleActiveByListStatus,
+  listStatusToCyclePatch,
   toListStatus,
   type CycleListStatus,
 } from '../components/cycles/cycleListStatus';
+import { CycleStatusToggle } from '../components/cycles/CycleStatusToggle';
 
-const SETUP_LOCKED_HINT = 'متاح فقط للدورة النشطة';
+const SETUP_LOCKED_HINT = 'متاح فقط للدورة المعتمدة والمنشورة';
 const CYCLE_DEP_LABELS: Record<string, string> = {
   applicants: 'طلب متقدم',
   applications: 'طلب متقدم',
@@ -84,12 +81,10 @@ const CYCLE_DEP_LABELS: Record<string, string> = {
   examPlans: 'خطة اختبار',
 };
 
-const ACTIVE_LABEL = 'نشطة';
-const INACTIVE_LABEL = 'غير نشطة';
-/* Drafts (إدراج ومراجعة) bubble to the top; published rows follow. */
+/* Published rows bubble to the top because they are the active cycle. */
 const LIST_STATUS_PRIORITY: Record<CycleListStatus, number> = {
-  review: 0,
-  published: 1,
+  published: 0,
+  review: 1,
 };
 
 function cycleSortTime(cycle: AdmissionCycle): number {
@@ -102,7 +97,6 @@ export function CyclesPage(): JSX.Element {
   const navigate = useNavigate();
   const [includeDeleted, setIncludeDeleted] = useState(false);
   const { data, isLoading } = useCycles({ includeDeleted });
-  const setActiveMut = useCycleSetActive();
   const updateStatusMut = useCycleUpdateStatus();
   const softDeleteMut = useCycleSoftDelete();
   const restoreMut = useCycleRestore();
@@ -118,7 +112,6 @@ export function CyclesPage(): JSX.Element {
     navigate(ROUTES.admin.admissionSetup.wizard('application_settings'));
   };
 
-  const [activateTarget, setActivateTarget] = useState<AdmissionCycle | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdmissionCycle | null>(null);
   const [statusTarget, setStatusTarget] = useState<{
     cycle: AdmissionCycle;
@@ -127,15 +120,16 @@ export function CyclesPage(): JSX.Element {
   const deleteDepsQuery = useCycleDependencies(deleteTarget?.id ?? null);
 
   const activeCycle = useMemo(
-    () => (data ?? []).find((c) => c.isActive && !c.deletedAt) ?? null,
+    () =>
+      (data ?? []).find(
+        (c) => isCycleActiveByListStatus(toListStatus(c.status)) && !c.deletedAt,
+      ) ?? null,
     [data],
   );
 
   const sortedCycles = useMemo(() => {
     const rows = [...(data ?? [])];
     rows.sort((a, b) => {
-      /* Active row pinned at top regardless of status. */
-      if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
       const byStatus =
         LIST_STATUS_PRIORITY[toListStatus(a.status)] -
         LIST_STATUS_PRIORITY[toListStatus(b.status)];
@@ -171,28 +165,20 @@ export function CyclesPage(): JSX.Element {
               LIST_STATUS_LABEL[toListStatus(v as AdmissionCycle['status'])],
           },
           {
-            key: 'isActive',
-            labelAr: 'حالة التفعيل',
-            format: (v) => (v ? ACTIVE_LABEL : INACTIVE_LABEL),
+            key: 'openDate',
+            labelAr: 'تاريخ بداية التقديم',
+            format: (_v, row) => resolveCycleApplicationPeriod(row).startDate,
+          },
+          {
+            key: 'closeDate',
+            labelAr: 'تاريخ نهاية التقديم',
+            format: (_v, row) => resolveCycleApplicationPeriod(row).endDate,
           },
         ],
       },
     }),
     [includeDeleted],
   );
-
-  const confirmActivate = (): void => {
-    if (!activateTarget) return;
-    setActiveMut.mutate(activateTarget.id, {
-      onSuccess: () => {
-        toast(`تم تفعيل دورة "${activateTarget.nameAr}"`, 'success');
-        setActivateTarget(null);
-      },
-      onError: (err) => {
-        toast((err as Error).message, 'danger');
-      },
-    });
-  };
 
   const confirmStatusChange = (): void => {
     if (!statusTarget) return;
@@ -203,28 +189,32 @@ export function CyclesPage(): JSX.Element {
       return;
     }
 
-    if (next === 'published') {
-      setActiveMut.mutate(cycle.id, {
+    const patch = listStatusToCyclePatch(next);
+    if (patch.isActive) {
+      const overlap = findActiveCycleApplicationPeriodOverlap(
+        data,
+        resolveCycleApplicationPeriod(cycle),
+        cycle.id,
+      );
+      if (overlap) {
+        toast(`فترة التقديم تتداخل مع الدورة النشطة "${overlap.nameAr}"`, 'danger');
+        setStatusTarget(null);
+        return;
+      }
+    }
+
+    updateStatusMut.mutate(
+      { id: cycle.id, next: patch.status, demoteCurrentActive: patch.isActive },
+      {
         onSuccess: () => {
-          toast(`تم اعتماد ونشر دورة "${cycle.nameAr}" وتفعيلها`, 'success');
+          toast(`تم تغيير حالة دورة "${cycle.nameAr}" إلى ${LIST_STATUS_LABEL[next]}`, 'success');
           setStatusTarget(null);
         },
         onError: (err) => {
           toast((err as Error).message, 'danger');
         },
-      });
-      return;
-    }
-
-    updateStatusMut.mutate({ id: cycle.id, next: fromListStatus(next) }, {
-      onSuccess: () => {
-        toast(`تم تغيير حالة دورة "${cycle.nameAr}" إلى ${LIST_STATUS_LABEL[next]}`, 'success');
-        setStatusTarget(null);
       },
-      onError: (err) => {
-        toast((err as Error).message, 'danger');
-      },
-    });
+    );
   };
 
   const confirmDelete = async (reason: string): Promise<void> => {
@@ -274,20 +264,12 @@ export function CyclesPage(): JSX.Element {
         if (c.deletedAt) return <Badge tone="warning">محذوف</Badge>;
         const ls = toListStatus(c.status);
         return (
-          <div className="min-w-[10rem]">
-            <Select
-              aria-label={`حالة دورة ${c.nameAr}`}
+          <div className="min-w-[15rem]">
+            <CycleStatusToggle
+              ariaLabel={`حالة دورة ${c.nameAr}`}
               value={ls}
-              options={LIST_STATUS_OPTIONS}
-              containerClassName="min-w-[9.5rem]"
-              className={
-                ls === 'published'
-                  ? 'h-9 rounded-full border-teal-100 bg-teal-50 py-1.5 pe-8 ps-3 text-xs font-semibold text-teal-700'
-                  : 'h-9 rounded-full border-ink-100 bg-ink-50 py-1.5 pe-8 ps-3 text-xs font-semibold text-ink-700'
-              }
-              disabled={setActiveMut.isPending || updateStatusMut.isPending}
-              onChange={(event) => {
-                const next = event.currentTarget.value as CycleListStatus;
+              disabled={updateStatusMut.isPending}
+              onChange={(next) => {
                 if (next === ls) return;
                 setStatusTarget({ cycle: c, next });
               }}
@@ -297,29 +279,15 @@ export function CyclesPage(): JSX.Element {
       },
     },
     {
-      key: 'isActive',
-      label: 'التفعيل',
+      key: 'applicationPeriod',
+      label: 'فترة التقديم',
       sortable: true,
-      getSortValue: (c) => (c.isActive ? 1 : 0),
-      filter: {
-        kind: 'enum',
-        getValue: (c) => (c.isActive ? 'active' : 'inactive'),
-        options: [
-          { value: 'active', label: ACTIVE_LABEL },
-          { value: 'inactive', label: INACTIVE_LABEL },
-        ],
-      },
-      render: (c) =>
-        c.deletedAt ? (
-          <Badge tone="warning">محذوف</Badge>
-        ) : c.isActive ? (
-          <Badge tone="success">
-            <IconStamp width={12} height={12} className="me-1 inline-block" />
-            {ACTIVE_LABEL}
-          </Badge>
-        ) : (
-          <Badge tone="neutral">{INACTIVE_LABEL}</Badge>
-        ),
+      getSortValue: (c) => resolveCycleApplicationPeriod(c).startDate,
+      render: (c) => (
+        <div className="min-w-[10rem] font-numeric text-xs text-ink-700 tnum" dir="ltr">
+          {formatApplicationPeriod(c)}
+        </div>
+      ),
     },
     {
       key: '_actions',
@@ -345,7 +313,8 @@ export function CyclesPage(): JSX.Element {
             </div>
           );
         }
-        const isSetupDisabled = !c.isActive;
+        const listStatus = toListStatus(c.status);
+        const isSetupDisabled = !isCycleActiveByListStatus(listStatus);
 
         /* Setup button — primary look on the active row; aria-disabled +
          * tooltip on every other row. We omit native `disabled` on the
@@ -379,17 +348,6 @@ export function CyclesPage(): JSX.Element {
           setupButton
         );
 
-        const activeToggleSlot = c.isActive ? null : (
-          <Button
-            variant="secondary"
-            size="sm"
-            leadingIcon={<Power size={12} strokeWidth={1.75} />}
-            onClick={() => setActivateTarget(c)}
-          >
-            تفعيل
-          </Button>
-        );
-
         /* Edit is unconditional now — every status is editable. */
         const editSlot = (
           <Button
@@ -418,7 +376,6 @@ export function CyclesPage(): JSX.Element {
         return (
           <div className="flex min-w-[13rem] flex-wrap items-center justify-end gap-1.5">
             {setupSlot}
-            {activeToggleSlot}
             {editSlot}
             {deleteSlot}
           </div>
@@ -458,19 +415,22 @@ export function CyclesPage(): JSX.Element {
                   </span>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge tone="success" dot>
-                        {ACTIVE_LABEL}
-                      </Badge>
                       <Badge tone={LIST_STATUS_TONE[toListStatus(activeCycle.status)]}>
                         {LIST_STATUS_LABEL[toListStatus(activeCycle.status)]}
                       </Badge>
                     </div>
                     <p className="m-0 mt-3 font-ar text-xs font-medium text-ink-500">
-                      الدورة النشطة الآن
+                      الدورة المعتمدة والمنشورة الآن
                     </p>
                     <h2 className="m-0 mt-1 font-ar-display text-2xl font-bold leading-9 text-ink-900">
                       {activeCycle.nameAr}
                     </h2>
+                    <p className="m-0 mt-2 font-ar text-sm text-ink-600">
+                      فترة التقديم:{' '}
+                      <span className="font-numeric tnum" dir="ltr">
+                        {formatApplicationPeriod(activeCycle)}
+                      </span>
+                    </p>
                   </div>
                 </div>
                 <Button
@@ -489,7 +449,7 @@ export function CyclesPage(): JSX.Element {
                   لا توجد دورة نشطة
                 </h2>
                 <p className="m-0 mt-2 font-ar text-sm text-ink-500">
-                  فعّل دورة واحدة حتى تظهر إعدادات التقديم وباقي مسارات الدورة.
+                  انقل دورة إلى اعتماد ونشر حتى تظهر إعدادات التقديم وباقي مسارات الدورة.
                 </p>
               </div>
               <Button
@@ -517,31 +477,6 @@ export function CyclesPage(): JSX.Element {
         </Card>
 
         <AlertDialog
-          open={activateTarget !== null}
-          onOpenChange={(next) => {
-            if (!next) setActivateTarget(null);
-          }}
-          title="تأكيد تفعيل الدورة"
-          description={
-            activateTarget ? (
-              <>
-                سيتم تفعيل دورة{' '}
-                <strong className="font-semibold text-ink-900">
-                  &quot;{activateTarget.nameAr}&quot;
-                </strong>{' '}
-                وإلغاء تفعيل أي دورة أخرى نشطة حالياً (دورة واحدة فقط يمكن أن تكون
-                نشطة في كل وقت). هل تريد المتابعة؟
-              </>
-            ) : null
-          }
-          actionLabel="تأكيد التفعيل"
-          cancelLabel="إلغاء"
-          tone="danger"
-          isActionLoading={setActiveMut.isPending}
-          onAction={confirmActivate}
-        />
-
-        <AlertDialog
           open={statusTarget !== null}
           onOpenChange={(next) => {
             if (!next) setStatusTarget(null);
@@ -557,17 +492,15 @@ export function CyclesPage(): JSX.Element {
                 من {LIST_STATUS_LABEL[toListStatus(statusTarget.cycle.status)]} إلى{' '}
                 {LIST_STATUS_LABEL[statusTarget.next]}.
                 {statusTarget.next === 'published'
-                  ? ' عند الاعتماد والنشر سيتم تفعيل هذه الدورة وإلغاء تفعيل أي دورة أخرى، لضمان وجود دورة نشطة واحدة فقط.'
-                  : statusTarget.cycle.isActive
-                    ? ' ستبقى هذه الدورة هي الدورة النشطة بعد الرجوع إلى إدراج ومراجعة حتى لا تبقى المنظومة بدون دورة نشطة.'
-                    : ''}
+                  ? ' الاعتماد والنشر يجعل هذه الدورة هي الدورة النشطة ويلغي نشر أي دورة أخرى.'
+                  : ' الرجوع إلى إدراج ومراجعة يجعل الدورة غير نشطة.'}
               </>
             ) : null
           }
           actionLabel="تأكيد التغيير"
           cancelLabel="إلغاء"
           tone="primary"
-          isActionLoading={setActiveMut.isPending || updateStatusMut.isPending}
+          isActionLoading={updateStatusMut.isPending}
           onAction={confirmStatusChange}
         />
 
@@ -584,4 +517,9 @@ export function CyclesPage(): JSX.Element {
       </CenteredShell>
     </TooltipProvider>
   );
+}
+
+function formatApplicationPeriod(cycle: AdmissionCycle): string {
+  const period = resolveCycleApplicationPeriod(cycle);
+  return `${period.startDate || '—'} → ${period.endDate || '—'}`;
 }

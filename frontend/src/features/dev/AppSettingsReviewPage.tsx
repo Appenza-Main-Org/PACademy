@@ -5,7 +5,7 @@
  * cycle wizard.
  */
 
-import { CategoryAccordion } from '@/features/admin/admission-setup/components/applicationSettings/CategoryAccordion';
+import { CategoryTabs } from '@/features/admin/admission-setup/components/applicationSettings/CategoryTabs';
 import { ScopeBanner } from '@/features/admin/admission-setup/components/applicationSettings/ScopeBanner';
 import { StickyBulkSaveBar } from '@/features/admin/admission-setup/components/applicationSettings/StickyBulkSaveBar';
 import { UnsavedChangesPrompt } from '@/features/admin/admission-setup/components/applicationSettings/UnsavedChangesPrompt';
@@ -21,7 +21,7 @@ export function AppSettingsReviewPage(): JSX.Element {
         store الذي يستهلكه معالج الإعداد.
       </p>
       <ScopeBanner />
-      <CategoryAccordion />
+      <CategoryTabs />
       <StickyBulkSaveBar />
       <UnsavedChangesPrompt />
     </div>

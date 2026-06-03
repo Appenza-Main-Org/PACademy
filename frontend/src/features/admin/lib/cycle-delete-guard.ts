@@ -6,6 +6,7 @@
  */
 
 export interface CycleDeleteGuardInput {
+  status?: string | null;
   isActive?: boolean;
   applicantCount?: number | null;
   applicationCount?: number | null;
@@ -28,8 +29,15 @@ export function hasCycleApplicantData(cycle: CycleDeleteGuardInput): boolean {
   );
 }
 
+function isCycleActiveForDelete(cycle: CycleDeleteGuardInput): boolean {
+  if (typeof cycle.status === 'string') {
+    return cycle.status === 'active' || cycle.status === 'open' || cycle.status === 'extended';
+  }
+  return cycle.isActive === true;
+}
+
 export function cycleDeleteBlockedReason(cycle: CycleDeleteGuardInput): string | null {
-  if (cycle.isActive) return 'لا يمكن حذف الدورة النشطة.';
+  if (isCycleActiveForDelete(cycle)) return 'لا يمكن حذف الدورة النشطة.';
   if (hasCycleApplicantData(cycle)) {
     return 'لا يمكن حذف دورة مرتبطة بطلبات متقدمين.';
   }

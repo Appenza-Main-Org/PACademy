@@ -1,5 +1,5 @@
 /**
- * SpecializationRow — one-item shared Accordion inside the outer CategoryAccordion.
+ * SpecializationRow — one-item shared Accordion inside the active CategoryTabs panel.
  *
  * Header: spec nameAr + year count badge + detach action (cascade-confirm).
  * Body : `<YearTable categorySpecializationId={row.id} />`.

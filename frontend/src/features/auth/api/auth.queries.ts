@@ -21,7 +21,7 @@ export function useLogoutMutation(): ReturnType<typeof useMutation<Awaited<Retur
   const clear = useAuthStore((s) => s.clear);
   return useMutation({
     mutationFn: () => authService.logout(),
-    onSuccess: () => clear(),
+    onSettled: () => clear(),
   });
 }
 

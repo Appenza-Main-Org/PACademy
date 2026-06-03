@@ -95,11 +95,9 @@ export interface ApplicantCategoryEligibility {
 
 function isCycleLive(cycle: AdmissionCycle): boolean {
   /* Applicant gate (2026-05-30): a cycle accepts applications only when it is
-   * BOTH flagged active (نشطة → `isActive`) AND approved-and-published
-   * (اعتماد ونشر → status `'open'`/`'active'`/`'extended'`). A draft cycle
-   * (إدراج ومراجعة) or an inactive published cycle is closed to applicants —
-   * the portal shows «التقديم غير متاح في الوقت الحالي» until both hold. */
-  if (cycle.isActive !== true) return false;
+   * approved-and-published (اعتماد ونشر → status `'open'`/`'active'`/`'extended'`).
+   * A draft cycle (إدراج ومراجعة) is closed to applicants — the portal shows
+   * «التقديم غير متاح في الوقت الحالي». */
   return (
     cycle.status === 'open' ||
     cycle.status === 'active' ||
