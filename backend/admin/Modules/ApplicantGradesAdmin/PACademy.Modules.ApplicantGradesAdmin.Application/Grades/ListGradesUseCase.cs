@@ -9,7 +9,6 @@ public sealed class ListGradesUseCase(IApplicantGradesAdminDbContext db)
     {
         var q = db.ApplicantGrades
             .AsNoTracking()
-            .Include(x => x.Adjustments)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(filters.Gender))
@@ -23,31 +22,44 @@ public sealed class ListGradesUseCase(IApplicantGradesAdminDbContext db)
         if (filters.ChangedOnly == true)
             q = q.Where(x => x.Adjustments.Any(a => a.IsActive) || x.OverrideMax != null || x.GradeChangedAt != null);
 
-        var rows = await GradeImportLogic.ApplySort(q, filters.Sort).ToListAsync(ct);
-
         if (!string.IsNullOrWhiteSpace(filters.Search))
         {
             var search = filters.Search.Trim();
             var searchDigits = new string(GradeImportLogic.ToAsciiDigits(search).Where(char.IsDigit).ToArray());
-            var searchArabic = GradeImportLogic.NormalizeArabic(search);
-            rows = rows.Where(x =>
-                (!string.IsNullOrWhiteSpace(searchDigits) && (
-                    x.Nid.StartsWith(searchDigits, StringComparison.Ordinal) ||
-                    (x.SeatingNumber?.StartsWith(searchDigits, StringComparison.Ordinal) ?? false) ||
-                    x.Seat.ToString().StartsWith(searchDigits, StringComparison.Ordinal))) ||
-                (!string.IsNullOrWhiteSpace(searchArabic) && (
-                    GradeImportLogic.NormalizeArabic(x.Name).Contains(searchArabic, StringComparison.Ordinal) ||
-                    GradeImportLogic.NormalizeArabic(x.School).Contains(searchArabic, StringComparison.Ordinal))))
-                .ToList();
+            var text = search.Replace("[", "[[]", StringComparison.Ordinal)
+                .Replace("%", "[%]", StringComparison.Ordinal)
+                .Replace("_", "[_]", StringComparison.Ordinal);
+            if (!string.IsNullOrWhiteSpace(searchDigits))
+            {
+                var hasSeat = int.TryParse(searchDigits, out var seat);
+                q = q.Where(x =>
+                    EF.Functions.Like(x.Nid, searchDigits + "%") ||
+                    (x.SeatingNumber != null && EF.Functions.Like(x.SeatingNumber, searchDigits + "%")) ||
+                    (hasSeat && x.Seat == seat) ||
+                    EF.Functions.Like(x.Name, "%" + text + "%") ||
+                    EF.Functions.Like(x.School, "%" + text + "%"));
+            }
+            else
+            {
+                q = q.Where(x =>
+                    EF.Functions.Like(x.Name, "%" + text + "%") ||
+                    EF.Functions.Like(x.School, "%" + text + "%"));
+            }
         }
 
-        var total = rows.Count;
+        var total = await q.CountAsync(ct);
+        q = GradeImportLogic.ApplySort(q, filters.Sort);
+
         if (filters.Page.HasValue || filters.PageSize.HasValue)
         {
             var page = Math.Max(filters.Page ?? 1, 1);
             var pageSize = Math.Clamp(filters.PageSize ?? 25, 1, 10_000);
-            rows = rows.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+            q = q.Skip((page - 1) * pageSize).Take(pageSize);
         }
+
+        var rows = await q
+            .Include(x => x.Adjustments)
+            .ToListAsync(ct);
 
         return new GradeListResult(rows.Select(GradeMapper.ToDto).ToList(), total);
     }

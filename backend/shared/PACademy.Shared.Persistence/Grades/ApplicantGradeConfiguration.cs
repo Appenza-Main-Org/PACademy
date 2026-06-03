@@ -43,6 +43,10 @@ public sealed class ApplicantGradeConfiguration : IEntityTypeConfiguration<Appli
         b.HasIndex(x => x.Seat).IsUnique();
         b.HasIndex(x => x.SchoolCategoryCode);
         b.HasIndex(x => x.GraduationYear);
+        b.HasIndex(x => new { x.SchoolCategoryCode, x.Seat });
+        b.HasIndex(x => new { x.GraduationYear, x.Seat });
+        b.HasIndex(x => new { x.Gender, x.Seat });
+        b.HasIndex(x => new { x.Branch, x.Seat });
 
         b.HasMany(x => x.Adjustments)
             .WithOne()

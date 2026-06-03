@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PACademy.Modules.ApplicantGradesAdmin.Infrastructure;
 
@@ -11,9 +12,11 @@ using PACademy.Modules.ApplicantGradesAdmin.Infrastructure;
 namespace PACademy.Modules.ApplicantGradesAdmin.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicantGradesAdminDbContext))]
-    partial class ApplicantGradesAdminDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260603174522_OptimizeApplicantGradeListIndexes")]
+    partial class OptimizeApplicantGradeListIndexes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

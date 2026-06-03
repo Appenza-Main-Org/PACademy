@@ -27,6 +27,7 @@ import {
   Info,
   Layers,
   ListChecks,
+  Loader2,
   MoreVertical,
   Plus,
   Search,
@@ -1073,7 +1074,10 @@ export function ApplicantGradesPage(): JSX.Element {
                     </Badge>
                   )}
                   {isFetching && displayedPaginatedData && (
-                    <Badge tone="warning">تحديث النتائج…</Badge>
+                    <Badge tone="warning">
+                      <Loader2 size={11} strokeWidth={1.75} className="me-1 animate-spin" aria-hidden />
+                      تحديث النتائج
+                    </Badge>
                   )}
                 </div>
                 {hasActiveFilters && (
