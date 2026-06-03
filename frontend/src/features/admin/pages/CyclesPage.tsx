@@ -3,7 +3,7 @@
  *
  * Columns mirror the Add form (CycleNewPage) field set 1:1, plus per-row
  * actions:
- *   اسم الدورة · حالة الدورة · إجراءات.
+ *   اسم الدورة · حالة الدورة · بداية التقديم · نهاية التقديم · إجراءات.
  *
  * Status (review/published) is the source of truth for active/inactive:
  * review means inactive; published means active. There is no separate
@@ -126,6 +126,7 @@ export function CyclesPage(): JSX.Element {
       ) ?? null,
     [data],
   );
+  const activeCycleName = activeCycle?.nameAr ?? null;
 
   const sortedCycles = useMemo(() => {
     const rows = [...(data ?? [])];
@@ -279,14 +280,25 @@ export function CyclesPage(): JSX.Element {
       },
     },
     {
-      key: 'applicationPeriod',
-      label: 'فترة التقديم',
+      key: 'applicationStartDate',
+      label: 'بداية التقديم',
       sortable: true,
       getSortValue: (c) => resolveCycleApplicationPeriod(c).startDate,
+      numeric: true,
+      width: '9rem',
       render: (c) => (
-        <div className="min-w-[10rem] font-numeric text-xs text-ink-700 tnum" dir="ltr">
-          {formatApplicationPeriod(c)}
-        </div>
+        <CycleDateCell value={resolveCycleApplicationPeriod(c).startDate} />
+      ),
+    },
+    {
+      key: 'applicationEndDate',
+      label: 'نهاية التقديم',
+      sortable: true,
+      getSortValue: (c) => resolveCycleApplicationPeriod(c).endDate,
+      numeric: true,
+      width: '9rem',
+      render: (c) => (
+        <CycleDateCell value={resolveCycleApplicationPeriod(c).endDate} />
       ),
     },
     {
@@ -492,7 +504,9 @@ export function CyclesPage(): JSX.Element {
                 من {LIST_STATUS_LABEL[toListStatus(statusTarget.cycle.status)]} إلى{' '}
                 {LIST_STATUS_LABEL[statusTarget.next]}.
                 {statusTarget.next === 'published'
-                  ? ' الاعتماد والنشر يجعل هذه الدورة هي الدورة النشطة ويلغي نشر أي دورة أخرى.'
+                  ? activeCycleName && activeCycleName !== statusTarget.cycle.nameAr
+                    ? ` الاعتماد والنشر يجعل هذه الدورة هي الدورة النشطة ويلغي نشر "${activeCycleName}" حتى تبقى دورة واحدة فقط في اعتماد ونشر.`
+                    : ' الاعتماد والنشر يجعل هذه الدورة هي الدورة النشطة، ولا يمكن أن تبقى أكثر من دورة واحدة في اعتماد ونشر.'
                   : ' الرجوع إلى إدراج ومراجعة يجعل الدورة غير نشطة.'}
               </>
             ) : null
@@ -522,4 +536,15 @@ export function CyclesPage(): JSX.Element {
 function formatApplicationPeriod(cycle: AdmissionCycle): string {
   const period = resolveCycleApplicationPeriod(cycle);
   return `${period.startDate || '—'} → ${period.endDate || '—'}`;
+}
+
+function CycleDateCell({ value }: { value: string }): JSX.Element {
+  return (
+    <span
+      className="inline-flex min-w-[7.5rem] justify-center rounded-md border border-border-subtle bg-ink-50 px-2.5 py-1 font-numeric text-xs text-ink-700 shadow-xs tnum"
+      dir="ltr"
+    >
+      {value || '—'}
+    </span>
+  );
 }

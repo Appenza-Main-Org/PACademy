@@ -138,6 +138,10 @@ try {
     path.join(frontendRoot, 'src/features/admin/components/cycles/CategoriesPanel.tsx'),
     'utf8',
   );
+  const cyclesPageSource = await readFile(
+    path.join(frontendRoot, 'src/features/admin/pages/CyclesPage.tsx'),
+    'utf8',
+  );
   assert.match(
     categoriesPanelSource,
     /أول تاريخ متاح للتقديم/,
@@ -147,6 +151,21 @@ try {
     categoriesPanelSource,
     /آخر موعد لتسليم الطلب/,
     'categories section must display the last application submission end date',
+  );
+  assert.match(
+    cyclesPageSource,
+    /key:\s*['"]applicationStartDate['"]/,
+    'cycles list must render a dedicated application start date column',
+  );
+  assert.match(
+    cyclesPageSource,
+    /key:\s*['"]applicationEndDate['"]/,
+    'cycles list must render a dedicated application end date column',
+  );
+  assert.doesNotMatch(
+    cyclesPageSource,
+    /key:\s*['"]applicationPeriod['"]/,
+    'cycles list must not collapse start/end into one application period column',
   );
 
   console.log('cycle application period contract checks passed');

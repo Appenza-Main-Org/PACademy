@@ -35,7 +35,9 @@ export function CycleStatusToggle({
       role="radiogroup"
       aria-label={ariaLabel}
       className={cn(
-        'inline-flex w-fit overflow-hidden rounded-md border border-border-default bg-surface-card',
+        'inline-flex w-full min-w-[16.5rem] items-center gap-1 rounded-lg border border-border-default bg-ink-50 p-1 shadow-xs',
+        'transition-colors duration-fast ease-standard',
+        disabled && 'opacity-70',
         className,
       )}
     >
@@ -51,12 +53,12 @@ export function CycleStatusToggle({
             disabled={disabled}
             onClick={() => onChange(opt.value)}
             className={cn(
-              'inline-flex h-9 min-w-[7rem] items-center justify-center gap-1.5 px-3 text-xs font-semibold',
+              'inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border px-3 text-xs font-semibold',
               'transition-colors duration-fast ease-standard',
               'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-1',
-              selected && published && 'bg-teal-500 text-white',
-              selected && !published && 'bg-ink-200 text-ink-900',
-              !selected && 'text-ink-600 hover:bg-ink-50',
+              selected && published && 'border-teal-500 bg-teal-500 text-white shadow-xs',
+              selected && !published && 'border-gold-200 bg-gold-100 text-ink-800 shadow-xs',
+              !selected && 'border-transparent bg-surface-card text-ink-600 hover:border-border-subtle hover:bg-ink-50 hover:text-ink-900',
               disabled && 'cursor-not-allowed opacity-60',
             )}
           >

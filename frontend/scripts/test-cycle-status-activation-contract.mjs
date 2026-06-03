@@ -83,6 +83,11 @@ try {
     /<CycleStatusToggle\b/,
     'cycles list status must be changed through the two-option toggle control',
   );
+  assert.match(
+    cyclesPageSource,
+    /demoteCurrentActive:\s*patch\.isActive/,
+    'publishing a cycle must demote the current approved-and-published cycle',
+  );
   assert.doesNotMatch(
     cyclesServiceSource,
     /cycle\.isActive\s*===\s*true\s*\|\|/,
