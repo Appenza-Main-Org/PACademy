@@ -109,6 +109,76 @@ try {
   assert.equal(overlappingSummary.pendingOutOfRangeCount, 0);
   assert.equal(overlappingSummary.rejectedSourceRows.has(2), true);
 
+  const femaleNidInMaleImport = [
+    {
+      nationalId: '30602151812345',
+      seatingNumber: '1003',
+      nameAr: 'طالبة نوع مختلف',
+      gender: null,
+      track: 'علمي',
+      graduationYear: 2026,
+      totalGrade: 390,
+      maxGrade: null,
+      schoolCategory: 'SCH-01',
+      examRound: null,
+      schoolName: 'مدرسة اختبار',
+      regionName: 'القاهرة',
+      sourceRowIndex: 3,
+    },
+  ];
+
+  const genderIntegrityRows = buildIntegrityAuditRows({
+    rows: femaleNidInMaleImport,
+    selectedSchoolCategories: ['SCH-01'],
+    maxGradeByCategory: { 'SCH-01': 410 },
+    validationRules: [{
+      schoolCategory: 'SCH-01',
+      allowedGenders: ['male'],
+      ageMin: 17,
+      maxAge: 30,
+      ageReferenceDate: '2026-10-01',
+    }],
+  });
+
+  assert.equal(genderIntegrityRows.length, 1);
+  assert.equal(genderIntegrityRows[0].code, 'GENDER_MISMATCH');
+  assert.equal(summarizeIntegrityDecisions(genderIntegrityRows, {}).rejectedSourceRows.has(3), true);
+
+  const underAgeRows = [
+    {
+      nationalId: '31002151812315',
+      seatingNumber: '1004',
+      nameAr: 'طالب أصغر من السن',
+      gender: 'ذكر',
+      track: 'علمي',
+      graduationYear: 2026,
+      totalGrade: 390,
+      maxGrade: null,
+      schoolCategory: 'SCH-01',
+      examRound: null,
+      schoolName: 'مدرسة اختبار',
+      regionName: 'القاهرة',
+      sourceRowIndex: 4,
+    },
+  ];
+
+  const ageIntegrityRows = buildIntegrityAuditRows({
+    rows: underAgeRows,
+    selectedSchoolCategories: ['SCH-01'],
+    maxGradeByCategory: { 'SCH-01': 410 },
+    validationRules: [{
+      schoolCategory: 'SCH-01',
+      allowedGenders: ['male'],
+      ageMin: 17,
+      maxAge: 30,
+      ageReferenceDate: '2026-10-01',
+    }],
+  });
+
+  assert.equal(ageIntegrityRows.length, 1);
+  assert.equal(ageIntegrityRows[0].code, 'AGE_OUT_OF_RANGE');
+  assert.match(ageIntegrityRows[0].detail, /16/);
+
   console.log('applicant grades import integrity tests passed');
 } finally {
   await rm(outDir, { recursive: true, force: true });

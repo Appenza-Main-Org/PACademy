@@ -34,6 +34,7 @@ import {
   buildIntegrityAuditRows,
   summarizeIntegrityDecisions,
 } from '../../../lib/duplicateAudit';
+import { useImportValidationRules } from '../../../lib/useImportValidationRules';
 import type {
   ImportFailureRow,
   ImportGroupCode,
@@ -43,11 +44,19 @@ import type {
 const GROUP_TONE: Record<ImportGroupCode, 'warning' | 'danger' | 'info'> = {
   DUPLICATE_NID: 'warning',
   INVALID_NID: 'danger',
+  GENDER_MISMATCH: 'danger',
+  AGE_OUT_OF_RANGE: 'danger',
   MISSING_REQUIRED: 'danger',
   NID_NOT_FOUND: 'info',
   GRADE_OUT_OF_RANGE: 'warning',
   UNREADABLE_VALUE: 'danger',
 };
+
+interface RejectedExportRow {
+  code: ImportGroupCode;
+  labelAr: string;
+  row: ImportFailureRow;
+}
 
 export function Step6Result(): JSX.Element {
   const importResult = useImportWizardStore((s) => s.importResult);
@@ -64,6 +73,7 @@ export function Step6Result(): JSX.Element {
   const maxGradeByCategory = useImportWizardStore((s) => s.maxGradeByCategory);
   const fileMeta = useImportWizardStore((s) => s.fileMeta);
   const { data: allRows } = useGrades();
+  const validationRules = useImportValidationRules();
 
   const normalised = useMemo(() => {
     const table = parsed?.tables.find((t) => t.name === selectedTableName) ?? null;
@@ -92,8 +102,9 @@ export function Step6Result(): JSX.Element {
         rows: normalised,
         selectedSchoolCategories,
         maxGradeByCategory,
+        validationRules,
       }),
-    [normalised, selectedSchoolCategories, maxGradeByCategory],
+    [normalised, selectedSchoolCategories, maxGradeByCategory, validationRules],
   );
   const alreadyImported = useMemo(
     () => buildAlreadyImported(normalised, allRows ?? []),
@@ -104,6 +115,8 @@ export function Step6Result(): JSX.Element {
     const labels: Record<ImportGroupCode, string> = {
       DUPLICATE_NID: 'مطابقات سابقة بالرقم القومي',
       INVALID_NID: 'أرقام قومية غير صالحة',
+      GENDER_MISMATCH: 'نوع لا يطابق الرقم القومي',
+      AGE_OUT_OF_RANGE: 'سن خارج الإعدادات',
       MISSING_REQUIRED: 'حقول مطلوبة ناقصة',
       NID_NOT_FOUND: 'رقم قومي غير موجود',
       GRADE_OUT_OF_RANGE: 'درجات تتجاوز الدرجة العظمى',
@@ -177,6 +190,30 @@ export function Step6Result(): JSX.Element {
       rejectedCount -
       pendingDecisionCount,
   );
+  const rejectedRowsForExport = useMemo<RejectedExportRow[]>(() => {
+    const out: RejectedExportRow[] = [];
+    const seen = new Set<string>();
+    const push = (code: ImportGroupCode, labelAr: string, row: ImportFailureRow): void => {
+      const key = `${code}:${row.sourceRowIndex}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push({ code, labelAr, row });
+    };
+
+    for (const group of groups) {
+      if (group.code === 'DUPLICATE_NID') continue;
+      for (const row of group.rows) {
+        if (
+          group.code === 'GRADE_OUT_OF_RANGE' &&
+          outOfRangeDecisions[row.sourceRowIndex] !== 'reject'
+        ) {
+          continue;
+        }
+        push(group.code, group.labelAr, row);
+      }
+    }
+    return out.sort((a, b) => a.row.sourceRowIndex - b.row.sourceRowIndex);
+  }, [groups, outOfRangeDecisions]);
 
   function handleDownloadAudit(): void {
     const csv = buildAuditCsv({
@@ -191,6 +228,40 @@ export function Step6Result(): JSX.Element {
     downloadBlob(
       new Blob([csv], { type: 'text/csv;charset=utf-8' }),
       `applicant-grades-audit-${stamp}.csv`,
+    );
+  }
+
+  async function handleExportRejectedExcel(): Promise<void> {
+    const XLSX = await import('xlsx');
+    const rows = rejectedRowsForExport.map(({ code, labelAr, row }) => ({
+      'كود الرفض': code,
+      'سبب الرفض': labelAr,
+      'صف المصدر': row.sourceRowIndex,
+      'الرقم القومي': row.nationalId ?? '',
+      'رقم الجلوس': row.seatingNumber ?? '',
+      'الاسم': row.nameAr ?? '',
+      'المجموع': row.totalGrade ?? '',
+      'الملاحظة': row.detail ?? '',
+    }));
+    const sheet = XLSX.utils.json_to_sheet(rows);
+    sheet['!cols'] = [
+      { wch: 22 },
+      { wch: 26 },
+      { wch: 12 },
+      { wch: 18 },
+      { wch: 14 },
+      { wch: 34 },
+      { wch: 12 },
+      { wch: 60 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, sheet, 'الصفوف المرفوضة');
+    const bin = XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
+    downloadBlob(
+      new Blob([bin], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      }),
+      `applicant-grades-rejected-${new Date().toISOString().slice(0, 10)}.xlsx`,
     );
   }
 
@@ -214,12 +285,10 @@ export function Step6Result(): JSX.Element {
 
       {pendingDecisionCount > 0 && (
         <div className="rounded-md border border-gold-300 bg-gold-50 px-3.5 py-2.5 text-xs text-gold-700">
-          توجد{' '}
           <span className="font-en font-bold text-ink-900">
             {pendingDecisionCount.toLocaleString('en')}
           </span>{' '}
-          صفًا تتجاوز الدرجة العظمى. اختر «قبول» لتضمينها أو «رفض / تجاهل» لاستبعادها قبل تأكيد
-          الاستيراد.
+          صف يحتاج قرارًا قبل الحفظ.
         </div>
       )}
 
@@ -258,14 +327,26 @@ export function Step6Result(): JSX.Element {
         >
           تحميل تقرير المراجعة
         </Button>
+        {rejectedRowsForExport.length > 0 && (
+          <Button
+            size="sm"
+            variant="secondary"
+            leadingIcon={<Download size={12} strokeWidth={1.75} aria-hidden />}
+            onClick={() => {
+              void handleExportRejectedExcel();
+            }}
+          >
+            تصدير المرفوضة Excel
+          </Button>
+        )}
       </div>
 
       {groups.length === 0 ? (
         <div className="flex items-center gap-2 rounded-md border border-success bg-success-bg px-3.5 py-3 text-xs text-success">
           <ShieldCheck size={14} aria-hidden />
           {skippedExistingCount > 0
-            ? `سيتم استيراد ${importableCount.toLocaleString('en')} صفًا، وتجاهل ${skippedExistingCount.toLocaleString('en')} صفًا موجودًا مسبقًا بنفس الرقم القومي وسنة التخرج.`
-            : 'كل الصفوف نظيفة. اضغط «تأكيد الاستيراد» للكتابة على قاعدة البيانات.'}
+            ? `${importableCount.toLocaleString('en')} صف جاهز، ${skippedExistingCount.toLocaleString('en')} موجود مسبقًا.`
+            : 'جاهز للحفظ.'}
         </div>
       ) : (
         <Accordion type="multiple">
@@ -373,9 +454,6 @@ function GroupBody({ group }: GroupBodyProps): JSX.Element {
         >
           تصدير CSV
         </Button>
-        <span className="text-2xs text-ink-500">
-          القرارات تتم من شاشة «مراجعة التغييرات» السابقة.
-        </span>
       </div>
       <DataTable<ImportFailureRow>
         data={group.rows}

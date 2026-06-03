@@ -33,6 +33,13 @@ export function parseNationalId(id: string): NationalIdInfo {
 
   const birthDate = new Date(century + yy, mm - 1, dd);
   if (Number.isNaN(birthDate.getTime())) return { valid: false };
+  if (
+    birthDate.getFullYear() !== century + yy ||
+    birthDate.getMonth() !== mm - 1 ||
+    birthDate.getDate() !== dd
+  ) {
+    return { valid: false };
+  }
 
   return {
     valid: true,

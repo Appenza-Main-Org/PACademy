@@ -34,6 +34,7 @@ import {
   summarizeIntegrityDecisions,
   type IntegrityAuditRow,
 } from '../../../lib/duplicateAudit';
+import { useImportValidationRules } from '../../../lib/useImportValidationRules';
 import {
   buildAlreadyImported,
   buildExistingDiffs,
@@ -87,6 +88,7 @@ export function Step6ChangesReview(): JSX.Element {
     (s) => s.setBulkUploadDuplicateDecisions,
   );
   const importResult = useImportWizardStore((s) => s.importResult);
+  const validationRules = useImportValidationRules();
 
   const { data: allRows } = useGrades();
 
@@ -125,8 +127,9 @@ export function Step6ChangesReview(): JSX.Element {
         rows: normalised,
         selectedSchoolCategories,
         maxGradeByCategory,
+        validationRules,
       }),
-    [normalised, selectedSchoolCategories, maxGradeByCategory],
+    [normalised, selectedSchoolCategories, maxGradeByCategory, validationRules],
   );
   /* Surface every duplicate-NID case — not just total conflicts — so
    * admins can explicitly pick which of the duplicate rows is the

@@ -100,7 +100,17 @@ public sealed record NormalisedRow(
     string? SchoolName,
     string? RegionName);
 
-public sealed record RunImportPreflightRequest(IReadOnlyList<NormalisedRow> Rows, int? GraduationYear);
+public sealed record ImportValidationRule(
+    string? SchoolCategory,
+    IReadOnlyList<string> AllowedGenders,
+    int? AgeMin,
+    int? MaxAge,
+    DateOnly? AgeReferenceDate);
+
+public sealed record RunImportPreflightRequest(
+    IReadOnlyList<NormalisedRow> Rows,
+    int? GraduationYear,
+    IReadOnlyList<ImportValidationRule>? ValidationRules = null);
 public sealed record ImportIssueRow(int RowIndex, string? NationalId, string? Name, string? Message);
 public sealed record ImportIssueGroup(string Code, string Label, IReadOnlyList<ImportIssueRow> Rows, IReadOnlyList<string> Actions);
 public sealed record ImportTotals(int Received, int Imported, int Skipped, int Failed);
@@ -114,6 +124,7 @@ public sealed record RunImportCommitRequest(
     IReadOnlyList<string> SelectedSchoolCategories,
     IReadOnlyDictionary<string, decimal> MaxGradeByCategory,
     IReadOnlyDictionary<string, string> PerGroupActions,
+    IReadOnlyList<ImportValidationRule>? ValidationRules = null,
     IReadOnlyList<ExistingDiffDecision>? ExistingDiffDecisions = null,
     IReadOnlyList<UploadDuplicateDecision>? UploadDuplicateDecisions = null);
 public sealed record ImportCommitResult(int InsertedCount, int FailedCount, int AlreadyImportedCount);

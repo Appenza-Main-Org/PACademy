@@ -33,6 +33,7 @@ import type {
   NormalisedRow,
   StagedImport,
 } from '../types';
+import type { ImportValidationRule } from '../lib/duplicateAudit';
 
 const ADMIN_GRADES_API = '/api/admin/applicant-grades';
 const IMPORT_COMMIT_CHUNK_SIZE = 5000;
@@ -210,6 +211,7 @@ export const gradesService = {
   async runImportPreflight(input: {
     rows: NormalisedRow[];
     graduationYear: number;
+    validationRules?: readonly ImportValidationRule[];
     onProgress?: (progress: ImportPreflightProgress) => void;
   }): Promise<ImportReport> {
     const { rows, onProgress, ...payload } = input;
@@ -265,6 +267,7 @@ export const gradesService = {
     graduationYear: number;
     selectedSchoolCategories: string[];
     maxGradeByCategory: Record<string, number>;
+    validationRules?: readonly ImportValidationRule[];
     perGroupActions: Partial<Record<string, ImportGroupAction>>;
     existingDiffDecisions?: Record<string, 'accept' | 'reject' | 'pending'>;
     uploadDuplicateDecisions?: Record<
@@ -333,6 +336,7 @@ function toBackendImportCommitPayload(input: {
   graduationYear: number;
   selectedSchoolCategories: string[];
   maxGradeByCategory: Record<string, number>;
+  validationRules?: readonly ImportValidationRule[];
   perGroupActions: Partial<Record<string, ImportGroupAction>>;
   existingDiffDecisions?: Record<string, 'accept' | 'reject' | 'pending'>;
   uploadDuplicateDecisions?: Record<
@@ -348,6 +352,7 @@ function toBackendImportCommitPayload(input: {
   graduationYear: number;
   selectedSchoolCategories: string[];
   maxGradeByCategory: Record<string, number>;
+  validationRules?: readonly ImportValidationRule[];
   perGroupActions: Partial<Record<string, ImportGroupAction>>;
   existingDiffDecisions: Array<{ nationalId: string; action: 'override' | 'skip' }>;
   uploadDuplicateDecisions: Array<{
@@ -361,6 +366,7 @@ function toBackendImportCommitPayload(input: {
     graduationYear: input.graduationYear,
     selectedSchoolCategories: input.selectedSchoolCategories,
     maxGradeByCategory: input.maxGradeByCategory,
+    validationRules: input.validationRules ?? [],
     perGroupActions: input.perGroupActions,
     existingDiffDecisions: Object.entries(input.existingDiffDecisions ?? {})
       .filter(([, decision]) => decision !== 'pending')

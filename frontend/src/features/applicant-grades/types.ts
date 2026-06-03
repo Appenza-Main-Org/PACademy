@@ -204,6 +204,8 @@ export interface NormalisedRow {
 export type ImportGroupCode =
   | 'DUPLICATE_NID'
   | 'INVALID_NID'
+  | 'GENDER_MISMATCH'
+  | 'AGE_OUT_OF_RANGE'
   | 'MISSING_REQUIRED'
   | 'NID_NOT_FOUND'
   | 'GRADE_OUT_OF_RANGE'

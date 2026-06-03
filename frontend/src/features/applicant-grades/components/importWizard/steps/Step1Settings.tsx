@@ -278,12 +278,10 @@ export function Step1Settings({ showRequiredErrors = false }: Step1SettingsProps
               <Upload size={18} strokeWidth={1.75} aria-hidden />
             </div>
             <div className="text-sm font-semibold text-ink-900">
-              اسحب الملف هنا أو انقر لاختياره
+              اسحب الملف أو اختره
             </div>
             <div className="max-w-md text-2xs leading-relaxed text-ink-500">
-              يقبل ملفات Access وExcel وCSV حتى{' '}
-              <span className="font-en">{MAX_FILE_SIZE_MB}</span> م.ب. بعد الاختيار ستنتقل
-              الخطوة التالية لقراءة الجداول.
+              Access / Excel / CSV حتى <span className="font-en">{MAX_FILE_SIZE_MB}</span> م.ب.
             </div>
             <div className="rounded-pill bg-ink-50 px-3 py-1 text-2xs text-ink-600">
               <span className="font-en" dir="ltr">

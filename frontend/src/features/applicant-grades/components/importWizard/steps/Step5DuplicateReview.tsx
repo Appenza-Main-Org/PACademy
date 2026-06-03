@@ -40,11 +40,13 @@ import { buildAlreadyImported } from '../../../lib/buildDiff';
 import {
   buildAuditCsv,
   buildDuplicateAudit,
+  buildImportValidationRules,
   buildIntegrityAuditRows,
   DUPLICATE_RATIO_THRESHOLD,
   summarizeIntegrityDecisions,
   type DuplicateAudit,
 } from '../../../lib/duplicateAudit';
+import { useApplicationSettingsSummary } from '@/features/admin/admission-setup/api/applicationSettings.queries';
 import type { ImportPreflightProgress } from '../../../types';
 
 export function Step5DuplicateReview(): JSX.Element {
@@ -65,6 +67,7 @@ export function Step5DuplicateReview(): JSX.Element {
   const loudDuplicateAck = useImportWizardStore((s) => s.loudDuplicateAck);
   const setLoudDuplicateAck = useImportWizardStore((s) => s.setLoudDuplicateAck);
   const [progress, setProgress] = useState<ImportPreflightProgress | null>(null);
+  const settingsQuery = useApplicationSettingsSummary(true);
 
   const table = useMemo(
     () => parsed?.tables.find((t) => t.name === selectedTableName) ?? null,
@@ -87,14 +90,24 @@ export function Step5DuplicateReview(): JSX.Element {
   );
 
   const audit = useMemo(() => buildDuplicateAudit(normalised), [normalised]);
+  const validationRules = useMemo(
+    () =>
+      buildImportValidationRules({
+        settings: settingsQuery.data,
+        selectedSchoolCategories,
+        graduationYear,
+      }),
+    [settingsQuery.data, selectedSchoolCategories, graduationYear],
+  );
   const integrityRows = useMemo(
     () =>
       buildIntegrityAuditRows({
         rows: normalised,
         selectedSchoolCategories,
         maxGradeByCategory,
+        validationRules,
       }),
-    [normalised, selectedSchoolCategories, maxGradeByCategory],
+    [normalised, selectedSchoolCategories, maxGradeByCategory, validationRules],
   );
 
   /* Auto-clear the acknowledgement whenever the audit shape stops being
@@ -121,7 +134,7 @@ export function Step5DuplicateReview(): JSX.Element {
     }
     setProgress({ processedRows: 0, totalRows: normalised.length });
     preflight.mutate(
-      { rows: normalised, graduationYear, onProgress: setProgress },
+      { rows: normalised, graduationYear, validationRules, onProgress: setProgress },
       {
         onSuccess: (report) => {
           setImportResult(report);
@@ -156,6 +169,8 @@ export function Step5DuplicateReview(): JSX.Element {
     if (row.code === 'INVALID_NID') invalidRowIndexes.add(row.sourceRowIndex);
   }
   const invalid = invalidRowIndexes.size;
+  const genderMismatch = integrityRows.filter((row) => row.code === 'GENDER_MISMATCH').length;
+  const ageOutOfRange = integrityRows.filter((row) => row.code === 'AGE_OUT_OF_RANGE').length;
   const missing = integrityRows.filter((row) => row.code === 'MISSING_REQUIRED').length;
   const outOfRange = integrityRows.filter((row) => row.code === 'GRADE_OUT_OF_RANGE').length;
   const unreadable = integrityRows.filter((row) => row.code === 'UNREADABLE_VALUE').length;
@@ -241,7 +256,19 @@ export function Step5DuplicateReview(): JSX.Element {
         />
       </div>
 
-      <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border-subtle bg-white">
+      <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border-subtle bg-white md:grid-cols-4">
+        <Counter
+          icon={<AlertTriangle size={14} aria-hidden />}
+          label="نوع لا يطابق الإعدادات"
+          value={genderMismatch}
+          tone="danger"
+        />
+        <Counter
+          icon={<AlertTriangle size={14} aria-hidden />}
+          label="سن خارج الإعدادات"
+          value={ageOutOfRange}
+          tone="danger"
+        />
         <Counter
           icon={<AlertTriangle size={14} aria-hidden />}
           label="درجات تتجاوز الدرجة العظمى"
@@ -270,17 +297,13 @@ export function Step5DuplicateReview(): JSX.Element {
         pending={pendingDecisionCount}
         rejected={rejectedCount}
         skipped={skippedCount}
-        outOfRange={outOfRange}
         outOfRangeHardRejected={outOfRangeHardRejected}
       />
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border-subtle bg-white px-3.5 py-2.5">
         <div className="flex items-center gap-2 text-xs text-ink-600">
           <ShieldCheck size={14} aria-hidden className="text-teal-600" />
-          <span>
-            احفظ نسخة من تقرير المراجعة (يتضمّن التكرارات، الحقول الناقصة،
-            وأي تجاوز للحد الأقصى) قبل تأكيد الاستيراد.
-          </span>
+          <span>احفظ تقرير المراجعة قبل الحفظ.</span>
         </div>
         <Button
           size="sm"
@@ -300,8 +323,7 @@ export function Step5DuplicateReview(): JSX.Element {
         <div className="flex items-center gap-2 rounded-md border border-teal-200 bg-teal-50 px-3.5 py-2.5 text-xs text-teal-700">
           <CheckCircle2 size={14} aria-hidden />
           <span>
-            {alreadyImported.toLocaleString('en')} صفًا موجود مسبقًا بنفس الرقم القومي وبنفس سنة التخرج —
-            سيُتجاهل تلقائيًا أثناء التأكيد. كل طالب يبقى بسجل واحد لكل سنة تخرج في النظام.
+            {alreadyImported.toLocaleString('en')} صف موجود مسبقًا وسيُتجاهل.
           </span>
         </div>
       )}
@@ -309,28 +331,21 @@ export function Step5DuplicateReview(): JSX.Element {
       {!audit.exceedsThreshold && rejectedCount === 0 && audit.duplicateRowCount === 0 ? (
         <div className="flex items-center gap-2 rounded-md border border-success bg-success-bg px-3.5 py-2.5 text-xs text-success">
           <ShieldCheck size={14} aria-hidden />
-          لا توجد مشاكل في الصفوف المُختارة — يمكن الانتقال لعرض النتيجة وتأكيد الاستيراد.
+          الصفوف جاهزة للمتابعة.
         </div>
       ) : !audit.exceedsThreshold ? (
         <div className="flex items-center gap-2 rounded-md border border-gold-300 bg-gold-50 px-3.5 py-2.5 text-xs text-gold-700">
           <AlertTriangle size={14} aria-hidden />
           {audit.duplicateRowCount > 0 && (
             <span>
-              {audit.duplicateNidGroups.toLocaleString('en')} طلاب يحملون أرقام قومية مكررة —{' '}
-              {audit.duplicateRowCount.toLocaleString('en')} صف سيُتم تجاوزه ضمنيًا. اختر الصف
-              المعتمد في خطوة «مراجعة التغييرات».
+              {audit.duplicateRowCount.toLocaleString('en')} تكرارات داخل الملف.
             </span>
           )}
           {pendingDecisionCount > 0 && (
-            <span>
-              توجد {pendingDecisionCount.toLocaleString('en')} صفًا تتجاوز الدرجة العظمى وتحتاج
-              إلى قرار قبول أو رفض — راجعها في خطوة «النتيجة».
-            </span>
+            <span>{pendingDecisionCount.toLocaleString('en')} صف يحتاج قرارًا.</span>
           )}
           {rejectedCount > 0 && (
-            <span>
-              توجد {rejectedCount.toLocaleString('en')} صفًا مرفوضًا بسبب أخطاء لا يمكن تجاوزها.
-            </span>
+            <span>{rejectedCount.toLocaleString('en')} صف مرفوض.</span>
           )}
         </div>
       ) : null}
@@ -344,7 +359,6 @@ function ImportCountReconciliation({
   pending,
   rejected,
   skipped,
-  outOfRange,
   outOfRangeHardRejected,
 }: {
   received: number;
@@ -352,7 +366,6 @@ function ImportCountReconciliation({
   pending: number;
   rejected: number;
   skipped: number;
-  outOfRange: number;
   outOfRangeHardRejected: number;
 }): JSX.Element {
   const reconciled = ready + pending + rejected + skipped;
@@ -376,11 +389,7 @@ function ImportCountReconciliation({
       {outOfRangeHardRejected > 0 && (
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-gold-700">
           <AlertTriangle size={14} aria-hidden />
-          <span>
-            من {outOfRange.toLocaleString('en')} صفًا يتجاوز الدرجة العظمى، يوجد{' '}
-            {outOfRangeHardRejected.toLocaleString('en')} صف لديه خطأ لا يمكن تجاوزه، لذلك يُحسب
-            ضمن «مرفوضة» وليس ضمن «تحتاج قرار».
-          </span>
+          <span>{outOfRangeHardRejected.toLocaleString('en')} من درجات التجاوز مرفوضة نهائيًا.</span>
         </div>
       )}
     </div>
@@ -442,22 +451,11 @@ function LoudDuplicateGuard({
         <ShieldAlert size={18} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0" />
         <div className="flex flex-col gap-1.5">
           <span className="text-sm font-bold">
-            تنبيه — كثافة تكرار غير معتادة في الملف
+            تكرار مرتفع
           </span>
           <p className="m-0 leading-relaxed">
-            من بين <strong className="font-en">{audit.totalRows.toLocaleString('en')}</strong> صفًا في
-            هذا الملف، هناك فقط{' '}
-            <strong className="font-en">{audit.uniqueNidCount.toLocaleString('en')}</strong> رقم قومي
-            فريد — أي أن{' '}
-            <strong className="font-en">{audit.duplicateRowCount.toLocaleString('en')}</strong> صفًا
-            (<strong className="font-en">{ratioPct}</strong>) ستُتجاوز ضمنيًا أثناء الاستيراد
-            (يُحتفظ بأول ظهور لكل رقم قومي). يتجاوز هذا الحد الأقصى المسموح به{' '}
-            <strong className="font-en">{thresholdPct}</strong> ويُشير في الغالب إلى ملف مُصدَّر
-            بشكل خاطئ أو إلى تحديد عمود الرقم القومي بشكل غير صحيح في الخطوات السابقة.
-          </p>
-          <p className="m-0 leading-relaxed">
-            راجع توزيع التكرار بالأسفل قبل المتابعة. لا يمكن إكمال الاستيراد إلا بعد إقرار صريح
-            بالتجاوز.
+            <strong className="font-en">{audit.duplicateRowCount.toLocaleString('en')}</strong> صف
+            مكرر ({ratioPct})، والحد {thresholdPct}. راجع التوزيع وأكّد المتابعة.
           </p>
         </div>
       </div>
@@ -474,12 +472,10 @@ function LoudDuplicateGuard({
             مطلوب قبل المتابعة
           </span>
           <span className="text-sm font-bold text-terra-800">
-            ضع علامة هنا لتأكيد أنك راجعت توزيع التكرار وتريد إكمال الاستيراد.
+            راجعت التكرارات وأوافق على المتابعة.
           </span>
           <span className="text-2xs text-ink-500">
-            سيتم استيراد أول ظهور لكل رقم قومي فقط (
-            <span className="font-en">{audit.uniqueNidCount.toLocaleString('en')}</span> صف)، وسيُسجّل
-            هذا الإقرار في تقرير المراجعة.
+            سيُستخدم الصف المختار لكل رقم قومي.
           </span>
         </label>
       </div>

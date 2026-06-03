@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using PACademy.Shared.Contracts;
 using PACademy.Shared.Domain.Grades;
 
 namespace PACademy.Modules.ApplicantGradesAdmin.Application.Grades;
@@ -167,7 +168,7 @@ public sealed class RunImportPreflightUseCase(IApplicantGradesAdminDbContext db)
         foreach (var row in request.Rows)
         {
             var nid = GradeImportLogic.ToAsciiDigits(row.NationalId ?? "");
-            var issue = GetIssue(row, nid, existingNids);
+            var issue = GetIssue(row, nid, existingNids, request.ValidationRules ?? []);
             if (issue is null) continue;
             if (!buckets.TryGetValue(issue, out var rows)) buckets[issue] = rows = [];
             rows.Add(new ImportIssueRow(row.SourceRowIndex, row.NationalId, row.NameAr, IssueMessage(issue)));
@@ -177,10 +178,16 @@ public sealed class RunImportPreflightUseCase(IApplicantGradesAdminDbContext db)
         return new ImportReport(new ImportTotals(request.Rows.Count, request.Rows.Count - groups.Sum(x => x.Rows.Count), 0, groups.Sum(x => x.Rows.Count)), groups);
     }
 
-    private static string? GetIssue(NormalisedRow row, string nid, IReadOnlyCollection<string> existing)
+    private static string? GetIssue(
+        NormalisedRow row,
+        string nid,
+        IReadOnlyCollection<string> existing,
+        IReadOnlyList<ImportValidationRule> validationRules)
     {
         if (string.IsNullOrWhiteSpace(row.NationalId) || string.IsNullOrWhiteSpace(row.NameAr)) return "MISSING_REQUIRED";
         if (!GradeImportLogic.IsValidNationalId(nid)) return "INVALID_NID";
+        var validationIssue = GetCommitEligibilityIssue(row, nid, validationRules);
+        if (validationIssue is not null) return validationIssue;
         if (!row.TotalGrade.HasValue) return "UNREADABLE_VALUE";
         if (row.TotalGrade.Value < 0 || (row.MaxGrade.HasValue && row.TotalGrade.Value > row.MaxGrade.Value)) return "GRADE_OUT_OF_RANGE";
         if (existing.Contains(nid)) return "DUPLICATE_NID";
@@ -191,6 +198,8 @@ public sealed class RunImportPreflightUseCase(IApplicantGradesAdminDbContext db)
     {
         "DUPLICATE_NID" => "أرقام قومية مكررة",
         "INVALID_NID" => "أرقام قومية غير صالحة",
+        "GENDER_MISMATCH" => "نوع لا يطابق الرقم القومي",
+        "AGE_OUT_OF_RANGE" => "سن خارج الإعدادات",
         "MISSING_REQUIRED" => "بيانات إلزامية ناقصة",
         "NID_NOT_FOUND" => "أرقام غير موجودة",
         "GRADE_OUT_OF_RANGE" => "درجات خارج النطاق",
@@ -206,6 +215,58 @@ public sealed class RunImportPreflightUseCase(IApplicantGradesAdminDbContext db)
         "NID_NOT_FOUND" => ["skip", "create-applicant", "export"],
         _ => ["skip", "export"],
     };
+
+    public static string? GetCommitEligibilityIssue(
+        NormalisedRow row,
+        string nid,
+        IReadOnlyList<ImportValidationRule> validationRules)
+    {
+        if (!NationalIdParser.TryParseEgyptianNationalId(nid, out var info, out _))
+            return "INVALID_NID";
+
+        var rowGender = NormalizeGenderForCommit(row.Gender);
+        var nidGender = info.Gender == EgyptianNationalIdGender.Male ? "male" : "female";
+        if (rowGender is not null && rowGender != nidGender)
+            return "GENDER_MISMATCH";
+
+        var rule = FindValidationRule(row.SchoolCategory, validationRules);
+        if (rule is null) return null;
+
+        var allowedGenders = rule.AllowedGenders
+            .Select(NormalizeGenderForCommit)
+            .Where(x => x is not null)
+            .ToHashSet(StringComparer.Ordinal);
+        if (allowedGenders.Count > 0 && !allowedGenders.Contains(nidGender))
+            return "GENDER_MISMATCH";
+
+        if (rule.AgeReferenceDate.HasValue && (rule.AgeMin.HasValue || rule.MaxAge.HasValue))
+        {
+            var age = NationalIdParser.CalculateAge(info.BirthDate, rule.AgeReferenceDate.Value);
+            if ((rule.AgeMin.HasValue && age < rule.AgeMin.Value) ||
+                (rule.MaxAge.HasValue && age > rule.MaxAge.Value))
+                return "AGE_OUT_OF_RANGE";
+        }
+
+        return null;
+    }
+
+    private static ImportValidationRule? FindValidationRule(
+        string? schoolCategory,
+        IReadOnlyList<ImportValidationRule> rules)
+        => rules.FirstOrDefault(x => !string.IsNullOrWhiteSpace(x.SchoolCategory) && x.SchoolCategory == schoolCategory)
+            ?? rules.FirstOrDefault(x => string.IsNullOrWhiteSpace(x.SchoolCategory));
+
+    public static string? NormalizeGenderForCommit(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var value = GradeImportLogic.NormalizeArabic(raw);
+        return value switch
+        {
+            "male" or "m" or "ذكر" or "ذكور" or "طالب" or "بنين" => "male",
+            "female" or "f" or "انثي" or "اناث" or "طالبه" or "بنات" => "female",
+            _ => null,
+        };
+    }
 }
 
 public sealed class RunImportCommitUseCase(IApplicantGradesAdminDbContext db, IAuditApi audit)
@@ -228,6 +289,12 @@ public sealed class RunImportCommitUseCase(IApplicantGradesAdminDbContext db, IA
         {
             var nid = GradeImportLogic.ToAsciiDigits(row.NationalId ?? "");
             if (!IsCommitRowReadable(row, nid, request.SelectedSchoolCategories, out var categoryCode))
+            {
+                failed++;
+                continue;
+            }
+
+            if (RunImportPreflightUseCase.GetCommitEligibilityIssue(row, nid, request.ValidationRules ?? []) is not null)
             {
                 failed++;
                 continue;
@@ -265,7 +332,7 @@ public sealed class RunImportCommitUseCase(IApplicantGradesAdminDbContext db, IA
                     row.SeatingNumber,
                     row.NameAr!,
                     GradeImportLogic.ResolveKind(categoryCode, row.Track),
-                    string.IsNullOrWhiteSpace(row.Gender) ? "male" : row.Gender!,
+                    ResolveStoredGender(nid, row.Gender),
                     row.Track ?? "—",
                     request.GraduationYear,
                     categoryCode,
@@ -283,7 +350,7 @@ public sealed class RunImportCommitUseCase(IApplicantGradesAdminDbContext db, IA
                 nid,
                 row.NameAr!,
                 GradeImportLogic.ResolveKind(categoryCode, row.Track),
-                string.IsNullOrWhiteSpace(row.Gender) ? "male" : row.Gender!,
+                ResolveStoredGender(nid, row.Gender),
                 row.Track ?? "—",
                 request.GraduationYear,
                 categoryCode,
@@ -339,5 +406,12 @@ public sealed class RunImportCommitUseCase(IApplicantGradesAdminDbContext db, IA
             && GradeImportLogic.IsValidNationalId(nid)
             && row.TotalGrade.HasValue
             && (selected.Count == 0 || (categoryCode is not null && selected.Contains(categoryCode)));
+    }
+
+    private static string ResolveStoredGender(string nid, string? uploadedGender)
+    {
+        if (NationalIdParser.TryParseEgyptianNationalId(nid, out var info, out _))
+            return info.Gender == EgyptianNationalIdGender.Male ? "male" : "female";
+        return RunImportPreflightUseCase.NormalizeGenderForCommit(uploadedGender) ?? "male";
     }
 }

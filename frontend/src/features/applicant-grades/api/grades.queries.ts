@@ -11,6 +11,7 @@ import {
   type ApplicantGradesSort,
 } from './grades.service';
 import type { ImportedGradeRow } from '../lib/parseAccessFile';
+import type { ImportValidationRule } from '../lib/duplicateAudit';
 import type {
   AdjustmentReason,
   ApplicantGender,
@@ -171,6 +172,7 @@ export function useApplicantGradesPreflight() {
     mutationFn: (input: {
       rows: NormalisedRow[];
       graduationYear: number;
+      validationRules?: readonly ImportValidationRule[];
       onProgress?: (progress: ImportPreflightProgress) => void;
     }): Promise<ImportReport> =>
       gradesService.runImportPreflight(input),
@@ -191,6 +193,7 @@ export function useApplicantGradesCommit() {
        *  reads `maxGradeByCategory[row.schoolCategoryCode]` to gate the
        *  totalGrade range check and to seed `importMax`. */
       maxGradeByCategory: Record<string, number>;
+      validationRules?: readonly ImportValidationRule[];
       perGroupActions: Record<ImportGroupCode, ImportGroupAction | undefined>;
       /** Per-NID decisions from the diff-review step. Overrides the
        *  per-group DUPLICATE_NID action for the matching nids. */

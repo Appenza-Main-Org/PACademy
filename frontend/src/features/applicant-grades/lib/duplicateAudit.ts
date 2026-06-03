@@ -18,7 +18,7 @@
  */
 
 import { serializeCsv } from '@/shared/lib/csv';
-import { isValidNationalId } from '@/shared/lib/national-id';
+import { isValidNationalId, parseNationalId } from '@/shared/lib/national-id';
 import type { ImportReport, NormalisedRow } from '../types';
 import { buildUploadDuplicates } from './buildDiff';
 
@@ -60,13 +60,43 @@ export interface DuplicateAudit {
 }
 
 export interface IntegrityAuditRow {
-  code: 'INVALID_NID' | 'MISSING_REQUIRED' | 'GRADE_OUT_OF_RANGE' | 'UNREADABLE_VALUE';
+  code:
+    | 'INVALID_NID'
+    | 'GENDER_MISMATCH'
+    | 'AGE_OUT_OF_RANGE'
+    | 'MISSING_REQUIRED'
+    | 'GRADE_OUT_OF_RANGE'
+    | 'UNREADABLE_VALUE';
   labelAr: string;
   sourceRowIndex: number;
   nationalId: string | null;
   nameAr: string | null;
   totalGrade: number | null;
   detail: string;
+}
+
+export interface ImportValidationRule {
+  schoolCategory: string | null;
+  allowedGenders: readonly ('male' | 'female')[];
+  ageMin: number | null;
+  maxAge: number | null;
+  ageReferenceDate: string | null;
+}
+
+interface ApplicationSettingsYearLike {
+  graduationYears?: readonly number[];
+  genderTypes?: readonly string[];
+  ageMin?: number | null;
+  maxAge?: number | null;
+  ageReferenceDate?: string | null;
+  schoolCategoryCodes?: readonly string[];
+  isActive?: boolean;
+}
+
+interface ApplicationSettingsSummaryLike {
+  groups?: readonly {
+    years?: readonly ApplicationSettingsYearLike[];
+  }[];
 }
 
 export interface IntegrityDecisionSummary {
@@ -173,6 +203,7 @@ export function buildIntegrityAuditRows(input: {
   rows: readonly NormalisedRow[];
   selectedSchoolCategories: readonly string[];
   maxGradeByCategory: Readonly<Record<string, number>>;
+  validationRules?: readonly ImportValidationRule[];
 }): IntegrityAuditRow[] {
   const fallbackMax =
     input.selectedSchoolCategories
@@ -196,6 +227,7 @@ export function buildIntegrityAuditRows(input: {
         detail: `حقول مفقودة: ${missing.join('، ')}`,
       });
     }
+    const nidInfo = row.nationalId ? parseNationalId(row.nationalId) : null;
     if (row.nationalId && !isValidNationalId(row.nationalId)) {
       out.push({
         code: 'INVALID_NID',
@@ -206,6 +238,57 @@ export function buildIntegrityAuditRows(input: {
         totalGrade: row.totalGrade,
         detail: `الرقم القومي يجب أن يتكون من 14 رقمًا صالحًا. القيمة الحالية: ${row.nationalId}`,
       });
+    }
+
+    if (row.nationalId && nidInfo?.valid && nidInfo.gender) {
+      const importedGender = normaliseGender(row.gender);
+      const rule = findValidationRule(row, input.validationRules ?? []);
+      if (importedGender && importedGender !== nidInfo.gender) {
+        out.push({
+          code: 'GENDER_MISMATCH',
+          labelAr: 'نوع لا يطابق الرقم القومي',
+          sourceRowIndex: row.sourceRowIndex,
+          nationalId: row.nationalId,
+          nameAr: row.nameAr,
+          totalGrade: row.totalGrade,
+          detail: `الرقم القومي يشير إلى ${genderLabel(nidInfo.gender)} بينما عمود النوع يشير إلى ${genderLabel(importedGender)}`,
+        });
+      } else if (
+        rule &&
+        rule.allowedGenders.length > 0 &&
+        !rule.allowedGenders.includes(nidInfo.gender)
+      ) {
+        out.push({
+          code: 'GENDER_MISMATCH',
+          labelAr: 'نوع خارج الإعدادات',
+          sourceRowIndex: row.sourceRowIndex,
+          nationalId: row.nationalId,
+          nameAr: row.nameAr,
+          totalGrade: row.totalGrade,
+          detail: `الإعدادات تسمح بـ ${rule.allowedGenders.map(genderLabel).join(' / ')}، والرقم القومي يشير إلى ${genderLabel(nidInfo.gender)}`,
+        });
+      }
+
+      if (rule && nidInfo.birthDate && rule.ageReferenceDate) {
+        const referenceDate = parseIsoDate(rule.ageReferenceDate);
+        if (referenceDate) {
+          const age = calculateAge(nidInfo.birthDate, referenceDate);
+          if (
+            (rule.ageMin != null && age < rule.ageMin) ||
+            (rule.maxAge != null && age > rule.maxAge)
+          ) {
+            out.push({
+              code: 'AGE_OUT_OF_RANGE',
+              labelAr: 'سن خارج الإعدادات',
+              sourceRowIndex: row.sourceRowIndex,
+              nationalId: row.nationalId,
+              nameAr: row.nameAr,
+              totalGrade: row.totalGrade,
+              detail: `سن الطالب ${age} سنة، والنطاق المسموح ${rule.ageMin ?? '—'} إلى ${rule.maxAge ?? '—'} سنة`,
+            });
+          }
+        }
+      }
     }
 
     if (row.totalGrade == null) continue;
@@ -242,6 +325,86 @@ export function buildIntegrityAuditRows(input: {
     }
   }
   return out;
+}
+
+export function buildImportValidationRules(input: {
+  settings: readonly ApplicationSettingsSummaryLike[] | null | undefined;
+  selectedSchoolCategories: readonly string[];
+  graduationYear: number | null;
+}): ImportValidationRule[] {
+  if (!input.settings || input.graduationYear == null) return [];
+  const selected = new Set(input.selectedSchoolCategories);
+  const rules: ImportValidationRule[] = [];
+
+  for (const category of input.settings) {
+    for (const group of category.groups ?? []) {
+      for (const year of group.years ?? []) {
+        if (year.isActive === false) continue;
+        if (!year.graduationYears?.includes(input.graduationYear)) continue;
+        const categories =
+          year.schoolCategoryCodes?.filter((code) => selected.size === 0 || selected.has(code)) ?? [];
+        const scopedCategories = categories.length > 0 ? categories : [null];
+        const allowedGenders = [...new Set((year.genderTypes ?? []).map(normaliseGender).filter(isGender))];
+        for (const schoolCategory of scopedCategories) {
+          rules.push({
+            schoolCategory,
+            allowedGenders,
+            ageMin: typeof year.ageMin === 'number' ? year.ageMin : null,
+            maxAge: typeof year.maxAge === 'number' ? year.maxAge : null,
+            ageReferenceDate: year.ageReferenceDate ?? null,
+          });
+        }
+      }
+    }
+  }
+
+  return rules;
+}
+
+function findValidationRule(
+  row: NormalisedRow,
+  rules: readonly ImportValidationRule[],
+): ImportValidationRule | null {
+  if (rules.length === 0) return null;
+  const category = row.schoolCategory;
+  return (
+    rules.find((rule) => rule.schoolCategory != null && rule.schoolCategory === category) ??
+    rules.find((rule) => rule.schoolCategory == null) ??
+    null
+  );
+}
+
+function normaliseGender(raw: string | null | undefined): 'male' | 'female' | null {
+  if (!raw) return null;
+  const value = raw.trim().toLowerCase();
+  if (['male', 'm', 'ذكر', 'ذكور', 'طالب', 'بنين'].includes(value)) return 'male';
+  if (['female', 'f', 'أنثى', 'انثى', 'إناث', 'اناث', 'طالبة', 'بنات'].includes(value)) {
+    return 'female';
+  }
+  return null;
+}
+
+function isGender(value: 'male' | 'female' | null): value is 'male' | 'female' {
+  return value != null;
+}
+
+function genderLabel(gender: 'male' | 'female'): string {
+  return gender === 'male' ? 'ذكر' : 'أنثى';
+}
+
+function parseIsoDate(value: string): Date | null {
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function calculateAge(birthDate: Date, referenceDate: Date): number {
+  let age = referenceDate.getFullYear() - birthDate.getFullYear();
+  const beforeBirthday =
+    referenceDate.getMonth() < birthDate.getMonth() ||
+    (referenceDate.getMonth() === birthDate.getMonth() &&
+      referenceDate.getDate() < birthDate.getDate());
+  if (beforeBirthday) age -= 1;
+  return age;
 }
 
 /** Compose the full pre-import audit CSV — a single file containing

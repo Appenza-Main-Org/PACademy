@@ -232,7 +232,7 @@ export function Combobox({
 
   const commit = (opt: ComboboxOption): void => {
     if (opt.disabled) return;
-    onChange?.(opt.value);
+    onChange?.(clearable && opt.value === value ? null : opt.value);
     setTerm('');
     /* Return focus to the trigger before unmounting the popover. Otherwise
      * the search input (which had focus) is removed mid-cycle and the

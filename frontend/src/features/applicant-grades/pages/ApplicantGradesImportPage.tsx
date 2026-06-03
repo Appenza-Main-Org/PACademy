@@ -47,6 +47,7 @@ import {
   summarizeIntegrityDecisions,
 } from '../lib/duplicateAudit';
 import { saveApplicantGradesImportHistoryRecord } from '../lib/importHistory';
+import { useImportValidationRules } from '../lib/useImportValidationRules';
 import type { UploadDuplicateDecision } from '../store/importWizard.store';
 import type { ImportCommitProgress, ImportGroupCode, NormalisedRow } from '../types';
 
@@ -92,6 +93,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
   const [showStep1Errors, setShowStep1Errors] = useState(false);
   const [commitProgress, setCommitProgress] = useState<ImportCommitProgress | null>(null);
   const commit = useApplicantGradesCommit();
+  const validationRules = useImportValidationRules();
 
   /* Safety rail: the `File` + `ParsedSheet` slices of the store are
    * deliberately not persisted (File objects can't be serialised), so
@@ -147,6 +149,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
       rows,
       selectedSchoolCategories,
       maxGradeByCategory,
+      validationRules,
     });
   }, [
     table,
@@ -156,6 +159,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
     lookupValueMappings,
     selectedSchoolCategories,
     maxGradeByCategory,
+    validationRules,
   ]);
 
   const loudGuardBlocks =
@@ -264,6 +268,8 @@ export function ApplicantGradesImportPage(): JSX.Element {
       NID_NOT_FOUND: filterAction(perGroupActions.NID_NOT_FOUND),
       GRADE_OUT_OF_RANGE: hasAcceptedOutOfRange ? 'override' : undefined,
       UNREADABLE_VALUE: filterAction(perGroupActions.UNREADABLE_VALUE),
+      GENDER_MISMATCH: filterAction(perGroupActions.GENDER_MISMATCH),
+      AGE_OUT_OF_RANGE: filterAction(perGroupActions.AGE_OUT_OF_RANGE),
     };
     const acceptedDiffDecisions: Record<string, 'accept'> = {};
     for (const [nid, decision] of Object.entries(existingDiffDecisions)) {
@@ -302,6 +308,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
         graduationYear,
         selectedSchoolCategories,
         maxGradeByCategory,
+        validationRules,
         perGroupActions: actions,
         existingDiffDecisions: acceptedDiffDecisions,
         uploadDuplicateDecisions,
@@ -357,7 +364,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
     <div>
       <PageHeader
         title="استيراد درجات المتقدمين"
-        subtitle="نزّل النموذج، عبئه، ثم ارفعه — ستظهر كل أخطاء البيانات قبل الكتابة."
+        subtitle="ارفع الملف وراجع النتائج قبل الحفظ."
         breadcrumbs={[
           { label: 'لوحة القبول', href: ROUTES.admin.dashboard },
           { label: 'درجات المتقدمين', href: ROUTES.admin.applicantGrades },
@@ -398,8 +405,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
         >
           <ShieldAlert size={14} strokeWidth={1.75} aria-hidden className="shrink-0" />
           <span>
-            لا يمكن المتابعة حتى تُقرّ بتجاوز كثافة التكرار في خطوة «مراجعة التكرار». ارجع إلى
-            الخطوة وراجع التوزيع ثم اضغط الإقرار.
+            راجع تكرارات الرقم القومي وأكّد المتابعة قبل الحفظ.
           </span>
         </div>
       )}
@@ -411,12 +417,10 @@ export function ApplicantGradesImportPage(): JSX.Element {
         >
           <ShieldAlert size={14} strokeWidth={1.75} aria-hidden className="shrink-0" />
           <span>
-            توجد{' '}
             <span className="font-en font-bold">
               {outOfRangeDecisionSummary.pendingOutOfRangeCount.toLocaleString('en')}
             </span>{' '}
-            صفًا تتجاوز الدرجة العظمى. اختر قبولها أو رفضها في بطاقة «درجات تتجاوز الدرجة
-            العظمى» قبل تأكيد الاستيراد.
+            صف يحتاج قرارًا قبل الحفظ.
           </span>
         </div>
       )}
@@ -468,7 +472,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
         open={confirmCancel}
         onOpenChange={setConfirmCancel}
         title="إلغاء الاستيراد؟"
-        description="سيُحذف ما تم اختياره وما تم تعيينه من ربط الأعمدة. هذا الإجراء لا يمكن التراجع عنه."
+        description="سيتم مسح إعدادات هذا الاستيراد."
         actionLabel="إلغاء الاستيراد"
         tone="danger"
         onAction={() => {
