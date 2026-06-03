@@ -30,6 +30,7 @@ execFileSync(
 
 const {
   buildExamRoomUrl,
+  canSubmitExamLogin,
   canStartWithBiometricGate,
   createPublishToken,
   deriveExamIdFromPublishToken,
@@ -57,6 +58,12 @@ assert.equal(
   getPublishedExamRoomUrl({ id: 'EXAM-2026-CAP-01', publishedUrl: 'https://example.test/exam-room/custom' }, ''),
   'https://example.test/exam-room/custom',
 );
+
+assert.equal(canSubmitExamLogin({ nationalId: '30407010103456', applicantCode: '', isExamRoom: true }), true);
+assert.equal(canSubmitExamLogin({ nationalId: ' 30407010103456 ', isExamRoom: true }), true);
+assert.equal(canSubmitExamLogin({ nationalId: '', applicantCode: 'APP-2026000013', isExamRoom: true }), false);
+assert.equal(canSubmitExamLogin({ nationalId: '30407010103456', applicantCode: '', isExamRoom: false }), false);
+assert.equal(canSubmitExamLogin({ nationalId: '30407010103456', applicantCode: 'APP-2026000013', isExamRoom: false }), true);
 
 assert.deepEqual(
   normaliseIpAllowlist('10.20.14.11\n10.20.14.12, 10.20.14.*\n\n10.20.14.11'),

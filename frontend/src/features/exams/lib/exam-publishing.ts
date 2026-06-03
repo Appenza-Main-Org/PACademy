@@ -75,6 +75,16 @@ export function isIpAllowed(ipAddress: string, allowlist: readonly string[]): bo
   });
 }
 
+export function canSubmitExamLogin(input: {
+  nationalId: string;
+  applicantCode?: string;
+  isExamRoom: boolean;
+}): boolean {
+  const hasNationalId = input.nationalId.trim().length > 0;
+  if (input.isExamRoom) return hasNationalId;
+  return hasNationalId && (input.applicantCode ?? '').trim().length > 0;
+}
+
 export function canStartWithBiometricGate(checks: ReadonlyArray<{ key: string; ok: boolean }>): boolean {
   const byKey = new Map(checks.map((check) => [check.key, check.ok]));
   return BIOMETRIC_REQUIRED_CHECKS.every((key) => byKey.get(key) === true);

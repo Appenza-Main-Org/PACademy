@@ -97,6 +97,7 @@ import { downloadBlob } from '@/shared/lib/download';
 import { examsService } from '../api/exams.service';
 import {
   buildExamRoomUrl,
+  canSubmitExamLogin,
   canStartWithBiometricGate,
   createPublishToken,
   getPublishedExamRoomUrl,
@@ -1262,7 +1263,7 @@ function LiveExamExperience({
     mutationFn: () =>
       examsService.validateAccess({
         nationalId,
-        applicantCode,
+        applicantCode: isExamRoom ? '' : applicantCode,
         examId: exam?.id ?? examId,
         ipAddress,
         deviceIdentifier,
@@ -1271,7 +1272,9 @@ function LiveExamExperience({
       setValidation(result);
       const canStart = result.ok || (isExamRoom && canStartWithBiometricGate(result.checks));
       if (!canStart || !exam) return;
-      const attempt = await examsService.startAttempt(exam.id, result.applicantId ?? applicantCode);
+      const applicantId = result.applicantId ?? (isExamRoom ? '' : applicantCode);
+      if (!applicantId) return;
+      const attempt = await examsService.startAttempt(exam.id, applicantId);
       setAttemptId(attempt.id);
       setSeconds((exam.durationMinutes ?? Math.max(1, exam.rules.reduce((sum, rule) => sum + rule.minutes, 0))) * 60);
       setPhase('exam');
@@ -1319,7 +1322,9 @@ function LiveExamExperience({
           {!isPreview && (
             <div className="mx-auto mb-5 grid max-w-2xl gap-3 text-start md:grid-cols-2">
               <Input label="الرقم القومي" dir="ltr" value={nationalId} onChange={(e) => setNationalId(e.target.value)} />
-              <Input label="كود المتقدم / الطالب" dir="ltr" value={applicantCode} onChange={(e) => setApplicantCode(e.target.value)} />
+              {!isExamRoom && (
+                <Input label="كود المتقدم / الطالب" dir="ltr" value={applicantCode} onChange={(e) => setApplicantCode(e.target.value)} />
+              )}
               {!isExamRoom && (
                 <>
                   <Input label="IP الجهاز" dir="ltr" value={ipAddress} onChange={(e) => setIpAddress(e.target.value)} />
@@ -1349,6 +1354,7 @@ function LiveExamExperience({
             variant="primary"
             size="lg"
             isLoading={validateMut.isPending}
+            disabled={!isPreview && !canSubmitExamLogin({ nationalId, applicantCode, isExamRoom })}
             onClick={() => {
               if (isPreview) {
                 setSeconds((exam.durationMinutes ?? 45) * 60);
