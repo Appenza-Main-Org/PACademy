@@ -77,6 +77,9 @@ interface DatePickerProps {
   /** ISO date string (YYYY-MM-DD) for min boundary. */
   min?: string;
   max?: string;
+  /** Per-cell predicate: return `true` to mark a date as unavailable.
+   *  Stacks with `min`/`max` — any of them being true disables the cell. */
+  isDateDisabled?: (date: Date) => boolean;
   placeholder?: string;
   className?: string;
 }
@@ -91,6 +94,7 @@ export function DatePicker({
   disabled,
   min,
   max,
+  isDateDisabled,
   placeholder = 'يوم/شهر/سنة',
   className,
 }: DatePickerProps): JSX.Element {
@@ -232,6 +236,7 @@ export function DatePicker({
                 selected={value ?? null}
                 minDate={minDate}
                 maxDate={maxDate}
+                isDateDisabled={isDateDisabled}
                 onSelect={(d) => {
                   onChange?.(d);
                   setOpen(false);
@@ -258,6 +263,9 @@ interface CalendarGridProps {
   rangeEnd?: Date | null;
   minDate?: Date | null;
   maxDate?: Date | null;
+  /** Per-cell predicate: return `true` to mark a date as unavailable.
+   *  Stacks with `minDate`/`maxDate`. */
+  isDateDisabled?: (date: Date) => boolean;
   onSelect: (d: Date) => void;
 }
 
@@ -269,6 +277,7 @@ export function CalendarGrid({
   rangeEnd,
   minDate,
   maxDate,
+  isDateDisabled,
   onSelect,
 }: CalendarGridProps): JSX.Element {
   const cells = useMemo(() => buildMonthCells(cursor), [cursor]);
@@ -332,7 +341,8 @@ export function CalendarGrid({
           const inRange = isInRange(cell);
           const disabled =
             (minDate && stripTime(cell).getTime() < stripTime(minDate).getTime()) ||
-            (maxDate && stripTime(cell).getTime() > stripTime(maxDate).getTime());
+            (maxDate && stripTime(cell).getTime() > stripTime(maxDate).getTime()) ||
+            (isDateDisabled ? isDateDisabled(cell) : false);
           return (
             <button
               key={i}

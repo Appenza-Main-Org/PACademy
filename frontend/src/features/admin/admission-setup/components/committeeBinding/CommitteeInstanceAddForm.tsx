@@ -77,6 +77,12 @@ function toIsoDate(d: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/* Friday is the weekly day off — admins shouldn't be able to schedule
+ * exam committees on it. `Date.getDay()` returns 5 for Friday. */
+function isFriday(d: Date): boolean {
+  return d.getDay() === 5;
+}
+
 export function CommitteeInstanceAddForm({
   cycle,
   active,
@@ -251,6 +257,7 @@ export function CommitteeInstanceAddForm({
           value={pickedDate}
           onChange={setPickedDate}
           placeholder="اختر اليوم…"
+          isDateDisabled={isFriday}
         />
         <Input
           id="bindings-capacity"
