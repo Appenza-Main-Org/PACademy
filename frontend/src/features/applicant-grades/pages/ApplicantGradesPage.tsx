@@ -14,7 +14,7 @@
  *   • New `seatingNumber` column rendered in Western numerals (LTR).
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowDownRight,
@@ -63,7 +63,11 @@ import {
   useClearGrades,
   useDeleteGrades,
 } from '../api/grades.queries';
-import { gradesService, type ApplicantGradesColumnFilters } from '../api/grades.service';
+import {
+  gradesService,
+  type ApplicantGradesColumnFilters,
+  type PaginatedGradesResult,
+} from '../api/grades.service';
 import { downloadTemplateWorkbook } from '../lib/buildTemplateWorkbook';
 import { useImportWizardStore } from '../store/importWizard.store';
 import { AddAdjustmentDialog } from '../components/AddAdjustmentDialog';
@@ -274,6 +278,7 @@ export function ApplicantGradesPage(): JSX.Element {
     data: paginatedData,
     error: gradesLoadError,
     isError: isGradesLoadError,
+    isFetching,
     isLoading,
     refetch: refetchGrades,
   } = useApplicantGradesList({
@@ -288,10 +293,15 @@ export function ApplicantGradesPage(): JSX.Element {
     columnFilters: gradeColumnFilters,
     changedOnly,
   });
-  const rows = paginatedData?.rows ?? [];
-  const total = paginatedData?.total ?? 0;
+  const lastPaginatedDataRef = useRef<PaginatedGradesResult | null>(null);
+  useEffect(() => {
+    if (paginatedData) lastPaginatedDataRef.current = paginatedData;
+  }, [paginatedData]);
+  const displayedPaginatedData = paginatedData ?? (isFetching ? lastPaginatedDataRef.current : null);
+  const rows = displayedPaginatedData?.rows ?? [];
+  const total = displayedPaginatedData?.total ?? 0;
   const derived = useMemo<DerivedRow[]>(() => rows.map(deriveRow), [rows]);
-  const summary = paginatedData?.summary;
+  const summary = displayedPaginatedData?.summary;
   const totalsAll = summary?.total ?? total;
   const generalCount = summary?.general ?? 0;
   const azharCount = summary?.azhar ?? 0;
@@ -302,12 +312,12 @@ export function ApplicantGradesPage(): JSX.Element {
    * years so newly-uploaded datasets always have a usable range even
    * before any row carries a real graduationYear. */
   const branchOptions = useMemo<string[]>(() => {
-    const fromBackend = paginatedData?.facets?.branches;
+    const fromBackend = displayedPaginatedData?.facets?.branches;
     if (fromBackend && fromBackend.length > 0) return fromBackend;
     const set = new Set<string>();
     for (const r of rows) if (r.branch) set.add(r.branch);
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'ar'));
-  }, [paginatedData?.facets?.branches, rows]);
+  }, [displayedPaginatedData?.facets?.branches, rows]);
 
   /* Year filter options come from the admin-managed `graduation-years`
    * lookup (active rows only). Falling back to the years actually
@@ -1061,6 +1071,9 @@ export function ApplicantGradesPage(): JSX.Element {
                       </span>{' '}
                       تصفية مفعلة
                     </Badge>
+                  )}
+                  {isFetching && displayedPaginatedData && (
+                    <Badge tone="warning">تحديث النتائج…</Badge>
                   )}
                 </div>
                 {hasActiveFilters && (
