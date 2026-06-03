@@ -14,7 +14,7 @@
  */
 
 import { useState } from 'react';
-import { Upload } from 'lucide-react';
+import { Eye, EyeOff, Upload } from 'lucide-react';
 import { Button } from '@/shared/components';
 import { canPerformListAction } from '@/shared/lib/list-action-permissions';
 import { getListActionPermissions } from '@/shared/lib/list-action-actor';
@@ -36,6 +36,7 @@ export function ListActions<TRow>({ rows, config, onImported }: ListActionsProps
 
   const exportConfig = config.export?.enabled ? config.export : undefined;
   const importConfig = config.import?.enabled ? config.import : undefined;
+  const deletedConfig = config.deleted?.enabled ? config.deleted : undefined;
 
   const canExport = exportConfig
     ? canPerformListAction(permissions, config.entityKey, 'export')
@@ -43,11 +44,33 @@ export function ListActions<TRow>({ rows, config, onImported }: ListActionsProps
   const canImport = importConfig
     ? canPerformListAction(permissions, config.entityKey, 'import')
     : false;
+  const canShowDeleted = deletedConfig
+    ? canPerformListAction(permissions, config.entityKey, 'showDeleted')
+    : false;
 
-  if (!canExport && !canImport) return null;
+  if (!canExport && !canImport && !canShowDeleted) return null;
 
   return (
     <div className="flex items-center gap-2">
+      {canShowDeleted && deletedConfig && (
+        <Button
+          variant={deletedConfig.isShowing ? 'secondary' : 'ghost'}
+          size="md"
+          leadingIcon={
+            deletedConfig.isShowing
+              ? <EyeOff size={16} strokeWidth={1.75} />
+              : <Eye size={16} strokeWidth={1.75} />
+          }
+          onClick={() => deletedConfig.onToggle(!deletedConfig.isShowing)}
+        >
+          {deletedConfig.isShowing ? ACTION_LABELS.hideDeleted : ACTION_LABELS.showDeleted}
+          {typeof deletedConfig.deletedCount === 'number' && deletedConfig.deletedCount > 0 && (
+            <span className="ms-1 font-numeric tnum" dir="ltr">
+              ({deletedConfig.deletedCount.toLocaleString('en-US')})
+            </span>
+          )}
+        </Button>
+      )}
       {canExport && exportConfig && (
         <ExportMenu
           rows={rows}

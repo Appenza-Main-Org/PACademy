@@ -17,7 +17,7 @@
  * action. Super_admin (`permissions: ['*']`) always passes.
  */
 
-export type ListAction = 'export' | 'import' | 'duplicate';
+export type ListAction = 'export' | 'import' | 'duplicate' | 'showDeleted';
 
 /**
  * Local mirror of the legacy `hasPermission` helper in
@@ -48,12 +48,12 @@ const RESOURCE_OVERRIDES: Record<string, string> = {
   'admin.users': 'users',
   'admin.audit': 'admin',
   'admin.referenceData': 'admin',
-  'admin.cycles': 'admin',
-  'admin.categories': 'admin',
+  'admin.cycles': 'cycles',
+  'admin.categories': 'categories',
   'admin.workflows': 'workflows',
-  'admin.notifications': 'admin',
+  'admin.notifications': 'notifications',
   'admin.payments': 'admin',
-  'admin.roles': 'admin',
+  'admin.roles': 'roles',
   'board.sessions': 'board',
   'board.decisions': 'board',
   'board.members': 'board',
@@ -80,6 +80,7 @@ function resourceFor(entityKey: string): string {
 
 const READ_VERBS: readonly string[] = ['view', 'read', 'manage', 'examine', 'verify'];
 const WRITE_VERBS: readonly string[] = ['write', 'manage', 'edit', 'enter'];
+const SHOW_DELETED_VERBS: readonly string[] = ['show-deleted', 'show_deleted', 'view-deleted'];
 
 /**
  * Returns whether the supplied permissions allow `action` against
@@ -98,6 +99,11 @@ export function canPerformListAction(
   /* Direct grant via explicit `<entity>:<action>`. */
   if (hasPermission(permissions, `${resource}:${action}`)) return true;
   /* Derived defaults per the prompt. */
-  const verbs = action === 'export' ? READ_VERBS : WRITE_VERBS;
+  const verbs =
+    action === 'export'
+      ? READ_VERBS
+      : action === 'showDeleted'
+        ? SHOW_DELETED_VERBS
+        : WRITE_VERBS;
   return verbs.some((verb) => hasPermission(permissions, `${resource}:${verb}`));
 }

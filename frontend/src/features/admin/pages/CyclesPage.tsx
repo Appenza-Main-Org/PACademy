@@ -29,6 +29,7 @@ import {
   Pencil,
   Plus,
   Power,
+  RotateCcw,
   Settings2,
   Trash2,
 } from 'lucide-react';
@@ -43,6 +44,7 @@ import {
   IconStamp,
   PageHeader,
   Select,
+  SoftDeleteDialog,
   toast,
   Tooltip,
   TooltipProvider,
@@ -53,10 +55,16 @@ import { ROUTES } from '@/config/routes';
 import type { AdmissionCycle } from '@/shared/types/domain';
 import {
   useCycles,
-  useCycleRemove,
+  useCycleDependencies,
+  useCycleRestore,
   useCycleSetActive,
+  useCycleSoftDelete,
   useCycleUpdateStatus,
 } from '../api/cycles.queries';
+import {
+  canDeleteAdmissionCycle,
+  cycleDeleteBlockedReason,
+} from '../lib/cycle-delete-guard';
 import {
   fromListStatus,
   LIST_STATUS_LABEL,
@@ -67,6 +75,14 @@ import {
 } from '../components/cycles/cycleListStatus';
 
 const SETUP_LOCKED_HINT = 'متاح فقط للدورة النشطة';
+const CYCLE_DEP_LABELS: Record<string, string> = {
+  applicants: 'طلب متقدم',
+  applications: 'طلب متقدم',
+  submissions: 'طلب متقدم',
+  committees: 'لجنة',
+  payments: 'عملية دفع',
+  examPlans: 'خطة اختبار',
+};
 
 const ACTIVE_LABEL = 'نشطة';
 const INACTIVE_LABEL = 'غير نشطة';
@@ -84,10 +100,12 @@ function cycleSortTime(cycle: AdmissionCycle): number {
 
 export function CyclesPage(): JSX.Element {
   const navigate = useNavigate();
-  const { data, isLoading } = useCycles();
+  const [includeDeleted, setIncludeDeleted] = useState(false);
+  const { data, isLoading } = useCycles({ includeDeleted });
   const setActiveMut = useCycleSetActive();
   const updateStatusMut = useCycleUpdateStatus();
-  const removeMut = useCycleRemove();
+  const softDeleteMut = useCycleSoftDelete();
+  const restoreMut = useCycleRestore();
 
   /* Land in the first wizard step (إعدادات التقديم) and pin the chosen
    * cycle in sessionStorage so the wizard page can resolve it on mount. */
@@ -106,9 +124,10 @@ export function CyclesPage(): JSX.Element {
     cycle: AdmissionCycle;
     next: CycleListStatus;
   } | null>(null);
+  const deleteDepsQuery = useCycleDependencies(deleteTarget?.id ?? null);
 
   const activeCycle = useMemo(
-    () => (data ?? []).find((c) => c.isActive) ?? null,
+    () => (data ?? []).find((c) => c.isActive && !c.deletedAt) ?? null,
     [data],
   );
 
@@ -133,6 +152,12 @@ export function CyclesPage(): JSX.Element {
       entityKey: 'admin.cycles',
       entityLabelAr: 'دورات القبول',
       auditModule: 'cycles',
+      deleted: {
+        enabled: true,
+        isShowing: includeDeleted,
+        onToggle: setIncludeDeleted,
+        isDeleted: (c) => Boolean(c.deletedAt),
+      },
       export: {
         enabled: true,
         formats: ['csv', 'xlsx'],
@@ -153,7 +178,7 @@ export function CyclesPage(): JSX.Element {
         ],
       },
     }),
-    [],
+    [includeDeleted],
   );
 
   const confirmActivate = (): void => {
@@ -202,17 +227,16 @@ export function CyclesPage(): JSX.Element {
     });
   };
 
-  const confirmDelete = (): void => {
-    if (!deleteTarget || deleteTarget.isActive) return;
-    removeMut.mutate(deleteTarget.id, {
-      onSuccess: () => {
-        toast(`تم حذف دورة "${deleteTarget.nameAr}"`, 'success');
-        setDeleteTarget(null);
-      },
-      onError: (err) => {
-        toast((err as Error).message || 'تعذر حذف الدورة', 'danger');
-      },
-    });
+  const confirmDelete = async (reason: string): Promise<void> => {
+    if (!deleteTarget) return;
+    const blockedReason = cycleDeleteBlockedReason(deleteTarget);
+    if (blockedReason) {
+      toast(blockedReason, 'warning');
+      setDeleteTarget(null);
+      return;
+    }
+    await softDeleteMut.mutateAsync({ id: deleteTarget.id, reason });
+    toast(`تم حذف دورة "${deleteTarget.nameAr}"`, 'success');
   };
 
   const columns: DataTableColumn<AdmissionCycle>[] = [
@@ -247,6 +271,7 @@ export function CyclesPage(): JSX.Element {
         })),
       },
       render: (c) => {
+        if (c.deletedAt) return <Badge tone="warning">محذوف</Badge>;
         const ls = toListStatus(c.status);
         return (
           <div className="min-w-[10rem]">
@@ -285,7 +310,9 @@ export function CyclesPage(): JSX.Element {
         ],
       },
       render: (c) =>
-        c.isActive ? (
+        c.deletedAt ? (
+          <Badge tone="warning">محذوف</Badge>
+        ) : c.isActive ? (
           <Badge tone="success">
             <IconStamp width={12} height={12} className="me-1 inline-block" />
             {ACTIVE_LABEL}
@@ -299,6 +326,25 @@ export function CyclesPage(): JSX.Element {
       label: <span className="sr-only">إجراءات</span>,
       align: 'end',
       render: (c) => {
+        if (c.deletedAt) {
+          return (
+            <div className="flex min-w-[13rem] flex-wrap items-center justify-end gap-1.5">
+              <Button
+                variant="ghost"
+                size="sm"
+                leadingIcon={<RotateCcw size={12} strokeWidth={1.75} />}
+                onClick={() =>
+                  restoreMut.mutate(c.id, {
+                    onSuccess: () => toast(`تم استعادة "${c.nameAr}"`, 'success'),
+                    onError: (err) => toast((err as Error).message, 'danger'),
+                  })
+                }
+              >
+                استعادة
+              </Button>
+            </div>
+          );
+        }
         const isSetupDisabled = !c.isActive;
 
         /* Setup button — primary look on the active row; aria-disabled +
@@ -356,7 +402,7 @@ export function CyclesPage(): JSX.Element {
           </Button>
         );
 
-        const deleteSlot = c.isActive ? null : (
+        const deleteSlot = canDeleteAdmissionCycle(c) ? (
           <Button
             variant="ghost"
             size="sm"
@@ -365,6 +411,8 @@ export function CyclesPage(): JSX.Element {
           >
             حذف
           </Button>
+        ) : (
+          null
         );
 
         return (
@@ -523,28 +571,14 @@ export function CyclesPage(): JSX.Element {
           onAction={confirmStatusChange}
         />
 
-        <AlertDialog
+        <SoftDeleteDialog
           open={deleteTarget !== null}
-          onOpenChange={(next) => {
-            if (!next) setDeleteTarget(null);
-          }}
-          title="تأكيد حذف الدورة"
-          description={
-            deleteTarget ? (
-              <>
-                سيتم حذف دورة{' '}
-                <strong className="font-semibold text-ink-900">
-                  &quot;{deleteTarget.nameAr}&quot;
-                </strong>
-                . لا يمكن حذف الدورة النشطة، ولا يمكن حذف دورة مرتبطة بسجلات تشغيلية.
-              </>
-            ) : null
-          }
-          actionLabel="حذف"
-          cancelLabel="إلغاء"
-          tone="danger"
-          isActionLoading={removeMut.isPending}
-          onAction={confirmDelete}
+          entityNoun="هذه الدورة"
+          entityLabel={deleteTarget?.nameAr ?? ''}
+          dependencies={deleteDepsQuery.data ?? null}
+          dependencyLabels={CYCLE_DEP_LABELS}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={confirmDelete}
         />
 
       </CenteredShell>

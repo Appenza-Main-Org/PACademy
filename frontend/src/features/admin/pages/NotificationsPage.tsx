@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Bell, BellOff, Eye, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Bell, BellOff, Eye, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import {
   Badge,
   Button,
@@ -31,6 +31,7 @@ import {
   useAdminNotifications,
   useCreateAdminNotification,
   usePublishNotification,
+  useRestoreNotification,
   useSoftDeleteNotification,
   useUnpublishNotification,
   useUpdateAdminNotification,
@@ -78,12 +79,14 @@ const EMPTY_DRAFT: Omit<AdminNotification, 'id' | 'status' | 'createdAt'> = {
 export function NotificationsPage(): JSX.Element {
   const userId = useAuthStore((s) => s.user?.id ?? 'U-001');
   const [statusFilter, setStatusFilter] = useState<AdminNotificationStatus | 'all'>('all');
-  const listQuery = useAdminNotifications({ status: statusFilter });
+  const [includeDeleted, setIncludeDeleted] = useState(false);
+  const listQuery = useAdminNotifications({ status: statusFilter, includeDeleted });
   const createMut = useCreateAdminNotification();
   const updateMut = useUpdateAdminNotification();
   const publishMut = usePublishNotification();
   const unpublishMut = useUnpublishNotification();
   const deleteMut = useSoftDeleteNotification();
+  const restoreMut = useRestoreNotification();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<AdminNotification | null>(null);
@@ -116,6 +119,12 @@ export function NotificationsPage(): JSX.Element {
       entityKey: 'admin.notifications',
       entityLabelAr: 'الإشعارات',
       auditModule: 'notifications',
+      deleted: {
+        enabled: true,
+        isShowing: includeDeleted,
+        onToggle: setIncludeDeleted,
+        isDeleted: (n) => Boolean(n.deletedAt),
+      },
       export: {
         enabled: true,
         formats: ['csv', 'xlsx'],
@@ -147,7 +156,7 @@ export function NotificationsPage(): JSX.Element {
         ],
       },
     }),
-    [],
+    [includeDeleted],
   );
 
   const columns: DataTableColumn<AdminNotification>[] = [
@@ -190,6 +199,22 @@ export function NotificationsPage(): JSX.Element {
       render: (n) => <Badge tone={STATUS_TONE[n.status]}>{STATUS_LABEL[n.status]}</Badge>,
     },
     {
+      key: 'deletedAt',
+      label: 'حالة السجل',
+      sortable: true,
+      getSortValue: (n) => (n.deletedAt ? 1 : 0),
+      filter: {
+        kind: 'enum',
+        getValue: (n) => (n.deletedAt ? 'deleted' : 'active'),
+        options: [
+          { value: 'active', label: 'نشط' },
+          { value: 'deleted', label: 'محذوف' },
+        ],
+      },
+      render: (n) =>
+        n.deletedAt ? <Badge tone="warning">محذوف</Badge> : <Badge tone="success">نشط</Badge>,
+    },
+    {
       key: 'publishAt',
       label: 'النشر',
       sortable: true,
@@ -213,55 +238,73 @@ export function NotificationsPage(): JSX.Element {
       align: 'end',
       render: (n) => (
         <div className="inline-flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            leadingIcon={<Pencil size={12} strokeWidth={1.75} />}
-            onClick={() => {
-              setEditing(n);
-              setDrawerOpen(true);
-            }}
-          >
-            تعديل
-          </Button>
-          {(n.status === 'draft' || n.status === 'scheduled') && (
+          {n.deletedAt ? (
             <Button
               variant="ghost"
               size="sm"
-              leadingIcon={<Bell size={12} strokeWidth={1.75} />}
+              leadingIcon={<RotateCcw size={12} strokeWidth={1.75} />}
               onClick={() =>
-                publishMut.mutate(n.id, {
-                  onSuccess: () => toast('تم النشر', 'success'),
+                restoreMut.mutate(n.id, {
+                  onSuccess: () => toast(`تم استعادة "${n.titleAr}"`, 'success'),
                   onError: (err) => toast((err as Error).message, 'danger'),
                 })
               }
             >
-              نشر
+              استعادة
             </Button>
+          ) : (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                leadingIcon={<Pencil size={12} strokeWidth={1.75} />}
+                onClick={() => {
+                  setEditing(n);
+                  setDrawerOpen(true);
+                }}
+              >
+                تعديل
+              </Button>
+              {(n.status === 'draft' || n.status === 'scheduled') && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  leadingIcon={<Bell size={12} strokeWidth={1.75} />}
+                  onClick={() =>
+                    publishMut.mutate(n.id, {
+                      onSuccess: () => toast('تم النشر', 'success'),
+                      onError: (err) => toast((err as Error).message, 'danger'),
+                    })
+                  }
+                >
+                  نشر
+                </Button>
+              )}
+              {n.status === 'published' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  leadingIcon={<BellOff size={12} strokeWidth={1.75} />}
+                  onClick={() =>
+                    unpublishMut.mutate(n.id, {
+                      onSuccess: () => toast('تم سحب الإشعار', 'success'),
+                      onError: (err) => toast((err as Error).message, 'danger'),
+                    })
+                  }
+                >
+                  سحب
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                leadingIcon={<Trash2 size={12} strokeWidth={1.75} />}
+                onClick={() => setPendingDelete(n)}
+              >
+                حذف
+              </Button>
+            </>
           )}
-          {n.status === 'published' && (
-            <Button
-              variant="ghost"
-              size="sm"
-              leadingIcon={<BellOff size={12} strokeWidth={1.75} />}
-              onClick={() =>
-                unpublishMut.mutate(n.id, {
-                  onSuccess: () => toast('تم سحب الإشعار', 'success'),
-                  onError: (err) => toast((err as Error).message, 'danger'),
-                })
-              }
-            >
-              سحب
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            leadingIcon={<Trash2 size={12} strokeWidth={1.75} />}
-            onClick={() => setPendingDelete(n)}
-          >
-            حذف
-          </Button>
         </div>
       ),
     },

@@ -271,30 +271,17 @@ export function RolesPage(): JSX.Element {
         title="إدارة الأدوار والصلاحيات"
         subtitle="عدّل الأدوار النظامية وأنشئ أدواراً مخصصة بمصفوفة صلاحيات"
         actions={
-          <div className="flex items-center gap-2">
-            {isSuperAdmin && (
-              <label className="flex items-center gap-2 text-2xs text-ink-500">
-                <input
-                  type="checkbox"
-                  checked={includeDeleted}
-                  onChange={(e) => setIncludeDeleted(e.target.checked)}
-                  className="h-4 w-4 cursor-pointer accent-teal-500"
-                />
-                إظهار المحذوف
-              </label>
-            )}
-            <Button
-              variant="primary"
-              leadingIcon={<Plus size={14} strokeWidth={1.75} />}
-              onClick={() => {
-                setEditing(null);
-                setLabelArError(null);
-                setDrawerOpen(true);
-              }}
-            >
-              إضافة دور
-            </Button>
-          </div>
+          <Button
+            variant="primary"
+            leadingIcon={<Plus size={14} strokeWidth={1.75} />}
+            onClick={() => {
+              setEditing(null);
+              setLabelArError(null);
+              setDrawerOpen(true);
+            }}
+          >
+            إضافة دور
+          </Button>
         }
       />
 
@@ -312,6 +299,12 @@ export function RolesPage(): JSX.Element {
             entityKey: 'admin.roles',
             entityLabelAr: 'الأدوار',
             auditModule: 'roles',
+            deleted: {
+              enabled: isSuperAdmin,
+              isShowing: includeDeleted,
+              onToggle: setIncludeDeleted,
+              isDeleted: (r) => Boolean(r.deletedAt),
+            },
             export: {
               enabled: true,
               formats: ['csv', 'xlsx'],

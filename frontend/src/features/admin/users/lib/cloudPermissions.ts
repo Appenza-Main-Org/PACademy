@@ -41,6 +41,7 @@ export type CloudActionKey =
   | 'approve'
   | 'export'
   | 'toggle'
+  | 'show_deleted'
   | 'import'
   | 'sync'
   | 'reset';
@@ -109,6 +110,7 @@ export const CLOUD_ACTIONS: readonly CloudAction[] = [
   { key: 'approve',    nameAr: 'اعتماد' },
   { key: 'export',     nameAr: 'تصدير' },
   { key: 'toggle',     nameAr: 'تفعيل/تعطيل' },
+  { key: 'show_deleted', nameAr: 'عرض المحذوفات' },
   { key: 'import',     nameAr: 'استيراد' },
   { key: 'sync',       nameAr: 'مزامنة' },
   { key: 'reset',      nameAr: 'إعادة ضبط' },
@@ -119,8 +121,8 @@ type CapabilityList = readonly CloudActionKey[];
 const ROW_CAPABILITIES = {
   dashboard: ['view', 'export'],
   applicants: ['view', 'create', 'edit', 'delete', 'manage', 'transition', 'export', 'toggle'],
-  cycles: ['view', 'create', 'edit', 'delete', 'manage', 'transition', 'approve', 'export', 'toggle'],
-  categories: ['view', 'edit', 'delete', 'manage', 'approve', 'export', 'toggle'],
+  cycles: ['view', 'create', 'edit', 'delete', 'manage', 'transition', 'approve', 'export', 'toggle', 'show_deleted'],
+  categories: ['view', 'edit', 'delete', 'manage', 'approve', 'export', 'toggle', 'show_deleted'],
   application_setup: ['view', 'edit', 'manage', 'approve', 'toggle'],
   admission_rules: ['view', 'edit', 'manage', 'approve'],
   lookups: ['view', 'create', 'edit', 'delete', 'manage', 'transition', 'export', 'toggle'],
@@ -128,10 +130,10 @@ const ROW_CAPABILITIES = {
   applicant_grades: ['view', 'edit', 'delete', 'manage', 'approve', 'export', 'toggle', 'import'],
   committees_exam_config: ['view', 'create', 'edit', 'delete', 'manage', 'transition', 'approve', 'export', 'toggle', 'sync'],
   workflows: ['view', 'create', 'edit', 'delete', 'manage', 'transition', 'approve', 'export', 'toggle'],
-  users_roles: ['view', 'create', 'edit', 'delete', 'manage', 'transition', 'export', 'toggle', 'import', 'reset'],
+  users_roles: ['view', 'create', 'edit', 'delete', 'manage', 'transition', 'export', 'toggle', 'show_deleted', 'import', 'reset'],
   audit: ['view', 'export'],
   settings: ['view', 'edit', 'manage', 'approve', 'toggle'],
-  notifications: ['view', 'create', 'edit', 'delete', 'manage', 'transition', 'approve', 'export', 'toggle'],
+  notifications: ['view', 'create', 'edit', 'delete', 'manage', 'transition', 'approve', 'export', 'toggle', 'show_deleted'],
   applicant_payments: ['view', 'edit', 'manage', 'approve', 'export', 'toggle', 'sync'],
   exams_bank: ['view', 'create', 'edit', 'delete', 'manage', 'approve', 'export', 'import'],
   exams_exams: ['view', 'create', 'edit', 'delete', 'manage', 'approve', 'export'],
@@ -176,6 +178,7 @@ const CELL_PERMISSION_MAP: Record<CloudModuleKey, Partial<Record<CloudActionKey,
     approve: 'cycles:transition',
     export: 'cycles:view',
     toggle: 'cycles:transition',
+    show_deleted: 'cycles:show-deleted',
   },
   categories: {
     view: 'categories:view',
@@ -185,6 +188,7 @@ const CELL_PERMISSION_MAP: Record<CloudModuleKey, Partial<Record<CloudActionKey,
     approve: 'categories:edit',
     export: 'categories:view',
     toggle: 'categories:edit',
+    show_deleted: 'categories:show-deleted',
   },
   application_setup: {
     view: 'admission-setup:read',
@@ -258,6 +262,7 @@ const CELL_PERMISSION_MAP: Record<CloudModuleKey, Partial<Record<CloudActionKey,
     transition: 'users:edit',
     export: 'users:view',
     toggle: 'users:edit',
+    show_deleted: 'roles:show-deleted',
     import: 'users:create',
     reset: 'users:reset-2fa',
   },
@@ -282,6 +287,7 @@ const CELL_PERMISSION_MAP: Record<CloudModuleKey, Partial<Record<CloudActionKey,
     approve: 'notifications:publish',
     export: 'notifications:view',
     toggle: 'notifications:publish',
+    show_deleted: 'notifications:show-deleted',
   },
   applicant_payments: {
     view: 'payments:review',
@@ -432,6 +438,8 @@ const LEGACY_ACTION_MAP: Record<string, CloudActionKey | null> = {
   proctor: 'manage',
   export: 'export',
   toggle: 'toggle',
+  'show-deleted': 'show_deleted',
+  show_deleted: 'show_deleted',
   import: 'import',
   sync: 'sync',
   reset: 'reset',

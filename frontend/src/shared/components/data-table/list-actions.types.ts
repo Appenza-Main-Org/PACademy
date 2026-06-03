@@ -95,6 +95,18 @@ export interface DuplicateConfig<TRow> {
   guard?: (row: TRow) => string | null;
 }
 
+export interface DeletedDataConfig<TRow> {
+  enabled: boolean;
+  /** Whether the host page is currently listing soft-deleted records. */
+  isShowing: boolean;
+  /** Toggle deleted-record visibility. Host pages own refetch/query params. */
+  onToggle: (next: boolean) => void;
+  /** Row predicate used by DataTable to apply the deleted visual treatment. */
+  isDeleted: (row: TRow) => boolean;
+  /** Optional count shown beside the button when known. */
+  deletedCount?: number;
+}
+
 export interface RowActionsConfig<TRow> {
   /** Header label for the trailing actions column. */
   labelAr?: string;
@@ -114,6 +126,7 @@ export interface ListActionsConfig<TRow> {
   export?: ExportConfig<TRow>;
   import?: ImportConfig<unknown>;
   duplicate?: DuplicateConfig<TRow>;
+  deleted?: DeletedDataConfig<TRow>;
   rowActions?: RowActionsConfig<TRow>;
 }
 
@@ -142,7 +155,9 @@ export const ACTION_LABELS = {
   export: 'تصدير',
   import: 'استيراد',
   duplicate: 'نسخ',
-} as const satisfies Record<'export' | 'import' | 'duplicate', string>;
+  showDeleted: 'عرض المحذوفات',
+  hideDeleted: 'إخفاء المحذوفات',
+} as const satisfies Record<'export' | 'import' | 'duplicate' | 'showDeleted' | 'hideDeleted', string>;
 
 /** Render-time slot rendered by the `DataTable` toolbar. */
 export interface ListActionsToolbarSlot {

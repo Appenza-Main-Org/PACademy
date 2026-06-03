@@ -7,21 +7,23 @@
  * / delete affordances were retired alongside the lookup lockdown.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layers, Pencil } from 'lucide-react';
+import { Layers, Pencil, RotateCcw } from 'lucide-react';
 import {
+  Badge,
   Button,
   DataTable,
   EmptyState,
   ErrorState,
   LoadingState,
   PageHeader,
+  toast,
 } from '@/shared/components';
 import type { DataTableColumn, ListActionsConfig } from '@/shared/components';
 import type { ApplicantCategory } from '@/shared/types/domain';
 import { ROUTES } from '@/config/routes';
-import { useCategoriesAdmin } from '../api/categories.queries';
+import { useCategoriesAdmin, useCategoryRestore } from '../api/categories.queries';
 
 const DESCRIPTION_MAX_CHARS = 60;
 
@@ -31,13 +33,21 @@ function truncate(text: string, max: number): string {
 
 export function CategoriesListPage(): JSX.Element {
   const navigate = useNavigate();
-  const listQuery = useCategoriesAdmin({ includeDeleted: false });
+  const [includeDeleted, setIncludeDeleted] = useState(false);
+  const listQuery = useCategoriesAdmin({ includeDeleted });
+  const restoreMut = useCategoryRestore();
 
   const listActions: ListActionsConfig<ApplicantCategory> = useMemo(
     () => ({
       entityKey: 'admin.categories',
       entityLabelAr: 'فئات التقديم',
       auditModule: 'categories',
+      deleted: {
+        enabled: true,
+        isShowing: includeDeleted,
+        onToggle: setIncludeDeleted,
+        isDeleted: (c) => Boolean(c.deletedAt),
+      },
       export: {
         enabled: true,
         formats: ['csv', 'xlsx'],
@@ -48,7 +58,7 @@ export function CategoriesListPage(): JSX.Element {
         ],
       },
     }),
-    [],
+    [includeDeleted],
   );
 
   if (listQuery.isLoading) return <LoadingState variant="page" />;
@@ -92,19 +102,51 @@ export function CategoriesListPage(): JSX.Element {
       },
     },
     {
+      key: 'deletedAt',
+      label: 'الحالة',
+      sortable: true,
+      getSortValue: (c) => (c.deletedAt ? 1 : 0),
+      filter: {
+        kind: 'enum',
+        getValue: (c) => (c.deletedAt ? 'deleted' : 'active'),
+        options: [
+          { value: 'active', label: 'نشط' },
+          { value: 'deleted', label: 'محذوف' },
+        ],
+      },
+      render: (cat) =>
+        cat.deletedAt ? <Badge tone="warning">محذوف</Badge> : <Badge tone="success">نشط</Badge>,
+    },
+    {
       key: '_actions',
       label: <span className="sr-only">الإجراءات</span>,
       align: 'end',
       render: (cat) => (
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            leadingIcon={<Pencil size={12} strokeWidth={1.75} />}
-            onClick={() => navigate(ROUTES.admin.categoryEdit(cat.key))}
-          >
-            تعديل
-          </Button>
+          {cat.deletedAt ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              leadingIcon={<RotateCcw size={12} strokeWidth={1.75} />}
+              onClick={() =>
+                restoreMut.mutate(cat.key, {
+                  onSuccess: () => toast(`تم استعادة "${cat.labelAr}"`, 'success'),
+                  onError: (err) => toast((err as Error).message, 'danger'),
+                })
+              }
+            >
+              استعادة
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              leadingIcon={<Pencil size={12} strokeWidth={1.75} />}
+              onClick={() => navigate(ROUTES.admin.categoryEdit(cat.key))}
+            >
+              تعديل
+            </Button>
+          )}
         </div>
       ),
     },
