@@ -115,13 +115,20 @@ export function computeStepStatus(
       return anyHasExams ? 'complete' : 'in_progress';
     }
     case 'electronic_declaration':
-      /* Once the admin saves a declaration record (text or PDF), the
-       * step is done from their perspective. The earlier rule required
-       * a separate `نشر` click; admins routinely forgot that and got
-       * blocked at the approval gate even though they'd authored the
-       * declaration content. */
-      return declaration ? 'complete' : 'not_started';
+      /* A declaration row alone is not enough: legacy/backend records can
+       * exist before the admin has authored text or uploaded the PDF that
+       * applicants must acknowledge. */
+      return hasElectronicDeclarationContent(declaration) ? 'complete' : 'not_started';
   }
+}
+
+export function hasElectronicDeclarationContent(
+  declaration: ElectronicDeclaration | null | undefined,
+): boolean {
+  if (!declaration) return false;
+  if (declaration.bodyAr?.trim()) return true;
+  const doc = declaration.document;
+  return Boolean(doc?.fileName?.trim() && doc.fileUrl?.trim());
 }
 
 function openCategoryKeys(cycle: AdmissionCycle): string[] {

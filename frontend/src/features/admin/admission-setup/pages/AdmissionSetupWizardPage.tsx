@@ -34,6 +34,7 @@ import {
   Badge,
   Button,
   EmptyState,
+  toast,
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { cn } from '@/shared/lib/cn';
@@ -191,6 +192,11 @@ export function AdmissionSetupWizardPage(): JSX.Element {
   const handleNext = (): void => {
     if (isReview) return;
     if (isFinalConfigStep) {
+      const status = computeStepStatus(activeKey as AdmissionSetupStepKey, statusInputs);
+      if (status !== 'complete') {
+        toast('يجب إدخال نص الإقرار أو رفع ملف PDF قبل إرسال الدورة للاعتماد', 'warning');
+        return;
+      }
       goTo(REVIEW_KEY);
       return;
     }

@@ -37,6 +37,7 @@ import {
   usePublishDeclaration,
   useSetDeclaration,
 } from '../api/admission-setup.queries';
+import { hasElectronicDeclarationContent } from '../lib/step-status';
 import type { DeclarationDocument, DeclarationMode } from '../types';
 
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
@@ -200,6 +201,10 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
 
   const handlePublish = (): void => {
     if (!canWrite || !current) return;
+    if (!hasElectronicDeclarationContent(current)) {
+      toast('يجب إدخال نص الإقرار أو رفع ملف PDF قبل النشر', 'warning');
+      return;
+    }
     publishMut.mutate(current.id, {
       onSuccess: () => toast('تم نشر الإقرار للمتقدمين', 'success'),
       onError: (err) => toast((err as Error).message, 'danger'),
@@ -207,6 +212,7 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
   };
 
   const isPublished = Boolean(current?.publishedAt);
+  const hasDeclarationContent = hasElectronicDeclarationContent(current);
 
   return (
     <div className="flex flex-col gap-4">
@@ -232,7 +238,7 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
               variant="secondary"
               leadingIcon={<Send size={14} strokeWidth={1.75} />}
               onClick={handlePublish}
-              disabled={!canWrite || !current || isPublished || Boolean(pendingDoc) || dirty}
+              disabled={!canWrite || !current || !hasDeclarationContent || isPublished || Boolean(pendingDoc) || dirty}
               isLoading={publishMut.isPending}
             >
               نشر
