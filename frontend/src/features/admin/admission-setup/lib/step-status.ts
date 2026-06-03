@@ -16,6 +16,12 @@ import type {
   CommitteeDayBinding,
   ElectronicDeclaration,
 } from '../types';
+import {
+  findCategoriesMissingExams,
+  findCategoriesWithInvalidExamOrders,
+  hasPendingExamPlanDrafts,
+  type ExamPlanStepDraftState,
+} from './exam-plan-step';
 
 /**
  * Aggregated committee-binding snapshot consumed by the step-status check.
@@ -48,6 +54,8 @@ export interface StepStatusInputs {
   committees: Committee[];
   declaration: ElectronicDeclaration | null;
   committeeBindings?: CommitteeBindingsSnapshot | null;
+  applicationSettingsStatus?: AdmissionSetupStepStatus;
+  examPlanDraftState?: ExamPlanStepDraftState | null;
 }
 
 export function buildCommitteeBindingsSnapshot(
@@ -86,17 +94,13 @@ export function computeStepStatus(
   if (!cycle) return 'not_started';
 
   switch (key) {
-    case 'application_settings': {
-      const openCount = Object.values(cycle.openCategories ?? {}).filter((c) => c?.isOpen).length;
-      if (openCount === 0) return 'not_started';
-      return openCount > 0 ? 'complete' : 'in_progress';
-    }
+    case 'application_settings':
+      return inputs.applicationSettingsStatus ?? legacyApplicationSettingsStatus(cycle);
     case 'application_settings_review': {
       /* Read-only checkpoint — derives its status from the upstream
        * authoring step so the stepper doesn't show «لم يبدأ» on a step
        * that has nothing to start. */
-      const openCount = Object.values(cycle.openCategories ?? {}).filter((c) => c?.isOpen).length;
-      return openCount > 0 ? 'complete' : 'not_started';
+      return inputs.applicationSettingsStatus ?? legacyApplicationSettingsStatus(cycle);
     }
     case 'fees': {
       const fee = cycle.fees?.applicationFee ?? 0;
@@ -106,6 +110,19 @@ export function computeStepStatus(
       return 'not_started';
     }
     case 'exams': {
+      if (inputs.examPlanDraftState) {
+        const { activeCategories, draftsByCategory } = inputs.examPlanDraftState;
+        if (activeCategories.length === 0) return 'not_started';
+        if (hasPendingExamPlanDrafts(inputs.examPlanDraftState)) return 'in_progress';
+        const missing = findCategoriesMissingExams(activeCategories, draftsByCategory);
+        const invalidOrders = findCategoriesWithInvalidExamOrders(activeCategories, draftsByCategory);
+        if (missing.length === 0 && invalidOrders.length === 0) return 'complete';
+        const anyTouched = activeCategories.some(
+          (category) => (draftsByCategory[category.key]?.entries.length ?? 0) > 0,
+        );
+        return anyTouched ? 'in_progress' : 'not_started';
+      }
+
       const openKeys = openCategoryKeys(cycle);
       if (openKeys.length === 0) return 'not_started';
       const anyHasExams = openKeys.some((k) => {
@@ -129,6 +146,12 @@ export function hasElectronicDeclarationContent(
   if (declaration.bodyAr?.trim()) return true;
   const doc = declaration.document;
   return Boolean(doc?.fileName?.trim() && doc.fileUrl?.trim());
+}
+
+function legacyApplicationSettingsStatus(cycle: AdmissionCycle): AdmissionSetupStepStatus {
+  const openCount = Object.values(cycle.openCategories ?? {}).filter((c) => c?.isOpen).length;
+  if (openCount === 0) return 'not_started';
+  return openCount > 0 ? 'complete' : 'in_progress';
 }
 
 function openCategoryKeys(cycle: AdmissionCycle): string[] {

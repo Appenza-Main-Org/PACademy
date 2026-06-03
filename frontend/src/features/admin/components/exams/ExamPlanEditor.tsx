@@ -36,6 +36,10 @@ import type {
   CycleCategoryExamPlanEntry,
 } from '@/shared/types/domain';
 import {
+  hasExamPlanOrderErrors,
+  type ExamPlanCategoryDraft,
+} from '@/features/admin/admission-setup/lib/exam-plan-step';
+import {
   useAcademyExams,
   useExamPlan,
   useSaveExamPlan,
@@ -44,13 +48,20 @@ import {
 export interface ExamPlanEditorProps {
   cycleId: string;
   categoryId: ApplicantCategoryKey;
+  showSaveButton?: boolean;
+  onDraftChange?: (draft: ExamPlanCategoryDraft | null) => void;
 }
 
 /** Inline validation message surfaced when the order cell is empty,
  *  not a positive integer, or duplicated within the current category. */
 const ORDER_ERROR_MESSAGE = 'الترتيب يجب أن يكون رقمًا موجبًا وغير مكرر';
 
-export function ExamPlanEditor({ cycleId, categoryId }: ExamPlanEditorProps): JSX.Element {
+export function ExamPlanEditor({
+  cycleId,
+  categoryId,
+  showSaveButton = true,
+  onDraftChange,
+}: ExamPlanEditorProps): JSX.Element {
   const examsQuery = useAcademyExams();
   const planQuery = useExamPlan(cycleId, categoryId);
   const saveMut = useSaveExamPlan();
@@ -101,22 +112,24 @@ export function ExamPlanEditor({ cycleId, categoryId }: ExamPlanEditorProps): JS
    * (1, 2, 3… or 10, 20, 30…) depending on whether they want compact
    * or sparse numbering. */
   const orderErrors = useMemo<Record<string, boolean>>(() => {
-    const counts = new Map<number, number>();
-    for (const entry of entries) {
-      counts.set(entry.order, (counts.get(entry.order) ?? 0) + 1);
-    }
     const out: Record<string, boolean> = {};
     for (const entry of entries) {
-      const bad =
-        !Number.isInteger(entry.order) ||
-        entry.order < 1 ||
-        (counts.get(entry.order) ?? 0) > 1;
-      if (bad) out[entry.examId] = true;
+      if (hasExamPlanOrderErrorsForEntry(entry, entries)) out[entry.examId] = true;
     }
     return out;
   }, [entries]);
 
-  const hasOrderError = Object.keys(orderErrors).length > 0;
+  const hasOrderError = hasExamPlanOrderErrors(entries);
+
+  useEffect(() => {
+    onDraftChange?.({
+      entries,
+      hasOrderError,
+      isLoading: examsQuery.isLoading || planQuery.isLoading,
+    });
+  }, [entries, examsQuery.isLoading, hasOrderError, onDraftChange, planQuery.isLoading]);
+
+  useEffect(() => () => onDraftChange?.(null), [onDraftChange]);
 
   const reorderTo = (next: CycleCategoryExamPlanEntry[]): void => {
     setEntries(next.map((e, i) => ({ ...e, order: i + 1 })));
@@ -208,15 +221,17 @@ export function ExamPlanEditor({ cycleId, categoryId }: ExamPlanEditorProps): JS
             ]}
             disabled={unselectedExams.length === 0}
           />
-          <Button
-            variant="primary"
-            leadingIcon={<Save size={14} strokeWidth={1.75} />}
-            onClick={onSave}
-            isLoading={saveMut.isPending}
-            disabled={hasOrderError}
-          >
-            حفظ
-          </Button>
+          {showSaveButton && (
+            <Button
+              variant="primary"
+              leadingIcon={<Save size={14} strokeWidth={1.75} />}
+              onClick={onSave}
+              isLoading={saveMut.isPending}
+              disabled={hasOrderError}
+            >
+              حفظ
+            </Button>
+          )}
         </div>
       </header>
 
@@ -279,6 +294,14 @@ export function ExamPlanEditor({ cycleId, categoryId }: ExamPlanEditorProps): JS
       </div>
     </Card>
   );
+}
+
+function hasExamPlanOrderErrorsForEntry(
+  entry: CycleCategoryExamPlanEntry,
+  entries: CycleCategoryExamPlanEntry[],
+): boolean {
+  if (!Number.isInteger(entry.order) || entry.order < 1) return true;
+  return entries.filter((candidate) => candidate.order === entry.order).length > 1;
 }
 
 interface SortableExamRowProps {

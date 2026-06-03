@@ -27,21 +27,25 @@
  * breadcrumb/header — the wizard owns all chrome at this level.
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
 import {
   Badge,
   Button,
   EmptyState,
+  LoadingState,
   toast,
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { cn } from '@/shared/lib/cn';
+import { isConflictError } from '@/shared/lib/errors';
 import { hasPermission, useAuthStore } from '@/features/auth';
 import { useAdmissionSetupIsReadOnly } from '../components/AdmissionSetupShell';
 import { useCategoriesAdmin } from '@/features/admin/api/categories.queries';
 import { useCommittees } from '@/features/committees';
+import { useSaveExamPlan } from '@/features/admin/api/examPlans.queries';
+import { useLookup } from '@/features/lookups';
 import {
   ADMISSION_SETUP_STEPS,
   ADMISSION_SETUP_TOTAL_STEPS,
@@ -57,14 +61,34 @@ import {
   computeStepStatus,
   type StepStatusInputs,
 } from '../lib/step-status';
+import { computeApplicationSettingsStatus } from '../lib/application-settings-completion';
+import {
+  findCategoriesMissingExams,
+  findCategoriesWithInvalidExamOrders,
+  formatInvalidExamOrderCategoriesMessage,
+  formatMissingExamCategoriesMessage,
+  hasPendingExamPlanDrafts,
+  type ExamPlanStepDraftState,
+} from '../lib/exam-plan-step';
 import { writeDraft } from '../lib/wizard-draft';
+import { hydrateApplicationSettingsCycleDraft } from '../lib/application-settings-cycle-draft';
+import {
+  getWizardGateState,
+  isWizardStepSelectable,
+  type WizardStatusByKey,
+} from '../lib/wizard-gating';
 import {
   useCommitteeBindings,
   useElectronicDeclaration,
 } from '../api/admission-setup.queries';
 import { useExamScheduleAggregate } from '../api/examSchedule.queries';
 import { useCycleCommitteeBindings } from '../api/committeeBinding.queries';
+import {
+  applicationSettingsQueryOptions,
+  useCategoryConfigs,
+} from '../api/applicationSettings.queries';
 import { buildCommitteeBindingsSnapshot } from '../lib/step-status';
+import { useAdmissionSetupWizardStore } from '../store/wizardSharedState';
 import type { AdmissionSetupStepKey } from '../types';
 import { ApplicationSettingsPage } from './ApplicationSettingsPage';
 import { ApplicationSettingsReviewPage } from './ApplicationSettingsReviewPage';
@@ -93,6 +117,11 @@ export function AdmissionSetupWizardPage(): JSX.Element {
   const user = useAuthStore((s) => s.user);
   const canRead = Boolean(user && hasPermission(user.permissions, 'admission-setup:read'));
   const isReadOnly = useAdmissionSetupIsReadOnly();
+  const saveExamPlanMut = useSaveExamPlan();
+  const [examStepDraftState, setExamStepDraftState] =
+    useState<ExamPlanStepDraftState | null>(null);
+  const [isSavingExamStep, setIsSavingExamStep] = useState(false);
+  const [isApplicationSettingsHydrated, setIsApplicationSettingsHydrated] = useState(false);
 
   /* Sorted once; ADMISSION_SETUP_STEPS already arrives in order but the
    * sort is cheap and guards against config drift. */
@@ -110,12 +139,23 @@ export function AdmissionSetupWizardPage(): JSX.Element {
   const isReview = activeKey === REVIEW_KEY;
 
   const cycleId = cycleCtx.cycle?.id ?? null;
+  useEffect(() => {
+    setExamStepDraftState(null);
+  }, [cycleId]);
+
   const categoriesQuery = useCategoriesAdmin();
+  const categoryConfigsQuery = useCategoryConfigs(canRead);
+  const applicantCategoriesQuery = useLookup(
+    'applicant-categories',
+    { ...applicationSettingsQueryOptions, enabled: canRead },
+  );
   const committeesQuery = useCommittees();
   const examScheduleAggregateQuery = useExamScheduleAggregate(cycleId);
   const declarationQuery = useElectronicDeclaration(cycleId);
   const rosterQuery = useCommitteeBindings(cycleId, null);
   const cycleBindingsQuery = useCycleCommitteeBindings(cycleId);
+  const localApplicationSettingsRows = useAdmissionSetupWizardStore((s) => s.local);
+  const approvedApplicationSettingsRows = useAdmissionSetupWizardStore((s) => s.approved);
   const committeeBindingsSnapshot =
     cycleId &&
     examScheduleAggregateQuery.data &&
@@ -129,12 +169,62 @@ export function AdmissionSetupWizardPage(): JSX.Element {
         )
       : null;
 
-  /* Persist the wizard pointer on every step change so refresh / re-entry
-   * lands on the same step. Skip when no cycle is selected. */
   useEffect(() => {
-    if (!cycleId) return;
+    if (!cycleId) {
+      setIsApplicationSettingsHydrated(true);
+      return;
+    }
+    let cancelled = false;
+    setIsApplicationSettingsHydrated(false);
+    void hydrateApplicationSettingsCycleDraft(cycleId).finally(() => {
+      if (!cancelled) setIsApplicationSettingsHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [cycleId]);
+
+  const isKnownStep = validKeys.includes(activeKey);
+  const isGateLoading =
+    cycleCtx.isLoading ||
+    categoryConfigsQuery.isLoading ||
+    applicantCategoriesQuery.isLoading ||
+    !isApplicationSettingsHydrated;
+
+  const applicationSettingsStatus = computeApplicationSettingsStatus(
+    categoryConfigsQuery.data ?? [],
+    applicantCategoriesQuery.data ?? [],
+    [...localApplicationSettingsRows, ...approvedApplicationSettingsRows],
+  );
+
+  const statusInputs: StepStatusInputs = {
+    cycle: cycleCtx.cycle,
+    categories: categoriesQuery.data ?? [],
+    committees: committeesQuery.data ?? [],
+    declaration: declarationQuery.data ?? null,
+    committeeBindings: committeeBindingsSnapshot,
+    applicationSettingsStatus,
+    examPlanDraftState: examStepDraftState,
+  };
+
+  const statusByKey = orderedSteps.reduce<WizardStatusByKey>((acc, step) => {
+    acc[step.key] = computeStepStatus(step.key, statusInputs);
+    return acc;
+  }, {});
+  const gateState = getWizardGateState(
+    orderedSteps,
+    activeKey,
+    statusByKey,
+    REVIEW_KEY,
+  );
+
+  /* Persist the wizard pointer on every allowed step change so refresh /
+   * re-entry lands on the same step. Skip locked deep links because those
+   * immediately redirect to the first incomplete step. */
+  useEffect(() => {
+    if (!canRead || !cycleId || !isKnownStep || isGateLoading || gateState.redirectKey) return;
     writeDraft(cycleId, activeKey);
-  }, [cycleId, activeKey]);
+  }, [canRead, cycleId, activeKey, isKnownStep, isGateLoading, gateState.redirectKey]);
 
   if (!canRead) {
     return (
@@ -144,17 +234,21 @@ export function AdmissionSetupWizardPage(): JSX.Element {
     );
   }
 
-  if (!validKeys.includes(activeKey)) {
+  if (!isKnownStep) {
     return <Navigate to={ROUTES.admin.admissionSetup.wizard(orderedSteps[0]!.key)} replace />;
   }
 
-  const statusInputs: StepStatusInputs = {
-    cycle: cycleCtx.cycle,
-    categories: categoriesQuery.data ?? [],
-    committees: committeesQuery.data ?? [],
-    declaration: declarationQuery.data ?? null,
-    committeeBindings: committeeBindingsSnapshot,
-  };
+  if (isGateLoading) {
+    return (
+      <div className="px-4 py-8">
+        <LoadingState variant="list" />
+      </div>
+    );
+  }
+
+  if (gateState.redirectKey) {
+    return <Navigate to={ROUTES.admin.admissionSetup.wizard(gateState.redirectKey)} replace />;
+  }
 
   const stepperItems: VerticalStepDescriptor[] = orderedSteps.map((s) => ({
     key: s.key,
@@ -173,34 +267,102 @@ export function AdmissionSetupWizardPage(): JSX.Element {
   const activeIndex = isReview
     ? ADMISSION_SETUP_TOTAL_STEPS
     : orderedSteps.findIndex((s) => s.key === activeKey);
-  const isFirst = activeIndex === 0;
   const isFinalConfigStep = activeIndex === ADMISSION_SETUP_TOTAL_STEPS - 1;
 
   const goTo = (key: WizardStepKey): void => {
+    if (!isWizardStepSelectable(key, orderedSteps, statusByKey, REVIEW_KEY)) {
+      toast('أكمل الخطوة الحالية أولاً قبل الانتقال إلى الخطوات التالية.', 'warning');
+      return;
+    }
     navigate(ROUTES.admin.admissionSetup.wizard(key));
   };
 
   const handlePrev = (): void => {
-    if (isReview) {
-      goTo(orderedSteps[ADMISSION_SETUP_TOTAL_STEPS - 1]!.key);
-      return;
-    }
-    if (isFirst) return;
-    goTo(orderedSteps[activeIndex - 1]!.key);
+    if (!gateState.previousKey) return;
+    goTo(gateState.previousKey as WizardStepKey);
   };
 
-  const handleNext = (): void => {
+  const saveExamStepBeforeAdvance = async (): Promise<boolean> => {
+    if (isReadOnly) return true;
+    if (!cycleId) {
+      toast('يجب اختيار دورة قبول قبل الانتقال للخطوة التالية', 'warning');
+      return false;
+    }
+    if (!examStepDraftState || examStepDraftState.activeCategories.length === 0) {
+      toast('يرجى تفعيل فئة واحدة على الأقل من إعدادات التقديم قبل الانتقال للخطوة التالية', 'warning');
+      return false;
+    }
+    if (hasPendingExamPlanDrafts(examStepDraftState)) {
+      toast('جارِ تحميل خطط الاختبارات، حاول مرة أخرى بعد لحظات', 'info');
+      return false;
+    }
+
+    const missing = findCategoriesMissingExams(
+      examStepDraftState.activeCategories,
+      examStepDraftState.draftsByCategory,
+    );
+    if (missing.length > 0) {
+      toast(formatMissingExamCategoriesMessage(missing), 'danger');
+      return false;
+    }
+
+    const invalidOrders = findCategoriesWithInvalidExamOrders(
+      examStepDraftState.activeCategories,
+      examStepDraftState.draftsByCategory,
+    );
+    if (invalidOrders.length > 0) {
+      toast(formatInvalidExamOrderCategoriesMessage(invalidOrders), 'danger');
+      return false;
+    }
+
+    setIsSavingExamStep(true);
+    try {
+      for (const category of examStepDraftState.activeCategories) {
+        const draft = examStepDraftState.draftsByCategory[category.key];
+        if (!draft) continue;
+        await saveExamPlanMut.mutateAsync({
+          cycleId,
+          categoryId: category.key,
+          entries: draft.entries,
+        });
+      }
+      toast('تم حفظ خطط الاختبارات', 'success');
+      return true;
+    } catch (err) {
+      if (isConflictError(err) && err.conflictCode === 'EXAM_ORDER_DUPLICATE') {
+        toast(err.message, 'danger');
+      } else {
+        toast(err instanceof Error ? err.message : 'تعذر حفظ خطط الاختبارات', 'danger');
+      }
+      return false;
+    } finally {
+      setIsSavingExamStep(false);
+    }
+  };
+
+  const handleNext = async (): Promise<void> => {
     if (isReview) return;
+    if (activeKey === 'exams') {
+      const canAdvance = await saveExamStepBeforeAdvance();
+      if (!canAdvance) return;
+      if (!gateState.nextKey) return;
+      goTo(gateState.nextKey as WizardStepKey);
+      return;
+    }
+    if (!gateState.canGoNext || !gateState.nextKey) {
+      toast('أكمل بيانات الخطوة الحالية واحفظها قبل المتابعة.', 'warning');
+      return;
+    }
     if (isFinalConfigStep) {
       const status = computeStepStatus(activeKey as AdmissionSetupStepKey, statusInputs);
       if (status !== 'complete') {
         toast('يجب إدخال نص الإقرار أو رفع ملف PDF قبل إرسال الدورة للاعتماد', 'warning');
         return;
       }
-      goTo(REVIEW_KEY);
+      goTo(gateState.nextKey as WizardStepKey);
       return;
     }
-    goTo(orderedSteps[activeIndex + 1]!.key);
+    goTo(gateState.nextKey as WizardStepKey);
   };
 
   const activeStep = isReview ? null : orderedSteps.find((s) => s.key === activeKey);
@@ -296,6 +458,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
             <VerticalStepper
               steps={stepperItems}
               activeKey={activeKey}
+              disabledKeys={gateState.lockedKeys}
               onSelect={(k) => goTo(k as WizardStepKey)}
             />
           </aside>
@@ -332,6 +495,8 @@ export function AdmissionSetupWizardPage(): JSX.Element {
           >
             {isReview ? (
               <WizardReviewPage statusInputs={statusInputs} />
+            ) : activeKey === 'exams' ? (
+              <ExamsManagementPage onWizardDraftsChange={setExamStepDraftState} />
             ) : (
               STEP_RENDERERS[activeKey as AdmissionSetupStepKey]()
             )}
@@ -350,7 +515,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
             <Button
               variant="ghost"
               onClick={handlePrev}
-              disabled={isFirst && !isReview}
+              disabled={!gateState.previousKey}
               leadingIcon={<ArrowRight size={14} strokeWidth={1.75} />}
             >
               السابق
@@ -359,8 +524,12 @@ export function AdmissionSetupWizardPage(): JSX.Element {
               {!isReview && (
                 <Button
                   variant="primary"
-                  onClick={handleNext}
+                  onClick={() => {
+                    void handleNext();
+                  }}
                   trailingIcon={<ArrowLeft size={14} strokeWidth={1.75} />}
+                  isLoading={isSavingExamStep}
+                  disabled={isSavingExamStep || (activeKey !== 'exams' && !gateState.canGoNext)}
                 >
                   {isFinalConfigStep ? 'إرسال للاعتماد' : 'التالي'}
                 </Button>

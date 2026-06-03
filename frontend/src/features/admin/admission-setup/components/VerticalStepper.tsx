@@ -24,7 +24,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { Check } from 'lucide-react';
+import { Check, Lock } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
 
 export type VerticalStepState =
@@ -46,12 +46,14 @@ interface VerticalStepperProps {
   steps: readonly VerticalStepDescriptor[];
   activeKey: string;
   onSelect: (key: string) => void;
+  disabledKeys?: readonly string[];
 }
 
 export function VerticalStepper({
   steps,
   activeKey,
   onSelect,
+  disabledKeys = [],
 }: VerticalStepperProps): JSX.Element {
   const activeRef = useRef<HTMLButtonElement | null>(null);
 
@@ -83,6 +85,7 @@ export function VerticalStepper({
         {steps.map((step, i) => {
           const isLast = i === steps.length - 1;
           const isActive = step.key === activeKey;
+          const isDisabled = disabledKeys.includes(step.key);
           const connectorColor =
             step.state === 'complete' ? 'bg-teal-500' : 'bg-ink-200';
           return (
@@ -107,14 +110,16 @@ export function VerticalStepper({
                 ref={isActive ? activeRef : undefined}
                 onClick={() => onSelect(step.key)}
                 aria-current={isActive ? 'step' : undefined}
+                disabled={isDisabled}
                 aria-label={`${step.label} — الخطوة ${step.order}`}
                 className={cn(
                   'group flex flex-1 items-center gap-2 self-stretch rounded-md px-2.5 text-start',
                   'transition-colors duration-fast ease-standard',
                   'focus-visible:shadow-focus-teal focus-visible:outline-none',
+                  'disabled:cursor-not-allowed disabled:opacity-55',
                   isActive
                     ? 'bg-accent-50'
-                    : 'hover:bg-ink-50',
+                    : !isDisabled && 'hover:bg-ink-50',
                 )}
               >
                 <span
@@ -131,6 +136,14 @@ export function VerticalStepper({
                 >
                   {step.label}
                 </span>
+                {isDisabled && (
+                  <Lock
+                    size={12}
+                    strokeWidth={1.75}
+                    className="ms-auto shrink-0 text-ink-400"
+                    aria-hidden
+                  />
+                )}
               </button>
             </li>
           );

@@ -16,6 +16,7 @@ import {
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { useCycleUpdate } from '@/features/admin/api/cycles.queries';
+import { FawryConfigCard } from '@/features/admin/components/cycles/FawryConfigCard';
 import type { AdmissionCycle, CycleFees } from '@/shared/types/domain';
 import { AdmissionSetupShell, useAdmissionSetupCanWrite } from '../components/AdmissionSetupShell';
 import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
@@ -105,6 +106,7 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
           </Button>
         </div>
       </Card>
+      <FawryConfigCard cycle={cycle} readOnly={readOnly} />
     </div>
   );
 }

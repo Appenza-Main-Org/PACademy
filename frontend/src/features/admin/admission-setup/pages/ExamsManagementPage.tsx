@@ -8,7 +8,7 @@
  * to a single `(cycleId, categoryId)` plan — persistence is unchanged.
  */
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Button,
@@ -21,24 +21,44 @@ import { ROUTES } from '@/config/routes';
 import { ExamPlanEditor } from '@/features/admin/components/exams/ExamPlanEditor';
 import { APPLICANT_CATEGORY_KEYS, type AdmissionCycle, type ApplicantCategoryKey } from '@/shared/types/domain';
 import { AdmissionSetupShell } from '../components/AdmissionSetupShell';
+import { useIsInWizardMode } from '../components/WizardModeContext';
 import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
 import { useCategoryConfigs } from '../api/applicationSettings.queries';
+import type {
+  ExamPlanCategoryDraft,
+  ExamPlanDraftsByCategory,
+  ExamPlanStepDraftState,
+} from '../lib/exam-plan-step';
 
 function isApplicantCategoryKey(code: string): code is ApplicantCategoryKey {
   return (APPLICANT_CATEGORY_KEYS as readonly string[]).includes(code);
 }
 
-export function ExamsManagementPage(): JSX.Element {
+export interface ExamsManagementPageProps {
+  onWizardDraftsChange?: (state: ExamPlanStepDraftState | null) => void;
+}
+
+export function ExamsManagementPage({
+  onWizardDraftsChange,
+}: ExamsManagementPageProps): JSX.Element {
   const { cycle } = useAdmissionSetupCycle();
   return (
     <AdmissionSetupShell>
-      {!cycle ? <NoCycle /> : <Body cycle={cycle} />}
+      {!cycle ? <NoCycle /> : <Body cycle={cycle} onWizardDraftsChange={onWizardDraftsChange} />}
     </AdmissionSetupShell>
   );
 }
 
-function Body({ cycle }: { cycle: AdmissionCycle }): JSX.Element {
+function Body({
+  cycle,
+  onWizardDraftsChange,
+}: {
+  cycle: AdmissionCycle;
+  onWizardDraftsChange?: (state: ExamPlanStepDraftState | null) => void;
+}): JSX.Element {
   const configsQuery = useCategoryConfigs();
+  const inWizard = useIsInWizardMode();
+  const [draftsByCategory, setDraftsByCategory] = useState<ExamPlanDraftsByCategory>({});
 
   const activeCategories = useMemo(
     () =>
@@ -50,6 +70,24 @@ function Body({ cycle }: { cycle: AdmissionCycle }): JSX.Element {
         })),
     [configsQuery.data],
   );
+
+  const handleCategoryDraftChange = useCallback(
+    (categoryId: ApplicantCategoryKey, draft: ExamPlanCategoryDraft | null): void => {
+      setDraftsByCategory((prev) => {
+        if (!draft) {
+          const next = { ...prev };
+          delete next[categoryId];
+          return next;
+        }
+        return { ...prev, [categoryId]: draft };
+      });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    onWizardDraftsChange?.({ activeCategories, draftsByCategory });
+  }, [activeCategories, draftsByCategory, onWizardDraftsChange]);
 
   const [active, setActive] = useState<ApplicantCategoryKey | null>(null);
   const resolvedActive: ApplicantCategoryKey | null =
@@ -96,15 +134,46 @@ function Body({ cycle }: { cycle: AdmissionCycle }): JSX.Element {
             ))}
           </Tabs.List>
           {activeCategories.map((cat) => (
-            <Tabs.Panel key={cat.key} value={cat.key}>
+            <Tabs.Panel key={cat.key} value={cat.key} forceMount={inWizard ? true : undefined}>
               <div className="pt-2">
-                <ExamPlanEditor cycleId={cycle.id} categoryId={cat.key} />
+                <CategoryExamPlanPanel
+                  cycleId={cycle.id}
+                  category={cat}
+                  showSaveButton={!inWizard}
+                  onDraftChange={handleCategoryDraftChange}
+                />
               </div>
             </Tabs.Panel>
           ))}
         </Tabs>
       </Card>
     </div>
+  );
+}
+
+function CategoryExamPlanPanel({
+  cycleId,
+  category,
+  showSaveButton,
+  onDraftChange,
+}: {
+  cycleId: string;
+  category: { key: ApplicantCategoryKey; labelAr: string };
+  showSaveButton: boolean;
+  onDraftChange: (categoryId: ApplicantCategoryKey, draft: ExamPlanCategoryDraft | null) => void;
+}): JSX.Element {
+  const handleDraftChange = useCallback(
+    (draft: ExamPlanCategoryDraft | null) => onDraftChange(category.key, draft),
+    [category.key, onDraftChange],
+  );
+
+  return (
+    <ExamPlanEditor
+      cycleId={cycleId}
+      categoryId={category.key}
+      showSaveButton={showSaveButton}
+      onDraftChange={handleDraftChange}
+    />
   );
 }
 
