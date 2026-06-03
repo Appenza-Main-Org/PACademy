@@ -35,6 +35,7 @@
  *     loading={isLoading}
  *     empty={<EmptyState variant="no-applicants-yet" />}
  *     pagination={{ page, pageSize, total, onPageChange, onPageSizeChange }}
+ *     sequenceStart={1}
  *     onRowClick={(row) => navigate(`./${row.id}`)}
  *   />
  */
@@ -126,6 +127,9 @@ interface DataTableProps<TRow> {
   stickyHeader?: boolean;
 
   pagination?: DataTablePagination;
+  /** 1-based sequence value for the first displayed row.
+   *  Use this when pagination is rendered outside `DataTable`. */
+  sequenceStart?: number;
 
   caption?: string;
   className?: string;
@@ -164,6 +168,7 @@ export function DataTable<TRow>({
   zebraStripes,
   stickyHeader,
   pagination,
+  sequenceStart,
   caption,
   className,
   toolbar,
@@ -228,7 +233,9 @@ export function DataTable<TRow>({
     density === 'compact' ? 'px-3 py-2' : density === 'comfortable' ? 'px-5 py-4' : 'px-4 py-3';
   const visibleColumnCount =
     columns.length + 1 + (selectionMode !== 'none' ? 1 : 0) + (listActions?.rowActions ? 1 : 0);
-  const sequenceBase = pagination
+  const sequenceBase = sequenceStart !== undefined
+    ? Math.max(0, sequenceStart - 1)
+    : pagination
     ? Math.max(0, (pagination.page - 1) * pagination.pageSize)
     : 0;
 

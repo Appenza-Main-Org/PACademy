@@ -450,6 +450,7 @@ export function ApplicantGradesChangesPage(): JSX.Element {
                 rowKey={(r) => r.seat}
                 sort={sort}
                 onSortChange={setSort}
+                sequenceStart={from}
                 onRowClick={(r) => setOverlay({ kind: 'student', seat: r.seat })}
                 empty={
                   <EmptyState

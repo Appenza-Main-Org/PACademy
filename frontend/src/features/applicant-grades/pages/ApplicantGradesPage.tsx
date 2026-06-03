@@ -1128,6 +1128,7 @@ export function ApplicantGradesPage(): JSX.Element {
                 onSortChange={setSort}
                 columnFilters={columnFilters}
                 onColumnFiltersChange={handleColumnFiltersChange}
+                sequenceStart={from}
                 onRowClick={(r) => setOverlay({ kind: 'student', seat: r.seat })}
                 empty={
                   <EmptyState
