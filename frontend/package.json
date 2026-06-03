@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext ts,tsx --max-warnings 0",
     "test:rbac": "node scripts/test-admin-rbac.mjs",
+    "test:applicant-grades-import": "node scripts/test-applicant-grades-import-integrity.mjs",
     "test:routes": "node scripts/test-routes.mjs",
     "test:routes:prod": "node scripts/test-routes.mjs https://pa-cademy.vercel.app"
   },

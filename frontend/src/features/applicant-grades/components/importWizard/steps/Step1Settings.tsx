@@ -112,6 +112,7 @@ export function Step1Settings({ showRequiredErrors = false }: Step1SettingsProps
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
 
   function pick(e: React.ChangeEvent<HTMLInputElement>): void {
     const f = e.target.files?.[0];
@@ -129,6 +130,7 @@ export function Step1Settings({ showRequiredErrors = false }: Step1SettingsProps
 
   function drop(e: React.DragEvent): void {
     e.preventDefault();
+    setIsDraggingFile(false);
     const f = e.dataTransfer.files?.[0];
     if (!f) return;
     const err = validateFile({ name: f.name, size: f.size });
@@ -154,6 +156,8 @@ export function Step1Settings({ showRequiredErrors = false }: Step1SettingsProps
     showRequiredErrors && pickedCode == null ? 'الرجاء اختيار فئة المدرسة' : undefined;
   const yearError =
     showRequiredErrors && graduationYear == null ? 'الرجاء اختيار سنة التخرج' : undefined;
+  const requiredFileError =
+    showRequiredErrors && !file && !fileMeta ? 'الرجاء رفع ملف البيانات' : undefined;
 
   const meta = file ?? fileMeta;
 
@@ -236,13 +240,13 @@ export function Step1Settings({ showRequiredErrors = false }: Step1SettingsProps
         )}
       </Field>
 
-      <Field label="ملف البيانات" required error={fileError ?? undefined}>
+      <Field label="ملف البيانات" required error={fileError ?? requiredFileError}>
         <input
           ref={inputRef}
           type="file"
           accept={SUPPORTED_GRADES_EXTENSIONS.join(',')}
           onChange={pick}
-          className="pointer-events-none absolute h-px w-px opacity-0"
+          className="sr-only"
         />
         {!meta && (
           <div
@@ -256,16 +260,32 @@ export function Step1Settings({ showRequiredErrors = false }: Step1SettingsProps
               }
             }}
             onDrop={drop}
-            onDragOver={(e) => e.preventDefault()}
-            className={`flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md border-2 border-dashed bg-white px-4 py-5 text-ink-500 ${
-              fileError ? 'border-terra-300' : 'border-border-strong'
+            onDragEnter={() => setIsDraggingFile(true)}
+            onDragLeave={() => setIsDraggingFile(false)}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDraggingFile(true);
+            }}
+            className={`flex min-h-[152px] cursor-pointer flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed px-4 py-6 text-center transition-colors duration-fast ease-standard focus-visible:shadow-focus-teal focus-visible:outline-none ${
+              fileError || requiredFileError
+                ? 'border-terra-300 bg-terra-50 text-terra-700'
+                : isDraggingFile
+                  ? 'border-teal-500 bg-teal-50 text-teal-700'
+                  : 'border-border-strong bg-white text-ink-500 hover:border-teal-500 hover:bg-teal-50/40'
             }`}
           >
-            <Upload size={14} className="text-ink-500" aria-hidden />
-            <div className="text-sm font-medium text-ink-700">
-              اسحب الملف هنا أو انقر للاختيار
+            <div className="grid h-11 w-11 place-items-center rounded-md border border-border-subtle bg-white text-teal-700 shadow-xs">
+              <Upload size={18} strokeWidth={1.75} aria-hidden />
             </div>
-            <div className="text-2xs text-ink-500">
+            <div className="text-sm font-semibold text-ink-900">
+              اسحب الملف هنا أو انقر لاختياره
+            </div>
+            <div className="max-w-md text-2xs leading-relaxed text-ink-500">
+              يقبل ملفات Access وExcel وCSV حتى{' '}
+              <span className="font-en">{MAX_FILE_SIZE_MB}</span> م.ب. بعد الاختيار ستنتقل
+              الخطوة التالية لقراءة الجداول.
+            </div>
+            <div className="rounded-pill bg-ink-50 px-3 py-1 text-2xs text-ink-600">
               <span className="font-en" dir="ltr">
                 {SUPPORTED_GRADES_EXTENSIONS.join(' · ')}
               </span>
@@ -273,9 +293,9 @@ export function Step1Settings({ showRequiredErrors = false }: Step1SettingsProps
           </div>
         )}
         {meta && (
-          <div className="flex items-center gap-3 rounded-md border border-success bg-success-bg p-3.5">
-            <div className="grid h-10 w-10 place-items-center rounded-md border border-success bg-white text-success">
-              <Sheet size={14} aria-hidden />
+          <div className="flex items-center gap-3 rounded-md border border-success bg-success-bg p-3.5 shadow-xs">
+            <div className="grid h-11 w-11 place-items-center rounded-md border border-success bg-white text-success">
+              <Sheet size={16} strokeWidth={1.75} aria-hidden />
             </div>
             <div className="min-w-0 flex-1">
               <div className="overflow-hidden text-ellipsis whitespace-nowrap text-xs font-semibold text-ink-900">
@@ -289,7 +309,7 @@ export function Step1Settings({ showRequiredErrors = false }: Step1SettingsProps
               type="button"
               onClick={() => setFile(null)}
               aria-label="إزالة"
-              className="grid h-7 w-7 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-ink-500 hover:bg-white"
+              className="grid h-8 w-8 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-ink-500 hover:bg-white focus-visible:shadow-focus-teal focus-visible:outline-none"
             >
               <X size={14} />
             </button>

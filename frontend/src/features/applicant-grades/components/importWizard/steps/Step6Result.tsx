@@ -135,8 +135,28 @@ export function Step6Result(): JSX.Element {
 
   const groups = useMemo<ImportReportGroup[]>(() => {
     const byCode = new Map<ImportGroupCode, ImportReportGroup>();
-    for (const group of importResult?.groups ?? []) byCode.set(group.code, group);
-    for (const group of integrityGroups) byCode.set(group.code, group);
+    const appendGroup = (group: ImportReportGroup): void => {
+      const existing = byCode.get(group.code);
+      if (!existing) {
+        byCode.set(group.code, { ...group, rows: [...group.rows] });
+        return;
+      }
+      const seenRows = new Set(existing.rows.map((row) => row.sourceRowIndex));
+      const rows = [...existing.rows];
+      for (const row of group.rows) {
+        if (seenRows.has(row.sourceRowIndex)) continue;
+        rows.push(row);
+      }
+      byCode.set(group.code, {
+        ...existing,
+        rows,
+        availableActions: Array.from(
+          new Set([...existing.availableActions, ...group.availableActions]),
+        ),
+      });
+    };
+    for (const group of importResult?.groups ?? []) appendGroup(group);
+    for (const group of integrityGroups) appendGroup(group);
     return Array.from(byCode.values());
   }, [importResult?.groups, integrityGroups]);
   const skippedExistingCount = alreadyImported.length;

@@ -18,6 +18,7 @@
  */
 
 import { serializeCsv } from '@/shared/lib/csv';
+import { isValidNationalId } from '@/shared/lib/national-id';
 import type { ImportReport, NormalisedRow } from '../types';
 import { buildUploadDuplicates } from './buildDiff';
 
@@ -59,7 +60,7 @@ export interface DuplicateAudit {
 }
 
 export interface IntegrityAuditRow {
-  code: 'MISSING_REQUIRED' | 'GRADE_OUT_OF_RANGE' | 'UNREADABLE_VALUE';
+  code: 'INVALID_NID' | 'MISSING_REQUIRED' | 'GRADE_OUT_OF_RANGE' | 'UNREADABLE_VALUE';
   labelAr: string;
   sourceRowIndex: number;
   nationalId: string | null;
@@ -79,9 +80,15 @@ export function summarizeIntegrityDecisions(
 ): IntegrityDecisionSummary {
   const rejectedSourceRows = new Set<number>();
   let pendingOutOfRangeCount = 0;
+  const hardRejectedSourceRows = new Set(
+    rows
+      .filter((row) => row.code !== 'GRADE_OUT_OF_RANGE')
+      .map((row) => row.sourceRowIndex),
+  );
 
   for (const row of rows) {
     if (row.code === 'GRADE_OUT_OF_RANGE') {
+      if (hardRejectedSourceRows.has(row.sourceRowIndex)) continue;
       const decision = outOfRangeDecisions[row.sourceRowIndex];
       if (decision === 'accept') continue;
       if (decision === 'reject') {
@@ -187,6 +194,17 @@ export function buildIntegrityAuditRows(input: {
         nameAr: row.nameAr,
         totalGrade: row.totalGrade,
         detail: `حقول مفقودة: ${missing.join('، ')}`,
+      });
+    }
+    if (row.nationalId && !isValidNationalId(row.nationalId)) {
+      out.push({
+        code: 'INVALID_NID',
+        labelAr: 'رقم قومي غير صالح',
+        sourceRowIndex: row.sourceRowIndex,
+        nationalId: row.nationalId,
+        nameAr: row.nameAr,
+        totalGrade: row.totalGrade,
+        detail: `الرقم القومي يجب أن يتكون من 14 رقمًا صالحًا. القيمة الحالية: ${row.nationalId}`,
       });
     }
 

@@ -54,21 +54,43 @@ export function Step3ColumnMapping(): JSX.Element {
 
   const sourceOptions = table.columns.map((c) => ({ value: c, label: c }));
   const mappedColumns = new Set(Object.values(mapping).filter((c): c is string => c !== null));
+  const requiredCount = ORDERED_TARGET_FIELDS.filter((field) => field.required).length;
+  const mappedRequiredCount = ORDERED_TARGET_FIELDS.filter(
+    (field) => field.required && mapping[field.key] != null,
+  ).length;
+  const mappedCount = mappedColumns.size;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-      <section>
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <h3 className="m-0 text-xs font-semibold uppercase text-ink-500">ربط الأعمدة</h3>
+      <section className="min-w-0">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-border-subtle bg-ink-50/50 px-3.5 py-2.5">
+          <div className="min-w-0">
+            <h3 className="m-0 text-xs font-semibold uppercase text-ink-700">ربط الأعمدة</h3>
+            <p className="m-0 mt-1 text-2xs text-ink-500">
+              يمكن مسح أي اختيار من علامة الإزالة داخل الحقل، ثم اختيار عمود آخر.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-2xs text-ink-500">
+            <Badge tone={mappedRequiredCount === requiredCount ? 'success' : 'warning'}>
+              <span className="font-en">{mappedRequiredCount}</span> /{' '}
+              <span className="font-en">{requiredCount}</span> مطلوب
+            </Badge>
+            <Badge tone="neutral">
+              <span className="font-en">{mappedCount}</span> عمود مربوط
+            </Badge>
+          </div>
         </div>
         <ul className="m-0 flex list-none flex-col gap-3 p-0">
           {ORDERED_TARGET_FIELDS.map((d) => {
             const value = mapping[d.key];
             return (
-              <li key={d.key}>
+              <li
+                key={d.key}
+                className="rounded-md border border-border-subtle bg-white px-3 py-2.5 shadow-xs"
+              >
                 <Field
                   label={
-                    <span className="flex items-center gap-2">
+                    <span className="flex items-center gap-2 text-sm">
                       <span>{d.labelAr}</span>
                       <Badge tone={d.required ? 'danger' : 'neutral'}>
                         {d.required ? 'مطلوب' : 'اختياري'}
@@ -82,6 +104,7 @@ export function Step3ColumnMapping(): JSX.Element {
                     options={sourceOptions}
                     placeholder="اختر العمود في الملف"
                     ariaLabel={`ربط ${d.labelAr}`}
+                    clearable
                     triggerClassName={IMPORT_DROPDOWN_TRIGGER_CLASS}
                   />
                 </Field>
@@ -91,8 +114,13 @@ export function Step3ColumnMapping(): JSX.Element {
         </ul>
       </section>
 
-      <section>
-        <h3 className="mb-3 text-xs font-semibold uppercase text-ink-500">معاينة أول 20 صف</h3>
+      <section className="min-w-0">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h3 className="m-0 text-xs font-semibold uppercase text-ink-700">معاينة أول 20 صف</h3>
+          <span className="text-2xs text-ink-500">
+            الأعمدة المربوطة تظهر بخلفية ذهبية خفيفة
+          </span>
+        </div>
         <div className="overflow-auto rounded-md border border-border-subtle bg-white">
           <table className="w-full border-collapse text-2xs">
             <thead className="bg-ink-50">

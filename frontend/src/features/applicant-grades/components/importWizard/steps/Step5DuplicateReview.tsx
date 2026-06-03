@@ -148,7 +148,14 @@ export function Step5DuplicateReview(): JSX.Element {
   }
 
   const dup = report.groups.find((g) => g.code === 'DUPLICATE_NID')?.rows.length ?? 0;
-  const invalid = report.groups.find((g) => g.code === 'INVALID_NID')?.rows.length ?? 0;
+  const invalidRowIndexes = new Set<number>();
+  for (const row of report.groups.find((g) => g.code === 'INVALID_NID')?.rows ?? []) {
+    invalidRowIndexes.add(row.sourceRowIndex);
+  }
+  for (const row of integrityRows) {
+    if (row.code === 'INVALID_NID') invalidRowIndexes.add(row.sourceRowIndex);
+  }
+  const invalid = invalidRowIndexes.size;
   const missing = integrityRows.filter((row) => row.code === 'MISSING_REQUIRED').length;
   const outOfRange = integrityRows.filter((row) => row.code === 'GRADE_OUT_OF_RANGE').length;
   const unreadable = integrityRows.filter((row) => row.code === 'UNREADABLE_VALUE').length;
