@@ -13,12 +13,23 @@ const outFile = path.join(outDir, 'applicant-grades-commit-contract.mjs');
 
 const apiClientStub = `
 globalThis.__applicantGradesCommitCalls = [];
+globalThis.__applicantGradesGetCalls = [];
+globalThis.__applicantGradesPostCalls = [];
 export const apiClient = {
   post: async (url, payload) => {
+    globalThis.__applicantGradesPostCalls.push({ url, payload });
+    if (url.endsWith('/v2/preflight')) {
+      return { totals: { received: 1, imported: 1, skipped: 0, failed: 0 }, groups: [] };
+    }
     globalThis.__applicantGradesCommitCalls.push({ url, payload });
     return { insertedCount: 1, failedCount: 0, alreadyImportedCount: 0 };
   },
-  get: async () => null,
+  get: async (url, options) => {
+    globalThis.__applicantGradesGetCalls.push({ url, options });
+    if (url.endsWith('/export')) return [];
+    if (options?.query) return { rows: [], total: 0 };
+    return [];
+  },
   delete: async () => null,
   patch: async () => null
 };
@@ -64,6 +75,37 @@ await writeFile(
   `
   import { gradesService } from '../src/features/applicant-grades/api/grades.service';
   export async function runContractProbe() {
+    await gradesService.list();
+    await gradesService.listPaginated({
+      page: 1,
+      pageSize: 25,
+      search: '',
+      sort: null,
+      gender: 'all',
+      branch: 'all',
+      graduationYear: 'all',
+      schoolCategoryCode: 'all',
+      changedOnly: false
+    });
+    await gradesService.exportAll({ search: '', sort: null });
+    await gradesService.runImportPreflight({
+      rows: [{
+        nationalId: '30601232335315',
+        seatingNumber: '1000992',
+        nameAr: 'طالب تجريبي',
+        gender: 'male',
+        track: 'علمي',
+        graduationYear: 2026,
+        totalGrade: 410,
+        maxGrade: 410,
+        schoolCategory: 'SCH-01',
+        examRound: null,
+        schoolName: 'مدرسة اختبار',
+        regionName: 'القاهرة',
+        sourceRowIndex: 1
+      }],
+      graduationYear: 2026
+    });
     await gradesService.runImportCommit({
       rows: [{
         nationalId: '30601232335315',
@@ -89,7 +131,11 @@ await writeFile(
         '30601232335315': { action: 'pick-row', pickedSourceRowIndex: 1 }
       }
     });
-    return globalThis.__applicantGradesCommitCalls;
+    return {
+      getCalls: globalThis.__applicantGradesGetCalls,
+      postCalls: globalThis.__applicantGradesPostCalls,
+      commitCalls: globalThis.__applicantGradesCommitCalls
+    };
   }
   `,
 );
@@ -106,17 +152,26 @@ try {
   });
 
   const { runContractProbe } = await import(pathToFileURL(outFile).href);
-  const calls = await runContractProbe();
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].url, '/api/admin/applicant-grades/v2/commit');
-  assert.deepEqual(calls[0].payload.existingDiffDecisions, [
+  const { getCalls, postCalls, commitCalls } = await runContractProbe();
+  assert.deepEqual(
+    getCalls.map((call) => call.url),
+    [
+      '/api/admin/applicant-grades',
+      '/api/admin/applicant-grades',
+      '/api/admin/applicant-grades/export',
+    ],
+  );
+  assert.equal(postCalls[0].url, '/api/admin/applicant-grades/v2/preflight');
+  assert.equal(commitCalls.length, 1);
+  assert.equal(commitCalls[0].url, '/api/admin/applicant-grades/v2/commit');
+  assert.deepEqual(commitCalls[0].payload.existingDiffDecisions, [
     { nationalId: '30601232335315', action: 'override' },
   ]);
-  assert.deepEqual(calls[0].payload.uploadDuplicateDecisions, [
+  assert.deepEqual(commitCalls[0].payload.uploadDuplicateDecisions, [
     { nationalId: '30601232335315', action: 'pick-row', sourceRowIndex: 1 },
   ]);
 
-  console.log('applicant grades commit contract tests passed');
+  console.log('applicant grades service contract tests passed');
 } finally {
   await rm(outDir, { recursive: true, force: true });
 }

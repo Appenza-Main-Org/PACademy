@@ -2,8 +2,8 @@
  * Applicant Grades — service layer.
  *
  * INTEGRATION CONTRACT:
- *   GET    /api/grades
- *   GET    /api/grades/export
+ *   GET    /api/admin/applicant-grades
+ *   GET    /api/admin/applicant-grades/export
  *   GET    /api/admin/applicant-grades/by-nid/:nid?cycleId=
  *   POST   /api/grades/clear
  *   POST   /api/grades/delete
@@ -13,8 +13,8 @@
  *   PATCH  /api/grades/:seat/override-max
  *   POST   /api/grades/import/stage
  *   POST   /api/grades/import/commit
- *   POST   /api/grades/v2/preflight
- *   POST   /api/grades/v2/commit
+ *   POST   /api/admin/applicant-grades/v2/preflight
+ *   POST   /api/admin/applicant-grades/v2/commit
  */
 
 import { apiClient } from '@/shared/lib/api-client';
@@ -35,6 +35,7 @@ import type {
 } from '../types';
 
 const GRADES_API = '/api/grades';
+const ADMIN_GRADES_API = '/api/admin/applicant-grades';
 const IMPORT_COMMIT_CHUNK_SIZE = 5000;
 const IMPORT_PREFLIGHT_CHUNK_SIZE = 5000;
 const IMPORT_PREFLIGHT_GROUP_SAMPLE_LIMIT = 1000;
@@ -137,7 +138,7 @@ function toGradesQuery(
 
 export const gradesService = {
   async list(): Promise<GradeRow[]> {
-    return apiClient.get<GradeRow[]>(GRADES_API);
+    return apiClient.get<GradeRow[]>(ADMIN_GRADES_API);
   },
 
   async findByNationalId(nid: string, cycleId: string): Promise<GradeRow | null> {
@@ -226,7 +227,7 @@ export const gradesService = {
     for (let offset = 0; offset < totalRows; offset += IMPORT_PREFLIGHT_CHUNK_SIZE) {
       const chunk = rows.slice(offset, offset + IMPORT_PREFLIGHT_CHUNK_SIZE);
       const report = await apiClient.post<ImportReport>(
-        `${GRADES_API}/v2/preflight`,
+        `${ADMIN_GRADES_API}/v2/preflight`,
         { ...payload, rows: chunk },
       );
 
@@ -313,7 +314,7 @@ export const gradesService = {
     pageSize: number;
     sort?: ApplicantGradesSort | null;
   }): Promise<PaginatedGradesResult> {
-    return apiClient.get<PaginatedGradesResult>(GRADES_API, {
+    return apiClient.get<PaginatedGradesResult>(ADMIN_GRADES_API, {
       query: toGradesQuery(input),
     });
   },
@@ -321,7 +322,7 @@ export const gradesService = {
   async exportAll(input: FilterInput & {
     sort?: ApplicantGradesSort | null;
   }): Promise<GradeRow[]> {
-    return apiClient.get<GradeRow[]>(`${GRADES_API}/export`, {
+    return apiClient.get<GradeRow[]>(`${ADMIN_GRADES_API}/export`, {
       query: toGradesQuery(input),
     });
   },
