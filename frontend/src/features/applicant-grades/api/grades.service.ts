@@ -265,6 +265,15 @@ export const gradesService = {
     selectedSchoolCategories: string[];
     maxGradeByCategory: Record<string, number>;
     perGroupActions: Partial<Record<string, ImportGroupAction>>;
+    existingDiffDecisions?: Record<string, 'accept' | 'reject' | 'pending'>;
+    uploadDuplicateDecisions?: Record<
+      string,
+      | { action: 'pick-higher' }
+      | { action: 'pick-lower' }
+      | { action: 'pick-specific'; pickedTotal: number }
+      | { action: 'pick-row'; pickedSourceRowIndex: number }
+      | { action: 'reject' }
+    >;
     onProgress?: (progress: ImportCommitProgress) => void;
   }): Promise<ImportCommitResult> {
     const { rows, onProgress, ...payload } = input;
@@ -283,8 +292,8 @@ export const gradesService = {
     for (let offset = 0; offset < totalRows; offset += IMPORT_COMMIT_CHUNK_SIZE) {
       const chunk = rows.slice(offset, offset + IMPORT_COMMIT_CHUNK_SIZE);
       const result = await apiClient.post<ImportCommitResult>(
-        `${GRADES_API}/v2/commit`,
-        { ...payload, rows: chunk },
+        '/api/admin/applicant-grades/v2/commit',
+        toBackendImportCommitPayload({ ...payload, rows: chunk }),
       );
       aggregate.insertedCount += result.insertedCount;
       aggregate.failedCount += result.failedCount;
@@ -317,6 +326,57 @@ export const gradesService = {
     });
   },
 };
+
+function toBackendImportCommitPayload(input: {
+  rows: NormalisedRow[];
+  graduationYear: number;
+  selectedSchoolCategories: string[];
+  maxGradeByCategory: Record<string, number>;
+  perGroupActions: Partial<Record<string, ImportGroupAction>>;
+  existingDiffDecisions?: Record<string, 'accept' | 'reject' | 'pending'>;
+  uploadDuplicateDecisions?: Record<
+    string,
+    | { action: 'pick-higher' }
+    | { action: 'pick-lower' }
+    | { action: 'pick-specific'; pickedTotal: number }
+    | { action: 'pick-row'; pickedSourceRowIndex: number }
+    | { action: 'reject' }
+  >;
+}): {
+  rows: NormalisedRow[];
+  graduationYear: number;
+  selectedSchoolCategories: string[];
+  maxGradeByCategory: Record<string, number>;
+  perGroupActions: Partial<Record<string, ImportGroupAction>>;
+  existingDiffDecisions: Array<{ nationalId: string; action: 'override' | 'skip' }>;
+  uploadDuplicateDecisions: Array<{
+    nationalId: string;
+    action: 'pick-row' | 'reject' | 'pick-higher' | 'pick-lower' | 'pick-specific';
+    sourceRowIndex?: number;
+  }>;
+} {
+  return {
+    rows: input.rows,
+    graduationYear: input.graduationYear,
+    selectedSchoolCategories: input.selectedSchoolCategories,
+    maxGradeByCategory: input.maxGradeByCategory,
+    perGroupActions: input.perGroupActions,
+    existingDiffDecisions: Object.entries(input.existingDiffDecisions ?? {})
+      .filter(([, decision]) => decision !== 'pending')
+      .map(([nationalId, decision]) => ({
+        nationalId,
+        action: decision === 'accept' ? 'override' : 'skip',
+      })),
+    uploadDuplicateDecisions: Object.entries(input.uploadDuplicateDecisions ?? {})
+      .map(([nationalId, decision]) => ({
+        nationalId,
+        action: decision.action,
+        ...(decision.action === 'pick-row'
+          ? { sourceRowIndex: decision.pickedSourceRowIndex }
+          : {}),
+      })),
+  };
+}
 
 export function hasGradeChange(r: GradeRow): boolean {
   return r.gradeChangedAt != null || r.log.length > 0;
