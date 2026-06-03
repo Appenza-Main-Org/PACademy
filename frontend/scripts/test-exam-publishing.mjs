@@ -30,6 +30,7 @@ execFileSync(
 
 const {
   buildExamRoomUrl,
+  canStartWithBiometricGate,
   createPublishToken,
   deriveExamIdFromPublishToken,
   getPublishedExamRoomUrl,
@@ -67,6 +68,28 @@ assert.equal(isIpAllowed('10.20.14.77', ['10.20.14.*']), true);
 assert.equal(isIpAllowed('10.20.15.77', ['10.20.14.*']), false);
 assert.equal(isIpAllowed('10.20.14.11', []), false);
 assert.equal(isIpAllowed('', ['10.20.14.11']), false);
+assert.equal(
+  canStartWithBiometricGate([
+    { key: 'applicant', ok: true },
+    { key: 'today', ok: true },
+    { key: 'assignment', ok: true },
+    { key: 'suspension', ok: true },
+    { key: 'device', ok: false },
+    { key: 'window', ok: false },
+    { key: 'duplicate', ok: true },
+  ]),
+  true,
+);
+assert.equal(
+  canStartWithBiometricGate([
+    { key: 'applicant', ok: true },
+    { key: 'today', ok: true },
+    { key: 'assignment', ok: false },
+    { key: 'suspension', ok: true },
+    { key: 'duplicate', ok: true },
+  ]),
+  false,
+);
 
 rmSync(outDir, { recursive: true, force: true });
 console.log('exam publishing helpers ok');

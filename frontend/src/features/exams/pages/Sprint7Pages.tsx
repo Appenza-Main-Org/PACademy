@@ -97,6 +97,7 @@ import { downloadBlob } from '@/shared/lib/download';
 import { examsService } from '../api/exams.service';
 import {
   buildExamRoomUrl,
+  canStartWithBiometricGate,
   createPublishToken,
   getPublishedExamRoomUrl,
   normaliseIpAllowlist,
@@ -1268,7 +1269,8 @@ function LiveExamExperience({
       }),
     onSuccess: async (result) => {
       setValidation(result);
-      if (!result.ok || !exam) return;
+      const canStart = result.ok || (isExamRoom && canStartWithBiometricGate(result.checks));
+      if (!canStart || !exam) return;
       const attempt = await examsService.startAttempt(exam.id, result.applicantId ?? applicantCode);
       setAttemptId(attempt.id);
       setSeconds((exam.durationMinutes ?? Math.max(1, exam.rules.reduce((sum, rule) => sum + rule.minutes, 0))) * 60);
@@ -1305,29 +1307,37 @@ function LiveExamExperience({
             {isPreview
               ? 'معاينة إدارية بنفس واجهة المختبر. لن تُحفظ إجابات ولن تُنشأ محاولة اختبار.'
               : isExamRoom
-                ? 'يرجى التحقق من الهوية قبل بدء الاختبار. هذه هي واجهة غرفة الاختبار الفعلية.'
+                ? 'يرجى التحقق من الهوية والحضور الحيوي قبل بدء الاختبار. هذه هي واجهة غرفة الاختبار الفعلية.'
               : 'يرجى التحقق من هويتك بيومترياً قبل بدء الاختبار. الاختبار يقفل في وضع ملء الشاشة ولا يُسمح بمغادرة الصفحة.'}
           </p>
           <div className="my-6 flex flex-col items-center gap-3">
             <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-teal-50 text-teal-700"><ShieldCheck size={32} strokeWidth={1.75} /></span>
-            <Badge tone={isPreview ? 'info' : validation?.ok ? 'success' : 'warning'}>{isPreview ? 'وضع المعاينة' : validation?.ok ? 'تم التحقق من الدخول' : 'يلزم التحقق قبل البدء'}</Badge>
+            <Badge tone={isPreview ? 'info' : validation && (validation.ok || (isExamRoom && canStartWithBiometricGate(validation.checks))) ? 'success' : 'warning'}>
+              {isPreview ? 'وضع المعاينة' : validation && (validation.ok || (isExamRoom && canStartWithBiometricGate(validation.checks))) ? 'تم التحقق من الدخول' : 'يلزم التحقق قبل البدء'}
+            </Badge>
           </div>
           {!isPreview && (
             <div className="mx-auto mb-5 grid max-w-2xl gap-3 text-start md:grid-cols-2">
               <Input label="الرقم القومي" dir="ltr" value={nationalId} onChange={(e) => setNationalId(e.target.value)} />
               <Input label="كود المتقدم / الطالب" dir="ltr" value={applicantCode} onChange={(e) => setApplicantCode(e.target.value)} />
-              <Input label="IP الجهاز" dir="ltr" value={ipAddress} onChange={(e) => setIpAddress(e.target.value)} />
-              <Input label="MAC / معرف الجهاز" dir="ltr" value={deviceIdentifier} onChange={(e) => setDeviceIdentifier(e.target.value)} />
+              {!isExamRoom && (
+                <>
+                  <Input label="IP الجهاز" dir="ltr" value={ipAddress} onChange={(e) => setIpAddress(e.target.value)} />
+                  <Input label="MAC / معرف الجهاز" dir="ltr" value={deviceIdentifier} onChange={(e) => setDeviceIdentifier(e.target.value)} />
+                </>
+              )}
             </div>
           )}
-          {validation && !validation.ok && (
+          {validation && !validation.ok && !(isExamRoom && canStartWithBiometricGate(validation.checks)) && (
             <div className="mx-auto mb-4 max-w-2xl rounded-md border border-dashed border-terra-300 bg-terra-50 p-3 text-start text-2xs text-terra-700">
               {validation.reason}
             </div>
           )}
           {validation && (
             <div className="mx-auto mb-5 grid max-w-2xl gap-2 text-start md:grid-cols-2">
-              {validation.checks.map((check) => (
+              {validation.checks
+                .filter((check) => !isExamRoom || (check.key !== 'device' && check.key !== 'window'))
+                .map((check) => (
                 <div key={check.key} className="flex items-start gap-2 rounded-md bg-surface-page px-3 py-2 text-2xs">
                   <Badge tone={check.ok ? 'success' : 'warning'}>{check.ok ? 'صحيح' : 'مرفوض'}</Badge>
                   <span>{check.label}</span>

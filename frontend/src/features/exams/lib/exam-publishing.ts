@@ -1,4 +1,5 @@
 const TOKEN_PREFIX = 'exam';
+const BIOMETRIC_REQUIRED_CHECKS = ['applicant', 'today', 'assignment', 'suspension', 'duplicate'] as const;
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
@@ -72,4 +73,9 @@ export function isIpAllowed(ipAddress: string, allowlist: readonly string[]): bo
     const regex = new RegExp(`^${escapeRegExp(pattern).replace(/\*/g, '[0-9]{1,3}')}$`);
     return regex.test(ip);
   });
+}
+
+export function canStartWithBiometricGate(checks: ReadonlyArray<{ key: string; ok: boolean }>): boolean {
+  const byKey = new Map(checks.map((check) => [check.key, check.ok]));
+  return BIOMETRIC_REQUIRED_CHECKS.every((key) => byKey.get(key) === true);
 }
