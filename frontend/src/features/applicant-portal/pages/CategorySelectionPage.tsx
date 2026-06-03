@@ -62,9 +62,16 @@ import type { ApplicantCategoryEligibility } from '../api/categories.service';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
 import { applicantPortalService } from '../api/applicantPortal.service';
-import { useLookup } from '@/features/lookups/api/lookups.queries';
+import {
+  useApplicantCategories,
+  useLookup,
+} from '@/features/lookups/api/lookups.queries';
 import type { FacultyRow, SpecializationRow } from '@/features/lookups';
 import { toSpecializedProgramPickerOptions } from '../lib/specialized-program-options';
+import {
+  deriveVisibleEligibleCategoryKeys,
+  filterApplicantCategoriesByVisibleKeys,
+} from '../lib/applicant-category-visibility';
 
 const COHORT_LABEL: Record<AdmissionCycle['cohort'], string> = {
   male: 'الذكور',
@@ -144,6 +151,7 @@ export function CategorySelectionPage(): JSX.Element {
     applicantNationalId,
     effectiveCycleId,
   );
+  const applicantCategoriesQuery = useApplicantCategories();
 
   const specializedOfficersEligibility = useMemo(
     () =>
@@ -164,12 +172,32 @@ export function CategorySelectionPage(): JSX.Element {
    * exists. A previously selected category can stay in sessionStorage after
    * navigating back to /applicant/start, so it must not override a live
    * backend response that can legitimately return multiple categories. */
-  const derivedEligibleKeys = useMemo<readonly string[] | null>(() => {
-    const cats = eligibilityCategoriesQuery.data?.categories;
-    if (cats) return cats.filter((c) => c.eligible).map((c) => c.categoryId);
-    if (selectedCategoryKey) return [selectedCategoryKey];
-    return null;
-  }, [selectedCategoryKey, eligibilityCategoriesQuery.data]);
+  const derivedEligibleKeys = useMemo<readonly string[] | null>(
+    () =>
+      deriveVisibleEligibleCategoryKeys({
+        eligibility: eligibilityCategoriesQuery.data?.categories,
+        applicantCategories: [
+          ...(applicantCategoriesQuery.data ?? []),
+          ...(categoriesQuery.data ?? []),
+        ],
+        hasImportedSecondaryGrade: Boolean(eligibilityCategoriesQuery.data?.grade),
+        selectedCategoryKey,
+      }),
+    [
+      applicantCategoriesQuery.data,
+      categoriesQuery.data,
+      eligibilityCategoriesQuery.data,
+      selectedCategoryKey,
+    ],
+  );
+  const visibleInfoCategories = useMemo(
+    () =>
+      filterApplicantCategoriesByVisibleKeys(
+        categoriesQuery.data ?? [],
+        derivedEligibleKeys,
+      ),
+    [categoriesQuery.data, derivedEligibleKeys],
+  );
 
   /* When the backend returns an empty eligible list (no category matches
    * the applicant's age / qualification / cycle rules), redirect to the
@@ -361,12 +389,12 @@ export function CategorySelectionPage(): JSX.Element {
         <InlineSection icon={<ShieldCheck size={16} strokeWidth={1.75} />} title="شروط الإلتحاق">
           <EligibilityDrawerBody
             cycle={selectedCycle}
-            categories={categoriesQuery.data ?? []}
+            categories={visibleInfoCategories}
           />
         </InlineSection>
 
         <InlineSection icon={<Layers size={16} strokeWidth={1.75} />} title="التخصصات المطلوبة">
-          <SpecializationsDrawerBody categories={categoriesQuery.data ?? []} />
+          <SpecializationsDrawerBody categories={visibleInfoCategories} />
         </InlineSection>
 
         <InlineSection
@@ -390,7 +418,10 @@ export function CategorySelectionPage(): JSX.Element {
           <CategoryRows
             categoriesQuery={categoriesQuery}
             eligibility={eligibilityCategoriesQuery.data?.categories ?? []}
-            eligibilityLoading={eligibilityCategoriesQuery.isLoading}
+            eligibilityLoading={
+              eligibilityCategoriesQuery.isLoading ||
+              (Boolean(eligibilityCategoriesQuery.data?.grade) && applicantCategoriesQuery.isLoading)
+            }
             /* When MOI/backend eligibility is available, show only those
              * categories. For not_found / no MOI session, show the full
              * catalogue so the applicant can pick. */
