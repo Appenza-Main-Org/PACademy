@@ -10,6 +10,8 @@ namespace PACademy.Admin.Api.Controllers;
 [Route("")]
 public sealed class AdmissionSetupController(OperationalRecordsService records, ApplicationSettingsService appSettings) : ControllerBase
 {
+    private const int MaxDeclarationPdfBytes = 10 * 1024 * 1024;
+
     [HttpGet("api/admission-setup/cycles/{cycleId}/exam-dates")]
     public async Task<ActionResult<JsonObject>> ExamDates(string cycleId, CancellationToken ct) =>
         Ok(await records.SingletonAsync($"admissionSetup.examDates.{cycleId}", new JsonObject { ["cycleId"] = cycleId, ["ranges"] = new JsonArray() }, ct));
@@ -24,31 +26,60 @@ public sealed class AdmissionSetupController(OperationalRecordsService records, 
     }
 
     [HttpGet("api/admission-setup/cycles/{cycleId}/declaration")]
-    public async Task<ActionResult<JsonObject>> Declaration(string cycleId, CancellationToken ct) =>
-        Ok(await records.SingletonAsync($"admissionSetup.declaration.{cycleId}", new JsonObject { ["id"] = $"DECL-{cycleId}", ["cycleId"] = cycleId, ["bodyAr"] = "", ["published"] = false }, ct));
+    public async Task<ActionResult<JsonObject>> Declaration(string cycleId, CancellationToken ct)
+    {
+        var id = DeclarationId(cycleId);
+        var current = await records.GetAsync(DeclarationModule(cycleId), id, ct);
+        return Ok(NormalizeDeclaration(cycleId, current));
+    }
 
     [HttpPut("api/admission-setup/cycles/{cycleId}/declaration")]
+    [Consumes("application/json")]
     public async Task<ActionResult<JsonObject>> SaveDeclaration(string cycleId, [FromBody] JsonObject body, CancellationToken ct)
     {
-        body["id"] = $"DECL-{cycleId}";
-        body["cycleId"] = cycleId;
-        body["updatedAt"] = DateTimeOffset.UtcNow.ToString("O");
-        return Ok(await records.UpsertAsync($"admissionSetup.declaration.{cycleId}", $"DECL-{cycleId}", body, ct));
+        var id = DeclarationId(cycleId);
+        var current = await records.GetAsync(DeclarationModule(cycleId), id, ct);
+        var payload = PrepareDeclarationForSave(cycleId, body, current);
+        return Ok(await records.UpsertAsync(DeclarationModule(cycleId), id, payload, ct));
+    }
+
+    [HttpPut("api/admission-setup/cycles/{cycleId}/declaration")]
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<JsonObject>> SaveDeclarationPdf(
+        string cycleId,
+        [FromForm] string mode,
+        [FromForm] string? bodyAr,
+        [FromForm] string effectiveFrom,
+        [FromForm] IFormFile document,
+        CancellationToken ct)
+    {
+        var id = DeclarationId(cycleId);
+        var current = await records.GetAsync(DeclarationModule(cycleId), id, ct);
+        var documentNode = await BuildDeclarationDocumentAsync(document, ct);
+        var payload = PrepareDeclarationForSave(cycleId, new JsonObject
+        {
+            ["mode"] = mode,
+            ["bodyAr"] = bodyAr ?? "",
+            ["document"] = documentNode,
+            ["effectiveFrom"] = effectiveFrom
+        }, current);
+        return Ok(await records.UpsertAsync(DeclarationModule(cycleId), id, payload, ct));
     }
 
     [HttpPost("api/admission-setup/declarations/{declarationId}/publish")]
     public async Task<ActionResult<JsonObject>> PublishDeclaration(string declarationId, CancellationToken ct)
     {
         var cycleId = declarationId.Replace("DECL-", "", StringComparison.OrdinalIgnoreCase);
-        var declaration = await records.GetAsync($"admissionSetup.declaration.{cycleId}", declarationId, ct)
-            ?? new JsonObject { ["id"] = declarationId, ["cycleId"] = cycleId, ["bodyAr"] = "" };
-        if (string.IsNullOrWhiteSpace(AdminRecordJson.StringProp(declaration, "bodyAr")))
+        var declaration = NormalizeDeclaration(
+            cycleId,
+            await records.GetAsync(DeclarationModule(cycleId), declarationId, ct));
+        if (!HasDeclarationContent(declaration))
         {
             throw new ConflictException("DECLARATION_EMPTY", "لا يمكن نشر إقرار إلكتروني فارغ");
         }
         declaration["published"] = true;
         declaration["publishedAt"] = DateTimeOffset.UtcNow.ToString("O");
-        return Ok(await records.UpsertAsync($"admissionSetup.declaration.{cycleId}", declarationId, declaration, ct));
+        return Ok(await records.UpsertAsync(DeclarationModule(cycleId), declarationId, declaration, ct));
     }
 
     [HttpGet("api/admission-setup/cycles/{cycleId}/committee-bindings")]
@@ -263,6 +294,118 @@ public sealed class AdmissionSetupController(OperationalRecordsService records, 
         return dayRecords
             .Where(x => AdminRecordJson.StringProp(x, "cycleId") == cycleId)
             .ToList();
+    }
+
+    private static string DeclarationModule(string cycleId) => $"admissionSetup.declaration.{cycleId}";
+
+    private static string DeclarationId(string cycleId) => $"DECL-{cycleId}";
+
+    private static JsonObject NormalizeDeclaration(string cycleId, JsonObject? current)
+    {
+        var now = DateTimeOffset.UtcNow.ToString("O");
+        var normalized = current is null ? [] : AdminRecordJson.Clone(current);
+        normalized["id"] = DeclarationId(cycleId);
+        normalized["cycleId"] = cycleId;
+        normalized["mode"] = ValidDeclarationMode(AdminRecordJson.StringProp(normalized, "mode"));
+        normalized["bodyAr"] = AdminRecordJson.StringProp(normalized, "bodyAr") ?? "";
+        normalized["version"] = Math.Max(1, (int)(AdminRecordJson.NumberProp(normalized, "version") ?? 1));
+        normalized["effectiveFrom"] = AdminRecordJson.StringProp(normalized, "effectiveFrom") ?? now;
+        normalized["createdAt"] = AdminRecordJson.StringProp(normalized, "createdAt")
+            ?? AdminRecordJson.StringProp(normalized, "updatedAt")
+            ?? now;
+        normalized["createdBy"] = AdminRecordJson.StringProp(normalized, "createdBy") ?? "system";
+
+        if (!normalized.TryGetPropertyValue("document", out _))
+        {
+            normalized["document"] = null;
+        }
+
+        return normalized;
+    }
+
+    private static JsonObject PrepareDeclarationForSave(string cycleId, JsonObject incoming, JsonObject? current)
+    {
+        var existing = NormalizeDeclaration(cycleId, current);
+        var now = DateTimeOffset.UtcNow.ToString("O");
+        var next = AdminRecordJson.Clone(incoming);
+        var mode = ValidDeclarationMode(AdminRecordJson.StringProp(next, "mode"));
+        next["id"] = DeclarationId(cycleId);
+        next["cycleId"] = cycleId;
+        next["mode"] = mode;
+        next["bodyAr"] = AdminRecordJson.StringProp(next, "bodyAr") ?? "";
+        next["version"] = current is null
+            ? 1
+            : Math.Max(1, (int)(AdminRecordJson.NumberProp(existing, "version") ?? 0) + 1);
+        next["effectiveFrom"] = AdminRecordJson.StringProp(next, "effectiveFrom")
+            ?? AdminRecordJson.StringProp(existing, "effectiveFrom")
+            ?? now;
+        next["createdAt"] = AdminRecordJson.StringProp(existing, "createdAt") ?? now;
+        next["createdBy"] = AdminRecordJson.StringProp(existing, "createdBy") ?? "system";
+        next["updatedAt"] = now;
+
+        if (!next.TryGetPropertyValue("document", out var document) || document is null)
+        {
+            next["document"] = mode == "pdf"
+                ? existing["document"]?.DeepClone()
+                : null;
+        }
+
+        if (AdminRecordJson.StringProp(existing, "publishedAt") is { } publishedAt)
+        {
+            next["publishedAt"] = publishedAt;
+        }
+        if (existing.TryGetPropertyValue("published", out var published) && published is not null)
+        {
+            next["published"] = published.DeepClone();
+        }
+
+        return next;
+    }
+
+    private static async Task<JsonObject> BuildDeclarationDocumentAsync(IFormFile document, CancellationToken ct)
+    {
+        if (document.Length <= 0)
+        {
+            throw new ConflictException("DECLARATION_PDF_EMPTY", "ملف الإقرار فارغ");
+        }
+        if (document.Length > MaxDeclarationPdfBytes)
+        {
+            throw new ConflictException("DECLARATION_PDF_TOO_LARGE", "حجم ملف الإقرار يتجاوز 10 ميجابايت");
+        }
+        var extension = Path.GetExtension(document.FileName);
+        var isPdf =
+            string.Equals(document.ContentType, "application/pdf", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(extension, ".pdf", StringComparison.OrdinalIgnoreCase);
+        if (!isPdf)
+        {
+            throw new ConflictException("DECLARATION_PDF_INVALID_TYPE", "يجب أن يكون ملف الإقرار بصيغة PDF");
+        }
+
+        await using var ms = new MemoryStream();
+        await document.CopyToAsync(ms, ct);
+        return new JsonObject
+        {
+            ["fileName"] = Path.GetFileName(document.FileName),
+            ["fileUrl"] = $"data:application/pdf;base64,{Convert.ToBase64String(ms.ToArray())}",
+            ["size"] = document.Length
+        };
+    }
+
+    private static string ValidDeclarationMode(string? mode) =>
+        string.Equals(mode, "pdf", StringComparison.OrdinalIgnoreCase) ? "pdf" : "text";
+
+    private static bool HasDeclarationContent(JsonObject declaration)
+    {
+        if (!string.IsNullOrWhiteSpace(AdminRecordJson.StringProp(declaration, "bodyAr")))
+        {
+            return true;
+        }
+        if (!declaration.TryGetPropertyValue("document", out var document) || document is not JsonObject doc)
+        {
+            return false;
+        }
+        return !string.IsNullOrWhiteSpace(AdminRecordJson.StringProp(doc, "fileName")) &&
+            !string.IsNullOrWhiteSpace(AdminRecordJson.StringProp(doc, "fileUrl"));
     }
 
     private static void ValidateExamDateRanges(JsonObject body)

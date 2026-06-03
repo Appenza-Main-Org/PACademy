@@ -60,12 +60,14 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
   const [activeMode, setActiveMode] = useState<DeclarationMode>(current?.mode ?? 'text');
   const [bodyAr, setBodyAr] = useState<string>(current?.bodyAr ?? '');
   const [pendingDoc, setPendingDoc] = useState<DeclarationDocument | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
 
   useEffect(() => {
     setActiveMode(current?.mode ?? 'text');
     setBodyAr(current?.bodyAr ?? '');
     setPendingDoc(null);
+    setPendingFile(null);
     setUploadFiles([]);
   }, [current?.id, current?.mode, current?.bodyAr]);
 
@@ -88,17 +90,20 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
     const picked = next[0];
     if (!picked || picked.status === 'error') {
       setPendingDoc(null);
+      setPendingFile(null);
       return;
     }
     const file = picked.file;
     if (file.type && file.type !== 'application/pdf') {
       toast('يجب أن يكون الملف بصيغة PDF', 'danger');
       setPendingDoc(null);
+      setPendingFile(null);
       return;
     }
     if (file.size > MAX_PDF_BYTES) {
       toast('حجم الملف يتجاوز 10 ميجابايت', 'danger');
       setPendingDoc(null);
+      setPendingFile(null);
       return;
     }
     const doc: DeclarationDocument = {
@@ -107,12 +112,13 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
       size: file.size,
     };
     setPendingDoc(doc);
+    setPendingFile(file);
     /* Auto-save right after pick — matches the text-mode blur behaviour
      * so admins don't have to click «حفظ كنسخة جديدة» separately. */
     persistDeclaration({
       mode: 'pdf',
       bodyAr,
-      document: doc,
+      document: file,
       silent: true,
     });
   };
@@ -122,6 +128,7 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
       URL.revokeObjectURL(pendingDoc.fileUrl);
     }
     setPendingDoc(null);
+    setPendingFile(null);
     setUploadFiles([]);
   };
 
@@ -132,7 +139,7 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
     options: {
       mode: DeclarationMode;
       bodyAr: string;
-      document: DeclarationDocument | null;
+      document: DeclarationDocument | File | null;
       silent: boolean;
     },
   ): void => {
@@ -167,6 +174,7 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
             );
           }
           setPendingDoc(null);
+          setPendingFile(null);
           setUploadFiles([]);
         },
         onError: (err) => toast((err as Error).message, 'danger'),
@@ -178,7 +186,7 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
     persistDeclaration({
       mode: activeMode,
       bodyAr,
-      document: pendingDoc ?? current?.document ?? null,
+      document: pendingFile ?? pendingDoc ?? current?.document ?? null,
       silent: false,
     });
   };

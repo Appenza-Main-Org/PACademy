@@ -173,6 +173,58 @@ public sealed class ApiRegressionTests
     }
 
     [Fact]
+    public async Task ElectronicDeclarationDefaultMatchesFrontendContract()
+    {
+        await using var db = CreateDb();
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        var controller = new AdmissionSetupController(records, null!);
+
+        var response = await controller.Declaration("CYC-TEST", TestContext.Current.CancellationToken);
+
+        var ok = Assert.IsType<OkObjectResult>(response.Result);
+        var body = Assert.IsType<JsonObject>(ok.Value);
+        Assert.Equal("DECL-CYC-TEST", body["id"]?.GetValue<string>());
+        Assert.Equal("CYC-TEST", body["cycleId"]?.GetValue<string>());
+        Assert.Equal("text", body["mode"]?.GetValue<string>());
+        Assert.Equal(1, body["version"]?.GetValue<int>());
+        Assert.Equal("", body["bodyAr"]?.GetValue<string>());
+        Assert.False(string.IsNullOrWhiteSpace(body["effectiveFrom"]?.GetValue<string>()));
+        Assert.False(string.IsNullOrWhiteSpace(body["createdAt"]?.GetValue<string>()));
+        Assert.Equal("system", body["createdBy"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task ElectronicDeclarationPdfUploadPersistsDocumentMetadata()
+    {
+        await using var db = CreateDb();
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        var controller = new AdmissionSetupController(records, null!);
+        await using var stream = new MemoryStream([0x25, 0x50, 0x44, 0x46]);
+        var file = new FormFile(stream, 0, stream.Length, "document", "declaration.pdf")
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = "application/pdf"
+        };
+
+        var response = await controller.SaveDeclarationPdf(
+            "CYC-TEST",
+            "pdf",
+            "",
+            "2026-06-03T00:00:00.000Z",
+            file,
+            TestContext.Current.CancellationToken);
+
+        var ok = Assert.IsType<OkObjectResult>(response.Result);
+        var body = Assert.IsType<JsonObject>(ok.Value);
+        var document = Assert.IsType<JsonObject>(body["document"]);
+        Assert.Equal("pdf", body["mode"]?.GetValue<string>());
+        Assert.Equal(1, body["version"]?.GetValue<int>());
+        Assert.Equal("declaration.pdf", document["fileName"]?.GetValue<string>());
+        Assert.Equal(4, document["size"]?.GetValue<int>());
+        Assert.StartsWith("data:application/pdf;base64,", document["fileUrl"]?.GetValue<string>());
+    }
+
+    [Fact]
     public async Task BlockedLookupDeleteReturnsConflict()
     {
         await using var db = CreateDb();
