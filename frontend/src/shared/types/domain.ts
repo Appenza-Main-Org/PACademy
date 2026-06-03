@@ -1031,7 +1031,7 @@ export interface AdmissionRule {
     minLeftEye: string;
     correctionAllowed: boolean;
   };
-  maritalStatus: ReadonlyArray<'single' | 'married' | 'divorced' | 'widowed'>;
+  maritalStatus: ReadonlyArray<'single' | 'married'>;
   noCriminalRecord: boolean;
   acceptedCertificates: ReadonlyArray<string>; // refers to RefSpecialization or cert types
   minPercentByCertType: Record<string, number>;
@@ -1274,7 +1274,7 @@ export interface ApplicantDraft {
   /** Profile payload saved by Stage 3 (Stage345ApplicantDataPage). */
   profile?: {
     shuhra?: string;
-    maritalStatus?: 'single' | 'married' | 'divorced' | 'widowed';
+    maritalStatus?: 'single' | 'married';
     addressGovernorate?: string;
     addressDistrict?: string;
     currentAddressDetail?: string;

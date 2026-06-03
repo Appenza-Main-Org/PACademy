@@ -33,7 +33,7 @@ export interface StudentPersonalRecord {
   gradesPercent: string;
   homePhone: string;
   mobile: string;
-  maritalStatus: 'single' | 'married' | 'divorced' | '';
+  maritalStatus: 'single' | 'married' | '';
   address: string;
 }
 
@@ -115,9 +115,9 @@ export interface MotherRecord {
 }
 
 /** Applicant's spouse — the wife (male applicant) or husband (female
- *  applicant), captured only when `personal.maritalStatus === 'married'`
- *  (and optionally for divorced/widowed if the previous spouse is on
- *  record). Mirrors نظام-العامين-الدارسيين نموذج 2 / 4 layout. */
+ *  applicant), captured when `personal.maritalStatus === 'married'`.
+ *  The married bucket includes current and previous marriage. Mirrors
+ *  نظام-العامين-الدارسيين نموذج 2 / 4 layout. */
 export interface ApplicantSpouseRecord {
   fullName: string;
   dateOfBirth: string;
@@ -142,8 +142,8 @@ export interface ApplicantSpouseRecord {
 export type ApplicantChildRecord = AdultRelativeRecord;
 
 /** Applicant's own family — only filled when marital status is
- *  «married» (or divorced/widowed with a recorded ex-spouse). Single
- *  applicants skip this section entirely. */
+ *  «married». The married bucket includes current and previous marriage.
+ *  Single applicants skip this section entirely. */
 export interface ApplicantFamilySection {
   /** Optional 2nd wife for male applicants (PDF: «الزوجة الثانية إن وجدت»). */
   hasSecondSpouse: boolean;
@@ -331,7 +331,7 @@ export interface VothiqaTaarufDocument {
   section: 'general' | 'specialized_officers' | 'law_bachelor';
   personal: PersonalSection;
   /** Optional — only consumed when `personal.personal.maritalStatus`
-   *  is «married» (or divorced/widowed with retained ex-spouse). */
+   *  is «married». */
   applicantFamily: ApplicantFamilySection;
   parents: ParentsSection;
   grandparents: GrandparentsSection;

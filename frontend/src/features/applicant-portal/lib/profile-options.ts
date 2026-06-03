@@ -1,6 +1,7 @@
 import type { AcademicDegreeRow, MaritalStatusRow } from '@/features/lookups';
 
-export type MaritalStatusValue = 'single' | 'married' | 'divorced' | 'widowed';
+export type MaritalStatusValue = 'single' | 'married';
+type LegacyMaritalStatusValue = MaritalStatusValue | 'divorced' | 'widowed';
 export type AcademicDegreeValue = 'license' | 'bachelor' | 'master' | 'doctorate';
 
 export interface ProfileSelectOption<TValue extends string = string> {
@@ -27,11 +28,11 @@ export const RELIGION_OPTIONS: readonly ProfileSelectOption<'مسلم' | 'مسي
 const MARITAL_BY_CODE: Record<string, ProfileSelectOption<MaritalStatusValue>> = {
   'MAR-01': { value: 'single', label: 'أعزب' },
   'MAR-02': { value: 'married', label: 'متزوج' },
-  'MAR-03': { value: 'divorced', label: 'مطلق' },
-  'MAR-04': { value: 'widowed', label: 'أرمل' },
+  'MAR-03': { value: 'married', label: 'متزوج' },
+  'MAR-04': { value: 'married', label: 'متزوج' },
 };
 
-const MARITAL_BY_VALUE: Record<MaritalStatusValue, string> = {
+const MARITAL_BY_VALUE: Record<LegacyMaritalStatusValue, string> = {
   single: 'أعزب',
   married: 'متزوج',
   divorced: 'مطلق',
@@ -41,9 +42,9 @@ const MARITAL_BY_VALUE: Record<MaritalStatusValue, string> = {
 const FALLBACK_MARITAL_STATUSES: readonly ProfileSelectOption<MaritalStatusValue>[] = [
   { value: 'single', label: 'أعزب' },
   { value: 'married', label: 'متزوج' },
-  { value: 'divorced', label: 'مطلق' },
-  { value: 'widowed', label: 'أرمل' },
 ];
+
+const EVER_MARRIED_LABELS = new Set(['متزوج', 'متزوجة', 'مطلق', 'مطلقة', 'أرمل', 'أرملة']);
 
 const ACADEMIC_DEGREE_BY_CODE: Record<string, ProfileSelectOption<AcademicDegreeValue>> = {
   'DEG-01': { value: 'bachelor', label: 'بكالوريوس' },
@@ -79,10 +80,17 @@ function uniqueByValue<TValue extends string>(
 
 function maritalOptionFromRow(row: Pick<MaritalStatusRow, 'code' | 'name'>): ProfileSelectOption<MaritalStatusValue> | null {
   const byCode = MARITAL_BY_CODE[row.code];
-  if (byCode) return { ...byCode, label: row.name };
+  if (byCode) return byCode;
 
   const match = Object.entries(MARITAL_BY_VALUE).find(([, label]) => label === row.name);
-  return match ? { value: match[0] as MaritalStatusValue, label: row.name } : null;
+  if (match) {
+    return match[0] === 'single'
+      ? { value: 'single', label: 'أعزب' }
+      : { value: 'married', label: 'متزوج' };
+  }
+  return EVER_MARRIED_LABELS.has(row.name)
+    ? { value: 'married', label: 'متزوج' }
+    : null;
 }
 
 function degreeOptionFromRow(row: Pick<AcademicDegreeRow, 'code' | 'name'>): ProfileSelectOption<AcademicDegreeValue> | null {

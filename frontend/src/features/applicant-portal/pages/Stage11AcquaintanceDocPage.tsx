@@ -750,11 +750,10 @@ function PersonalGroup({ value, onChange, readOnly }: PersonalGroupProps): JSX.E
           required
           type="select"
           value={value.personal.maritalStatus}
-          onChange={(v) => setPersonal({ maritalStatus: v as 'single' | 'married' | 'divorced' | '' })}
+          onChange={(v) => setPersonal({ maritalStatus: v as 'single' | 'married' | '' })}
           options={[
             { value: 'single', label: 'أعزب' },
             { value: 'married', label: 'متزوج' },
-            { value: 'divorced', label: 'مطلق' },
           ]}
           disabled={readOnly}
         />
@@ -786,7 +785,7 @@ function PersonalGroup({ value, onChange, readOnly }: PersonalGroupProps): JSX.E
 interface ApplicantFamilyGroupProps {
   value: VothiqaTaarufDocument['applicantFamily'];
   onChange: (next: VothiqaTaarufDocument['applicantFamily']) => void;
-  maritalStatus: 'single' | 'married' | 'divorced' | '';
+  maritalStatus: 'single' | 'married' | '';
   gender: 'male' | 'female';
   readOnly?: boolean;
 }

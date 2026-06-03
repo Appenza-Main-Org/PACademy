@@ -927,10 +927,8 @@ const universities: UniversityRow[] = [
  * (SUB-NNN is the outlier, not the rule). */
 
 const maritalStatuses: MaritalStatusRow[] = [
-  { code: 'MAR-01', name: 'أعزب',  nameEn: 'Single',   ...active },
-  { code: 'MAR-02', name: 'متزوج', nameEn: 'Married',  ...active },
-  { code: 'MAR-03', name: 'مطلق',  nameEn: 'Divorced', ...active },
-  { code: 'MAR-04', name: 'أرمل',  nameEn: 'Widowed',  ...active },
+  { code: 'MAR-01', name: 'أعزب',  nameEn: 'Single',  metadata: { appliesTo: ['never_married'] }, ...active },
+  { code: 'MAR-02', name: 'متزوج', nameEn: 'Married', metadata: { appliesTo: ['married', 'divorced', 'widowed'] }, ...active },
 ];
 
 /* ─── 20. academic-grades — التقدير ────────────────────────────────────

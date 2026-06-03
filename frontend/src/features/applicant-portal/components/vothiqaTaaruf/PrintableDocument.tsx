@@ -274,9 +274,7 @@ function Form1Personal({ doc }: { doc: VothiqaTaarufDocument }): JSX.Element {
       ? 'أعزب'
       : p.maritalStatus === 'married'
         ? 'متزوج'
-        : p.maritalStatus === 'divorced'
-          ? 'مطلق'
-          : '';
+        : '';
 
   return (
     <section className="vothiqa-form">
@@ -311,7 +309,7 @@ function Form1Personal({ doc }: { doc: VothiqaTaarufDocument }): JSX.Element {
         <FieldBox label="المحمول" value={p.mobile} />
       </div>
       <div className="grid-1">
-        <FieldBox label="الحالة الاجتماعية (أعزب / مطلق / متزوج)" value={marital} />
+        <FieldBox label="الحالة الاجتماعية (أعزب / متزوج)" value={marital} />
         <FieldBox label="العنوان" value={p.address} />
       </div>
       <FooterDeclaration />

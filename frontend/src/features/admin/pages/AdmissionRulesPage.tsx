@@ -33,8 +33,6 @@ import type { AdmissionRule } from '@/shared/types/domain';
 const MARITAL_OPTIONS: ReadonlyArray<{ value: AdmissionRule['maritalStatus'][number]; label: string }> = [
   { value: 'single', label: 'أعزب' },
   { value: 'married', label: 'متزوج' },
-  { value: 'divorced', label: 'مطلق' },
-  { value: 'widowed', label: 'أرمل' },
 ];
 
 export function AdmissionRulesPage(): JSX.Element {

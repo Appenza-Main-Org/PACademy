@@ -23,7 +23,7 @@ export interface ProfileManualPersonal {
   mobile: string;
   email: string;
   shuhra: string;
-  maritalStatus: '' | 'single' | 'married' | 'divorced' | 'widowed';
+  maritalStatus: '' | 'single' | 'married';
   officerApplicantType: '' | 'expat' | 'foreign_certificate';
 }
 
