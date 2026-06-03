@@ -88,6 +88,15 @@ try {
     /demoteCurrentActive:\s*patch\.isActive/,
     'publishing a cycle must demote the current approved-and-published cycle',
   );
+  const updateStatusStart = cyclesServiceSource.indexOf('async updateStatus(');
+  const updateStatusEnd = cyclesServiceSource.indexOf('\n  async update(', updateStatusStart);
+  const updateStatusSource = cyclesServiceSource.slice(updateStatusStart, updateStatusEnd);
+  assert.ok(updateStatusStart >= 0 && updateStatusEnd > updateStatusStart, 'cycles service must expose updateStatus');
+  assert.match(
+    updateStatusSource,
+    /query:\s*\{\s*demoteCurrentActive:\s*options\.demoteCurrentActive\s*\}/,
+    'cycle status transition must send demoteCurrentActive as a query parameter so backend activation swap is honored',
+  );
   assert.doesNotMatch(
     cyclesPageSource,
     /SETUP_LOCKED_HINT|isSetupDisabled\s*=\s*!isCycleActiveByListStatus/,

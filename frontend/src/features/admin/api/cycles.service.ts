@@ -220,7 +220,8 @@ export const cyclesService = {
     return apiClient.post(`/api/cycles/${encodeURIComponent(id)}/transition`, {
       status: next,
       isActive: next === 'active' || next === 'open' || next === 'extended',
-      demoteCurrentActive: options.demoteCurrentActive,
+    }, {
+      query: { demoteCurrentActive: options.demoteCurrentActive },
     });
   },
 

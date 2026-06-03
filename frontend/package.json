@@ -12,6 +12,7 @@
     "lint": "eslint . --ext ts,tsx --max-warnings 0",
     "test:rbac": "node scripts/test-admin-rbac.mjs",
     "test:admission-setup-wizard-gating": "node scripts/test-admission-setup-wizard-gating.mjs",
+    "test:cycle-status-activation-contract": "node scripts/test-cycle-status-activation-contract.mjs",
     "test:exam-plan-step-validation": "node scripts/test-exam-plan-step-validation.mjs",
     "test:applicant-grades-import": "node scripts/test-applicant-grades-import-integrity.mjs",
     "test:applicant-grades-commit": "node scripts/test-applicant-grades-commit-contract.mjs",
