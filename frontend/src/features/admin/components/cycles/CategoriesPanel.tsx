@@ -70,6 +70,7 @@ export function CategoriesPanel({
           <table className="w-full min-w-[960px] text-sm">
             <thead className="border-b border-border-subtle text-2xs uppercase tracking-wide text-ink-500">
               <tr>
+                <th className="w-14 py-2 pe-3 text-center font-numeric tnum">م</th>
                 <th className="py-2 pe-3 text-start">الفئة</th>
                 <th className="py-2 pe-3 text-start">النوع</th>
                 <th className="py-2 pe-3 text-start">الحالة</th>
@@ -80,11 +81,12 @@ export function CategoriesPanel({
               </tr>
             </thead>
             <tbody>
-              {categories.map((cat) => {
+              {categories.map((cat, index) => {
                 const cfg = cycle.openCategories?.[cat.key] ?? defaultConfig();
                 return (
                   <CategoryRow
                     key={cat.key}
+                    serial={index + 1}
                     cycle={cycle}
                     category={cat}
                     config={cfg}
@@ -102,12 +104,14 @@ export function CategoriesPanel({
 }
 
 function CategoryRow({
+  serial,
   cycle,
   category,
   config,
   readOnly,
   onToggle,
 }: {
+  serial: number;
   cycle: AdmissionCycle;
   category: ApplicantCategory;
   config: AdmissionCycleCategoryConfig;
@@ -128,6 +132,12 @@ function CategoryRow({
   return (
     <>
       <tr className="border-b border-border-subtle align-top last:border-b-0">
+        <th
+          scope="row"
+          className="py-3 pe-3 text-center align-top font-numeric text-sm font-medium text-ink-500 tnum"
+        >
+          <span dir="ltr">{serial.toLocaleString('en-US')}</span>
+        </th>
         <td className="py-3 pe-3 font-medium text-ink-900">
           <div>{category.labelAr}</div>
           {category.description && (
@@ -212,7 +222,7 @@ function CategoryRow({
 
       {dirty && issues.length > 0 && (
         <tr className="border-b border-border-subtle bg-terra-50/40 last:border-b-0">
-          <td colSpan={7} className="px-3 pb-2 pt-0">
+          <td colSpan={8} className="px-3 pb-2 pt-0">
             <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-terra-700">
               {issues.map((msg) => (
                 <li key={msg} className="inline-flex items-center gap-1.5">

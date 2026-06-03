@@ -327,11 +327,13 @@ function MergedCategoryTable({
   onDelete,
 }: MergedCategoryTableProps): JSX.Element {
   const groups = useMemo(() => {
-    const out: { label: string; rows: BindingRow[] }[] = [];
+    const out: { label: string; rows: Array<{ row: BindingRow; serial: number }> }[] = [];
+    let serial = 0;
     for (const r of rows) {
+      serial += 1;
       const last = out[out.length - 1];
-      if (last && last.label === r.categoryLabel) last.rows.push(r);
-      else out.push({ label: r.categoryLabel, rows: [r] });
+      if (last && last.label === r.categoryLabel) last.rows.push({ row: r, serial });
+      else out.push({ label: r.categoryLabel, rows: [{ row: r, serial }] });
     }
     return out;
   }, [rows]);
@@ -353,6 +355,9 @@ function MergedCategoryTable({
       <table className="w-full border-collapse text-sm">
         <thead className="bg-ink-50/80">
           <tr>
+            <th className="w-14 px-3 py-2 text-center text-2xs font-medium text-ink-600 font-numeric tnum">
+              م
+            </th>
             <th className="px-3 py-2 text-start text-2xs font-medium text-ink-600">
               الفئة
             </th>
@@ -369,8 +374,14 @@ function MergedCategoryTable({
         </thead>
         <tbody>
           {groups.flatMap((group) =>
-            group.rows.map((row, idx) => (
+            group.rows.map(({ row, serial }, idx) => (
               <tr key={row.id} className="border-t border-border-subtle">
+                <th
+                  scope="row"
+                  className="px-3 py-2 text-center align-middle font-numeric text-2xs font-medium text-ink-500 tnum"
+                >
+                  <span dir="ltr">{serial.toLocaleString('en-US')}</span>
+                </th>
                 {idx === 0 && (
                   <td
                     rowSpan={group.rows.length}

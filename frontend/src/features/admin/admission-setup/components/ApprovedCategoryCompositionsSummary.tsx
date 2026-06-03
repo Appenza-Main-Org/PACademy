@@ -354,8 +354,13 @@ function DraftUniversityRowsTable({
 
   return (
     <DraftTable headers={headers} minWidthClass="min-w-[76rem]">
-      {rows.map((row) => (
+      {rows.map((row, index) => (
         <tr key={row.id} className="border-t border-border-subtle">
+          <Td>
+            <span className="font-numeric tnum" dir="ltr">
+              {(index + 1).toLocaleString('en-US')}
+            </span>
+          </Td>
           <Td>
             <span className="block font-medium text-ink-900">{row.facultyNameAr}</span>
             <span className="mt-0.5 block text-ink-500">{row.specializationNameAr}</span>
@@ -399,8 +404,13 @@ function DraftThanawiRowsTable({
 
   return (
     <DraftTable headers={headers} minWidthClass="min-w-[68rem]">
-      {rows.map((row) => (
+      {rows.map((row, index) => (
         <tr key={row.id} className="border-t border-border-subtle">
+          <Td>
+            <span className="font-numeric tnum" dir="ltr">
+              {(index + 1).toLocaleString('en-US')}
+            </span>
+          </Td>
           <Td>{labels.committee.get(row.committee) ?? row.committee}</Td>
           <Td>{labels.examRound.get(row.examRound) ?? row.examRound}</Td>
           <Td>{row.graduationYear !== null ? toEasternArabicNumerals(row.graduationYear) : '—'}</Td>
@@ -430,6 +440,7 @@ function DraftTable({
       <table className={`${minWidthClass} border-collapse text-sm`}>
         <thead className="bg-ink-50/80">
           <tr>
+            <Th>م</Th>
             {headers.map((header) => (
               <Th key={header}>{header}</Th>
             ))}
@@ -601,14 +612,20 @@ function YearRowsTable({
       <table className="min-w-[80rem] border-collapse text-sm">
         <thead className="bg-ink-50/80">
           <tr>
+            <Th>م</Th>
             {headers.map((h) => (
               <Th key={h}>{h}</Th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
+          {rows.map((row, index) => (
             <tr key={row.id} className="border-t border-border-subtle">
+              <Td>
+                <span className="font-numeric tnum" dir="ltr">
+                  {(index + 1).toLocaleString('en-US')}
+                </span>
+              </Td>
               <Td>
                 <ChipList
                   values={row.graduationYears.map((y) =>
@@ -694,6 +711,7 @@ function EmptyTable({ columns }: { columns: readonly string[] }): JSX.Element {
       <table className="min-w-[80rem] border-collapse text-sm">
         <thead className="bg-ink-50/80">
           <tr>
+            <Th>م</Th>
             {columns.map((h) => (
               <Th key={h}>{h}</Th>
             ))}
@@ -702,7 +720,7 @@ function EmptyTable({ columns }: { columns: readonly string[] }): JSX.Element {
         <tbody>
           <tr className="border-t border-border-subtle">
             <td
-              colSpan={columns.length}
+              colSpan={columns.length + 1}
               className="px-3 py-4 text-center font-ar text-2xs text-ink-500"
             >
               لا توجد بيانات

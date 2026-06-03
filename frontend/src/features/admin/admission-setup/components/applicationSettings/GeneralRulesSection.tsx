@@ -1810,6 +1810,7 @@ function LocalUniversityGrid({
       <table className="min-w-[112rem] border-collapse text-sm">
         <thead className="bg-ink-50/80">
           <tr>
+            <Th>م</Th>
             {showScopeColumn && <Th>الكلية / التخصص</Th>}
             <Th>اللجنة</Th>
             <Th>بداية التقديم</Th>
@@ -1828,7 +1829,7 @@ function LocalUniversityGrid({
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => {
+          {rows.map((r, index) => {
             const isRowEditing = r.id === editingId;
             return (
               <tr
@@ -1837,6 +1838,11 @@ function LocalUniversityGrid({
                   isRowEditing ? 'bg-gold-50/60' : ''
                 }`}
               >
+                <Td>
+                  <span className="font-numeric tnum" dir="ltr">
+                    {(index + 1).toLocaleString('en-US')}
+                  </span>
+                </Td>
                 {showScopeColumn && (
                   <Td>
                     <span className="block font-medium text-ink-900">

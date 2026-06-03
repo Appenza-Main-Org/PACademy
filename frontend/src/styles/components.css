@@ -254,6 +254,34 @@
   border-collapse: collapse;
   font-size: var(--fs-sm);
 }
+.table tbody {
+  counter-reset: table-row-sequence;
+}
+.table thead tr::before,
+.table tbody tr::before {
+  display: table-cell;
+  width: var(--sp-12);
+  min-width: var(--sp-12);
+  padding: var(--sp-3) var(--sp-4);
+  text-align: center;
+  font-family: var(--font-en);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.table thead tr::before {
+  content: "م";
+  background: var(--surface-muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+.table tbody tr::before {
+  counter-increment: table-row-sequence;
+  content: counter(table-row-sequence);
+  color: var(--text-tertiary);
+  vertical-align: middle;
+}
 .table th {
   text-align: right;
   padding: var(--sp-3) var(--sp-4);

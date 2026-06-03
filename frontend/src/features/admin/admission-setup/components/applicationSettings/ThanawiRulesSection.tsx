@@ -993,6 +993,7 @@ function ThanawiGrid({
       <table className="min-w-[104rem] border-collapse text-sm">
         <thead className="bg-ink-50/80">
           <tr>
+            <Th>م</Th>
             <Th>اللجنة</Th>
             <Th>بداية التقديم</Th>
             <Th>نهاية التقديم</Th>
@@ -1010,7 +1011,7 @@ function ThanawiGrid({
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => {
+          {rows.map((r, index) => {
             const isRowEditing = r.id === editingId;
             return (
               <tr
@@ -1019,6 +1020,11 @@ function ThanawiGrid({
                   isRowEditing ? 'bg-gold-50/60' : ''
                 }`}
               >
+                <Td>
+                  <span className="font-numeric tnum" dir="ltr">
+                    {(index + 1).toLocaleString('en-US')}
+                  </span>
+                </Td>
                 <Td>{labelForCommittee(r.committee)}</Td>
                 <Td>{formatIsoDate(r.header.applicationStart)}</Td>
                 <Td>{formatIsoDate(r.header.applicationEnd)}</Td>

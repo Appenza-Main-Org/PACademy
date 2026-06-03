@@ -101,18 +101,20 @@ export function DaysTable({
         <table className="w-full text-sm">
           <thead className="sticky top-0 z-10 bg-bg-muted text-2xs uppercase tracking-wide text-ink-600">
             <tr>
+              <th className="w-14 px-4 py-2 text-center font-medium font-numeric tnum">م</th>
               <th className="px-4 py-2 text-start font-medium">التاريخ</th>
               <th className="px-4 py-2 text-start font-medium">الحالة</th>
               <th className="px-4 py-2 text-end font-medium">إجراءات</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border-subtle bg-surface-card">
-            {days.map((day) => {
+            {days.map((day, index) => {
               const isOff = day.kind === 'OFF';
               const showWeekSeparator = isSaturday(day.date);
               return (
                 <RowWithSeparator
                   key={day.id}
+                  serial={index + 1}
                   day={day}
                   isOff={isOff}
                   showWeekSeparator={showWeekSeparator}
@@ -185,6 +187,7 @@ export function DaysTable({
 }
 
 function RowWithSeparator({
+  serial,
   day,
   isOff,
   showWeekSeparator,
@@ -193,6 +196,7 @@ function RowWithSeparator({
   onEdit,
   onDelete,
 }: {
+  serial: number;
   day: ExamScheduleDay;
   isOff: boolean;
   showWeekSeparator: boolean;
@@ -205,7 +209,7 @@ function RowWithSeparator({
     <>
       {showWeekSeparator ? (
         <tr aria-hidden className="bg-bg-muted/60">
-          <td colSpan={3} className="px-4 py-1 text-2xs text-ink-500">
+          <td colSpan={4} className="px-4 py-1 text-2xs text-ink-500">
             <span className="inline-flex items-center gap-1">
               <Calendar size={12} strokeWidth={1.75} />
               الأسبوع الذي يبدأ في {formatIsoDateAr(day.date)}
@@ -219,6 +223,12 @@ function RowWithSeparator({
           isOff && 'bg-bg-muted/40',
         )}
       >
+        <th
+          scope="row"
+          className="px-4 py-2 text-center align-middle font-numeric text-sm font-medium text-ink-500 tnum"
+        >
+          <span dir="ltr">{serial.toLocaleString('en-US')}</span>
+        </th>
         <td className="px-4 py-2 align-middle">
           <div className="flex flex-col">
             <span

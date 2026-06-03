@@ -7,6 +7,7 @@
  *
  * Features:
  *  - Typed columns (label, accessor or render fn, alignment, sortable, width).
+ *  - First-column displayed sequence number, offset by pagination.
  *  - Pagination strip at bottom (page X of Y, total, page-size selector).
  *  - Single-column sort (server- or client-handled via `onSortChange`).
  *  - Multi-row selection (checkboxes) via `selectionMode`.
@@ -24,7 +25,6 @@
  *
  * Usage:
  *   const columns: DataTableColumn<Applicant>[] = [
- *     { key: 'id', label: 'الرقم', sortable: true },
  *     { key: 'name', label: 'الاسم', render: (a) => a.name },
  *     { key: 'score', label: 'النسبة', align: 'end', numeric: true,
  *       render: (a) => `${a.certPercent}%` },
@@ -226,7 +226,11 @@ export function DataTable<TRow>({
     density === 'compact' ? 'px-3 py-2' : density === 'comfortable' ? 'px-5 py-4' : 'px-4 py-3';
   const headerPad =
     density === 'compact' ? 'px-3 py-2' : density === 'comfortable' ? 'px-5 py-4' : 'px-4 py-3';
-  const visibleColumnCount = columns.length + (selectionMode !== 'none' ? 1 : 0) + (listActions?.rowActions ? 1 : 0);
+  const visibleColumnCount =
+    columns.length + 1 + (selectionMode !== 'none' ? 1 : 0) + (listActions?.rowActions ? 1 : 0);
+  const sequenceBase = pagination
+    ? Math.max(0, (pagination.page - 1) * pagination.pageSize)
+    : 0;
 
   const selectedSet = useMemo(() => new Set(selectedRowKeys), [selectedRowKeys]);
 
@@ -293,6 +297,13 @@ export function DataTable<TRow>({
               )}
             >
               <tr>
+                <th
+                  className={cn(headerPad, 'w-14 text-center font-numeric tnum')}
+                  scope="col"
+                  aria-label="مسلسل"
+                >
+                  م
+                </th>
                 {selectionMode !== 'none' && (
                   <th className={cn(headerPad, 'w-10 text-center')} scope="col">
                     {selectionMode === 'multi' && (
@@ -424,6 +435,7 @@ export function DataTable<TRow>({
                   const key = rowKey?.(row, i) ?? i;
                   const isSelected = selectedSet.has(key);
                   const interactive = Boolean(onRowClick) || selectionMode !== 'none';
+                  const isDeletedRow = Boolean(listActions?.deleted?.isDeleted(row));
                   return (
                     <tr
                       key={key}
@@ -434,6 +446,7 @@ export function DataTable<TRow>({
                         interactive && 'cursor-pointer',
                         zebraStripes && i % 2 === 1 && 'bg-ink-50',
                         interactive && 'hover:bg-teal-50',
+                        isDeletedRow && 'bg-warning-bg/70 text-ink-600 hover:bg-warning-bg',
                         isSelected && 'bg-accent-50 hover:bg-accent-50',
                       )}
                       style={
@@ -444,6 +457,16 @@ export function DataTable<TRow>({
                           : undefined
                       }
                     >
+                      <th
+                        scope="row"
+                        className={cn(
+                          cellPad,
+                          'w-14 text-center align-middle font-numeric text-sm font-medium text-ink-500 tnum',
+                        )}
+                        aria-label={`مسلسل ${sequenceBase + i + 1}`}
+                      >
+                        <span dir="ltr">{(sequenceBase + i + 1).toLocaleString('en-US')}</span>
+                      </th>
                       {selectionMode !== 'none' && (
                         <td
                           className={cn(cellPad, 'w-10 text-center')}
