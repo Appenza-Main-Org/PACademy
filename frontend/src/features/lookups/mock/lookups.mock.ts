@@ -429,7 +429,7 @@ const applicantCategories: ApplicantCategoryRow[] = [
      * chip + grade-pair form are surfaced consistently across both
      * `pre_university` and `university` types — every category carries a
      * criterion. */
-    excellenceCriterion: 'EXC-02',
+    excellenceCriterion: ['EXC-02'],
   },
   {
     code: 'law_bachelor',
@@ -464,7 +464,7 @@ const applicantCategories: ApplicantCategoryRow[] = [
     /* law_bachelor uses qualitative grading (EXC-01 / تقدير) per the
      * SUB-003 / TAGDIR submission-type. The other جامعي categories
      * stay on EXC-02 / درجة. */
-    excellenceCriterion: 'EXC-01',
+    excellenceCriterion: ['EXC-01'],
   },
   {
     code: 'physical_education_bachelor',
@@ -496,7 +496,7 @@ const applicantCategories: ApplicantCategoryRow[] = [
       { kind: 'drug',          order: 6, passingCriteria: '' },
     ],
     procedures: [],
-    excellenceCriterion: 'EXC-02',
+    excellenceCriterion: ['EXC-02'],
   },
   {
     code: 'specialized_officers',
@@ -540,7 +540,7 @@ const applicantCategories: ApplicantCategoryRow[] = [
       { kind: 'drug',          order: 6, passingCriteria: '' },
     ],
     procedures: [],
-    excellenceCriterion: 'EXC-02',
+    excellenceCriterion: ['EXC-02'],
   },
 ];
 

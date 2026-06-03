@@ -81,3 +81,8 @@ export {
   readPercentageRange,
   type AcademicGradeRange,
 } from './lib/academicGrade';
+
+export {
+  normalizeExcellenceCriteria,
+  resolveExcellenceCriteriaLabels,
+} from './lib/excellenceCriterion';

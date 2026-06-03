@@ -19,8 +19,8 @@
  * «معيار التمييز» rendering:
  *   • Every active category renders here regardless of its criterion
  *     state — admins still need to author the rest of the rules.
- *   • The criterion *label* on the row header only shows when the
- *     category carries a criterion (`excellenceCriterion !== null`).
+ *   • Criterion labels on the row header only show when the category
+ *     carries one or more selected criteria.
  *     Otherwise the label is hidden and the rest of the header (name +
  *     stage badge + counts + completion badge) renders normally.
  */
@@ -33,6 +33,8 @@ import {
 } from 'lucide-react';
 import { ErrorState, LoadingState, Tabs } from '@/shared/components';
 import {
+  normalizeExcellenceCriteria,
+  resolveExcellenceCriteriaLabels,
   useLookup,
   type ApplicantCategoryRow,
   type ApplicantCategoryType,
@@ -88,8 +90,8 @@ export function CategoryTabs(): JSX.Element {
     );
   }
 
-  /* Every active category renders here. The criterion label on the
-   * row header only appears when the category carries one — categories
+  /* Every active category renders here. Criterion labels on the
+   * row header only appear when the category carries selections — categories
    * without a criterion still need to be editable (admins set the rest
    * of the rules regardless), so the row stays visible. */
   const visibleConfigs = mergeCategoryConfigsWithActiveLookups(
@@ -97,9 +99,6 @@ export function CategoryTabs(): JSX.Element {
     categoriesQuery.data ?? [],
   );
 
-  const criterionLabelByCode = new Map(
-    (excellenceQuery.data ?? []).map((row) => [row.code, row.name] as const),
-  );
   const excellenceRows = excellenceQuery.data ?? [];
   const selectedId = activeId && visibleConfigs.some((config) => config.id === activeId)
     ? activeId
@@ -135,14 +134,10 @@ export function CategoryTabs(): JSX.Element {
             <ConfigTab
               key={config.id}
               config={config}
-              excellenceLabel={
-                /* Label only renders when the category actually carries a
-                 * criterion. The tab itself stays visible either way. */
-                config.excellenceCriterion === null
-                  ? null
-                  : criterionLabelByCode.get(config.excellenceCriterion) ??
-                    config.excellenceCriterion
-              }
+              excellenceLabels={resolveExcellenceCriteriaLabels(
+                config.excellenceCriterion,
+                excellenceRows,
+              )}
             />
           ))}
         </Tabs.List>
@@ -167,12 +162,12 @@ export function CategoryTabs(): JSX.Element {
 
 interface ConfigTabProps {
   config: CategoryConfigJoined;
-  excellenceLabel: string | null;
+  excellenceLabels: readonly string[];
 }
 
 function ConfigTab({
   config,
-  excellenceLabel,
+  excellenceLabels,
 }: ConfigTabProps): JSX.Element {
   const completion = useCategoryCompletion(config);
   const typeLabel = config.categoryType === 'university' ? 'جامعي' : 'ثانوي';
@@ -198,12 +193,12 @@ function ConfigTab({
           <span className="rounded-full bg-ink-50 px-2 py-0.5 font-ar text-2xs font-medium text-ink-600">
             {typeLabel}
           </span>
-          {excellenceLabel && (
+          {excellenceLabels.length > 0 && (
             <span
               className="max-w-full truncate rounded-full bg-gold-50 px-2 py-0.5 font-ar text-2xs font-medium text-gold-700"
-              aria-label={`معيار التمييز: ${excellenceLabel}`}
+              aria-label={`معيار التمييز: ${excellenceLabels.join('، ')}`}
             >
-              معيار التمييز: {excellenceLabel}
+              معيار التمييز: {excellenceLabels.join('، ')}
             </span>
           )}
         </span>
@@ -239,7 +234,7 @@ function mergeCategoryConfigsWithActiveLookups(
         implicitSpecId: null,
         specializationCount: category.specializationCodes.length,
         yearCount: 0,
-        excellenceCriterion: category.excellenceCriterion,
+        excellenceCriterion: normalizeExcellenceCriteria(category.excellenceCriterion),
         isActive: true,
         sortOrder: index + 1,
         createdAt: '',
@@ -255,7 +250,7 @@ function mergeCategoryConfigsWithActiveLookups(
       categorySpecializationCodes: category.specializationCodes,
       lockedGender:
         category.genderScope.length === 1 ? category.genderScope[0] : null,
-      excellenceCriterion: category.excellenceCriterion,
+      excellenceCriterion: normalizeExcellenceCriteria(category.excellenceCriterion),
     };
   });
 }
