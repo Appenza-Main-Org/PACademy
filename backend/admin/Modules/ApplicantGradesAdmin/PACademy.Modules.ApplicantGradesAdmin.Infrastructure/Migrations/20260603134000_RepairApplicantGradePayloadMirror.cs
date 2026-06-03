@@ -1,10 +1,12 @@
 using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 #nullable disable
 
 namespace PACademy.Modules.ApplicantGradesAdmin.Infrastructure.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(ApplicantGradesAdminDbContext))]
     [Migration("20260603134000_RepairApplicantGradePayloadMirror")]
     public partial class RepairApplicantGradePayloadMirror : Migration
     {
