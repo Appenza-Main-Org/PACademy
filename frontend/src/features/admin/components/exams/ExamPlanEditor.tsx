@@ -394,6 +394,7 @@ function SortableExamRow({
             aria-label="رفع"
             onClick={onMoveUp}
             disabled={index === 0}
+            className="border border-border-default bg-surface-card text-ink-700 shadow-xs hover:bg-ink-50 hover:text-ink-900 disabled:border-border-subtle disabled:bg-transparent disabled:text-ink-300 disabled:opacity-100"
           >
             <ArrowUp size={14} strokeWidth={1.75} />
           </Button>
@@ -403,6 +404,7 @@ function SortableExamRow({
             aria-label="إنزال"
             onClick={onMoveDown}
             disabled={index === total - 1}
+            className="border border-border-default bg-surface-card text-ink-700 shadow-xs hover:bg-ink-50 hover:text-ink-900 disabled:border-border-subtle disabled:bg-transparent disabled:text-ink-300 disabled:opacity-100"
           >
             <ArrowDown size={14} strokeWidth={1.75} />
           </Button>

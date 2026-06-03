@@ -139,7 +139,10 @@ const TabsPanel = forwardRef<
 >(({ className, ...rest }, ref) => (
   <RadixTabs.Content
     ref={ref}
-    className={cn('focus-visible:outline-none', className)}
+    className={cn(
+      'data-[state=inactive]:hidden focus-visible:outline-none',
+      className,
+    )}
     {...rest}
   />
 ));
