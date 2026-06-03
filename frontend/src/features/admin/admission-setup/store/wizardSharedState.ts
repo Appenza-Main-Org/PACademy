@@ -150,6 +150,8 @@ export type LocalGeneralRuleRow = LocalUniversityRow | LocalThanawiRow;
 
 interface LocalRowBase {
   id: string;
+  /** ISO timestamp captured when the condition is first authored. */
+  createdAt?: string;
   /** FK to the applicant-category lookup row (e.g. `law_bachelor`). */
   categoryCode: string;
   /** Snapshot of the header at row-creation time. */
@@ -281,6 +283,34 @@ function nextRowId(): string {
   return `gr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+function createdTime(row: LocalGeneralRuleRow): number | null {
+  if (!row.createdAt) return null;
+  const time = Date.parse(row.createdAt);
+  return Number.isFinite(time) ? time : null;
+}
+
+export function sortGeneralRuleRowsNewestFirst<T extends LocalGeneralRuleRow>(
+  rows: readonly T[],
+): T[] {
+  return rows
+    .map((row, index) => ({ row, index }))
+    .sort((a, b) => {
+      const aTime = createdTime(a.row);
+      const bTime = createdTime(b.row);
+      if (aTime !== null && bTime !== null && aTime !== bTime) {
+        return bTime - aTime;
+      }
+      if (aTime !== null && bTime === null) return -1;
+      if (aTime === null && bTime !== null) return 1;
+      return b.index - a.index;
+    })
+    .map(({ row }) => row);
+}
+
 /** Composite key for university rows — duplicates are blocked at the
  *  call site by comparing this against existing local + approved
  *  rows under the same category. */
@@ -328,6 +358,7 @@ function buildUniversityRow(
 ): LocalUniversityRow {
   return {
     id: nextRowId(),
+    createdAt: nowIso(),
     kind: 'university',
     categoryCode,
     header,
@@ -357,6 +388,7 @@ function buildThanawiRow(
 ): LocalThanawiRow {
   return {
     id: nextRowId(),
+    createdAt: nowIso(),
     kind: 'thanawi',
     categoryCode,
     header,
@@ -462,6 +494,7 @@ export const useAdmissionSetupWizardStore = create<Store>((set, get) => ({
     const candidate: LocalUniversityRow = {
       ...buildUniversityRow(existing.categoryCode, spec, input, existing.header),
       id,
+      createdAt: existing.createdAt,
     };
     const key = universityCompositeKey(candidate);
     const collision =
@@ -499,6 +532,7 @@ export const useAdmissionSetupWizardStore = create<Store>((set, get) => ({
     const candidate: LocalThanawiRow = {
       ...buildThanawiRow(existing.categoryCode, input, existing.header),
       id,
+      createdAt: existing.createdAt,
     };
     const key = thanawiCompositeKey(candidate);
     const collision =

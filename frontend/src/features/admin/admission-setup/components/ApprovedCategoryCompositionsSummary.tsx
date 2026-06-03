@@ -63,6 +63,7 @@ import type {
 import {
   DEFAULT_MAX_SCORE_OPERATOR,
   DEFAULT_MIN_SCORE_OPERATOR,
+  sortGeneralRuleRowsNewestFirst,
   useAdmissionSetupWizardStore,
 } from '../store/wizardSharedState';
 import type { ApplicantSpecializationYear } from '../types';
@@ -286,7 +287,11 @@ function groupDraftRows(
     groups.set(row.categoryCode, existing);
   }
 
-  return [...groups.values()];
+  return [...groups.values()].map((group) => ({
+    ...group,
+    universityRows: sortGeneralRuleRowsNewestFirst(group.universityRows),
+    thanawiRows: sortGeneralRuleRowsNewestFirst(group.thanawiRows),
+  }));
 }
 
 function DraftHeaderSummary({

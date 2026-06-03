@@ -57,6 +57,7 @@ import { applicationSettingsQueryOptions } from '../../api/applicationSettings.q
 import {
   DEFAULT_MAX_SCORE_OPERATOR,
   DEFAULT_MIN_SCORE_OPERATOR,
+  sortGeneralRuleRowsNewestFirst,
   useAdmissionSetupWizardStore,
   type GeneralRuleRowInput,
   type LocalUniversityRow,
@@ -712,9 +713,11 @@ function SpecializedOfficersWorkspace({
   const setEditingRow = useAdmissionSetupWizardStore((s) => s.setEditingRow);
   const categoryRows = useMemo(
     () =>
-      [...localRows, ...approvedRows].filter(
-        (r): r is LocalUniversityRow =>
-          r.kind === 'university' && r.categoryCode === options.categoryCode,
+      sortGeneralRuleRowsNewestFirst(
+        [...localRows, ...approvedRows].filter(
+          (r): r is LocalUniversityRow =>
+            r.kind === 'university' && r.categoryCode === options.categoryCode,
+        ),
       ),
     [localRows, approvedRows, options.categoryCode],
   );
@@ -1290,9 +1293,11 @@ function PerSpecForm({
     bulkTargets && bulkTargets.length > 0 ? bulkTargets : [primarySpec];
   const rows = useMemo(
     () =>
-      [...localRows, ...approvedRows].filter(
-        (r): r is LocalUniversityRow =>
-          r.kind === 'university' && r.categoryCode === categoryCode,
+      sortGeneralRuleRowsNewestFirst(
+        [...localRows, ...approvedRows].filter(
+          (r): r is LocalUniversityRow =>
+            r.kind === 'university' && r.categoryCode === categoryCode,
+        ),
       ),
     [localRows, approvedRows, categoryCode],
   );

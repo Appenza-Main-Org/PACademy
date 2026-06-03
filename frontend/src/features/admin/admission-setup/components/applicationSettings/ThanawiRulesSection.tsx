@@ -39,6 +39,7 @@ import { applicationSettingsQueryOptions } from '../../api/applicationSettings.q
 import {
   DEFAULT_MAX_SCORE_OPERATOR,
   DEFAULT_MIN_SCORE_OPERATOR,
+  sortGeneralRuleRowsNewestFirst,
   useAdmissionSetupWizardStore,
   type LocalThanawiRow,
   type MaxScoreOperator,
@@ -550,9 +551,11 @@ function ThanawiForm({
   const approvedRows = useAdmissionSetupWizardStore((s) => s.approved);
   const rows = useMemo(
     () =>
-      [...localRows, ...approvedRows].filter(
-        (r): r is LocalThanawiRow =>
-          r.kind === 'thanawi' && r.categoryCode === categoryCode,
+      sortGeneralRuleRowsNewestFirst(
+        [...localRows, ...approvedRows].filter(
+          (r): r is LocalThanawiRow =>
+            r.kind === 'thanawi' && r.categoryCode === categoryCode,
+        ),
       ),
     [localRows, approvedRows, categoryCode],
   );
