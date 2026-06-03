@@ -21,7 +21,10 @@ export function LoginPage(): JSX.Element | null {
    * later updates: when LoginForm successfully submits, it calls navigate()
    * directly, and we don't want a re-render here to race it with a generic
    * <Navigate> to the admin landing. */
-  const initialUser = useState(() => useAuthStore.getState().user)[0];
+  const initialUser = useState(() => {
+    const user = useAuthStore.getState().user;
+    return user?.role === 'applicant' ? null : user;
+  })[0];
   const navigate = useNavigate();
 
   useEffect(() => {

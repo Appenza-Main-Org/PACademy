@@ -1,5 +1,6 @@
 import { BrowserRouter, useRoutes } from 'react-router-dom';
 import { QueryProvider } from '@/app/providers/QueryProvider';
+import { SessionTimeoutWatcher } from '@/app/providers/SessionTimeoutWatcher';
 import { ToastViewport } from '@/shared/components';
 import { routes } from '@/routes';
 import { useAuthStore } from '@/features/auth';
@@ -26,6 +27,7 @@ export function App(): JSX.Element {
   return (
     <QueryProvider>
       <BrowserRouter>
+        <SessionTimeoutWatcher />
         <AppRoutes />
         <ToastViewport />
       </BrowserRouter>

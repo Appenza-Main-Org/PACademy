@@ -116,7 +116,7 @@ export const authService = {
         userName: credentials.username,
         password: credentials.password,
         ...(role ? { role } : {}),
-      });
+      }, { skipAuth: true });
 
     try {
       return normalizeAuthResponse(await tryLogin(credentials.role));
@@ -130,7 +130,7 @@ export const authService = {
   },
 
   async requestOtp(credentials: LoginCredentials): Promise<{ pendingId: string; otpDevice: string }> {
-    return apiClient.post('/api/auth/login/request-otp', credentials);
+    return apiClient.post('/api/auth/login/request-otp', credentials, { skipAuth: true });
   },
 
   peekOtpCode(_pendingId: string): string | null {
@@ -138,7 +138,9 @@ export const authService = {
   },
 
   async verifyOtp(input: { pendingId: string; code: string }): Promise<AuthUser> {
-    const response = await apiClient.post<AuthLoginResponse>('/api/auth/login/verify-otp', input);
+    const response = await apiClient.post<AuthLoginResponse>('/api/auth/login/verify-otp', input, {
+      skipAuth: true,
+    });
     return normalizeAuthResponse(response);
   },
 

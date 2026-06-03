@@ -8,7 +8,11 @@ import {
 } from '@/features/auth';
 import { useLookup } from '@/features/lookups/api/lookups.queries';
 import { useAdminSettings, useUpdateAdminSettings } from '../api/settings.queries';
-import { buildApplicantControlScreensSettingsPatch } from '../api/settings.service';
+import {
+  DEFAULT_APPLICANT_SESSION_TIMEOUT_MINUTES,
+  DEFAULT_STAFF_SESSION_TIMEOUT_MINUTES,
+  buildApplicantControlScreensSettingsPatch,
+} from '../api/settings.service';
 import { GeneralSettingsCard } from '../components/auth/GeneralSettingsCard';
 import {
   ApplicantControlScreensSettingsCard,
@@ -47,6 +51,12 @@ export function SettingsPage(): JSX.Element {
 
   const [examDays, setExamDays] = useState('');
   const [slotWindowDays, setSlotWindowDays] = useState('');
+  const [staffSessionTimeoutMinutes, setStaffSessionTimeoutMinutes] = useState(
+    String(DEFAULT_STAFF_SESSION_TIMEOUT_MINUTES),
+  );
+  const [applicantSessionTimeoutMinutes, setApplicantSessionTimeoutMinutes] = useState(
+    String(DEFAULT_APPLICANT_SESSION_TIMEOUT_MINUTES),
+  );
   const [control, setControl] = useState<ControlScreensForm>(EMPTY_CONTROL);
   const [lockMinutes, setLockMinutes] = useState(30);
   const [touched, setTouched] = useState(false);
@@ -59,6 +69,12 @@ export function SettingsPage(): JSX.Element {
     setSlotWindowDays(
       data.examSlotSelectionWindowDays != null ? String(data.examSlotSelectionWindowDays) : '',
     );
+    setStaffSessionTimeoutMinutes(String(
+      data.staffSessionTimeoutMinutes ?? DEFAULT_STAFF_SESSION_TIMEOUT_MINUTES,
+    ));
+    setApplicantSessionTimeoutMinutes(String(
+      data.applicantSessionTimeoutMinutes ?? DEFAULT_APPLICANT_SESSION_TIMEOUT_MINUTES,
+    ));
     setControl({
       acquaintanceDocumentsEntryResponsibleTestCode: data.acquaintanceDocumentsEntryResponsibleTestCode ?? '',
       acquaintanceDocumentsOpenTiming: data.acquaintanceDocumentsOpenTiming ?? DEFAULT_DOCUMENT_TIMING,
@@ -94,10 +110,26 @@ export function SettingsPage(): JSX.Element {
 
   const parsedExamDays = examDays === '' ? null : Number(examDays);
   const parsedSlotWindow = slotWindowDays === '' ? null : Number(slotWindowDays);
+  const parsedStaffSessionTimeout = staffSessionTimeoutMinutes === ''
+    ? null
+    : Number(staffSessionTimeoutMinutes);
+  const parsedApplicantSessionTimeout = applicantSessionTimeoutMinutes === ''
+    ? null
+    : Number(applicantSessionTimeoutMinutes);
   const isExamDaysInvalid =
     parsedExamDays === null || !Number.isInteger(parsedExamDays) || parsedExamDays < 1;
   const isSlotWindowInvalid =
     parsedSlotWindow === null || !Number.isInteger(parsedSlotWindow) || parsedSlotWindow < 1;
+  const isStaffSessionTimeoutInvalid =
+    parsedStaffSessionTimeout === null ||
+    !Number.isInteger(parsedStaffSessionTimeout) ||
+    parsedStaffSessionTimeout < 5 ||
+    parsedStaffSessionTimeout > 120;
+  const isApplicantSessionTimeoutInvalid =
+    parsedApplicantSessionTimeout === null ||
+    !Number.isInteger(parsedApplicantSessionTimeout) ||
+    parsedApplicantSessionTimeout < 15 ||
+    parsedApplicantSessionTimeout > 240;
   const parsedOpenOffset = parseOptionalNumber(control.acquaintanceDocumentsOpenOffsetValue);
   const parsedCloseOffset = parseOptionalNumber(control.acquaintanceDocumentsCloseOffsetValue);
   const isOpenOffsetInvalid = isDurationRequired(control.acquaintanceDocumentsOpenTiming)
@@ -109,7 +141,12 @@ export function SettingsPage(): JSX.Element {
     || !control.acquaintanceDocumentsCloseResponsibleTestCode
     || isOpenOffsetInvalid
     || isCloseOffsetInvalid;
-  const isInvalid = isExamDaysInvalid || isSlotWindowInvalid || isControlInvalid;
+  const isInvalid =
+    isExamDaysInvalid ||
+    isSlotWindowInvalid ||
+    isStaffSessionTimeoutInvalid ||
+    isApplicantSessionTimeoutInvalid ||
+    isControlInvalid;
 
   const isPending = updateSettings.isPending || updatePolicy.isPending;
   const isLoading = settingsQuery.isLoading || policyQuery.isLoading;
@@ -126,6 +163,8 @@ export function SettingsPage(): JSX.Element {
         updateSettings.mutateAsync({
           examDaysPerApplicant: parsedExamDays!,
           examSlotSelectionWindowDays: parsedSlotWindow!,
+          staffSessionTimeoutMinutes: parsedStaffSessionTimeout!,
+          applicantSessionTimeoutMinutes: parsedApplicantSessionTimeout!,
           ...buildApplicantControlScreensSettingsPatch({
             acquaintanceDocumentsEntryResponsibleTestCode: control.acquaintanceDocumentsEntryResponsibleTestCode,
             acquaintanceDocumentsOpenTiming: control.acquaintanceDocumentsOpenTiming,
@@ -159,11 +198,21 @@ export function SettingsPage(): JSX.Element {
           <GeneralSettingsCard
             examDays={examDays}
             slotWindowDays={slotWindowDays}
+            staffSessionTimeoutMinutes={staffSessionTimeoutMinutes}
+            applicantSessionTimeoutMinutes={applicantSessionTimeoutMinutes}
             examDaysError={touched && isExamDaysInvalid ? 'يجب أن يكون رقمًا صحيحًا موجبًا' : undefined}
             slotWindowError={touched && isSlotWindowInvalid ? 'يجب أن يكون رقمًا صحيحًا موجبًا' : undefined}
+            staffSessionTimeoutError={
+              touched && isStaffSessionTimeoutInvalid ? 'القيمة المسموحة من ٥ إلى ١٢٠ دقيقة' : undefined
+            }
+            applicantSessionTimeoutError={
+              touched && isApplicantSessionTimeoutInvalid ? 'القيمة المسموحة من ١٥ إلى ٢٤٠ دقيقة' : undefined
+            }
             loading={settingsQuery.isLoading}
             onExamDaysChange={setExamDays}
             onSlotWindowChange={setSlotWindowDays}
+            onStaffSessionTimeoutMinutesChange={setStaffSessionTimeoutMinutes}
+            onApplicantSessionTimeoutMinutesChange={setApplicantSessionTimeoutMinutes}
             onBlur={() => setTouched(true)}
           />
           <ApplicantControlScreensSettingsCard

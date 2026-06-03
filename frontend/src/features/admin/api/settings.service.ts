@@ -8,11 +8,18 @@
 
 import { apiClient } from '@/shared/lib/api-client';
 
+export const DEFAULT_STAFF_SESSION_TIMEOUT_MINUTES = 30;
+export const DEFAULT_APPLICANT_SESSION_TIMEOUT_MINUTES = 120;
+
 export interface AdminSettings {
   /** عدد أيام الاختبار للطالب. Positive integer, default 3. */
   examDaysPerApplicant: number;
   /** عدد الأيام المسموح للطالب خلالها باختيار موعد الاختبار قبل تاريخ الاختبار. Positive integer, default 1. */
   examSlotSelectionWindowDays: number;
+  /** مدة انتهاء جلسة الموظفين بعد عدم النشاط بالدقائق. Recommended 30. */
+  staffSessionTimeoutMinutes?: number;
+  /** مدة انتهاء جلسة المتقدم بعد عدم النشاط بالدقائق. Recommended 120. */
+  applicantSessionTimeoutMinutes?: number;
   /** الاختبار المسؤول عن إظهار شاشات إدراج بيانات الأقارب الأولية. */
   primaryRelativesEntryResponsibleTestCode?: string;
   /** الاختبار المسؤول عن إظهار شاشات إدراج وثائق التعارف. */

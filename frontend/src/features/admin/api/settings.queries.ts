@@ -5,10 +5,11 @@ export const adminSettingsKeys = {
   all: ['admin', 'settings'] as const,
 };
 
-export function useAdminSettings() {
+export function useAdminSettings(options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: adminSettingsKeys.all,
     queryFn: () => adminSettingsService.get(),
+    enabled: options.enabled,
   });
 }
 

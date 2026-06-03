@@ -14,6 +14,7 @@ type QueryPrimitive = string | number | boolean | null | undefined;
 type QueryValue = QueryPrimitive | readonly QueryPrimitive[];
 type QueryObject = Record<string, QueryValue> | object;
 type RequestBody = BodyInit | object | readonly unknown[] | null | undefined;
+type AuthSurface = 'staff' | 'applicant';
 
 interface ApiEnvelopeError {
   code?: string;
@@ -35,6 +36,11 @@ interface RequestOptions {
 
 const READ_RETRY_DELAYS_MS = [300, 900] as const;
 const TRANSIENT_READ_STATUSES = new Set([502, 503, 504]);
+const AUTH_STORAGE_KEYS: Record<AuthSurface, string> = {
+  staff: 'pa-auth:staff',
+  applicant: 'pa-auth:applicant',
+};
+const LEGACY_AUTH_STORAGE_KEY = 'pa-auth';
 
 export function isBackendEnabled(): boolean {
   const useMocks = firstEnv(import.meta.env.VITE_PROD_USE_MOCKS, import.meta.env.VITE_STAGING_USE_MOCKS);
@@ -68,13 +74,24 @@ function applicantApiBaseUrl(): string {
   );
 }
 
-function readAuthToken(): string | null {
+function readAuthToken(surface: AuthSurface): string | null {
   if (typeof sessionStorage === 'undefined') return null;
-  const raw = sessionStorage.getItem('pa-auth');
+  const raw = sessionStorage.getItem(AUTH_STORAGE_KEYS[surface]);
+  const token = readTokenFromRawAuth(raw, surface);
+  if (token) return token;
+
+  return readTokenFromRawAuth(sessionStorage.getItem(LEGACY_AUTH_STORAGE_KEY), surface);
+}
+
+function readTokenFromRawAuth(raw: string | null, surface: AuthSurface): string | null {
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as { state?: { user?: { token?: unknown } } };
-    const token = parsed.state?.user?.token;
+    const parsed = JSON.parse(raw) as { state?: { user?: { role?: unknown; token?: unknown } } };
+    const user = parsed.state?.user;
+    const role = user?.role;
+    const expectedSurface = role === 'applicant' ? 'applicant' : 'staff';
+    if (expectedSurface !== surface) return null;
+    const token = user?.token;
     return typeof token === 'string' && token.length > 0 ? token : null;
   } catch {
     return null;
@@ -237,10 +254,11 @@ async function request<T>(
   path: string,
   options: RequestOptions = {},
   baseOverride?: string,
+  authSurface: AuthSurface = 'staff',
 ): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set('Accept', 'application/json');
-  const token = options.skipAuth || !shouldSendAuthHeader() ? null : readAuthToken();
+  const token = options.skipAuth || !shouldSendAuthHeader() ? null : readAuthToken(authSurface);
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
   const base = baseOverride ?? adminApiBaseUrl();
@@ -269,10 +287,15 @@ async function request<T>(
   return parsed as T;
 }
 
-async function requestBlob(path: string, options: RequestOptions = {}, baseOverride?: string): Promise<Blob> {
+async function requestBlob(
+  path: string,
+  options: RequestOptions = {},
+  baseOverride?: string,
+  authSurface: AuthSurface = 'staff',
+): Promise<Blob> {
   const headers = new Headers(options.headers);
   headers.set('Accept', '*/*');
-  const token = options.skipAuth || !shouldSendAuthHeader() ? null : readAuthToken();
+  const token = options.skipAuth || !shouldSendAuthHeader() ? null : readAuthToken(authSurface);
   if (token) headers.set('Authorization', `Bearer ${token}`);
 
   const base = baseOverride ?? adminApiBaseUrl();
@@ -287,30 +310,31 @@ async function requestBlob(path: string, options: RequestOptions = {}, baseOverr
   return res.blob();
 }
 
-function makeClient(baseUrl: () => string) {
+function makeClient(baseUrl: () => string, authSurface: AuthSurface) {
   return {
-    get: <T>(path: string, options?: RequestOptions) => request<T>('GET', path, options, baseUrl()),
+    get: <T>(path: string, options?: RequestOptions) => request<T>('GET', path, options, baseUrl(), authSurface),
     postForm: <T>(path: string, body: Record<string, string>) =>
-      request<T>('POST', path, { body: new URLSearchParams(body), skipAuth: true }, baseUrl()),
+      request<T>('POST', path, { body: new URLSearchParams(body), skipAuth: true }, baseUrl(), authSurface),
     post: <T>(path: string, body?: RequestBody, options?: Omit<RequestOptions, 'body'>) =>
-      request<T>('POST', path, { ...options, body }, baseUrl()),
+      request<T>('POST', path, { ...options, body }, baseUrl(), authSurface),
     patch: <T>(path: string, body?: RequestBody, options?: Omit<RequestOptions, 'body'>) =>
-      request<T>('PATCH', path, { ...options, body }, baseUrl()),
+      request<T>('PATCH', path, { ...options, body }, baseUrl(), authSurface),
     put: <T>(path: string, body?: RequestBody, options?: Omit<RequestOptions, 'body'>) =>
-      request<T>('PUT', path, { ...options, body }, baseUrl()),
-    delete: <T>(path: string, options?: RequestOptions) => request<T>('DELETE', path, options, baseUrl()),
-    blob: (path: string, options?: RequestOptions) => requestBlob(path, options, baseUrl()),
+      request<T>('PUT', path, { ...options, body }, baseUrl(), authSurface),
+    delete: <T>(path: string, options?: RequestOptions) =>
+      request<T>('DELETE', path, options, baseUrl(), authSurface),
+    blob: (path: string, options?: RequestOptions) => requestBlob(path, options, baseUrl(), authSurface),
   };
 }
 
 /** Default client — uses the active environment's admin API base URL. */
-export const apiClient = makeClient(adminApiBaseUrl);
+export const apiClient = makeClient(adminApiBaseUrl, 'staff');
 
 /** Admin API client — uses the active environment's admin API base URL.
  *  Use this for any call that must reach the admin backend from the applicant portal
  *  (e.g. GET /api/applicants/:nid/eligible-categories). */
-export const adminApiClient = makeClient(adminApiBaseUrl);
+export const adminApiClient = makeClient(adminApiBaseUrl, 'staff');
 
 /** Applicant API client — uses the active environment's applicant API base URL.
  *  Use this from the applicant portal for all portal-specific endpoints. */
-export const applicantApiClient = makeClient(applicantApiBaseUrl);
+export const applicantApiClient = makeClient(applicantApiBaseUrl, 'applicant');

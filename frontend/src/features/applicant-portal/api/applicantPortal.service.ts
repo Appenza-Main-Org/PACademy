@@ -157,7 +157,7 @@ function mockConfiguredPlan(cycleId: string, categoryKey: string): FollowUpExamP
 export const applicantPortalService = {
   async initiateAuth(nationalId: string, phoneNumber: string): Promise<{ sessionId: string; expiresAt: number }> {
     if (isBackendEnabled()) {
-      return applicantApiClient.post('/applicant/auth/initiate', { nationalId, phoneNumber });
+      return applicantApiClient.post('/applicant/auth/initiate', { nationalId, phoneNumber }, { skipAuth: true });
     }
     await simulateLatency(400, 800);
     if (!/^[0-9]{14}$/.test(nationalId)) throw new Error('الرقم القومي غير صحيح');
@@ -175,7 +175,7 @@ export const applicantPortalService = {
     } | null;
   }> {
     if (isBackendEnabled()) {
-      return applicantApiClient.post('/applicant/auth/verify', { sessionId, smsCode });
+      return applicantApiClient.post('/applicant/auth/verify', { sessionId, smsCode }, { skipAuth: true });
     }
     await simulateLatency(300, 600);
     if (!/^[0-9]{6}$/.test(smsCode)) throw new Error('رمز التحقق يجب أن يكون 6 أرقام');
