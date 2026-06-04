@@ -197,6 +197,125 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
+    public async Task Reconcile_commit_writes_only_accepted_fields_and_result_writeback()
+    {
+        var (svc, db) = Create();
+        db.LookupRows.Add(new LookupRowEntity
+        {
+            LookupKey = "test-results", Code = "RES-01", Name = "ناجح", IsActive = true,
+            PayloadJson = """{"code":"RES-01","name":"ناجح","outcome":"pass"}""",
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+        await SeedOperationalAsync(db, "applicants", "APP-COMMIT-1",
+            """{"id":"APP-COMMIT-1","nationalId":"29801011231101","fullName":"اسم قديم","gender":"male","email":"old@example.com","status":"exam_scheduled","examSlot":{"date":"2026-06-12"}}""");
+
+        var sheet = new ImportSheetInput("Applicants", new List<Dictionary<string, string?>>
+        {
+            new(StringComparer.Ordinal)
+            {
+                ["nationalId"] = "29801011231101",
+                ["fullName"] = "اسم مُصحَّح",
+                ["email"] = "fixed@example.com",
+                ["result"] = "ناجح",
+                ["next_exam_date"] = "2026-07-20",
+                ["test_code"] = "TST-01",
+                ["round"] = "1",
+            },
+        });
+
+        // Admin accepts ONLY `fullName` + the writeback. `email` correction is rejected.
+        var decisions = new List<ApplicantReconciliationDecision>
+        {
+            new("29801011231101", ["fullName"], ApplyWriteback: true),
+        };
+        var commit = await svc.CommitApplicantsReconciliationAsync(
+            new ApplicantReconciliationCommitRequest(decisions, sheet), default);
+
+        Assert.Equal(1, commit.SuccessCount);
+        Assert.Equal(1, commit.FieldsWrittenCount);
+        Assert.Equal(1, commit.WritebacksAppliedCount);
+        Assert.Equal(0, commit.FailedCount);
+
+        var refreshed = (await new OperationalRecordStore(db).GetAsync("applicants", "APP-COMMIT-1", default))!;
+        Assert.Equal("اسم مُصحَّح", refreshed["fullName"]!.GetValue<string>()); // accepted
+        Assert.Equal("old@example.com", refreshed["email"]!.GetValue<string>()); // rejected → unchanged
+        Assert.Equal("passed", refreshed["followUp"]!["TST-01"]!.GetValue<string>()); // result wrote
+        Assert.Equal("2026-07-20", refreshed["examSlot"]!["date"]!.GetValue<string>()); // next slot wrote
+    }
+
+    [Fact]
+    public async Task Reconcile_commit_is_idempotent_per_round()
+    {
+        var (svc, db) = Create();
+        db.LookupRows.Add(new LookupRowEntity
+        {
+            LookupKey = "test-results", Code = "RES-01", Name = "ناجح", IsActive = true,
+            PayloadJson = """{"code":"RES-01","name":"ناجح","outcome":"pass"}""",
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+        await SeedOperationalAsync(db, "applicants", "APP-IDEMP",
+            """{"id":"APP-IDEMP","nationalId":"29801011231201","status":"exam_scheduled","examSlot":{"date":"2026-06-12"}}""");
+
+        var sheet = new ImportSheetInput("Applicants", new List<Dictionary<string, string?>>
+        {
+            new(StringComparer.Ordinal)
+            {
+                ["nationalId"] = "29801011231201",
+                ["result"] = "ناجح",
+                ["next_exam_date"] = "2026-07-20",
+                ["test_code"] = "TST-01",
+                ["round"] = "1",
+            },
+        });
+        var decisions = new List<ApplicantReconciliationDecision> { new("29801011231201", [], ApplyWriteback: true) };
+
+        await svc.CommitApplicantsReconciliationAsync(new(decisions, sheet), default);
+        await svc.CommitApplicantsReconciliationAsync(new(decisions, sheet), default);
+
+        var refreshed = (await new OperationalRecordStore(db).GetAsync("applicants", "APP-IDEMP", default))!;
+        var followUp = refreshed["followUp"]!.AsObject();
+        Assert.Single(followUp); // single TST-01 entry, not duplicated
+        Assert.Equal("passed", followUp["TST-01"]!.GetValue<string>());
+        Assert.Equal("2026-07-20", refreshed["examSlot"]!["date"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Reconcile_commit_fails_unmatched_per_applicant_without_blocking_others()
+    {
+        var (svc, db) = Create();
+        db.LookupRows.Add(new LookupRowEntity
+        {
+            LookupKey = "test-results", Code = "RES-01", Name = "ناجح", IsActive = true,
+            PayloadJson = """{"code":"RES-01","name":"ناجح","outcome":"pass"}""",
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+        await SeedOperationalAsync(db, "applicants", "APP-OK",
+            """{"id":"APP-OK","nationalId":"29801011231301","status":"exam_scheduled","examSlot":{"date":"2026-06-12"}}""");
+
+        var sheet = new ImportSheetInput("Applicants", new List<Dictionary<string, string?>>
+        {
+            new(StringComparer.Ordinal) { ["nationalId"] = "29801011231301", ["result"] = "ناجح", ["next_exam_date"] = "2026-07-20", ["test_code"] = "TST-01" },
+            new(StringComparer.Ordinal) { ["nationalId"] = "29801011239999", ["result"] = "ناجح", ["next_exam_date"] = "2026-07-20", ["test_code"] = "TST-01" },
+        });
+        var decisions = new List<ApplicantReconciliationDecision>
+        {
+            new("29801011231301", [], ApplyWriteback: true),
+            new("29801011239999", [], ApplyWriteback: true),
+        };
+
+        var commit = await svc.CommitApplicantsReconciliationAsync(new(decisions, sheet), default);
+
+        Assert.Equal(2, commit.AttemptedCount);
+        Assert.Equal(1, commit.SuccessCount); // OK applicant committed
+        Assert.Equal(1, commit.FailedCount);  // unknown NID failed individually
+        Assert.Single(commit.FailedRows);
+        Assert.Contains("APPLICANT_NID_UNMATCHED", commit.FailedRows[0].Errors);
+    }
+
+    [Fact]
     public async Task Applicants_roster_lists_only_booked_with_slot_columns()
     {
         var (svc, db) = Create();

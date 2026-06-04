@@ -18,6 +18,8 @@ import { reseed, rng } from '@/shared/mock-data/seed';
 import { computeRowChecksum } from '../lib/checksum';
 import {
   type ApplicantFieldDiff,
+  type ApplicantReconciliationCommitRequest,
+  type ApplicantReconciliationCommitResult,
   type ApplicantReconciliationPreview,
   type ApplicantReconciliationRow,
   type ApplicantRosterRow,
@@ -130,6 +132,18 @@ export const dataExchangeService = {
       );
     }
     return mockReconcilePreview(sheet);
+  },
+
+  async commitApplicantsReconciliation(
+    request: ApplicantReconciliationCommitRequest,
+  ): Promise<ApplicantReconciliationCommitResult> {
+    if (isBackendEnabled()) {
+      return apiClient.post<ApplicantReconciliationCommitResult>(
+        `${BASE}/applicants/reconcile/commit`,
+        request,
+      );
+    }
+    return mockReconcileCommit(request);
   },
 };
 
@@ -311,6 +325,77 @@ function mockReconcilePreview(sheet: ImportSheetInput): ApplicantReconciliationP
       invalid: rows.filter((r) => r.errors.length > 0 && !r.errors.includes('APPLICANT_NID_UNMATCHED')).length,
     },
     rows,
+  };
+}
+
+/** Mock reconciliation commit. Patches the in-memory mock applicants store so
+ *  the same demo session reflects the writes on subsequent reads. Mirrors the
+ *  backend's per-applicant partial-commit semantics. */
+function mockReconcileCommit(
+  request: ApplicantReconciliationCommitRequest,
+): ApplicantReconciliationCommitResult {
+  const preview = mockReconcilePreview(request.sheet);
+  const previewByNid = new Map(preview.rows.map((r) => [r.nationalId, r]));
+  const importByNid = new Map(request.sheet.rows.map((r) => [r.nationalId ?? r.business_key ?? '', r]));
+  const store = seededStore('Applicants');
+  let attempted = 0;
+  let successCount = 0;
+  let fieldsWritten = 0;
+  let writebacksApplied = 0;
+  const failedRows: ApplicantReconciliationCommitResult['failedRows'] = [];
+
+  request.decisions.forEach((decision, idx) => {
+    attempted += 1;
+    const diff = previewByNid.get(decision.nationalId);
+    if (!diff || diff.unmatched) {
+      failedRows.push({ rowIndex: idx, sheetName: 'Applicants', errors: ['APPLICANT_NID_UNMATCHED'] });
+      return;
+    }
+    const importRow = importByNid.get(decision.nationalId);
+    if (!importRow) {
+      failedRows.push({ rowIndex: idx, sheetName: 'Applicants', errors: ['IMPORT_ROW_MISSING'] });
+      return;
+    }
+    const dbRow = store.find((r) => (r.cells.nationalId ?? r.businessKey) === decision.nationalId);
+    if (!dbRow) {
+      failedRows.push({ rowIndex: idx, sheetName: 'Applicants', errors: ['APPLICANT_NID_UNMATCHED'] });
+      return;
+    }
+    let fieldsWrittenThis = 0;
+    for (const diffEntry of diff.fieldDiffs) {
+      if (!decision.acceptedFields.includes(diffEntry.field)) continue;
+      const newValue = importRow[diffEntry.field];
+      if (newValue == null) continue;
+      dbRow.cells[diffEntry.field] = newValue;
+      fieldsWrittenThis += 1;
+    }
+    let writebackApplied = false;
+    if (
+      decision.applyWriteback &&
+      diff.writeback?.outcome &&
+      !diff.writeback.errors.includes('RESULT_VALUE_UNKNOWN')
+    ) {
+      const testCode = diff.writeback.testCode ?? 'TST-01';
+      dbRow.cells[`followUp.${testCode}`] = diff.writeback.outcome;
+      if (diff.writeback.outcome === 'passed' && diff.writeback.nextExamDate) {
+        dbRow.cells['examSlot.date'] = diff.writeback.nextExamDate;
+      }
+      writebackApplied = true;
+    }
+    if (fieldsWrittenThis > 0 || writebackApplied) {
+      successCount += 1;
+      fieldsWritten += fieldsWrittenThis;
+      if (writebackApplied) writebacksApplied += 1;
+    }
+  });
+
+  return {
+    attemptedCount: attempted,
+    successCount,
+    fieldsWrittenCount: fieldsWritten,
+    writebacksAppliedCount: writebacksApplied,
+    failedCount: failedRows.length,
+    failedRows,
   };
 }
 

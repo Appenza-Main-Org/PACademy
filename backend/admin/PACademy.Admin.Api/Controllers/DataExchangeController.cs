@@ -14,6 +14,7 @@ namespace PACademy.Admin.Api.Controllers;
 ///   GET  /api/admin/data-exchange/export?type=&layout=&filter=&changedAfter=&nationalIds=
 ///   GET  /api/admin/data-exchange/applicants/roster
 ///   POST /api/admin/data-exchange/applicants/reconcile/preview
+///   POST /api/admin/data-exchange/applicants/reconcile/commit
 ///   POST /api/admin/data-exchange/import/preview
 ///   POST /api/admin/data-exchange/import/apply
 ///   GET  /api/admin/data-exchange/history
@@ -57,6 +58,19 @@ public sealed class DataExchangeController(DataExchangeService service) : Contro
         if (!string.Equals(body.SheetName, "Applicants", StringComparison.Ordinal))
             return BadRequest(new { code = ErrorCodes.ValidationFailed, message = "ورقة المعاينة يجب أن تكون «Applicants»." });
         return Ok(await service.PreviewApplicantsReconciliationAsync(body, ct));
+    }
+
+    [HttpPost("applicants/reconcile/commit")]
+    public async Task<ActionResult<ApplicantReconciliationCommitResult>> ReconcileCommit(
+        [FromBody] ApplicantReconciliationCommitRequest body, CancellationToken ct)
+    {
+        if (body?.Sheet is null || body.Sheet.Rows is null || body.Sheet.Rows.Count == 0)
+            return BadRequest(new { code = ErrorCodes.ValidationFailed, message = "لا توجد صفوف للاعتماد." });
+        if (!string.Equals(body.Sheet.SheetName, "Applicants", StringComparison.Ordinal))
+            return BadRequest(new { code = ErrorCodes.ValidationFailed, message = "ورقة الاعتماد يجب أن تكون «Applicants»." });
+        if (body.Decisions is null || body.Decisions.Count == 0)
+            return BadRequest(new { code = ErrorCodes.ValidationFailed, message = "لا توجد قرارات للاعتماد." });
+        return Ok(await service.CommitApplicantsReconciliationAsync(body, ct));
     }
 
     [HttpPost("import/preview")]

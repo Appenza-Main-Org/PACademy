@@ -7,6 +7,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { dataExchangeService, type ExportParams } from './dataExchange.service';
 import type {
+  ApplicantReconciliationCommitRequest,
   ImportApplyRequest,
   ImportSheetInput,
 } from '../types';
@@ -61,5 +62,17 @@ export function useApplicantsReconciliationPreviewMutation() {
   return useMutation({
     mutationFn: (sheet: ImportSheetInput) =>
       dataExchangeService.previewApplicantsReconciliation(sheet),
+  });
+}
+
+export function useApplicantsReconciliationCommitMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (request: ApplicantReconciliationCommitRequest) =>
+      dataExchangeService.commitApplicantsReconciliation(request),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: dataExchangeKeys.history() });
+      void qc.invalidateQueries({ queryKey: dataExchangeKeys.applicantsRoster() });
+    },
   });
 }

@@ -219,3 +219,26 @@ export interface ApplicantReconciliationPreview {
   counts: Record<string, number>;
   rows: ApplicantReconciliationRow[];
 }
+
+/** Admin's per-applicant accept/reject decision sent to the commit endpoint. */
+export interface ApplicantReconciliationDecision {
+  nationalId: string;
+  acceptedFields: string[];
+  applyWriteback: boolean;
+}
+
+export interface ApplicantReconciliationCommitRequest {
+  decisions: ApplicantReconciliationDecision[];
+  /** Same sheet the admin previewed — backend re-resolves diffs against the
+   *  live DB so a concurrent edit cannot be overwritten silently. */
+  sheet: ImportSheetInput;
+}
+
+export interface ApplicantReconciliationCommitResult {
+  attemptedCount: number;
+  successCount: number;
+  fieldsWrittenCount: number;
+  writebacksAppliedCount: number;
+  failedCount: number;
+  failedRows: ImportFailedRow[];
+}
