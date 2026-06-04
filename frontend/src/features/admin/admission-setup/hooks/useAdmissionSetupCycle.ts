@@ -8,7 +8,7 @@
  * keys include the cycle id where needed).
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useActiveCycle, useCycles } from '@/features/admin/api/cycles.queries';
 import type { AdmissionCycle } from '@/shared/types/domain';
 import { ADMISSION_SETUP_CYCLE_STORAGE_KEY } from '../config';
@@ -65,7 +65,19 @@ export function useAdmissionSetupCycle(): AdmissionSetupCycleContext {
     writePersisted(id);
   };
 
-  const cycle = selectedId ? available.find((c) => c.id === selectedId) ?? null : null;
+  /* Hold the last resolved cycle so a transient list refetch (during which
+   * `listQuery.data` is briefly undefined) doesn't flip `cycle` to null and
+   * retrigger downstream effects keyed on `cycle?.id`. */
+  const lastResolvedRef = useRef<AdmissionCycle | null>(null);
+  const resolved = selectedId
+    ? available.find((c) => c.id === selectedId) ?? null
+    : null;
+  if (selectedId && resolved) {
+    lastResolvedRef.current = resolved;
+  } else if (!selectedId) {
+    lastResolvedRef.current = null;
+  }
+  const cycle = resolved ?? lastResolvedRef.current;
 
   return {
     cycle,
