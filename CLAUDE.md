@@ -31,6 +31,7 @@
 | (untagged, 2026-05-30) | MOI SSO simulation + Biometric device gateway + Question Bank backend gap-fill — see [docs/SCOPE_GAP_QB_BIOMETRIC.md](docs/SCOPE_GAP_QB_BIOMETRIC.md), §11 |
 | (untagged, 2026-05-31) | DB schema separation (Prod/Staging on dbo, separate databases) + normalized operational records + Data Exchange center (`/admin/data-exchange`) — see [docs/db-migration/](docs/db-migration/), §11 |
 | (untagged, 2026-06-02 → 2026-06-04) | acquaintance-doc backend flow + admission-setup overlapping-rules guard + committees-exam-config category-day aggregation + lookups multi-distinction-criteria + applicant-flow milestone status taxonomy — see §11 |
+| (untagged, 2026-06-05) | applicant demo-flag purge: removed `*_DEMO_BYPASS` NID bypass, `VOTHIQA_ENABLED_NIDS` whitelist, `*_USE_APPLICANT_AUTH_BACKEND` opt-in. `lookupMoiSession` is backend-only. `test-schedule.service` wired to backend (was 100% mock). — see §11 |
 
 The doc baselines point at these tags — when reading `docs/*REPORT.md`, treat the named tag as the snapshot the doc was written against. Code may have moved since.
 
@@ -709,6 +710,16 @@ A dense polish wave converging on three threads:
   - **Continue sequence across custom pagination** (the row-number column counts cumulatively across pages, not per page).
   - Display-sequence column added.
 
+✅ **Done (applicant demo-flag purge, 2026-06-05)**
+
+Closed three demo paths that could silently serve mock data in the applicant cloud surface:
+
+- **Applicant login is backend-only.** Removed `VITE_*_DEMO_BYPASS` env flag + `DEMO_BYPASS_NIDS` bypass branch and the legacy `finishLogin` helper (with its NID-keyed pre-fill for SUBMITTED + VOTHIQA NIDs) in [frontend/src/features/auth/components/ApplicantLoginForm.tsx](frontend/src/features/auth/components/ApplicantLoginForm.tsx). All logins go through `applicantPortalService.initiateAuth` + `verifyAuth`; post-login state hydrates from the real saved draft.
+- **Vothiqa whitelist removed.** Dropped the hardcoded `VOTHIQA_ENABLED_NIDS` set in [frontend/src/features/applicant-portal/ApplicantPortalLayout.tsx](frontend/src/features/applicant-portal/ApplicantPortalLayout.tsx) that un-skipped the acquaintance-doc step for 4 demo NIDs unconditionally. Step state now derives from `getAcquaintanceDocStatus` (backend) only.
+- **MOI lookup is backend-only.** `lookupMoiSession` in [frontend/src/features/applicant-portal/lib/moi-session.mock.ts](frontend/src/features/applicant-portal/lib/moi-session.mock.ts) calls `applicantApiClient` directly. 404 → `not_found`; anything else rethrows. Removed `VITE_*_USE_APPLICANT_AUTH_BACKEND` opt-in flag, the `http://localhost:5102` fallback URL, and the silent fallback to `mockMoiLookup` on backend errors.
+- **`test-schedule.service` wired to backend.** Was 100% mock with no `isBackendEnabled()` gate. `list()`/`current()` now call `applicantApiClient` against the documented `/api/applicant/:id/tests` and `/current` endpoints; the hardcoded `APP-2026000` is swapped for the live auth id via `resolveApplicantId`.
+- **Env-flag cleanup.** Removed dead flag declarations from [frontend/src/vite-env.d.ts](frontend/src/vite-env.d.ts) and updated `.env.example` + `.env.uat.example`.
+
 🚧 **Next sprints**
 - **Sprint 10 — Hardening**: Vitest + Testing Library, Playwright smoke E2E, `eslint-plugin-boundaries`, Husky pre-commit, accessibility audit, print polish.
 - **Backend integration continuation**: keep expanding the admin-first `apiClient` pattern and remove remaining production-path mock leaks. Component/query/type contracts stay unchanged.
@@ -729,7 +740,7 @@ A dense polish wave converging on three threads:
 10. **Arabic content is exact** — copy-paste from the legacy demo or existing files; do not retype Arabic strings (rendering edge cases bite).
 11. **Per-app surfaces consume `var(--accent-*)`, never hardcoded `bg-teal-*` / `text-gold-*`.** The S1 audit (POLISH_REPORT §3) closed this across 7 of 9 apps. New per-app surfaces must use `var(--accent-500/700/50)` via inline `style` so the `data-app="<key>"` overrides flow through.
 12. **§4 two-phase signature canon** (PRODUCT.md §4): any "preliminary save" affordance uses the dashed `border-gold-300 bg-gold-50 text-gold-700` notice shape; any "final / approved / معتمد" Badge carries the `<IconStamp width={12} height={12} />` glyph on the start edge. Don't invent new affordances for the same workflow.
-13. **App.tsx auto-seeds a super_admin demo user** (`ensureDemoUser()`). To verify `/staff-login` visually, temporarily disable that block — `LoginPage` redirects authenticated users straight to `/hub`.
+13. **No demo-user auto-seed.** App.tsx no longer ships an `ensureDemoUser()` block (removed in the 2026-06-05 demo-flag purge). `/staff-login` is the only entry point — the form clears any existing session before authenticating.
 14. **Terminology — use "RFP Scope Document" not "karasa"** in code, comments, and user-facing copy. The `Tasks/KARASA_GAPS.md` filename stays for git-history continuity, but the term inside is "RFP Scope Document."
 15. **Admission-Setup is config-driven.** Don't hand-edit the sidebar, routes table, or breadcrumbs to add a step — append to `ADMISSION_SETUP_STEPS` in [frontend/src/features/admin/admission-setup/config.ts](frontend/src/features/admin/admission-setup/config.ts) and the rest follows. Cycle metadata is **never** a step; admins pick a cycle from `/admin/cycles` before entering the wizard.
 16. **Cloud-vs-on-prem RBAC split.** The cloud permission matrix in [frontend/src/features/admin/users/lib/cloudPermissions.ts](frontend/src/features/admin/users/lib/cloudPermissions.ts) covers `admin` + `exams` + `applicant` sections. Operational on-prem modules (committees, medical, investigations, board, biometric, barcode, workflows) have a separate RBAC on the on-prem deployment and are intentionally absent from this matrix. Don't add their modules/actions here. The Question Bank joined the cloud plane on 2026-05-24 — see §11 for the rebuild notes.
