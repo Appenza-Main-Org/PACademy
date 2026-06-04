@@ -376,10 +376,26 @@ interface MaxAgeFieldProps {
 function MaxAgeField({ categoryCode, maxAge, canWrite }: MaxAgeFieldProps): JSX.Element {
   const setHeaderField = useAdmissionSetupWizardStore((s) => s.setHeaderField);
   const [touched, setTouched] = useState(false);
+  /* Pull the category's reference `minAge` from the `applicant-categories`
+   * lookup so we can block `maxAge < minAge` at the header level — the
+   * reference codes are the source of truth for the floor. */
+  const categoriesQuery = useLookup('applicant-categories', applicationSettingsQueryOptions);
+  const minAge = useMemo(() => {
+    const row = (categoriesQuery.data ?? []).find((r) => r.code === categoryCode);
+    return row?.minAge ?? null;
+  }, [categoriesQuery.data, categoryCode]);
 
   const display = maxAge === null ? '' : String(maxAge);
-  const isInvalid =
-    touched && maxAge !== null && (!Number.isInteger(maxAge) || maxAge < 1);
+  const isPositiveInvalid =
+    maxAge !== null && (!Number.isInteger(maxAge) || maxAge < 1);
+  const isBelowReferenceMin =
+    minAge !== null && maxAge !== null && Number.isInteger(maxAge) && maxAge >= 1 && maxAge < minAge;
+  const errorMessage = isPositiveInvalid
+    ? 'يجب أن يكون رقمًا موجبًا'
+    : isBelowReferenceMin
+      ? `يجب ألا يقل الحد الأقصى للسن عن الحد الأدنى المحدد في الأكواد المرجعية (${toEasternArabicNumerals(minAge ?? 0)} سنة)`
+      : null;
+  const showError = (touched || isBelowReferenceMin) && errorMessage !== null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const digits = e.target.value.replace(/\D/g, '').replace(/^0+/, '');
@@ -413,7 +429,7 @@ function MaxAgeField({ categoryCode, maxAge, canWrite }: MaxAgeFieldProps): JSX.
           placeholder="—"
           containerClassName="flex-1"
           className="[appearance:textfield] [&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-outer-spin-button]:appearance-none"
-          error={isInvalid ? 'يجب أن يكون رقمًا موجبًا' : undefined}
+          error={showError ? errorMessage ?? undefined : undefined}
         />
         <span
           aria-hidden
@@ -1036,10 +1052,6 @@ function ThanawiGrid({
     maritalOptions.find((o) => o.value === v)?.label ?? v;
   const labelForGrade = (v: string): string =>
     gradeOptions.find((o) => o.value === v)?.label ?? v;
-  const labelForExcellenceMode = (r: LocalThanawiRow): string =>
-    (r.excellenceMode ?? (r.grade ? 'TAGDIR' : 'GRADES')) === 'TAGDIR'
-      ? 'تقدير'
-      : 'درجة';
 
   if (rows.length === 0) {
     return (
@@ -1051,7 +1063,7 @@ function ThanawiGrid({
 
   return (
     <div className="overflow-x-auto rounded-md border border-border-subtle bg-surface-card">
-      <table className="min-w-[104rem] border-collapse text-sm">
+      <table className="min-w-[88rem] border-collapse text-sm">
         <thead className="bg-ink-50/80">
           <tr>
             <Th>م</Th>
@@ -1063,11 +1075,7 @@ function ThanawiGrid({
             <Th>الدور</Th>
             <Th>سنة التخرج</Th>
             <Th>فئة المدرسة</Th>
-            <Th>معيار التمييز</Th>
-            <Th>الحد الأدنى للتقدير</Th>
-            <Th>الحد الأقصى للتقدير</Th>
-            <Th>الحد الأدنى للدرجة</Th>
-            <Th>الحد الأقصى للدرجة</Th>
+            <Th>النطاق المسموح</Th>
             {canWrite && <Th>إجراءات</Th>}
           </tr>
         </thead>
@@ -1122,20 +1130,26 @@ function ThanawiGrid({
                     values={r.schoolCategories.map(labelForSchool)}
                   />
                 </Td>
-                <Td>{labelForExcellenceMode(r)}</Td>
-                <Td>{r.grade ? labelForGrade(r.grade) : '—'}</Td>
-                <Td>{r.gradeMax ? labelForGrade(r.gradeMax) : '—'}</Td>
                 <Td>
-                  {formatScore(
-                    r.scoreMin,
-                    r.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR,
-                  )}
-                </Td>
-                <Td>
-                  {formatScore(
-                    r.scoreMax,
-                    r.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR,
-                  )}
+                  <RangeCell
+                    mode={
+                      r.excellenceMode ?? (r.grade ? 'TAGDIR' : 'GRADES')
+                    }
+                    gradeMinLabel={
+                      r.grade ? labelForGrade(r.grade) : null
+                    }
+                    gradeMaxLabel={
+                      r.gradeMax ? labelForGrade(r.gradeMax) : null
+                    }
+                    scoreMin={r.scoreMin}
+                    minScoreOperator={
+                      r.minScoreOperator ?? DEFAULT_MIN_SCORE_OPERATOR
+                    }
+                    scoreMax={r.scoreMax}
+                    maxScoreOperator={
+                      r.maxScoreOperator ?? DEFAULT_MAX_SCORE_OPERATOR
+                    }
+                  />
                 </Td>
                 {canWrite && (
                   <td className="px-3 py-2 align-middle text-end">
@@ -1200,6 +1214,60 @@ function formatScore(
       ? MIN_OPERATOR_SYMBOL[operator as MinScoreOperator]
       : MAX_OPERATOR_SYMBOL[operator as MaxScoreOperator];
   return `${symbol} ${toEasternArabicNumerals(value)}٪`;
+}
+
+/** Merged range cell: a single column that adapts to the row's
+ *  excellenceMode. Replaces five sparse columns (معيار التمييز + 4
+ *  range bounds) — only the cell relevant to the row's mode renders, with
+ *  a tinted chip so the admin can scan the rule's criterion at a glance. */
+interface RangeCellProps {
+  mode: ExcellenceMode;
+  gradeMinLabel: string | null;
+  gradeMaxLabel: string | null;
+  scoreMin: number | null;
+  minScoreOperator: MinScoreOperator;
+  scoreMax: number | null;
+  maxScoreOperator: MaxScoreOperator;
+}
+
+function RangeCell({
+  mode,
+  gradeMinLabel,
+  gradeMaxLabel,
+  scoreMin,
+  minScoreOperator,
+  scoreMax,
+  maxScoreOperator,
+}: RangeCellProps): JSX.Element {
+  if (mode === 'TAGDIR') {
+    const hasBounds = gradeMinLabel !== null && gradeMaxLabel !== null;
+    return (
+      <div className="flex flex-col items-start gap-1">
+        <span className="inline-flex items-center rounded-pill border border-gold-300 bg-gold-50 px-1.5 py-0.5 font-ar text-2xs font-medium text-gold-700">
+          تقدير
+        </span>
+        <span className="font-ar text-ink-900">
+          {hasBounds ? `${gradeMinLabel} — ${gradeMaxLabel}` : '—'}
+        </span>
+      </div>
+    );
+  }
+  const hasBounds = scoreMin !== null && scoreMax !== null;
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <span className="inline-flex items-center rounded-pill border border-teal-300 bg-teal-50 px-1.5 py-0.5 font-ar text-2xs font-medium text-teal-700">
+        نسبة مئوية
+      </span>
+      <span className="font-ar tabular-nums text-ink-900" dir="ltr">
+        {hasBounds
+          ? `${formatScore(scoreMin, minScoreOperator)} — ${formatScore(
+              scoreMax,
+              maxScoreOperator,
+            )}`
+          : '—'}
+      </span>
+    </div>
+  );
 }
 
 /** Renders a list of resolved labels as a comma-separated string that

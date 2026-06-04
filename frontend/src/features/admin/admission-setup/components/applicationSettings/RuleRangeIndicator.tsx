@@ -140,6 +140,16 @@ export function RuleRangeIndicator({
   const gradeGaps = computeGaps(gradeSegments);
   const tagdirGaps = computeGaps(tagdirSegments);
 
+  const hasOverlap =
+    gradeSegments.some((s) => s.isOverlapping) ||
+    tagdirSegments.some((s) => s.isOverlapping);
+  /* Only count gaps on tracks that are actually rendered — otherwise an
+   * unused mode would surface a "فجوة" legend item with no visible
+   * counterpart in the track area. */
+  const hasGap =
+    (gradeSegments.length > 0 && gradeGaps.length > 0) ||
+    (tagdirSegments.length > 0 && tagdirGaps.length > 0);
+
   return (
     <TooltipProvider delayDuration={120}>
       <section
@@ -155,7 +165,12 @@ export function RuleRangeIndicator({
               يعرض النطاقات الحالية للشروط في هذه الفئة ويبرز التداخل أو الفجوات.
             </p>
           </div>
-          <Legend />
+          <Legend
+            showGrades={gradeSegments.length > 0}
+            showTagdir={tagdirSegments.length > 0}
+            showOverlap={hasOverlap}
+            showGap={hasGap}
+          />
         </header>
 
         {gradeSegments.length > 0 && (
@@ -236,28 +251,32 @@ function RangeTrack({
         </span>
       </div>
 
-      {/* Gap rail — light hatched fill marks uncovered intervals. */}
-      <div
-        className="relative h-2 w-full overflow-hidden rounded-full"
-        style={{ background: 'var(--ink-100)' }}
-        aria-hidden
-      >
-        {gaps.map((gap, idx) => (
-          <div
-            key={`gap-${idx}`}
-            className="absolute inset-y-0"
-            style={{
-              insetInlineStart: `${gap.startPct}%`,
-              width: `${Math.max(0.5, gap.endPct - gap.startPct)}%`,
-              background:
-                'repeating-linear-gradient(45deg, var(--gold-200) 0 4px, transparent 4px 8px)',
-            }}
-          />
-        ))}
-      </div>
+      {/* Gap rail — light hatched fill marks uncovered intervals. Hidden
+       *  when there are no gaps so a fully-covered range doesn't leave a
+       *  dangling decorative bar above the lane. */}
+      {gaps.length > 0 && (
+        <div
+          className="relative h-2 w-full overflow-hidden rounded-full"
+          style={{ background: 'var(--ink-100)' }}
+          aria-hidden
+        >
+          {gaps.map((gap, idx) => (
+            <div
+              key={`gap-${idx}`}
+              className="absolute inset-y-0"
+              style={{
+                insetInlineStart: `${gap.startPct}%`,
+                width: `${Math.max(0.5, gap.endPct - gap.startPct)}%`,
+                background:
+                  'repeating-linear-gradient(45deg, var(--gold-200) 0 4px, transparent 4px 8px)',
+              }}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Rule lanes — one row per packing lane, stacked top-to-bottom. */}
-      <div className="mt-2 flex flex-col gap-1.5">
+      <div className={cn('flex flex-col gap-1.5', gaps.length > 0 && 'mt-2')}>
         {lanes.map((lane, laneIdx) => (
           <div
             key={`lane-${laneIdx}`}
@@ -312,28 +331,48 @@ function RangeTrack({
   );
 }
 
-function Legend(): JSX.Element {
+interface LegendProps {
+  showGrades: boolean;
+  showTagdir: boolean;
+  showOverlap: boolean;
+  showGap: boolean;
+}
+
+function Legend({
+  showGrades,
+  showTagdir,
+  showOverlap,
+  showGap,
+}: LegendProps): JSX.Element {
   return (
     <div className="flex flex-wrap items-center gap-2.5">
-      <LegendItem
-        swatchStyle={{ background: 'var(--teal-500)' }}
-        label="نطاق درجة"
-      />
-      <LegendItem
-        swatchStyle={{ background: 'var(--gold-500)' }}
-        label="نطاق تقدير"
-      />
-      <LegendItem
-        swatchStyle={{ background: 'var(--terra-500)' }}
-        label="تداخل"
-      />
-      <LegendItem
-        swatchStyle={{
-          background:
-            'repeating-linear-gradient(45deg, var(--gold-200) 0 4px, var(--ink-100) 4px 8px)',
-        }}
-        label="فجوة"
-      />
+      {showGrades && (
+        <LegendItem
+          swatchStyle={{ background: 'var(--teal-500)' }}
+          label="نطاق درجة"
+        />
+      )}
+      {showTagdir && (
+        <LegendItem
+          swatchStyle={{ background: 'var(--gold-500)' }}
+          label="نطاق تقدير"
+        />
+      )}
+      {showOverlap && (
+        <LegendItem
+          swatchStyle={{ background: 'var(--terra-500)' }}
+          label="تداخل"
+        />
+      )}
+      {showGap && (
+        <LegendItem
+          swatchStyle={{
+            background:
+              'repeating-linear-gradient(45deg, var(--gold-200) 0 4px, var(--ink-100) 4px 8px)',
+          }}
+          label="فجوة"
+        />
+      )}
     </div>
   );
 }
