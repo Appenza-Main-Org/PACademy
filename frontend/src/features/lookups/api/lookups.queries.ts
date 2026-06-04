@@ -77,6 +77,14 @@ export function useApplicantCategories(opts: { type?: ApplicantCategoryType } = 
 const CONFLICT_MESSAGES: Record<string, string> = {
   DUPLICATE_CODE: 'هذا الكود مستخدم بالفعل ضمن هذا الجدول.',
   INVALID_DATE_RANGE: 'تاريخ النهاية يجب أن يكون بعد تاريخ البداية.',
+  /* §10.8 — applicant-categories cross-row uniqueness on (spec × gender).
+   * The same faculty / specialization cannot sit in two categories whose
+   * gender scope overlaps; the applicant flow filters by gender and a
+   * duplicate would create an ambiguous category assignment. */
+  CATEGORY_SPECIALIZATION_GENDER_CONFLICT:
+    'لا يمكن اختيار نفس التخصص لأكثر من فئة لنفس النوع — راجع التخصصات المختارة.',
+  CATEGORY_FACULTY_GENDER_CONFLICT:
+    'لا يمكن اختيار نفس الكلية لأكثر من فئة لنفس النوع — راجع الكليات المختارة.',
 };
 
 function surfaceConflict(err: unknown, fallback: string): void {

@@ -354,6 +354,51 @@ ALTER TABLE dbo.period_categories
   ADD CONSTRAINT PK_PeriodCategories PRIMARY KEY (category_id, target_id);
 ```
 
+### 10.8 · `CATEGORY_SPECIALIZATION_GENDER_CONFLICT`
+
+**Rule.** The applicant portal filters which faculties + specializations
+are visible to an applicant by gender (see Stage 3-5 / `applicant-portal/`
+profile page). A single specialization may therefore appear in **at most
+one** active applicant-category per gender. Two active university
+categories conflict iff their gender scopes overlap AND their *effective*
+specialization sets overlap.
+
+The candidate row's "effective" specialization set is:
+
+- `specializationCodes` itself when non-empty.
+- Every spec whose `facultyCode` is in `facultyCodes`, when
+  `specializationCodes` is empty (interpreted as "all specs of selected
+  faculties").
+
+Pre-University categories carry no faculties or specs and never trigger
+this constraint.
+
+The frontend computes blocked sets at field-render time (greyed-out
+faculty / spec options + an inline notice) and runs a final cross-check on
+submit. Backend mirrors with a typed
+`ConflictError('CATEGORY_SPECIALIZATION_GENDER_CONFLICT', {
+specializationCode, gender, conflictingCategoryCode })` (or
+`CATEGORY_FACULTY_GENDER_CONFLICT` when the conflict surfaces at the
+faculty level — i.e. an existing "all specs" claim collides with the new
+faculty pick).
+
+**SQL Server.** Junction-table based. Materialise each active university
+category's effective `(category_id, specialization_id, gender)` triples
+into `dbo.category_specialization_gender_effective` (refreshed by trigger
+on `applicant_categories`, `applicant_category_specializations`, or
+`applicant_category_faculties` change). Then a filtered unique index on
+the effective table enforces the invariant:
+
+```sql
+CREATE UNIQUE INDEX UX_CategorySpecGender_Effective
+  ON dbo.category_specialization_gender_effective (specialization_id, gender)
+  WHERE deleted_at IS NULL;
+```
+
+When the index throws, map to the typed conflict above, supplying the
+sibling `category_id` as `conflictingCategoryCode` so the form can name
+the offending row.
+
 ---
 
 ## 11 · Admission Setup — Application Settings invariants

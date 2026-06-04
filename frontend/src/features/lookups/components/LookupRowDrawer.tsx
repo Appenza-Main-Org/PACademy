@@ -40,6 +40,7 @@ import { zodResolver } from '@/shared/lib/zod-resolver';
 import {
   LOOKUP_META,
   type ApplicantCategoryGenderScope,
+  type ApplicantCategoryRow,
   type ApplicantCategoryType,
   type FacultyRow,
   type LookupKey,
@@ -51,6 +52,13 @@ import {
 } from '../types';
 import { useLookup } from '../api/lookups.queries';
 import { normalizeExcellenceCriteria } from '../lib/excellenceCriterion';
+import {
+  computeBlockedSets,
+  findApplicantCategoryConflicts,
+  formatGenders,
+  type BlockedReason,
+  type BlockedSets,
+} from '../lib/applicantCategoryUniqueness';
 
 interface LookupRowDrawerProps<K extends LookupKey> {
   open: boolean;
@@ -78,6 +86,14 @@ export function LookupRowDrawer<K extends LookupKey>({
   const meta = LOOKUP_META[lookupKey];
   const isEdit = editing !== null;
   const lookupRowsQuery = useLookup(lookupKey);
+  /* For applicant-categories we cross-check selected faculties + specs
+   * against every other category for (spec × gender) uniqueness — see
+   * §10.8 of docs/DB_CONSTRAINTS.md. Pull specializations eagerly so the
+   * submit handler can expand "all specs of selected faculties" claims. */
+  const isApplicantCategoryDrawer = lookupKey === 'applicant-categories';
+  const specsForUniquenessQuery = useLookup('specializations', {
+    enabled: isApplicantCategoryDrawer,
+  });
 
   const defaults = useMemo<FieldValues>(
     () => normalizeDefaults(lookupKey, editing ? { ...(editing as object) } : blankRow(lookupKey)) as FieldValues,
@@ -140,6 +156,32 @@ export function LookupRowDrawer<K extends LookupKey>({
     }
     if (lookupKey === 'applicant-categories') {
       next.excellenceCriterion = normalizeExcellenceCriteria(next.excellenceCriterion);
+      const candidateCode = typeof next.code === 'string' && next.code.trim().length > 0
+        ? next.code.trim()
+        : (editing?.code ?? null);
+      const candidate = {
+        code: candidateCode,
+        type: (next.type as ApplicantCategoryType | undefined) ?? 'pre_university',
+        genderScope: (next.genderScope as ApplicantCategoryGenderScope[] | undefined) ?? [],
+        facultyCodes: (next.facultyCodes as string[] | undefined) ?? [],
+        specializationCodes: (next.specializationCodes as string[] | undefined) ?? [],
+      };
+      const conflicts = findApplicantCategoryConflicts({
+        candidate,
+        existing: (lookupRowsQuery.data ?? []) as ApplicantCategoryRow[],
+        specs: (specsForUniquenessQuery.data ?? []) as SpecializationRow[],
+      });
+      if (conflicts.length > 0) {
+        const targetField =
+          candidate.specializationCodes.length > 0 ? 'specializationCodes' : 'facultyCodes';
+        methods.setError(
+          targetField,
+          { type: 'manual', message: 'لا يمكن اختيار نفس التخصص لأكثر من فئة لنفس النوع' },
+          { shouldFocus: true },
+        );
+        toast('يوجد تعارض في تخصصات الفئة — راجع التنبيه أعلى الحقول', 'danger');
+        return;
+      }
     }
     onSubmit(next as unknown as LookupRow<K>);
   });
@@ -871,15 +913,53 @@ function FacultyAndSpecializationFields(): JSX.Element | null {
   const stage = watch('type') as ApplicantCategoryType | undefined;
   const selectedFaculties = (watch('facultyCodes') as string[] | undefined) ?? [];
   const selectedSpecs = (watch('specializationCodes') as string[] | undefined) ?? [];
+  const candidateGenders = (watch('genderScope') as ApplicantCategoryGenderScope[] | undefined) ?? [];
+  const candidateCodeRaw = watch('code') as string | undefined;
+  const candidateCode = candidateCodeRaw && candidateCodeRaw.trim().length > 0
+    ? candidateCodeRaw.trim()
+    : null;
   const facultiesQuery = useLookup('faculties');
   const specializationsQuery = useLookup('specializations');
+  const categoriesQuery = useLookup('applicant-categories');
+
+  /* See §10.8 of docs/DB_CONSTRAINTS.md — the same specialization can't be
+   * claimed by two categories with overlapping gender. Compute the blocked
+   * set once per (gender, candidate-code, sibling-data) change. */
+  const blocked: BlockedSets = useMemo(
+    () =>
+      computeBlockedSets({
+        candidateCode,
+        candidateGenders,
+        existing: (categoriesQuery.data ?? []) as ApplicantCategoryRow[],
+        specs: (specializationsQuery.data ?? []) as SpecializationRow[],
+        candidateHasSpecList: selectedSpecs.length > 0,
+      }),
+    [
+      candidateCode,
+      candidateGenders,
+      categoriesQuery.data,
+      specializationsQuery.data,
+      facultiesQuery.data,
+      selectedSpecs.length,
+    ],
+  );
 
   const facultyOptions = useMemo<ComboboxOption[]>(
     () =>
       ((facultiesQuery.data ?? []) as FacultyRow[])
         .filter((f) => f.isActive)
-        .map((f) => ({ value: f.code, label: f.name })),
-    [facultiesQuery.data],
+        .map((f) => {
+          const reason = blocked.faculties.get(f.code);
+          return reason
+            ? {
+                value: f.code,
+                label: f.name,
+                disabled: true,
+                badge: `محجوزة · ${formatGenders(reason.genders)}`,
+              }
+            : { value: f.code, label: f.name };
+        }),
+    [facultiesQuery.data, blocked],
   );
 
   const facultyById = useMemo(() => {
@@ -888,18 +968,29 @@ function FacultyAndSpecializationFields(): JSX.Element | null {
     return map;
   }, [facultiesQuery.data]);
 
-  /* Spec options + groups derived from the currently picked faculties. */
+  /* Spec options + groups derived from the currently picked faculties.
+   * Blocked specs stay visible but are disabled with an explanatory badge
+   * — admins still see why a spec is unavailable rather than having it
+   * silently dropped from the list. */
   const specOptions = useMemo<ComboboxOption[]>(() => {
     if (selectedFaculties.length === 0) return [];
     const allowed = new Set(selectedFaculties);
     return ((specializationsQuery.data ?? []) as SpecializationRow[])
       .filter((s) => s.isActive && allowed.has(s.facultyCode))
-      .map((s) => ({
-        value: s.code,
-        label: s.name,
-        groupId: s.facultyCode,
-      }));
-  }, [selectedFaculties, specializationsQuery.data]);
+      .map((s) => {
+        const reason = blocked.specializations.get(s.code);
+        if (reason) {
+          return {
+            value: s.code,
+            label: s.name,
+            groupId: s.facultyCode,
+            disabled: true,
+            badge: `محجوز · ${formatGenders(reason.genders)}`,
+          };
+        }
+        return { value: s.code, label: s.name, groupId: s.facultyCode };
+      });
+  }, [selectedFaculties, specializationsQuery.data, blocked]);
 
   const specGroups = useMemo<ComboboxGroup[]>(
     () =>
@@ -935,8 +1026,56 @@ function FacultyAndSpecializationFields(): JSX.Element | null {
 
   if (stage !== 'university') return null;
 
+  /* When the admin changes gender scope, faculties/specs that were OK
+   * before may now collide with another category. Surface those in a
+   * visible notice instead of relying on the submit handler alone. */
+  const selectedBlockedFaculties = selectedFaculties
+    .map((code) => {
+      const reason = blocked.faculties.get(code);
+      if (!reason) return null;
+      const name = facultyById.get(code)?.name ?? code;
+      return { code, name, reason };
+    })
+    .filter((entry): entry is { code: string; name: string; reason: BlockedReason } => entry !== null);
+  const selectedBlockedSpecs = selectedSpecs
+    .map((code) => {
+      const reason = blocked.specializations.get(code);
+      if (!reason) return null;
+      const row = ((specializationsQuery.data ?? []) as SpecializationRow[]).find((s) => s.code === code);
+      return { code, name: row?.name ?? code, reason };
+    })
+    .filter((entry): entry is { code: string; name: string; reason: BlockedReason } => entry !== null);
+
   return (
     <>
+      {(selectedBlockedFaculties.length > 0 || selectedBlockedSpecs.length > 0) && (
+        <div className="col-span-2 rounded-md border border-terra-300 bg-terra-50 p-3 text-xs text-terra-700">
+          <p className="font-medium">تعارض في التخصصات لنفس النوع</p>
+          <p className="mt-1 leading-relaxed">
+            لا يمكن تكرار نفس الكلية أو التخصص في أكثر من فئة لنفس النوع
+            (نفس الجنس). أزل العناصر التالية أو غيّر نطاق النوع:
+          </p>
+          <ul className="mt-1 space-y-0.5 ps-4 marker:text-terra-500" style={{ listStyle: 'disc' }}>
+            {selectedBlockedFaculties.map(({ code, name, reason }) => (
+              <li key={`f-${code}`}>
+                <span className="font-medium">{name}</span>
+                {' — مستخدمة في '}
+                <span className="font-medium">{reason.categoryName}</span>
+                {' ('}{formatGenders(reason.genders)}{')'}
+              </li>
+            ))}
+            {selectedBlockedSpecs.map(({ code, name, reason }) => (
+              <li key={`s-${code}`}>
+                <span className="font-medium">{name}</span>
+                {' — مستخدم في '}
+                <span className="font-medium">{reason.categoryName}</span>
+                {' ('}{formatGenders(reason.genders)}{')'}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <Controller
         control={control}
         name="facultyCodes"
@@ -953,7 +1092,13 @@ function FacultyAndSpecializationFields(): JSX.Element | null {
             enableSelectAll
             centered
             className="col-span-2"
-            error={fieldState.error ? 'اختر كلية واحدة على الأقل' : undefined}
+            error={
+              fieldState.error?.type === 'manual'
+                ? fieldState.error.message
+                : fieldState.error
+                  ? 'اختر كلية واحدة على الأقل'
+                  : undefined
+            }
           />
         )}
       />
@@ -962,7 +1107,7 @@ function FacultyAndSpecializationFields(): JSX.Element | null {
         <Controller
           control={control}
           name="specializationCodes"
-          render={({ field }) => (
+          render={({ field, fieldState }) => (
             <MultiSelect
               label="التخصصات"
               helper="اتركه فارغًا لقبول كل تخصصات الكليات المختارة"
@@ -977,6 +1122,11 @@ function FacultyAndSpecializationFields(): JSX.Element | null {
               className="col-span-2"
               selectionSummary={(selected) =>
                 `${selected.length.toLocaleString('ar-EG')} تخصصات مختارة`
+              }
+              error={
+                fieldState.error?.type === 'manual'
+                  ? fieldState.error.message
+                  : undefined
               }
             />
           )}
