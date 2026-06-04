@@ -52,10 +52,12 @@ export function InvestigationBadge({ status }: { status: InvestigationStatus }):
 }
 
 export function PaymentBadge({ status }: { status: PaymentStatus }): JSX.Element {
-  if (status === 'paid') return <Badge tone="success">مدفوع</Badge>;
+  if (status === 'paid') return <Badge tone="success">تم السداد</Badge>;
+  if (status === 'failed') return <Badge tone="danger">فشل السداد</Badge>;
+  if (status === 'refunded') return <Badge tone="info">تم رد المبلغ</Badge>;
   return (
     <Badge tone="warning" dot>
-      غير مدفوع
+      في انتظار السداد
     </Badge>
   );
 }

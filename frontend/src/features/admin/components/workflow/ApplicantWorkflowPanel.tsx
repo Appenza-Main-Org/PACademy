@@ -53,6 +53,18 @@ const STATUS_LABEL_AR: Record<ApplicantStatus, string> = {
   passed_physical: 'اجتاز اللياقة',
   failed_interview: 'لم يجتز المقابلة',
   awaiting_board_decision: 'بانتظار قرار الهيئة',
+  draft: 'مسودة',
+  personal_data_completed: 'استكمال البيانات الشخصية',
+  awaiting_payment: 'في انتظار السداد',
+  fees_paid: 'تم سداد الرسوم',
+  family_data_in_progress: 'بيانات العائلة قيد الإدخال',
+  family_data_approved: 'اعتماد بيانات العائلة',
+  awaiting_exam_booking: 'في انتظار حجز موعد الاختبار',
+  exam_scheduled: 'تم حجز موعد الاختبار',
+  attendance_card_available: 'بطاقة التردد متاحة',
+  awaiting_exam_result: 'في انتظار نتيجة الاختبار',
+  suspended: 'موقوف',
+  acquaintance_doc_opened: 'وثيقة التعارف',
 };
 
 interface Props {

@@ -12,6 +12,18 @@ public sealed class ApplicantsController(OperationalRecordsService records, Appl
 {
     private static readonly ApplicantStatusOption[] StatusOptions =
     [
+        new("draft", "مسودة", "neutral"),
+        new("personal_data_completed", "استكمال البيانات الشخصية", "info"),
+        new("awaiting_payment", "في انتظار السداد", "warning"),
+        new("fees_paid", "تم سداد الرسوم", "success"),
+        new("family_data_in_progress", "بيانات العائلة قيد الإدخال", "info"),
+        new("family_data_approved", "اعتماد بيانات العائلة", "success"),
+        new("awaiting_exam_booking", "في انتظار حجز موعد الاختبار", "warning"),
+        new("exam_scheduled", "تم حجز موعد الاختبار", "info"),
+        new("attendance_card_available", "بطاقة التردد متاحة", "success"),
+        new("awaiting_exam_result", "في انتظار نتيجة الاختبار", "warning"),
+        new("suspended", "موقوف", "danger"),
+        new("acquaintance_doc_opened", "وثيقة التعارف", "success"),
         new("pending", "في الانتظار", "neutral"),
         new("under-review", "قيد المراجعة", "warning"),
         new("approved", "مقبول", "success"),

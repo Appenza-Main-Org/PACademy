@@ -289,7 +289,12 @@ export function ApplicantsPage(): JSX.Element {
           {
             key: 'paymentStatus',
             labelAr: 'حالة الدفع',
-            format: (v) => (v === 'paid' ? 'مدفوع' : 'معلّق'),
+            format: (v) => {
+              if (v === 'paid') return 'تم السداد';
+              if (v === 'failed') return 'فشل السداد';
+              if (v === 'refunded') return 'تم رد المبلغ';
+              return 'في انتظار السداد';
+            },
           },
           { key: 'stageLabel', labelAr: 'المرحلة الحالية' },
           {
