@@ -34,23 +34,6 @@ import {
   isApplicantPaymentLocked,
   isApplicantRouteLocked,
 } from './lib/application-lock';
-import {
-  VOTHIQA_EXPIRED_NID,
-  VOTHIQA_FILLABLE_NID,
-  VOTHIQA_LAW_BACHELOR_NID,
-  VOTHIQA_SPECIALIZED_OFFICERS_NID,
-} from './lib/moi-session.mock';
-
-/* NIDs that get the وثيقة تعارف stepper step un-skipped + the
- * post-submission «وثيقة تعارف» tab. Other demo users still see the
- * dimmed/skipped step. Expand this set as new قسم templates ship. */
-const VOTHIQA_ENABLED_NIDS = new Set<string>([
-  VOTHIQA_FILLABLE_NID,
-  VOTHIQA_EXPIRED_NID,
-  VOTHIQA_SPECIALIZED_OFFICERS_NID,
-  VOTHIQA_LAW_BACHELOR_NID,
-]);
-
 /**
  * Wizard sequence — MOI-aligned post-SSO (PDF DOC-20220806-WA0053).
  *
@@ -124,14 +107,12 @@ export function ApplicantPortalLayout(): JSX.Element {
     data: acquaintanceDocStatus,
     refetch: refetchAcquaintanceDocStatus,
   } = useAcquaintanceDocStatus(currentNid ?? APPLICANT_ID);
-  const isDemoVothiqaApplicant = currentNid !== null && VOTHIQA_ENABLED_NIDS.has(currentNid);
-  const isBackendVothiqaAvailable = Boolean(
+  const vothiqaEnabled = Boolean(
     acquaintanceDocStatus?.isOpen ||
     acquaintanceDocStatus?.isClosed ||
     acquaintanceDocStatus?.canEdit ||
     acquaintanceDocStatus?.canPrint,
   );
-  const vothiqaEnabled = isDemoVothiqaApplicant || isBackendVothiqaAvailable;
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const selectedCategory = selectedCategoryKey
     ? MOCK.categories.find((c) => c.key === selectedCategoryKey) ?? null
@@ -206,10 +187,8 @@ export function ApplicantPortalLayout(): JSX.Element {
     ) {
       state = 'blocked';
     }
-    /* وثيقة التعارف is parked for most demo users — render the step
-     * as dimmed/skipped so the stepper still shows it. The Case-1
-     * demo NIDs (VOTHIQA_ENABLED_NIDS) un-skip it so they can walk
-     * through the full 31-form entry experience. */
+    /* وثيقة التعارف renders as dimmed/skipped until the backend reports
+     * the acquaintance-doc as open/editable/printable for this applicant. */
     if (key === 'acquaintance-doc' && !vothiqaEnabled) state = 'skipped';
     return { key, label: STAGE_LABELS[i] ?? key, state };
   }).filter((s) => s.key !== '');

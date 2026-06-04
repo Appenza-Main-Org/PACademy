@@ -7,11 +7,24 @@
  */
 
 import { MOCK } from '@/shared/mock-data';
+import { applicantApiClient, isBackendEnabled } from '@/shared/lib/api-client';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
+import { useAuthStore } from '@/features/auth';
 import type { TestSchedule } from '@/shared/types/domain';
+
+function resolveApplicantId(passedId: string): string {
+  if (!isBackendEnabled()) return passedId;
+  return useAuthStore.getState().user?.id ?? passedId;
+}
 
 export const testScheduleService = {
   async list(applicantId: string): Promise<TestSchedule[]> {
+    if (isBackendEnabled()) {
+      const id = resolveApplicantId(applicantId);
+      return applicantApiClient.get<TestSchedule[]>(
+        `/api/applicant/${encodeURIComponent(id)}/tests`,
+      );
+    }
     await simulateLatency();
     return MOCK.testSchedules
       .filter((t) => t.applicantId === applicantId)
@@ -23,6 +36,12 @@ export const testScheduleService = {
    * the most recent past test if nothing is upcoming.
    */
   async current(applicantId: string): Promise<TestSchedule | null> {
+    if (isBackendEnabled()) {
+      const id = resolveApplicantId(applicantId);
+      return applicantApiClient.get<TestSchedule | null>(
+        `/api/applicant/${encodeURIComponent(id)}/tests/current`,
+      );
+    }
     await simulateLatency(120, 240);
     const all = MOCK.testSchedules.filter((t) => t.applicantId === applicantId);
     const now = Date.now();
