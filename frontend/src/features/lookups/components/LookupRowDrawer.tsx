@@ -844,6 +844,7 @@ function ApplicantCategoryFields(): JSX.Element {
               placeholder="اختر معايير التمييز"
               ariaLabel="معيار التمييز"
               enableSelectAll
+              centered
               error={normalizeExcellenceCriteria(field.value).length === 0 ? 'اختر معيارًا واحدًا على الأقل' : undefined}
             />
           )}
