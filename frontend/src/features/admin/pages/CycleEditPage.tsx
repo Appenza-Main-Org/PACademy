@@ -6,9 +6,8 @@
  * (تاريخ بداية / تاريخ نهاية التقديم) is **not** edited here — it is
  * derived from the per-category start/end dates configured in the
  * admission-setup wizard's إعدادات التقديم step via
- * `resolveCycleApplicationPeriod`. When activating, the overlap check
- * uses that derived period (it is skipped if no categories have been
- * configured yet).
+ * `resolveCycleApplicationPeriod`. Activating swaps via the backend's
+ * single-active-cycle invariant (`demoteCurrentActive`).
  *
  * Available regardless of cycle status — the prior published-status gate
  * was lifted in the same commit set.
@@ -35,11 +34,7 @@ import { isValidationError } from '@/shared/lib/errors';
 import { validationFieldErrors, validationMessage } from '@/shared/lib/validation-errors';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { ROUTES } from '@/config/routes';
-import { useCycle, useCycleUpdate, useCycleUpdateStatus, useCycles } from '../api/cycles.queries';
-import {
-  findActiveCycleApplicationPeriodOverlap,
-  resolveCycleApplicationPeriod,
-} from '../api/cycles.service';
+import { useCycle, useCycleUpdate, useCycleUpdateStatus } from '../api/cycles.queries';
 import {
   LIST_STATUS_OPTIONS,
   listStatusToCyclePatch,
@@ -70,7 +65,6 @@ export function CycleEditPage(): JSX.Element {
   const { id = '' } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const cycleQuery = useCycle(id);
-  const cyclesQuery = useCycles();
   const updateMut = useCycleUpdate();
   const updateStatusMut = useCycleUpdateStatus();
 
@@ -130,32 +124,6 @@ export function CycleEditPage(): JSX.Element {
     }
 
     const statusPatch = listStatusToCyclePatch(values.status);
-
-    if (statusPatch.isActive) {
-      if (cyclesQuery.isLoading) {
-        toast('جاري تحميل الدورات الحالية للتحقق من فترة التقديم', 'info');
-        return;
-      }
-      if (cyclesQuery.error) {
-        toast('تعذر تحميل الدورات الحالية للتحقق من تداخل فترة التقديم', 'danger');
-        return;
-      }
-      /* Overlap check uses the derived period from configured categories.
-       * If no categories are configured yet, the derived period is empty
-       * and we skip the check (validateCycleApplicationPeriod inside
-       * findActiveCycleApplicationPeriodOverlap short-circuits on empty). */
-      const derivedPeriod = resolveCycleApplicationPeriod(cycle);
-      const overlappingActive = findActiveCycleApplicationPeriodOverlap(
-        cyclesQuery.data,
-        derivedPeriod,
-        cycle.id,
-      );
-      if (overlappingActive) {
-        const message = `فترة التقديم تتداخل مع الدورة النشطة "${overlappingActive.nameAr}"`;
-        toast(message, 'danger');
-        return;
-      }
-    }
 
     try {
       await updateMut.mutateAsync({
