@@ -90,6 +90,11 @@ export interface ApplicantCategoryEligibility {
   allowedMaritalStatusCodes?: string[];
   allowedAcademicDegreeCodes?: string[];
   allowedAcademicGradeCodes?: string[];
+  /** Set of graduation years configured in the active admission cycle's
+   *  rules that matched this applicant. The applicant portal uses this to
+   *  constrain the graduation-year inputs on `/applicant/profile` so the
+   *  applicant cannot submit a year outside the cycle's eligibility window. */
+  allowedGraduationYears?: number[];
   failedReasons: string[];
 }
 
@@ -430,6 +435,7 @@ export const categoriesPublicService = {
           allowedMaritalStatusCodes: [],
           allowedAcademicDegreeCodes: [],
           allowedAcademicGradeCodes: [],
+          allowedGraduationYears: [],
           failedReasons: result.reasons,
         };
       }),

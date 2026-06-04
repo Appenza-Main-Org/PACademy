@@ -101,6 +101,12 @@ import {
   shouldShowPostgraduateQualificationFields,
   shouldShowUniversityQualificationFields,
 } from '../lib/university-qualification-options';
+import {
+  buildGraduationYearError,
+  formatAllowedYearsAr,
+  readGraduationYear,
+  resolveGraduationYearTarget,
+} from '../lib/graduation-year-validation';
 
 const APPLICANT_ID = MOI_APPLICANT_SESSION.applicantId;
 
@@ -448,6 +454,8 @@ export function Stage345ApplicantDataPage(): JSX.Element {
     formState: { errors, isSubmitting },
     control,
     setValue,
+    setError,
+    clearErrors,
   } = useForm<Stage345Values>({
     resolver: zodResolver(stage345Schema),
     defaultValues: {
@@ -501,6 +509,10 @@ export function Stage345ApplicantDataPage(): JSX.Element {
   const watchedSchoolAddress = useWatch({ control, name: 'schoolAddress' });
   const watchedAddressDistrict = useWatch({ control, name: 'addressDistrict' });
   const watchedThanawiType = useWatch({ control, name: 'thanawiType' });
+  const watchedThanawiGradDate = useWatch({ control, name: 'thanawiGradDate' });
+  const watchedBachelorYear = useWatch({ control, name: 'bachelorYear' });
+  const watchedPostgradYear = useWatch({ control, name: 'postgradYear' });
+  const watchedDoctorateYear = useWatch({ control, name: 'doctorateYear' });
   const selectedFacultyCode = useMemo(() => {
     if (!watchedFaculty) return null;
     return (
@@ -601,6 +613,70 @@ export function Stage345ApplicantDataPage(): JSX.Element {
     setValue('thanawiType', '');
   }, [manualCertificateTypeOptions, watchedThanawiType, setValue]);
 
+  /* Cycle-configured graduation-year guard. The eligibility endpoint
+   *  returns the set of years the active cycle's matched rules accept;
+   *  the form rejects any year outside that set on the qualifying
+   *  credential field (resolved by category + qualification level).
+   *  Sibling year fields stay unconstrained — only the terminal credential
+   *  the cycle gates on is validated. */
+  const allowedGraduationYears = useMemo<readonly number[]>(
+    () => selectedCategoryEligibility?.allowedGraduationYears ?? [],
+    [selectedCategoryEligibility?.allowedGraduationYears],
+  );
+  const graduationYearTarget = useMemo(
+    () => resolveGraduationYearTarget({ showBachelor, qualificationLevel }),
+    [showBachelor, qualificationLevel],
+  );
+  const enteredGraduationYear = useMemo(() => {
+    if (!graduationYearTarget) return null;
+    const raw =
+      graduationYearTarget.field === 'thanawiGradDate' ? watchedThanawiGradDate
+      : graduationYearTarget.field === 'bachelorYear' ? watchedBachelorYear
+      : graduationYearTarget.field === 'postgradYear' ? watchedPostgradYear
+      : watchedDoctorateYear;
+    return readGraduationYear(graduationYearTarget.field, raw as string | number | undefined);
+  }, [
+    graduationYearTarget,
+    watchedThanawiGradDate,
+    watchedBachelorYear,
+    watchedPostgradYear,
+    watchedDoctorateYear,
+  ]);
+  const graduationYearError = useMemo(
+    () =>
+      graduationYearTarget
+        ? buildGraduationYearError(graduationYearTarget, enteredGraduationYear, allowedGraduationYears)
+        : null,
+    [graduationYearTarget, enteredGraduationYear, allowedGraduationYears],
+  );
+  const graduationYearBlocked = graduationYearError !== null;
+  const graduationYearHelper = useMemo(() => {
+    if (!graduationYearTarget) return null;
+    if (allowedGraduationYears.length === 0) return null;
+    return `سنوات التخرج المسموح بها في دورة القبول: ${formatAllowedYearsAr(allowedGraduationYears)}`;
+  }, [graduationYearTarget, allowedGraduationYears]);
+  const helperForYear = (
+    field: 'thanawiGradDate' | 'bachelorYear' | 'postgradYear' | 'doctorateYear',
+  ): string | undefined =>
+    graduationYearHelper && graduationYearTarget?.field === field
+      ? graduationYearHelper
+      : undefined;
+  /* Sync the derived error into react-hook-form so the existing
+   *  `errors.<field>.message` plumbing below shows the inline message
+   *  under the same input, and so the field gets focused on submit
+   *  failure. Clears prior errors when the constraint passes. */
+  useEffect(() => {
+    if (!graduationYearTarget) return;
+    if (graduationYearError) {
+      setError(graduationYearTarget.field, {
+        type: 'graduation_year_not_allowed',
+        message: graduationYearError,
+      });
+    } else {
+      clearErrors(graduationYearTarget.field);
+    }
+  }, [graduationYearTarget, graduationYearError, setError, clearErrors]);
+
   /* Demo prefill for the "submitted" user. Reads from a single source
    * (SUBMITTED_APPLICANT_PROFILE) shared with ApplicantPortalPage so the
    * summary view and the editable form stay in lockstep. */
@@ -676,6 +752,14 @@ export function Stage345ApplicantDataPage(): JSX.Element {
   }, [matchedGradeRow, matchedSchoolExtras, setValue]);
 
   const onSubmit = async (values: Stage345Values): Promise<void> => {
+    /* Cycle-configured graduation-year guard. Mirror of the disabled-state
+     * on the submit button so Enter-key submissions can't bypass the check
+     * — surfaces a toast (the inline error is already on the offending
+     * field) and bails before hitting the service. */
+    if (graduationYearBlocked && graduationYearError) {
+      toast(graduationYearError, 'danger');
+      return;
+    }
     /* Merge MOI session fields (identity source of truth when verified) and
      * manualPersonal fields (maritalStatus + shuhra are always manual since
      * MOI doesn't carry them; other identity fields come from manual on the
@@ -860,6 +944,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
                 dir="ltr"
                 {...register('bachelorYear')}
                 error={errors.bachelorYear?.message as string | undefined}
+                helper={helperForYear('bachelorYear')}
               />
               <Select
                 label="التقدير العام"
@@ -891,6 +976,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               dir="ltr"
               {...register('postgradYear')}
               error={errors.postgradYear?.message as string | undefined}
+              helper={helperForYear('postgradYear')}
             />
             <Select
               label="التقدير"
@@ -920,6 +1006,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               dir="ltr"
               {...register('doctorateYear')}
               error={errors.doctorateYear?.message as string | undefined}
+              helper={helperForYear('doctorateYear')}
             />
             <Select
               label="التقدير"
@@ -953,6 +1040,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               errors={errors}
               lockedCountry={matchedSchoolExtras?.country ?? null}
               lockedGradDate={matchedSchoolExtras?.gradDate ?? null}
+              gradDateHelper={helperForYear('thanawiGradDate')}
             />
           </div>
         ) : (
@@ -962,6 +1050,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
             errors={errors}
             certificateTypeOptions={manualCertificateTypeOptions}
             showNotFoundMessage={showSecondaryCertificateNotFoundMessage}
+            gradDateHelper={helperForYear('thanawiGradDate')}
           />
         )}
       </Card>
@@ -1295,7 +1384,8 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               !watchedAddressDistrict ||
               !selectedCategoryKey ||
               (showBachelor && !qualificationLevel) ||
-              maritalBlocked
+              maritalBlocked ||
+              graduationYearBlocked
             }
           >
             حفظ والمتابعة
@@ -1534,12 +1624,14 @@ function SchoolDetailFields({
   errors,
   lockedCountry,
   lockedGradDate,
+  gradDateHelper,
 }: {
   register: ReturnType<typeof useForm<Stage345Values>>['register'];
   control: ReturnType<typeof useForm<Stage345Values>>['control'];
   errors: ReturnType<typeof useForm<Stage345Values>>['formState']['errors'];
   lockedCountry: string | null;
   lockedGradDate: string | null;
+  gradDateHelper?: string;
 }): JSX.Element {
   return (
     <div className="grid gap-3 md:grid-cols-2">
@@ -1584,6 +1676,7 @@ function SchoolDetailFields({
           required
           {...register('thanawiGradDate')}
           error={errors.thanawiGradDate?.message}
+          helper={gradDateHelper}
         />
       )}
     </div>
@@ -1606,12 +1699,14 @@ function ManualThanawiFields({
   errors,
   certificateTypeOptions,
   showNotFoundMessage,
+  gradDateHelper,
 }: {
   register: ReturnType<typeof useForm<Stage345Values>>['register'];
   control: ReturnType<typeof useForm<Stage345Values>>['control'];
   errors: ReturnType<typeof useForm<Stage345Values>>['formState']['errors'];
   certificateTypeOptions: ReadonlyArray<{ value: string; label: string }>;
   showNotFoundMessage: boolean;
+  gradDateHelper?: string;
 }): JSX.Element {
   return (
     <div className="flex flex-col gap-3">
@@ -1666,6 +1761,7 @@ function ManualThanawiFields({
           dir="ltr"
           {...register('thanawiGradDate')}
           error={errors.thanawiGradDate?.message}
+          helper={gradDateHelper}
         />
         <Select
           label="التقدير"
