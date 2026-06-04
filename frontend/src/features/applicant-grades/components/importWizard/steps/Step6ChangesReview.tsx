@@ -31,6 +31,7 @@ import { useGrades } from '../../../api/grades.queries';
 import { normaliseRows } from '../../../lib/normalise';
 import {
   buildIntegrityAuditRows,
+  isInformationalAuditCode,
   summarizeIntegrityDecisions,
   type IntegrityAuditRow,
 } from '../../../lib/duplicateAudit';
@@ -128,8 +129,15 @@ export function Step6ChangesReview(): JSX.Element {
         selectedSchoolCategories,
         maxGradeByCategory,
         validationRules,
+        existingRows: allRows ?? [],
       }),
-    [normalised, selectedSchoolCategories, maxGradeByCategory, validationRules],
+    [
+      normalised,
+      selectedSchoolCategories,
+      maxGradeByCategory,
+      validationRules,
+      allRows,
+    ],
   );
   /* Surface every duplicate-NID case — not just total conflicts — so
    * admins can explicitly pick which of the duplicate rows is the
@@ -261,7 +269,29 @@ export function Step6ChangesReview(): JSX.Element {
     [integrityRows],
   );
   const hardInvalidRows = useMemo(
-    () => integrityRows.filter((row) => row.code !== 'GRADE_OUT_OF_RANGE'),
+    () =>
+      integrityRows.filter(
+        (row) =>
+          row.code !== 'GRADE_OUT_OF_RANGE' &&
+          row.code !== 'INVALID_NID' &&
+          !isInformationalAuditCode(row.code),
+      ),
+    [integrityRows],
+  );
+  /* The dedicated NID validation report aggregates every detected
+   * national-id issue (format / governorate / sequence / gender / checksum
+   * / intra-file duplicate / system duplicate) into a single panel so
+   * admins can review the full per-row breakdown without hunting
+   * across the page. INVALID_NID rows are pulled out of HardInvalidSection
+   * to keep them from being shown twice. */
+  const nidValidationReportRows = useMemo(
+    () =>
+      integrityRows.filter(
+        (row) =>
+          row.code === 'INVALID_NID' ||
+          row.code === 'DUPLICATE_NID_IN_FILE' ||
+          row.code === 'DUPLICATE_NID_IN_SYSTEM',
+      ),
     [integrityRows],
   );
   const acceptedOutOfRangeCount = outOfRangeRows.filter(
@@ -295,7 +325,8 @@ export function Step6ChangesReview(): JSX.Element {
     diffs.length === 0 &&
     uploadDuplicates.length === 0 &&
     outOfRangeRows.length === 0 &&
-    hardInvalidRows.length === 0
+    hardInvalidRows.length === 0 &&
+    nidValidationReportRows.length === 0
   ) {
     return (
       <div className="flex flex-col gap-4">
@@ -343,6 +374,9 @@ export function Step6ChangesReview(): JSX.Element {
       />
       {alreadyImported.length > 0 && (
         <AlreadyImportedBanner count={alreadyImported.length} />
+      )}
+      {nidValidationReportRows.length > 0 && (
+        <NidValidationReport rows={nidValidationReportRows} />
       )}
       {hardInvalidRows.length > 0 && <HardInvalidSection rows={hardInvalidRows} />}
       {uploadDuplicates.length > 0 && (
@@ -823,6 +857,176 @@ function OutOfRangeCard({
         </div>
       </CardBody>
     </Card>
+  );
+}
+
+function NidValidationReport({ rows }: { rows: IntegrityAuditRow[] }): JSX.Element {
+  const counts = useMemo(() => {
+    let invalidFormat = 0;
+    let duplicatesInFile = 0;
+    let duplicatesInSystem = 0;
+    const affectedRows = new Set<number>();
+    const affectedNids = new Set<string>();
+    for (const row of rows) {
+      affectedRows.add(row.sourceRowIndex);
+      if (row.nationalId) affectedNids.add(row.nationalId);
+      if (row.code === 'INVALID_NID') invalidFormat += 1;
+      else if (row.code === 'DUPLICATE_NID_IN_FILE') duplicatesInFile += 1;
+      else if (row.code === 'DUPLICATE_NID_IN_SYSTEM') duplicatesInSystem += 1;
+    }
+    return {
+      total: rows.length,
+      invalidFormat,
+      duplicatesInFile,
+      duplicatesInSystem,
+      affectedRowsCount: affectedRows.size,
+      affectedNidsCount: affectedNids.size,
+    };
+  }, [rows]);
+
+  return (
+    <section className="flex flex-col gap-3">
+      <header className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-terra-200 bg-terra-50 px-3.5 py-2.5">
+        <div className="flex items-center gap-2 text-xs text-terra-700">
+          <ShieldAlert size={14} strokeWidth={1.75} aria-hidden />
+          <span>
+            <span className="font-numeric font-bold text-ink-900">
+              {counts.total.toLocaleString('en')}
+            </span>{' '}
+            ملاحظة على الرقم القومي خلال{' '}
+            <span className="font-numeric font-bold">
+              {counts.affectedRowsCount.toLocaleString('en')}
+            </span>{' '}
+            صفًا. صحح الملف أو راجع قرارات التكرار قبل تأكيد الاستيراد.
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {counts.invalidFormat > 0 && (
+            <Badge tone="danger">
+              تنسيق غير صالح{' '}
+              <span className="font-en tabular-nums">
+                {counts.invalidFormat.toLocaleString('en')}
+              </span>
+            </Badge>
+          )}
+          {counts.duplicatesInFile > 0 && (
+            <Badge tone="warning">
+              تكرار داخل الملف{' '}
+              <span className="font-en tabular-nums">
+                {counts.duplicatesInFile.toLocaleString('en')}
+              </span>
+            </Badge>
+          )}
+          {counts.duplicatesInSystem > 0 && (
+            <Badge tone="warning">
+              مسجل بالقاعدة{' '}
+              <span className="font-en tabular-nums">
+                {counts.duplicatesInSystem.toLocaleString('en')}
+              </span>
+            </Badge>
+          )}
+        </div>
+      </header>
+
+      <Card>
+        <CardBody className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-xs">
+              <thead className="bg-ink-50/60 text-2xs uppercase text-ink-500">
+                <tr>
+                  <th
+                    scope="col"
+                    className="border-b border-border-subtle px-3 py-2 text-start font-semibold"
+                    style={{ width: '72px' }}
+                  >
+                    صف #
+                  </th>
+                  <th
+                    scope="col"
+                    className="border-b border-border-subtle px-3 py-2 text-start font-semibold"
+                  >
+                    الرقم القومي
+                  </th>
+                  <th
+                    scope="col"
+                    className="border-b border-border-subtle px-3 py-2 text-start font-semibold"
+                  >
+                    بيانات الطالب
+                  </th>
+                  <th
+                    scope="col"
+                    className="border-b border-border-subtle px-3 py-2 text-start font-semibold"
+                  >
+                    نوع الخطأ
+                  </th>
+                  <th
+                    scope="col"
+                    className="border-b border-border-subtle px-3 py-2 text-start font-semibold"
+                  >
+                    التفاصيل
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, index) => (
+                  <tr
+                    key={`${row.sourceRowIndex}-${row.code}-${row.nidIssueCode ?? ''}-${index}`}
+                    className="border-t border-border-subtle align-top first:border-t-0"
+                  >
+                    <td className="px-3 py-2">
+                      <span className="rounded-pill bg-ink-100 px-2 py-0.5 font-en text-2xs font-semibold text-ink-700">
+                        #
+                        <span className="tabular-nums">{row.sourceRowIndex}</span>
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      <span
+                        dir="ltr"
+                        className="font-mono text-2xs text-ink-700"
+                      >
+                        {row.nationalId ?? '—'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-medium text-ink-900">
+                          {row.nameAr ?? '—'}
+                        </span>
+                        <span className="text-2xs text-ink-500">
+                          المجموع:{' '}
+                          <span className="font-en tabular-nums">
+                            {row.totalGrade ?? '—'}
+                          </span>
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <Badge
+                        tone={
+                          row.code === 'INVALID_NID'
+                            ? 'danger'
+                            : 'warning'
+                        }
+                      >
+                        {row.labelAr}
+                      </Badge>
+                      {row.nidIssueCode && (
+                        <div className="mt-1 font-mono text-2xs text-ink-400">
+                          {row.nidIssueCode}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-xs leading-relaxed text-ink-700">
+                      {row.detail}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CardBody>
+      </Card>
+    </section>
   );
 }
 

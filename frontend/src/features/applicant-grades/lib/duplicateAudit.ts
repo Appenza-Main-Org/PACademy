@@ -18,8 +18,8 @@
  */
 
 import { serializeCsv } from '@/shared/lib/csv';
-import { isValidNationalId, parseNationalId } from '@/shared/lib/national-id';
-import type { ImportReport, NormalisedRow } from '../types';
+import { analyseNationalId, parseNationalId } from '@/shared/lib/national-id';
+import type { GradeRow, ImportReport, NormalisedRow } from '../types';
 import { buildUploadDuplicates } from './buildDiff';
 
 /** Intra-file duplicate ratio above which the wizard blocks the admin
@@ -59,20 +59,27 @@ export interface DuplicateAudit {
   exceedsThreshold: boolean;
 }
 
+export type IntegrityAuditCode =
+  | 'INVALID_NID'
+  | 'DUPLICATE_NID_IN_FILE'
+  | 'DUPLICATE_NID_IN_SYSTEM'
+  | 'GENDER_MISMATCH'
+  | 'AGE_OUT_OF_RANGE'
+  | 'MISSING_REQUIRED'
+  | 'GRADE_OUT_OF_RANGE'
+  | 'UNREADABLE_VALUE';
+
 export interface IntegrityAuditRow {
-  code:
-    | 'INVALID_NID'
-    | 'GENDER_MISMATCH'
-    | 'AGE_OUT_OF_RANGE'
-    | 'MISSING_REQUIRED'
-    | 'GRADE_OUT_OF_RANGE'
-    | 'UNREADABLE_VALUE';
+  code: IntegrityAuditCode;
   labelAr: string;
   sourceRowIndex: number;
   nationalId: string | null;
   nameAr: string | null;
   totalGrade: number | null;
   detail: string;
+  /** Optional reason code for NID issues — surfaced as a fine-grained
+   *  Badge in the review UI. Set on `INVALID_NID` rows only. */
+  nidIssueCode?: string;
 }
 
 export interface ImportValidationRule {
@@ -104,6 +111,16 @@ export interface IntegrityDecisionSummary {
   pendingOutOfRangeCount: number;
 }
 
+/** Codes that are detected and reported in the validation panel but are
+ *  already handled by dedicated decision UIs elsewhere on the review
+ *  page — they must not contribute to the hard rejection set so the
+ *  admin can still resolve them via the duplicates picker / existing-
+ *  diff cards rather than seeing every duplicate counted as "مرفوضة". */
+const INFORMATIONAL_AUDIT_CODES: ReadonlySet<IntegrityAuditCode> = new Set([
+  'DUPLICATE_NID_IN_FILE',
+  'DUPLICATE_NID_IN_SYSTEM',
+]);
+
 export function summarizeIntegrityDecisions(
   rows: readonly IntegrityAuditRow[],
   outOfRangeDecisions: Readonly<Record<number, 'accept' | 'reject'>>,
@@ -112,11 +129,15 @@ export function summarizeIntegrityDecisions(
   let pendingOutOfRangeCount = 0;
   const hardRejectedSourceRows = new Set(
     rows
-      .filter((row) => row.code !== 'GRADE_OUT_OF_RANGE')
+      .filter(
+        (row) =>
+          row.code !== 'GRADE_OUT_OF_RANGE' && !INFORMATIONAL_AUDIT_CODES.has(row.code),
+      )
       .map((row) => row.sourceRowIndex),
   );
 
   for (const row of rows) {
+    if (INFORMATIONAL_AUDIT_CODES.has(row.code)) continue;
     if (row.code === 'GRADE_OUT_OF_RANGE') {
       if (hardRejectedSourceRows.has(row.sourceRowIndex)) continue;
       const decision = outOfRangeDecisions[row.sourceRowIndex];
@@ -132,6 +153,10 @@ export function summarizeIntegrityDecisions(
   }
 
   return { rejectedSourceRows, pendingOutOfRangeCount };
+}
+
+export function isInformationalAuditCode(code: IntegrityAuditCode): boolean {
+  return INFORMATIONAL_AUDIT_CODES.has(code);
 }
 
 export function buildDuplicateAudit(
@@ -204,11 +229,31 @@ export function buildIntegrityAuditRows(input: {
   selectedSchoolCategories: readonly string[];
   maxGradeByCategory: Readonly<Record<string, number>>;
   validationRules?: readonly ImportValidationRule[];
+  /** Existing grade rows already persisted in the system. When supplied,
+   *  rows whose `nationalId` already exists in the DB are surfaced as
+   *  `DUPLICATE_NID_IN_SYSTEM` audit findings so the review page can list
+   *  every NID collision alongside the format-level validations. */
+  existingRows?: readonly GradeRow[];
 }): IntegrityAuditRow[] {
   const fallbackMax =
     input.selectedSchoolCategories
       .map((code) => input.maxGradeByCategory[code])
       .find((value): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0) ?? null;
+
+  /* Build the intra-file occurrence map up front so the per-row loop can
+   * flag every duplicate occurrence with the canonical Arabic detail. */
+  const intraFileOccurrences = new Map<string, NormalisedRow[]>();
+  for (const row of input.rows) {
+    if (!row.nationalId) continue;
+    const bucket = intraFileOccurrences.get(row.nationalId);
+    if (bucket) bucket.push(row);
+    else intraFileOccurrences.set(row.nationalId, [row]);
+  }
+
+  const existingNidIndex = new Map<string, GradeRow>();
+  for (const existing of input.existingRows ?? []) {
+    if (existing.nid) existingNidIndex.set(existing.nid, existing);
+  }
 
   const out: IntegrityAuditRow[] = [];
   for (const row of input.rows) {
@@ -228,16 +273,54 @@ export function buildIntegrityAuditRows(input: {
       });
     }
     const nidInfo = row.nationalId ? parseNationalId(row.nationalId) : null;
-    if (row.nationalId && !isValidNationalId(row.nationalId)) {
-      out.push({
-        code: 'INVALID_NID',
-        labelAr: 'رقم قومي غير صالح',
-        sourceRowIndex: row.sourceRowIndex,
-        nationalId: row.nationalId,
-        nameAr: row.nameAr,
-        totalGrade: row.totalGrade,
-        detail: `الرقم القومي يجب أن يتكون من 14 رقمًا صالحًا. القيمة الحالية: ${row.nationalId}`,
-      });
+    if (row.nationalId) {
+      const analysis = analyseNationalId(row.nationalId);
+      for (const issue of analysis.issues) {
+        out.push({
+          code: 'INVALID_NID',
+          labelAr: issue.labelAr,
+          sourceRowIndex: row.sourceRowIndex,
+          nationalId: row.nationalId,
+          nameAr: row.nameAr,
+          totalGrade: row.totalGrade,
+          detail: `${issue.detailAr} (الرقم: ${row.nationalId})`,
+          nidIssueCode: issue.code,
+        });
+      }
+
+      const intraFileGroup = intraFileOccurrences.get(row.nationalId);
+      if (intraFileGroup && intraFileGroup.length > 1) {
+        const others = intraFileGroup
+          .filter((r) => r.sourceRowIndex !== row.sourceRowIndex)
+          .map((r) => r.sourceRowIndex)
+          .sort((a, b) => a - b);
+        out.push({
+          code: 'DUPLICATE_NID_IN_FILE',
+          labelAr: 'رقم قومي مكرر داخل الملف',
+          sourceRowIndex: row.sourceRowIndex,
+          nationalId: row.nationalId,
+          nameAr: row.nameAr,
+          totalGrade: row.totalGrade,
+          detail: `الرقم القومي ${row.nationalId} يظهر في ${intraFileGroup.length} صفوف داخل الملف${
+            others.length > 0 ? ` (صفوف: ${others.map((n) => `#${n}`).join('، ')})` : ''
+          }.`,
+        });
+      }
+
+      const existingMatch = existingNidIndex.get(row.nationalId);
+      if (existingMatch) {
+        out.push({
+          code: 'DUPLICATE_NID_IN_SYSTEM',
+          labelAr: 'رقم قومي مسجّل مسبقاً بقاعدة البيانات',
+          sourceRowIndex: row.sourceRowIndex,
+          nationalId: row.nationalId,
+          nameAr: row.nameAr,
+          totalGrade: row.totalGrade,
+          detail: `الرقم القومي ${row.nationalId} موجود مسبقاً للطالب «${existingMatch.name ?? '—'}»${
+            existingMatch.graduationYear ? ` (سنة تخرج ${existingMatch.graduationYear})` : ''
+          }.`,
+        });
+      }
     }
 
     if (row.nationalId && nidInfo?.valid && nidInfo.gender) {
