@@ -1,15 +1,16 @@
 /**
  * CycleNewPage — create form for an admission cycle.
  *
- * Surfaces: name + application submission period. The period is stored on
- * `openDate` / `closeDate` so it is visible before category-level setup and
- * can be checked against the existing active cycle before creation.
- * Every other AdmissionCycle field (cohort, fees, capacity, openCategories, …)
- * is filled in by the service with sensible defaults.
+ * Surfaces the cycle name only. The application submission period
+ * (تاريخ بداية / تاريخ نهاية التقديم) is **not** entered here — it is
+ * derived from the per-category start/end dates configured in the
+ * admission-setup wizard's إعدادات التقديم step. `resolveCycleApplicationPeriod`
+ * picks the earliest start and latest end across configured categories;
+ * the cycle's own `openDate` / `closeDate` only act as a wide academic-year
+ * sentinel and are seeded to a 2-year window straddling the current year.
  *
- * On حفظ the cycle is persisted as the first status in the
- * "إدراج ومراجعة" stage — `draft`. No auto-advance to active; admins
- * promote later from the list.
+ * On حفظ the cycle is persisted as `draft`. No auto-advance to active;
+ * admins promote later from the list.
  */
 
 import { useNavigate } from 'react-router-dom';
@@ -27,13 +28,7 @@ import { zodResolver } from '@/shared/lib/zod-resolver';
 import { isValidationError } from '@/shared/lib/errors';
 import { validationFieldErrors, validationMessage } from '@/shared/lib/validation-errors';
 import { ROUTES } from '@/config/routes';
-import { useCycleCreate, useCycles } from '../api/cycles.queries';
-import {
-  findActiveCycleApplicationPeriodOverlap,
-  toCycleCloseIso,
-  toCycleOpenIso,
-  validateCycleApplicationPeriod,
-} from '../api/cycles.service';
+import { useCycleCreate } from '../api/cycles.queries';
 import type { AdmissionCycle } from '@/shared/types/domain';
 
 const cycleSchema = z.object({
@@ -43,8 +38,6 @@ const cycleSchema = z.object({
     .min(1, 'اسم الدورة مطلوب')
     .min(3, 'اسم الدورة يجب ألا يقل عن 3 أحرف')
     .max(80, 'اسم الدورة يجب ألا يزيد عن 80 حرفًا'),
-  startDate: z.string().min(1, 'تاريخ بداية التقديم مطلوب'),
-  endDate: z.string().min(1, 'تاريخ نهاية التقديم مطلوب'),
 });
 
 type CycleValues = z.infer<typeof cycleSchema>;
@@ -59,13 +52,19 @@ function cycleNameError(name: string): string | null {
 
 function buildPayload(values: CycleValues): Omit<AdmissionCycle, 'id' | 'applicantCount'> {
   const nowIso = new Date().toISOString();
-  const year = Number(values.startDate.slice(0, 4));
+  const year = new Date().getFullYear();
+  /* Wide academic-year window. The user-facing application period is
+   * derived from configured categories via `resolveCycleApplicationPeriod`;
+   * these are only the outer sentinel that the per-category date pickers
+   * clamp inside. Spans Jan 1 of the current year to Dec 31 of next year. */
+  const openDate = `${year}-01-01T00:00:00.000Z`;
+  const closeDate = `${year + 1}-12-31T23:59:59.000Z`;
   return {
     nameAr: values.name.trim(),
     cohort: 'male',
     year,
-    openDate: toCycleOpenIso(values.startDate),
-    closeDate: toCycleCloseIso(values.endDate),
+    openDate,
+    closeDate,
     expectedCapacity: 0,
     /* Always draft on create — the "إدراج ومراجعة" stage starts here.
      * Admins promote to "اعتماد ونشر" later from /admin/cycles. */
@@ -77,24 +76,9 @@ function buildPayload(values: CycleValues): Omit<AdmissionCycle, 'id' | 'applica
   };
 }
 
-function addDays(date: Date, days: number): Date {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
-}
-
-function toInputDate(date: Date): string {
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  const dd = String(date.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-
 export function CycleNewPage(): JSX.Element {
   const navigate = useNavigate();
   const createMut = useCycleCreate();
-  const cyclesQuery = useCycles();
-  const today = new Date();
 
   const {
     register,
@@ -105,8 +89,6 @@ export function CycleNewPage(): JSX.Element {
     resolver: zodResolver(cycleSchema),
     defaultValues: {
       name: '',
-      startDate: toInputDate(today),
-      endDate: toInputDate(addDays(today, 60)),
     },
   });
 
@@ -118,35 +100,8 @@ export function CycleNewPage(): JSX.Element {
       return;
     }
 
-    const periodErrors = validateCycleApplicationPeriod(values);
-    for (const [field, message] of Object.entries(periodErrors)) {
-      setError(field as FieldPath<CycleValues>, { type: 'manual', message }, { shouldFocus: true });
-    }
-    if (Object.keys(periodErrors).length > 0) return;
-
-    if (cyclesQuery.isLoading) {
-      toast('جاري تحميل الدورات الحالية للتحقق من فترة التقديم', 'info');
-      return;
-    }
-    if (cyclesQuery.error) {
-      toast('تعذر تحميل الدورات الحالية للتحقق من تداخل فترة التقديم', 'danger');
-      return;
-    }
-
-    const overlappingActive = findActiveCycleApplicationPeriodOverlap(cyclesQuery.data, {
-      startDate: values.startDate,
-      endDate: values.endDate,
-    });
-    if (overlappingActive) {
-      const message = `فترة التقديم تتداخل مع الدورة النشطة "${overlappingActive.nameAr}"`;
-      setError('startDate', { type: 'manual', message }, { shouldFocus: true });
-      setError('endDate', { type: 'manual', message });
-      toast(message, 'danger');
-      return;
-    }
-
     createMut.mutate(
-      { payload: buildPayload({ ...values, name }) },
+      { payload: buildPayload({ name }) },
       {
         onSuccess: () => {
           toast('تم حفظ المسودة', 'success');
@@ -155,14 +110,7 @@ export function CycleNewPage(): JSX.Element {
         onError: (err) => {
           if (isValidationError(err)) {
             for (const [field, message] of Object.entries(validationFieldErrors(err))) {
-              const fieldName =
-                field === 'nameAr'
-                  ? 'name'
-                  : field === 'openDate'
-                    ? 'startDate'
-                    : field === 'closeDate'
-                      ? 'endDate'
-                      : field;
+              const fieldName = field === 'nameAr' ? 'name' : field;
               setError(fieldName as FieldPath<CycleValues>, { type: 'server', message });
             }
           }
@@ -193,22 +141,9 @@ export function CycleNewPage(): JSX.Element {
             error={errors.name?.message}
           />
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <Input
-              type="date"
-              label="تاريخ بداية التقديم"
-              required
-              {...register('startDate')}
-              error={errors.startDate?.message}
-            />
-            <Input
-              type="date"
-              label="تاريخ نهاية التقديم"
-              required
-              {...register('endDate')}
-              error={errors.endDate?.message}
-            />
-          </div>
+          <p className="text-2xs text-ink-500">
+            فترة التقديم تُحدَّد لاحقًا من إعدادات التقديم لكل فئة في معالج إعداد القبول.
+          </p>
 
           <div className="mt-2 flex items-center justify-end gap-2">
             <Button
@@ -223,7 +158,6 @@ export function CycleNewPage(): JSX.Element {
               variant="primary"
               leadingIcon={<Save size={14} strokeWidth={1.75} />}
               isLoading={createMut.isPending}
-              disabled={cyclesQuery.isLoading}
             >
               حفظ كمسودة
             </Button>

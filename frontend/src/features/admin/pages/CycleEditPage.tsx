@@ -1,9 +1,14 @@
 /**
  * CycleEditPage — edit a saved admission cycle.
  *
- * Exposes the admin-editable cycle metadata: name, application submission
- * period, and list-facing lifecycle status. That status determines whether
- * the cycle is active or inactive.
+ * Exposes the admin-editable cycle metadata: name and list-facing
+ * lifecycle status. The application submission period
+ * (تاريخ بداية / تاريخ نهاية التقديم) is **not** edited here — it is
+ * derived from the per-category start/end dates configured in the
+ * admission-setup wizard's إعدادات التقديم step via
+ * `resolveCycleApplicationPeriod`. When activating, the overlap check
+ * uses that derived period (it is skipped if no categories have been
+ * configured yet).
  *
  * Available regardless of cycle status — the prior published-status gate
  * was lifted in the same commit set.
@@ -33,9 +38,7 @@ import { ROUTES } from '@/config/routes';
 import { useCycle, useCycleUpdate, useCycleUpdateStatus, useCycles } from '../api/cycles.queries';
 import {
   findActiveCycleApplicationPeriodOverlap,
-  toCycleCloseIso,
-  toCycleOpenIso,
-  validateCycleApplicationPeriod,
+  resolveCycleApplicationPeriod,
 } from '../api/cycles.service';
 import {
   LIST_STATUS_OPTIONS,
@@ -50,8 +53,6 @@ const cycleSchema = z.object({
     .min(1, 'اسم الدورة مطلوب')
     .min(3, 'اسم الدورة يجب ألا يقل عن 3 أحرف')
     .max(80, 'اسم الدورة يجب ألا يزيد عن 80 حرفًا'),
-  startDate: z.string().min(1, 'تاريخ بداية التقديم مطلوب'),
-  endDate: z.string().min(1, 'تاريخ نهاية التقديم مطلوب'),
   status: z.enum(['review', 'published']),
 });
 
@@ -81,7 +82,7 @@ export function CycleEditPage(): JSX.Element {
     formState: { errors },
   } = useForm<CycleValues>({
     resolver: zodResolver(cycleSchema),
-    defaultValues: { name: '', startDate: '', endDate: '', status: 'review' },
+    defaultValues: { name: '', status: 'review' },
   });
 
   /* Pre-fill once the cycle resolves. We use reset rather than
@@ -91,8 +92,6 @@ export function CycleEditPage(): JSX.Element {
     if (cycleQuery.data) {
       reset({
         name: cycleQuery.data.nameAr,
-        startDate: toInputDate(cycleQuery.data.openDate),
-        endDate: toInputDate(cycleQuery.data.closeDate),
         status: toListStatus(cycleQuery.data.status),
       });
     }
@@ -130,12 +129,6 @@ export function CycleEditPage(): JSX.Element {
       return;
     }
 
-    const periodErrors = validateCycleApplicationPeriod(values);
-    for (const [field, message] of Object.entries(periodErrors)) {
-      setError(field as FieldPath<CycleValues>, { type: 'manual', message }, { shouldFocus: true });
-    }
-    if (Object.keys(periodErrors).length > 0) return;
-
     const statusPatch = listStatusToCyclePatch(values.status);
 
     if (statusPatch.isActive) {
@@ -147,15 +140,18 @@ export function CycleEditPage(): JSX.Element {
         toast('تعذر تحميل الدورات الحالية للتحقق من تداخل فترة التقديم', 'danger');
         return;
       }
+      /* Overlap check uses the derived period from configured categories.
+       * If no categories are configured yet, the derived period is empty
+       * and we skip the check (validateCycleApplicationPeriod inside
+       * findActiveCycleApplicationPeriodOverlap short-circuits on empty). */
+      const derivedPeriod = resolveCycleApplicationPeriod(cycle);
       const overlappingActive = findActiveCycleApplicationPeriodOverlap(
         cyclesQuery.data,
-        { startDate: values.startDate, endDate: values.endDate },
+        derivedPeriod,
         cycle.id,
       );
       if (overlappingActive) {
         const message = `فترة التقديم تتداخل مع الدورة النشطة "${overlappingActive.nameAr}"`;
-        setError('startDate', { type: 'manual', message }, { shouldFocus: true });
-        setError('endDate', { type: 'manual', message });
         toast(message, 'danger');
         return;
       }
@@ -164,12 +160,7 @@ export function CycleEditPage(): JSX.Element {
     try {
       await updateMut.mutateAsync({
         id,
-        patch: {
-          nameAr: name,
-          year: Number(values.startDate.slice(0, 4)),
-          openDate: toCycleOpenIso(values.startDate),
-          closeDate: toCycleCloseIso(values.endDate),
-        },
+        patch: { nameAr: name },
       });
 
       if (toListStatus(cycle.status) !== values.status) {
@@ -185,14 +176,7 @@ export function CycleEditPage(): JSX.Element {
     } catch (err) {
       if (isValidationError(err)) {
         for (const [field, message] of Object.entries(validationFieldErrors(err))) {
-          const fieldName =
-            field === 'nameAr'
-              ? 'name'
-              : field === 'openDate'
-                ? 'startDate'
-                : field === 'closeDate'
-                  ? 'endDate'
-                  : field;
+          const fieldName = field === 'nameAr' ? 'name' : field;
           setError(fieldName as FieldPath<CycleValues>, { type: 'server', message });
         }
       }
@@ -224,23 +208,6 @@ export function CycleEditPage(): JSX.Element {
               error={errors.name?.message}
             />
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <Input
-                type="date"
-                label="تاريخ بداية التقديم"
-                required
-                {...register('startDate')}
-                error={errors.startDate?.message}
-              />
-              <Input
-                type="date"
-                label="تاريخ نهاية التقديم"
-                required
-                {...register('endDate')}
-                error={errors.endDate?.message}
-              />
-            </div>
-
             <Select
               label="حالة الدورة"
               required
@@ -248,6 +215,10 @@ export function CycleEditPage(): JSX.Element {
               {...register('status')}
               error={errors.status?.message}
             />
+
+            <p className="text-2xs text-ink-500">
+              فترة التقديم تُحدَّد من إعدادات التقديم لكل فئة في معالج إعداد القبول.
+            </p>
 
             <div className="mt-2 flex items-center justify-end gap-2">
               <Button
@@ -272,8 +243,4 @@ export function CycleEditPage(): JSX.Element {
       </form>
     </CenteredShell>
   );
-}
-
-function toInputDate(value: string): string {
-  return value.slice(0, 10);
 }
