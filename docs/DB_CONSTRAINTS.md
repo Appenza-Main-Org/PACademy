@@ -897,6 +897,25 @@ END;
 
 ---
 
+## Data-Exchange · Applicants Reconciliation (`POST /api/admin/data-exchange/applicants/reconcile/preview|commit`)
+
+Adds three typed codes surfaced per-applicant during the round-trip
+import flow (frontend table + backend service mirror these verbatim —
+search `RESULT_VALUE_UNKNOWN | APPLICANT_NID_UNMATCHED | WRITEBACK_NEXT_EXAM_MISSING`
+in [`DataExchangeService.cs`](../backend/admin/PACademy.Admin.Api/Modules/DataExchangeAdmin/DataExchangeService.cs)
+and [`dataExchange.service.ts`](../frontend/src/features/data-exchange/api/dataExchange.service.ts)).
+
+| Code | When | Behavior |
+|---|---|---|
+| `APPLICANT_NID_UNMATCHED` | Import row's `nationalId` is not in the booked-applicants roster (the same gate that runs on export) — applicant either doesn't exist, was soft-deleted, or hasn't booked the first exam appointment yet. | Preview returns the row with `unmatched: true` and an empty `fieldDiffs[]`. Commit refuses the row and records it in `failedRows[]`; other applicants in the same batch commit normally (per-applicant partial commit per INTEGRATION_HANDOFF.md §13). |
+| `RESULT_VALUE_UNKNOWN` | The `result` cell's value doesn't resolve via the `test-results` lookup (`RES-01..04`, their Arabic names, the `outcome` codes `pass/fail/defer/withdrawn`, or the canonical FollowUpOutcomes phrasings). Lookup is loaded fresh per request so admins can extend it without a code change. | Preview returns the row with `writeback.outcome=null` and the code in `writeback.errors[]`. Commit refuses the writeback (the «اعتماد النتيجة» toggle is disabled in the UI); field corrections on the same row remain commitable. |
+| `WRITEBACK_NEXT_EXAM_MISSING` | The result resolved to `passed` but the `next_exam_date` cell is blank. | Preview surfaces a warning. Commit refuses the writeback unless the admin re-uploads with the date filled in. Field corrections on the same row remain commitable. |
+
+Audit: every reconciliation commit emits one summary `data-exchange · reconcile`
+audit row (attempted / success / fields written / writebacks applied / failed).
+
+---
+
 ## Cross-reference
 
 These constraints are referenced from `CLAUDE.md §6` (mock service
