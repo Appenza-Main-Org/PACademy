@@ -101,6 +101,7 @@ public sealed class ApplicantEligibilityAllowedOptionsTests
         Assert.Equal(["MAR-01"], category.AllowedMaritalStatusCodes);
         Assert.Equal(["DEG-02", "DEG-03"], category.AllowedAcademicDegreeCodes);
         Assert.Equal(["AGR-01", "AGR-02", "AGR-03"], category.AllowedAcademicGradeCodes);
+        Assert.Equal([2026], category.AllowedGraduationYears);
     }
 
     private static AdminDbContext CreateDb()
