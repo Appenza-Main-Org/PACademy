@@ -7,7 +7,7 @@
  * Until the ministry API is live the backend runs a simulated MOI gateway.
  */
 
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { ArrowLeft, Lock, ShieldCheck } from 'lucide-react';
@@ -42,9 +42,26 @@ const loginSchema = z.object({
 });
 type LoginValues = Omit<z.infer<typeof loginSchema>, 'role'> & { role: Role };
 
+/* Accept only internal, single-leading-slash paths. Rejects absolute URLs
+ * (`//evil.com`, `https://…`) so a crafted `state.from` cannot redirect off-site
+ * after login, and skips bouncing back to the login routes themselves. */
+function pickRedirectTarget(from: unknown): string | null {
+  if (typeof from !== 'string' || from.length === 0) return null;
+  if (!from.startsWith('/') || from.startsWith('//')) return null;
+  if (from === ROUTES.staffLogin || from === ROUTES.applicantLogin || from === ROUTES.login) {
+    return null;
+  }
+  return from;
+}
+
 export function LoginForm(): JSX.Element {
   const navigate = useNavigate();
+  const location = useLocation();
   const loginMut = useLoginMutation();
+
+  const redirectTo = pickRedirectTarget(
+    (location.state as { from?: unknown } | null)?.from,
+  );
 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -69,6 +86,13 @@ export function LoginForm(): JSX.Element {
     }, {
       onSuccess: (user) => {
         toast('تم تسجيل الدخول بنجاح', 'success');
+        /* If the user was bounced here from a protected URL, send them back.
+         * AuthGuard will re-deny if their role lacks access and route them
+         * to their default landing — so we don't need to pre-check here. */
+        if (redirectTo) {
+          navigate(redirectTo, { replace: true });
+          return;
+        }
         if (BIOMETRIC_LOGIN_ROLES.includes(values.role)) {
           navigate(ROUTES.biometric.overview, { replace: true });
           return;
