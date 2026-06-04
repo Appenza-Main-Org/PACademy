@@ -310,6 +310,10 @@ public sealed class DataExchangeService(
         foreach (var payload in payloads)
         {
             if (AdminRecordJson.IsSoftDeleted(payload)) continue;
+            // Applicants are only exported once the first exam appointment is booked.
+            // Draft / incomplete / awaiting-booking rows are intentionally withheld so
+            // external consumers receive officially scheduled applicants only.
+            if (spec.Domain == ExchangeDomain.Applicants && !IsApplicantBooked(payload)) continue;
             var data = new Dictionary<string, string?>(StringComparer.Ordinal);
             foreach (var (k, v) in JsonFlatten.Flatten(payload))
                 if (!NonDataColumns.Contains(k)) data[k] = v; // payload "id" mirrors record id — drop the dup
@@ -323,6 +327,40 @@ public sealed class DataExchangeService(
         }
         return result;
     }
+
+    /// <summary>
+    /// Applicant-export eligibility gate. An applicant is exportable once the
+    /// first exam appointment is officially booked — either an `examSlot` is
+    /// present with a non-empty slotId / date, or the status has advanced past
+    /// `awaiting_exam_booking` into one of the post-booking pipeline states.
+    /// </summary>
+    private static bool IsApplicantBooked(JsonObject payload)
+    {
+        if (payload["examSlot"] is JsonObject slot)
+        {
+            var slotId = slot["slotId"]?.ToString();
+            var date = slot["date"]?.ToString();
+            if (!string.IsNullOrWhiteSpace(slotId) || !string.IsNullOrWhiteSpace(date)) return true;
+        }
+        if (!string.IsNullOrWhiteSpace(payload["examSlotId"]?.ToString())) return true;
+        if (!string.IsNullOrWhiteSpace(payload["examScheduledAt"]?.ToString())) return true;
+        var status = payload["status"]?.ToString();
+        return !string.IsNullOrWhiteSpace(status) && BookedOrLaterStatuses.Contains(status);
+    }
+
+    private static readonly IReadOnlySet<string> BookedOrLaterStatuses = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "exam_scheduled",
+        "attendance_card_available",
+        "awaiting_exam_result",
+        "under_medical_review",
+        "passed_physical",
+        "failed_interview",
+        "awaiting_board_decision",
+        "approved",
+        "acquaintance_doc_opened",
+        "under-review",
+    };
 
     private static DateTimeOffset? ParseDto(JsonNode? node)
         => node is not null && DateTimeOffset.TryParse(node.ToString(), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var d) ? d : null;

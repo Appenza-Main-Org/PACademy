@@ -109,7 +109,7 @@ export const dataExchangeService = {
 function mockColumns(domain: ExchangeDomain): string[] {
   // Normalized columns (no payload_json) — mirrors the backend's flattened export.
   const data: Record<ExchangeDomain, string[]> = {
-    Applicants: ['nationalId', 'fullName', 'gender', 'status'],
+    Applicants: ['nationalId', 'fullName', 'gender', 'status', 'examSlot.slotId', 'examSlot.date'],
     Exams: ['name_ar', 'cycle_id', 'status'],
     Relatives: ['applicantNationalId', 'name', 'kinship'],
     AcquaintanceDocs: ['applicantNationalId', 'docType', 'status'],
@@ -142,6 +142,28 @@ function seededStore(domain: ExchangeDomain): MockRow[] {
   return rows;
 }
 
+/** Status values that mean the applicant has booked the first exam appointment
+ *  (or progressed beyond it). Mirrors the backend `BookedOrLaterStatuses` gate. */
+const BOOKED_OR_LATER_STATUSES = new Set<string>([
+  'exam_scheduled',
+  'attendance_card_available',
+  'awaiting_exam_result',
+  'under_medical_review',
+  'passed_physical',
+  'failed_interview',
+  'awaiting_board_decision',
+  'approved',
+  'acquaintance_doc_opened',
+  'under-review',
+]);
+
+function isApplicantBooked(cells: ExchangeCellMap): boolean {
+  if (cells['examSlot.slotId'] || cells['examSlot.date']) return true;
+  if (cells.examSlotId || cells.examScheduledAt) return true;
+  const status = cells.status;
+  return typeof status === 'string' && BOOKED_OR_LATER_STATUSES.has(status);
+}
+
 function buildMockRow(domain: ExchangeDomain, i: number): MockRow {
   const created = new Date(2026, 4, 1 + i).toISOString();
   const touched = i % 2 === 0; // every other row "modified since creation"
@@ -166,7 +188,15 @@ function buildMockRow(domain: ExchangeDomain, i: number): MockRow {
     cells.nationalId = nid;
     cells.fullName = `متقدم ${i + 1}`;
     cells.gender = i % 2 === 0 ? 'male' : 'female';
-    cells.status = 'submitted';
+    // Demo seed reflects the export-eligibility gate: half the applicants have
+    // booked the first exam appointment (exportable), the other half are still
+    // mid-flow (withheld). Mirrors the backend `IsApplicantBooked` predicate.
+    const isBooked = i % 2 === 0;
+    cells.status = isBooked ? 'exam_scheduled' : 'awaiting_exam_booking';
+    if (isBooked) {
+      cells['examSlot.slotId'] = `SLOT-${i + 1}`;
+      cells['examSlot.date'] = `2026-06-${String(12 + i).padStart(2, '0')}`;
+    }
   } else {
     const id = `${domain}-${i + 1}`;
     businessKey = id;
@@ -199,6 +229,9 @@ async function mockExport({ domains, layout, filter }: ExportParams): Promise<Ex
   let total = 0;
   for (const domain of domains) {
     let rows = seededStore(domain);
+    // Applicants are only exported once the first exam appointment is booked.
+    // Mirrors the backend `IsApplicantBooked` gate so the mock path matches.
+    if (domain === 'Applicants') rows = rows.filter((r) => isApplicantBooked(r.cells));
     if (filter === 'modifiedSinceCreation') rows = rows.filter((r) => r.updatedAt !== r.createdAt);
     else if (typeof filter === 'object' && 'changedAfter' in filter) {
       rows = rows.filter((r) => r.updatedAt >= filter.changedAfter);

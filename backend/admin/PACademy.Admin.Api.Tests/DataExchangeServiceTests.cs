@@ -73,8 +73,10 @@ public sealed class DataExchangeServiceTests
     public async Task DocStore_payload_flattens_into_columns()
     {
         var (svc, db) = Create();
+        // status `exam_scheduled` clears the applicant export-eligibility gate
+        // (first exam appointment booked) so the row is included in the export.
         await SeedOperationalAsync(db, "applicants", "APP-1",
-            """{"id":"APP-1","nationalId":"29801011234567","fullName":"متقدم","address":{"governorate":"القاهرة"}}""");
+            """{"id":"APP-1","nationalId":"29801011234567","fullName":"متقدم","status":"exam_scheduled","address":{"governorate":"القاهرة"}}""");
 
         var result = await svc.ExportAsync([ExchangeDomain.Applicants], "single-workbook", ExportFilter.Default, default);
         var sheet = result.Sheets[0];
@@ -86,6 +88,34 @@ public sealed class DataExchangeServiceTests
         Assert.Equal(1, sheet.Columns.Count(c => c == "id"));             // no duplicate id column
         Assert.Equal("القاهرة", sheet.Rows[0]["address.governorate"]);
         Assert.Equal("29801011234567", sheet.Rows[0]["business_key"]);    // business key from nationalId
+    }
+
+    [Fact]
+    public async Task Applicants_export_excludes_unbooked_and_includes_booked()
+    {
+        var (svc, db) = Create();
+        // Draft applicant — no examSlot, status `draft` ⇒ MUST be withheld.
+        await SeedOperationalAsync(db, "applicants", "APP-DRAFT",
+            """{"id":"APP-DRAFT","nationalId":"29801011234001","fullName":"مسودة","status":"draft"}""");
+        // Has paid but not yet booked the first exam ⇒ still withheld.
+        await SeedOperationalAsync(db, "applicants", "APP-AWAITING",
+            """{"id":"APP-AWAITING","nationalId":"29801011234002","fullName":"بانتظار الحجز","status":"awaiting_exam_booking"}""");
+        // Booked via examSlot — exported.
+        await SeedOperationalAsync(db, "applicants", "APP-SLOT",
+            """{"id":"APP-SLOT","nationalId":"29801011234003","fullName":"محجوز بالموعد","examSlot":{"slotId":"SLOT-1","date":"2026-06-12"}}""");
+        // Booked via post-booking status — exported.
+        await SeedOperationalAsync(db, "applicants", "APP-SCHED",
+            """{"id":"APP-SCHED","nationalId":"29801011234004","fullName":"محجوز بالحالة","status":"exam_scheduled"}""");
+
+        var result = await svc.ExportAsync([ExchangeDomain.Applicants], "single-workbook", ExportFilter.Default, default);
+        var sheet = result.Sheets[0];
+        var businessKeys = sheet.Rows.Select(r => r["business_key"]).ToHashSet();
+
+        Assert.Equal(2, sheet.Rows.Count);
+        Assert.Contains("29801011234003", businessKeys);
+        Assert.Contains("29801011234004", businessKeys);
+        Assert.DoesNotContain("29801011234001", businessKeys);
+        Assert.DoesNotContain("29801011234002", businessKeys);
     }
 
     [Fact]
