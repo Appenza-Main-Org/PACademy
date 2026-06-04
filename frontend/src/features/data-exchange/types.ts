@@ -177,3 +177,45 @@ export interface ApplicantRosterRow {
   examSlotLocation: string | null;
   updatedAt: string | null;
 }
+
+// ── Applicants reconciliation (field-level diff + result writeback) ─────
+/** One field-level diff for an applicant row — `before` is the current DB
+ *  value, `after` is the imported value. Only changed editable fields are
+ *  emitted by the backend preview. */
+export interface ApplicantFieldDiff {
+  field: string;
+  before: string | null;
+  after: string | null;
+}
+
+/** Parsed result + next-exam columns for a single imported applicant row.
+ *  `outcome` is the canonical FollowUpOutcomes value
+ *  (passed | failed | in-progress | awaiting-approval | pending); null when
+ *  the result column was blank or didn't resolve via the `test-results`
+ *  lookup. Typed conflict codes flow through `errors`. */
+export interface ApplicantWritebackResult {
+  resultRaw: string | null;
+  outcome: string | null;
+  testCode: string | null;
+  round: number | null;
+  nextExamDate: string | null;
+  errors: string[];
+}
+
+/** Per-applicant reconciliation row. `unmatched` flags imports whose
+ *  national ID was not found in the booked roster. `fieldDiffs` is empty
+ *  for result-only writebacks. */
+export interface ApplicantReconciliationRow {
+  nationalId: string;
+  applicantId: string | null;
+  fullName: string | null;
+  unmatched: boolean;
+  fieldDiffs: ApplicantFieldDiff[];
+  writeback: ApplicantWritebackResult | null;
+  errors: string[];
+}
+
+export interface ApplicantReconciliationPreview {
+  counts: Record<string, number>;
+  rows: ApplicantReconciliationRow[];
+}

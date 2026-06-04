@@ -169,3 +169,57 @@ public sealed record ApplicantRosterRow(
     string? ExamSlotTime,
     string? ExamSlotLocation,
     DateTimeOffset? UpdatedAt);
+
+// ── Applicants reconciliation (field-level diff + result/next-exam writeback) ──
+/// <summary>One field-level diff for an applicant row — before is the current
+/// DB value, after is the imported value. Only changed fields are emitted.</summary>
+public sealed record ApplicantFieldDiff(string Field, string? Before, string? After);
+
+/// <summary>Parsed result + next-exam columns for a single applicant import row.
+/// Result codes resolve via the existing `test-results` lookup; the resolved
+/// `Outcome` is one of the canonical FollowUpOutcomes (passed|failed|defer|
+/// withdrawn|pending|in-progress|awaiting-approval). When the column was blank,
+/// every field is null and the writeback is treated as not-present.</summary>
+public sealed record ApplicantWritebackResult(
+    string? ResultRaw,
+    string? Outcome,
+    string? TestCode,
+    int? Round,
+    string? NextExamDate,
+    IReadOnlyList<string> Errors);
+
+/// <summary>Per-applicant reconciliation row. `Unmatched` is true when the
+/// national ID was not found in the booked applicants store. `FieldDiffs`
+/// is empty when no editable field changed (a result-only writeback).</summary>
+public sealed record ApplicantReconciliationRow(
+    string NationalId,
+    string? ApplicantId,
+    string? FullName,
+    bool Unmatched,
+    IReadOnlyList<ApplicantFieldDiff> FieldDiffs,
+    ApplicantWritebackResult? Writeback,
+    IReadOnlyList<string> Errors);
+
+public sealed record ApplicantReconciliationPreview(
+    IReadOnlyDictionary<string, int> Counts,
+    IReadOnlyList<ApplicantReconciliationRow> Rows);
+
+/// <summary>Admin's per-applicant accept/reject decision sent to the commit
+/// endpoint. `AcceptedFields` names the diff fields the admin opted to write;
+/// `ApplyWriteback` opts in to result + next-exam writeback.</summary>
+public sealed record ApplicantReconciliationDecision(
+    string NationalId,
+    IReadOnlyList<string> AcceptedFields,
+    bool ApplyWriteback);
+
+public sealed record ApplicantReconciliationCommitRequest(
+    IReadOnlyList<ApplicantReconciliationDecision> Decisions,
+    ImportSheetInput Sheet);
+
+public sealed record ApplicantReconciliationCommitResult(
+    int AttemptedCount,
+    int SuccessCount,
+    int FieldsWrittenCount,
+    int WritebacksAppliedCount,
+    int FailedCount,
+    IReadOnlyList<ImportFailedRow> FailedRows);

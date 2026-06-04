@@ -17,7 +17,11 @@ import { apiClient, isBackendEnabled } from '@/shared/lib/api-client';
 import { reseed, rng } from '@/shared/mock-data/seed';
 import { computeRowChecksum } from '../lib/checksum';
 import {
+  type ApplicantFieldDiff,
+  type ApplicantReconciliationPreview,
+  type ApplicantReconciliationRow,
   type ApplicantRosterRow,
+  type ApplicantWritebackResult,
   type DataExchangeHistoryEntry,
   type DataExchangeTemplate,
   type ExchangeCellMap,
@@ -115,6 +119,18 @@ export const dataExchangeService = {
     }
     return mockRoster();
   },
+
+  async previewApplicantsReconciliation(
+    sheet: ImportSheetInput,
+  ): Promise<ApplicantReconciliationPreview> {
+    if (isBackendEnabled()) {
+      return apiClient.post<ApplicantReconciliationPreview>(
+        `${BASE}/applicants/reconcile/preview`,
+        sheet,
+      );
+    }
+    return mockReconcilePreview(sheet);
+  },
 };
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -186,6 +202,116 @@ function mockRoster(): ApplicantRosterRow[] {
       examSlotLocation: r.cells['examSlot.location'] ?? null,
       updatedAt: r.updatedAt,
     }));
+}
+
+/** Editable fields the admin may correct in the round-trip Excel. Mirrors
+ *  backend `EditableApplicantFields`. */
+const EDITABLE_APPLICANT_FIELDS = new Set<string>([
+  'fullName', 'name', 'gender', 'phoneNumber', 'mobile', 'email',
+  'religion', 'birthDate', 'birthGovernorate', 'birthDistrict',
+  'maritalStatus', 'governorate', 'city',
+  'address.governorate', 'address.city', 'address.detail', 'address.street',
+]);
+
+const WRITEBACK_COLUMNS = new Set<string>(['result', 'next_exam_date', 'round', 'test_code']);
+
+/** Reverse-map of result phrasings → canonical FollowUpOutcomes value.
+ *  Mirrors backend `LoadResultLookupAsync` + `MapOutcomeToFollowUp`. */
+const RESULT_LOOKUP = new Map<string, string>([
+  ['RES-01', 'passed'], ['RES-02', 'failed'], ['RES-03', 'in-progress'], ['RES-04', 'failed'],
+  ['ناجح', 'passed'], ['راسب', 'failed'], ['مؤجل', 'in-progress'], ['منسحب', 'failed'],
+  ['pass', 'passed'], ['fail', 'failed'], ['defer', 'in-progress'], ['withdrawn', 'failed'],
+  ['passed', 'passed'], ['failed', 'failed'], ['in-progress', 'in-progress'],
+  ['awaiting-approval', 'awaiting-approval'], ['pending', 'pending'],
+]);
+
+function mockParseWriteback(row: ExchangeCellMap): ApplicantWritebackResult {
+  const raw = row.result ?? null;
+  const testCode = row.test_code ?? null;
+  const nextExamDate = row.next_exam_date ?? null;
+  const roundRaw = row.round ?? null;
+  const round = roundRaw && /^\d+$/.test(roundRaw) ? Number.parseInt(roundRaw, 10) : null;
+  const errors: string[] = [];
+  if (raw == null || raw.trim() === '') {
+    return { resultRaw: raw, outcome: null, testCode, round, nextExamDate, errors };
+  }
+  const outcome = RESULT_LOOKUP.get(raw.trim()) ?? null;
+  if (!outcome) {
+    errors.push('RESULT_VALUE_UNKNOWN');
+    return { resultRaw: raw, outcome: null, testCode, round, nextExamDate, errors };
+  }
+  if (outcome === 'passed' && (nextExamDate == null || nextExamDate.trim() === '')) {
+    errors.push('WRITEBACK_NEXT_EXAM_MISSING');
+  }
+  return { resultRaw: raw, outcome, testCode, round, nextExamDate, errors };
+}
+
+function mockReconcilePreview(sheet: ImportSheetInput): ApplicantReconciliationPreview {
+  const roster = mockRoster();
+  const byNid = new Map(roster.map((r) => [r.nationalId, r]));
+  const dbCells = new Map(
+    seededStore('Applicants')
+      .filter((r) => isApplicantBooked(r.cells))
+      .map((r) => [r.cells.nationalId ?? r.businessKey, r.cells]),
+  );
+  const seen = new Set<string>();
+  const rows: ApplicantReconciliationRow[] = [];
+
+  for (const importRow of sheet.rows) {
+    const nid = importRow.nationalId ?? importRow.business_key ?? '';
+    const errors: string[] = [];
+    if (!nid) {
+      errors.push('الرقم القومي مفقود');
+      rows.push({ nationalId: '', applicantId: null, fullName: null, unmatched: true, fieldDiffs: [], writeback: null, errors });
+      continue;
+    }
+    if (seen.has(nid)) {
+      errors.push('مفتاح مكرر داخل الملف');
+      rows.push({ nationalId: nid, applicantId: null, fullName: null, unmatched: false, fieldDiffs: [], writeback: null, errors });
+      continue;
+    }
+    seen.add(nid);
+    const writeback = mockParseWriteback(importRow);
+    const matched = byNid.get(nid);
+    if (!matched) {
+      rows.push({
+        nationalId: nid, applicantId: null,
+        fullName: importRow.fullName ?? importRow.name ?? null,
+        unmatched: true, fieldDiffs: [], writeback,
+        errors: ['APPLICANT_NID_UNMATCHED'],
+      });
+      continue;
+    }
+    const dbRow = dbCells.get(nid) ?? {};
+    const fieldDiffs: ApplicantFieldDiff[] = [];
+    for (const [field, importedRaw] of Object.entries(importRow)) {
+      if (!EDITABLE_APPLICANT_FIELDS.has(field)) continue;
+      if (WRITEBACK_COLUMNS.has(field)) continue;
+      const imported = importedRaw?.trim();
+      if (!imported) continue;
+      const current = (dbRow[field] ?? '').trim();
+      if (current === imported) continue;
+      fieldDiffs.push({ field, before: current, after: imported });
+    }
+    rows.push({
+      nationalId: nid,
+      applicantId: matched.applicantId,
+      fullName: matched.fullName,
+      unmatched: false, fieldDiffs, writeback, errors,
+    });
+  }
+
+  return {
+    counts: {
+      total: rows.length,
+      matched: rows.filter((r) => !r.unmatched).length,
+      unmatched: rows.filter((r) => r.unmatched).length,
+      withDiff: rows.filter((r) => r.fieldDiffs.length > 0).length,
+      withWriteback: rows.filter((r) => r.writeback?.outcome != null).length,
+      invalid: rows.filter((r) => r.errors.length > 0 && !r.errors.includes('APPLICANT_NID_UNMATCHED')).length,
+    },
+    rows,
+  };
 }
 
 function isApplicantBooked(cells: ExchangeCellMap): boolean {
