@@ -46,8 +46,18 @@ import {
   type MinScoreOperator,
   type ThanawiRuleRowInput,
 } from '../../store/wizardSharedState';
+import {
+  findCandidateThanawiOverlaps,
+  findThanawiOverlaps,
+  overlapsByRowId,
+  OVERLAP_REASON_LABEL_AR,
+  type OverlapPair,
+  type OverlapReason,
+} from '../../lib/ruleOverlapValidation';
+import { cn } from '@/shared/lib/cn';
 import { ExcellenceModeToggle } from './ExcellenceModeToggle';
 import { OperatorScoreField } from './OperatorScoreField';
+import { RuleRangeIndicator } from './RuleRangeIndicator';
 
 const EMPTY_INPUT: ThanawiRuleRowInput = {
   excellenceMode: 'GRADES',
@@ -559,6 +569,16 @@ function ThanawiForm({
       ),
     [localRows, approvedRows, categoryCode],
   );
+
+  const overlapPairs = useMemo<OverlapPair[]>(
+    () => findThanawiOverlaps(rows, gradeRank),
+    [rows, gradeRank],
+  );
+  const overlapsById = useMemo(
+    () => overlapsByRowId(overlapPairs),
+    [overlapPairs],
+  );
+
   const handleDelete = (id: string): void => {
     if (!canWrite) return;
     removeLocalRow(id);
@@ -670,6 +690,18 @@ function ThanawiForm({
     if (!canWrite || !canSubmit) return;
     const payload = normalizeForSubmit(draft);
     if (isEditing && editingId !== null) {
+      const overlap = previewThanawiOverlap(
+        editingId,
+        categoryCode,
+        payload,
+        rows,
+        gradeRank,
+        editingRow?.header,
+      );
+      if (overlap) {
+        toast(thanawiOverlapMessage(overlap), 'danger');
+        return;
+      }
       const result = updateThanawiRow(editingId, payload);
       if (!result.ok) {
         toast(
@@ -682,6 +714,18 @@ function ThanawiForm({
       }
       setDraft(emptyInputFor(defaultExcellenceMode));
       toast('تم تعديل الشرط', 'success');
+      return;
+    }
+    const overlap = previewThanawiOverlap(
+      null,
+      categoryCode,
+      payload,
+      rows,
+      gradeRank,
+      header,
+    );
+    if (overlap) {
+      toast(thanawiOverlapMessage(overlap), 'danger');
       return;
     }
     const result = addThanawiRow(categoryCode, payload);
@@ -926,6 +970,15 @@ function ThanawiForm({
         </div>
       </Card>
 
+      <RuleRangeIndicator
+        rows={rows}
+        overlappingIds={new Set(overlapsById.keys())}
+      />
+      <ThanawiOverlapBanner
+        pairs={overlapPairs}
+        rows={rows}
+        committeeOptions={committeeOptions}
+      />
       <ThanawiGrid
         rows={rows}
         editingId={editingId}
@@ -936,6 +989,7 @@ function ThanawiForm({
         gradeOptions={gradeOptions}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        overlapsById={overlapsById}
         canWrite={canWrite}
       />
     </div>
@@ -953,6 +1007,9 @@ interface ThanawiGridProps {
   gradeOptions: ReadonlyArray<SearchSelectOption>;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
+  /** Map of rowId → reasons it overlaps a sibling. Drives the per-row
+   *  terra tint + «تداخل» badge in the «م» column. */
+  overlapsById?: ReadonlyMap<string, ReadonlySet<OverlapReason>>;
   canWrite: boolean;
 }
 
@@ -966,6 +1023,7 @@ function ThanawiGrid({
   gradeOptions,
   onEdit,
   onDelete,
+  overlapsById,
   canWrite,
 }: ThanawiGridProps): JSX.Element {
   const labelForRound = (v: string): string =>
@@ -1016,17 +1074,33 @@ function ThanawiGrid({
         <tbody>
           {rows.map((r, index) => {
             const isRowEditing = r.id === editingId;
+            const rowOverlap = overlapsById?.get(r.id) ?? null;
+            const isOverlapping = (rowOverlap?.size ?? 0) > 0;
             return (
               <tr
                 key={r.id}
-                className={`border-t border-border-subtle ${
-                  isRowEditing ? 'bg-gold-50/60' : ''
-                }`}
+                className={cn(
+                  'border-t border-border-subtle',
+                  isRowEditing && 'bg-gold-50/60',
+                  isOverlapping && !isRowEditing && 'bg-terra-50/60',
+                )}
               >
                 <Td>
-                  <span className="font-numeric tnum" dir="ltr">
-                    {(index + 1).toLocaleString('en-US')}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-numeric tnum" dir="ltr">
+                      {(index + 1).toLocaleString('en-US')}
+                    </span>
+                    {isOverlapping && (
+                      <span
+                        className="inline-flex items-center rounded-pill bg-terra-100 px-1.5 py-0.5 font-ar text-2xs font-medium text-terra-700"
+                        title={Array.from(rowOverlap!)
+                          .map((reason) => OVERLAP_REASON_LABEL_AR[reason])
+                          .join(' · ')}
+                      >
+                        تداخل
+                      </span>
+                    )}
+                  </div>
                 </Td>
                 <Td>{labelForCommittee(r.committee)}</Td>
                 <Td>{formatIsoDate(r.header.applicationStart)}</Td>
@@ -1146,5 +1220,102 @@ function MultiValueCell({ values }: { values: readonly string[] }): JSX.Element 
         </span>
       </Tooltip>
     </TooltipProvider>
+  );
+}
+
+/** Build a candidate `LocalThanawiRow` from the form draft and run the
+ *  overlap check against the supplied siblings. Returns the first
+ *  overlapping sibling so the caller can name it in the toast. */
+function previewThanawiOverlap(
+  candidateId: string | null,
+  categoryCode: string,
+  payload: ThanawiRuleRowInput,
+  siblings: readonly LocalThanawiRow[],
+  gradeRank: ReadonlyMap<string, number>,
+  header: LocalThanawiRow['header'] | undefined,
+): { row: LocalThanawiRow; reason: OverlapReason } | null {
+  const headerSnapshot: LocalThanawiRow['header'] = header ?? {
+    applicationStart: '',
+    applicationEnd: '',
+    ageReferenceDate: '',
+    graduationYears: [],
+    maritalStatus: [],
+    maxAge: null,
+  };
+  const candidate: LocalThanawiRow = {
+    id: candidateId ?? '__candidate__',
+    kind: 'thanawi',
+    categoryCode,
+    header: headerSnapshot,
+    excellenceMode: payload.excellenceMode,
+    examRound: payload.examRound,
+    committee: payload.committee,
+    graduationYear: payload.graduationYear,
+    schoolCategories: [...payload.schoolCategories],
+    grade: payload.grade,
+    gradeMax: payload.gradeMax,
+    scoreMin: payload.scoreMin,
+    minScoreOperator: payload.minScoreOperator,
+    scoreMax: payload.scoreMax,
+    maxScoreOperator: payload.maxScoreOperator,
+    type: [],
+    maritalStatus: [...headerSnapshot.maritalStatus],
+    academicDegrees: [],
+    committees: payload.committee ? [payload.committee] : [],
+    graduationYears: payload.graduationYear !== null ? [payload.graduationYear] : [],
+    facultyCode: '',
+    facultyNameAr: '',
+    specializationCode: '',
+    specializationNameAr: '',
+  };
+  const matches = findCandidateThanawiOverlaps(candidate, siblings, gradeRank);
+  return matches[0] ?? null;
+}
+
+function thanawiOverlapMessage(match: {
+  row: LocalThanawiRow;
+  reason: OverlapReason;
+}): string {
+  return `لا يمكن حفظ الشرط: ${OVERLAP_REASON_LABEL_AR[match.reason]} مع شرط آخر في نفس الفئة.`;
+}
+
+/** Banner listing every detected overlap pair under one ثانوي category. */
+interface ThanawiOverlapBannerProps {
+  pairs: readonly OverlapPair[];
+  rows: readonly LocalThanawiRow[];
+  committeeOptions: ReadonlyArray<SearchSelectOption>;
+}
+
+function ThanawiOverlapBanner({
+  pairs,
+  rows,
+  committeeOptions,
+}: ThanawiOverlapBannerProps): JSX.Element | null {
+  if (pairs.length === 0) return null;
+  const rowById = new Map(rows.map((r) => [r.id, r] as const));
+  const indexById = new Map(rows.map((r, idx) => [r.id, idx + 1] as const));
+  const labelForCommittee = (code: string): string =>
+    committeeOptions.find((o) => o.value === code)?.label ?? code;
+  return (
+    <div
+      role="alert"
+      className="mb-3 rounded-md border border-terra-300 bg-terra-50 px-3 py-2"
+    >
+      <div className="font-ar text-xs font-semibold text-terra-700">
+        تنبيه: يوجد تداخل بين الشروط
+      </div>
+      <ul className="mt-1 flex flex-col gap-0.5 font-ar text-2xs text-terra-700">
+        {pairs.map((pair, idx) => {
+          const aRow = rowById.get(pair.aId);
+          const bRow = rowById.get(pair.bId);
+          if (!aRow || !bRow) return null;
+          return (
+            <li key={`${pair.aId}::${pair.bId}::${idx}`}>
+              {`الشرط #${toEasternArabicNumerals(indexById.get(pair.aId) ?? 0)} (${labelForCommittee(aRow.committee)}) ↔ الشرط #${toEasternArabicNumerals(indexById.get(pair.bId) ?? 0)} (${labelForCommittee(bRow.committee)}) — ${OVERLAP_REASON_LABEL_AR[pair.reason]}`}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
