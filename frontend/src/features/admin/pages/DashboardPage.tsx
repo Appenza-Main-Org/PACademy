@@ -81,6 +81,18 @@ const STATUS_WEIGHT: Record<ApplicantStatus, number> = {
   approved: 4,
   rejected: 4,
   failed_interview: 4,
+  draft: 1,
+  personal_data_completed: 1,
+  awaiting_payment: 1,
+  fees_paid: 2,
+  family_data_in_progress: 2,
+  family_data_approved: 2,
+  awaiting_exam_booking: 2,
+  exam_scheduled: 2,
+  attendance_card_available: 3,
+  awaiting_exam_result: 3,
+  suspended: 4,
+  acquaintance_doc_opened: 4,
 };
 
 const EMPTY_KPIS: Kpis = {

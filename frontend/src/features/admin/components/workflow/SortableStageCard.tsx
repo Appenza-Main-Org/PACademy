@@ -41,6 +41,18 @@ interface Props {
 }
 
 const STATUS_OPTIONS: ApplicantStatus[] = [
+  'draft',
+  'personal_data_completed',
+  'awaiting_payment',
+  'fees_paid',
+  'family_data_in_progress',
+  'family_data_approved',
+  'awaiting_exam_booking',
+  'exam_scheduled',
+  'attendance_card_available',
+  'awaiting_exam_result',
+  'suspended',
+  'acquaintance_doc_opened',
   'pending',
   'under-review',
   'under_medical_review',
@@ -64,6 +76,18 @@ const STATUS_LABEL_AR: Record<ApplicantStatus, string> = {
   passed_physical: 'اجتاز اللياقة',
   failed_interview: 'لم يجتز المقابلة',
   awaiting_board_decision: 'بانتظار قرار الهيئة',
+  draft: 'مسودة',
+  personal_data_completed: 'استكمال البيانات الشخصية',
+  awaiting_payment: 'في انتظار السداد',
+  fees_paid: 'تم سداد الرسوم',
+  family_data_in_progress: 'بيانات العائلة قيد الإدخال',
+  family_data_approved: 'اعتماد بيانات العائلة',
+  awaiting_exam_booking: 'في انتظار حجز موعد الاختبار',
+  exam_scheduled: 'تم حجز موعد الاختبار',
+  attendance_card_available: 'بطاقة التردد متاحة',
+  awaiting_exam_result: 'في انتظار نتيجة الاختبار',
+  suspended: 'موقوف',
+  acquaintance_doc_opened: 'وثيقة التعارف',
 };
 
 const TEST_KINDS: TestKind[] = ['medical', 'physical', 'written', 'interview', 'biometric', 'investigation'];

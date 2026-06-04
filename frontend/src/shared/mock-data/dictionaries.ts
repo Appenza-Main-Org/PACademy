@@ -140,4 +140,17 @@ export const STATUS_LABELS: Record<string, { label: string; color: 'success' | '
   passed_physical: { label: 'اجتاز اللياقة', color: 'success' },
   failed_interview: { label: 'لم يجتز المقابلة', color: 'danger' },
   awaiting_board_decision: { label: 'بانتظار قرار الهيئة', color: 'warning' },
+  /* Applicant-flow milestone statuses — ordered from registration to acquaintance doc. */
+  draft: { label: 'مسودة', color: 'neutral' },
+  personal_data_completed: { label: 'استكمال البيانات الشخصية', color: 'info' },
+  awaiting_payment: { label: 'في انتظار السداد', color: 'warning' },
+  fees_paid: { label: 'تم سداد الرسوم', color: 'success' },
+  family_data_in_progress: { label: 'بيانات العائلة قيد الإدخال', color: 'info' },
+  family_data_approved: { label: 'اعتماد بيانات العائلة', color: 'success' },
+  awaiting_exam_booking: { label: 'في انتظار حجز موعد الاختبار', color: 'warning' },
+  exam_scheduled: { label: 'تم حجز موعد الاختبار', color: 'info' },
+  attendance_card_available: { label: 'بطاقة التردد متاحة', color: 'success' },
+  awaiting_exam_result: { label: 'في انتظار نتيجة الاختبار', color: 'warning' },
+  suspended: { label: 'موقوف', color: 'danger' },
+  acquaintance_doc_opened: { label: 'وثيقة التعارف', color: 'success' },
 };

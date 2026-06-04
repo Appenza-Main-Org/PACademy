@@ -33,9 +33,23 @@ export type ApplicantStatus =
   | 'under_medical_review'
   | 'passed_physical'
   | 'failed_interview'
-  | 'awaiting_board_decision';
+  | 'awaiting_board_decision'
+  /* Applicant-flow statuses surfaced on /admin/applicants — one code per
+   * pipeline milestone, ordered from registration to acquaintance doc. */
+  | 'draft'
+  | 'personal_data_completed'
+  | 'awaiting_payment'
+  | 'fees_paid'
+  | 'family_data_in_progress'
+  | 'family_data_approved'
+  | 'awaiting_exam_booking'
+  | 'exam_scheduled'
+  | 'attendance_card_available'
+  | 'awaiting_exam_result'
+  | 'suspended'
+  | 'acquaintance_doc_opened';
 
-export type PaymentStatus = 'paid' | 'pending';
+export type PaymentStatus = 'paid' | 'pending' | 'failed' | 'refunded';
 export type InvestigationStatus = 'pending' | 'cleared' | 'flagged';
 export type ResultOutcome = 'pass' | 'fail' | null;
 
