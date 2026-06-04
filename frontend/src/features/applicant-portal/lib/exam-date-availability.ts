@@ -36,6 +36,31 @@ export function filterBookableExamDates(values: readonly string[], now: Date = n
   }, []);
 }
 
+/**
+ * Apply the General Settings booking-window cap to a list of already-bookable
+ * dates: a date is selectable only if it lies within `slotWindowDays` days of
+ * today (i.e., the booking window opens N days before each exam date — the
+ * literal reading of «عدد الأيام المسموح للطالب خلالها باختيار موعد الاختبار قبل تاريخ الاختبار»).
+ * Pass null/undefined to leave the list untouched.
+ */
+export function filterDatesWithinBookingWindow(
+  values: readonly string[],
+  slotWindowDays: number | null | undefined,
+  now: Date = new Date(),
+): string[] {
+  if (slotWindowDays == null || !Number.isFinite(slotWindowDays) || slotWindowDays < 0) {
+    return values.slice();
+  }
+  const todayMs = startOfLocalDay(now).getTime();
+  const windowMs = slotWindowDays * 24 * 60 * 60 * 1000;
+  return values.filter((value) => {
+    const normalized = normalizeExamDateValue(value);
+    if (!normalized) return false;
+    const examMs = localDayTime(normalized);
+    return examMs - todayMs <= windowMs;
+  });
+}
+
 function isValidDateParts(year: number, month: number, day: number): boolean {
   if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return false;
   if (month < 1 || month > 12 || day < 1 || day > 31) return false;

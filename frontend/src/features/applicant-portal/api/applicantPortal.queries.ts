@@ -13,6 +13,7 @@ export const apKeys = {
   followUpExamPlan: (cycleId: string, categoryKey: string) =>
     [...apKeys.all, 'follow-up-exam-plan', cycleId, categoryKey] as const,
   applicationInstructions: () => [...apKeys.all, 'application-instructions'] as const,
+  examDateSettings: () => [...apKeys.all, 'exam-date-settings'] as const,
   moi: (nid: string) => [...apKeys.all, 'moi', nid] as const,
   adminStatus: (identifier: string) => [...apKeys.all, 'admin-status', identifier] as const,
 };
@@ -146,6 +147,14 @@ export function useApplicationInstructions() {
   return useQuery({
     queryKey: apKeys.applicationInstructions(),
     queryFn: () => applicantPortalService.getApplicationInstructions(),
+    ...noServerStateCacheOptions,
+  });
+}
+
+export function useExamDateSettings() {
+  return useQuery({
+    queryKey: apKeys.examDateSettings(),
+    queryFn: () => applicantPortalService.getExamDateSettings(),
     ...noServerStateCacheOptions,
   });
 }
