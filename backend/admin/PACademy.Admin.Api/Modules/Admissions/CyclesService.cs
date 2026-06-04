@@ -119,7 +119,7 @@ public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink,
         var entity = await FindAsync(id, ct);
         var obj = ToJson(entity);
         obj["status"] = status;
-        if (status is "closed" or "archived") obj["isActive"] = false;
+        if (status is "closed" or "archived" or "draft") obj["isActive"] = false;
         if (status is "active" or "open") await EnsureNoOtherActiveAsync(id, ct);
         if (status is "active" or "open") obj["isActive"] = true;
         Apply(entity, obj);
@@ -145,10 +145,8 @@ public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink,
 
     public async Task<object> DependenciesAsync(string id, CancellationToken ct)
     {
-        var cycle = await FindAsync(id, ct);
-        var cycleJson = ToJson(cycle);
-        var year = AdmissionJson.IntProp(cycleJson, "year") ?? cycle.Year;
-        var applicants = await CountApplicantsForCycleAsync(id, year, ct);
+        await FindAsync(id, ct);
+        var applicants = await CountApplicantsForCycleAsync(id, ct);
         var committees = await CountRecordsForCycleAsync("committeeInstances", id, ct)
             + await CountRecordsForCycleAsync("committees", id, ct);
         var examPlans = await CountRecordsForCycleAsync("examPlans", id, ct);
@@ -198,18 +196,21 @@ public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink,
 
     private async Task EnsureNoOtherActiveAsync(string? currentId, CancellationToken ct)
     {
-        var exists = await db.AdmissionCycles.AnyAsync(x => x.IsActive && x.Id != currentId, ct);
+        var exists = await db.AdmissionCycles.AnyAsync(
+            x => x.IsActive
+                && (x.Status == "active" || x.Status == "open" || x.Status == "extended")
+                && x.Id != currentId,
+            ct);
         if (exists)
             throw new ConflictException(ErrorCodes.ActiveCycleExists, "توجد دورة قبول نشطة بالفعل");
     }
 
-    private async Task<int> CountApplicantsForCycleAsync(string cycleId, int year, CancellationToken ct)
+    private async Task<int> CountApplicantsForCycleAsync(string cycleId, CancellationToken ct)
     {
         var rows = await operationalRecords.ListAsync("applicants", ct);
         return rows.Count(applicant =>
             StringProp(applicant, "cycleId") == cycleId ||
-            StringProp(applicant, "admissionCycleId") == cycleId ||
-            RegisteredYear(applicant) == year);
+            StringProp(applicant, "admissionCycleId") == cycleId);
     }
 
     private async Task<int> CountRecordsForCycleAsync(string module, string cycleId, CancellationToken ct)
@@ -218,12 +219,6 @@ public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink,
         return rows.Count(row =>
             StringProp(row, "cycleId") == cycleId ||
             StringProp(row, "admissionCycleId") == cycleId);
-    }
-
-    private static int? RegisteredYear(JsonObject applicant)
-    {
-        var registeredAt = StringProp(applicant, "registeredAt");
-        return DateTimeOffset.TryParse(registeredAt, out var parsed) ? parsed.Year : null;
     }
 
     private static bool IsBlocking(object dependencies)
