@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ExternalLink, FileText, Save, Send, Trash2 } from 'lucide-react';
 import {
+  AlertDialog,
   Badge,
   Button,
   Card,
@@ -62,6 +63,7 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
   const [pendingDoc, setPendingDoc] = useState<DeclarationDocument | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
+  const [confirmDeleteSaved, setConfirmDeleteSaved] = useState(false);
 
   useEffect(() => {
     setActiveMode(current?.mode ?? 'text');
@@ -130,6 +132,34 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
     setPendingDoc(null);
     setPendingFile(null);
     setUploadFiles([]);
+  };
+
+  /** Clears the saved/persisted PDF on the current declaration so the
+   *  admin can upload a different one. Sends `document: null` through the
+   *  same `setDeclaration` contract — backend mirrors it via the
+   *  `deletedAt` soft-delete marker on `DeclarationDocument`. */
+  const handleDeleteSavedDocument = (): void => {
+    if (!canWrite || !current) return;
+    const effectiveFromIso = current.effectiveFrom ?? new Date().toISOString();
+    setMut.mutate(
+      {
+        cycleId: cycle.id,
+        mode: 'pdf',
+        bodyAr,
+        document: null,
+        effectiveFrom: effectiveFromIso,
+      },
+      {
+        onSuccess: () => {
+          toast('تم حذف مستند الإقرار', 'success');
+          setPendingDoc(null);
+          setPendingFile(null);
+          setUploadFiles([]);
+          setConfirmDeleteSaved(false);
+        },
+        onError: (err) => toast((err as Error).message, 'danger'),
+      },
+    );
   };
 
   /** Persist a declaration version. `silent: true` skips the success
@@ -335,6 +365,18 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
                           إزالة
                         </button>
                       )}
+                      {!pendingDoc && canWrite && current?.document && (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteSaved(true)}
+                          disabled={setMut.isPending}
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-2xs text-terra-700 hover:bg-terra-50 focus-visible:shadow-focus-teal focus-visible:outline-none disabled:opacity-50"
+                          aria-label="حذف المستند المحفوظ"
+                        >
+                          <Trash2 size={12} strokeWidth={1.75} />
+                          حذف
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -410,6 +452,26 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
       <Link to={ROUTES.applicant + '/print-card'} className="text-2xs text-teal-600 hover:underline">
         فتح صفحة طباعة البطاقة (المتقدم) →
       </Link>
+
+      <AlertDialog
+        open={confirmDeleteSaved}
+        onOpenChange={(next) => {
+          if (!setMut.isPending) setConfirmDeleteSaved(next);
+        }}
+        title="حذف مستند الإقرار"
+        description={
+          current?.document
+            ? `سيتم حذف الملف «${current.document.fileName}» من الإقرار الحالي. يمكنك بعد ذلك رفع ملف آخر.`
+            : 'سيتم حذف المستند المرفق من الإقرار الحالي.'
+        }
+        actionLabel="حذف"
+        actionLoadingLabel="جاري الحذف…"
+        cancelLabel="إلغاء"
+        tone="danger"
+        onAction={handleDeleteSavedDocument}
+        isActionLoading={setMut.isPending}
+        isCancelDisabled={setMut.isPending}
+      />
     </div>
   );
 }
