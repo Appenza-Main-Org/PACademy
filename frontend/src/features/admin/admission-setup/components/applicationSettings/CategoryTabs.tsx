@@ -12,9 +12,11 @@
  *   • `pre_university` (ثانوي) → <ThanawiRulesSection /> — exam-round +
  *     committee + graduation-year + school-category grid.
  *
- * The tab order mirrors the backend lookup order as-is. When backend
- * returns more categories than fit in the row, the tablist remains one
- * line and scrolls horizontally instead of wrapping.
+ * The tab order mirrors the backend lookup order as-is. The tablist
+ * uses an auto-fit CSS grid (`minmax(12rem, 1fr)`) so every configured
+ * category is visible without a horizontal scrollbar — tabs reflow into
+ * additional rows on narrow viewports instead of clipping behind a
+ * scroll spine.
  *
  * «معيار التمييز» rendering:
  *   • Every active category renders here regardless of its criterion
@@ -128,7 +130,7 @@ export function CategoryTabs(): JSX.Element {
       <div className="rounded-lg border border-border-subtle bg-surface-card px-3 pt-3 shadow-xs">
         <Tabs.List
           aria-label="فئات إعدادات التقديم"
-          className="flex-nowrap gap-2 overflow-x-auto overflow-y-hidden border-b-0 pb-3"
+          className="grid grid-cols-[repeat(auto-fit,minmax(12rem,1fr))] gap-2 overflow-visible border-b-0 pb-3"
         >
           {visibleConfigs.map((config) => (
             <ConfigTab
@@ -176,7 +178,7 @@ function ConfigTab({
     <Tabs.Tab
       value={config.id}
       className={cn(
-        'min-h-20 min-w-[14rem] max-w-[18rem] flex-shrink-0 items-start rounded-md border border-border-subtle bg-surface-card px-3 py-3 text-start',
+        'min-h-20 w-full min-w-0 items-start rounded-md border border-border-subtle bg-surface-card px-3 py-3 text-start',
         'hover:border-border-default hover:bg-ink-50/70',
         'data-[state=active]:border-[color:var(--accent-500)] data-[state=active]:bg-[color:var(--accent-50)]',
         'data-[state=active]:shadow-xs',
