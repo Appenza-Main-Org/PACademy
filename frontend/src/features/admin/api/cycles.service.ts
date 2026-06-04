@@ -123,37 +123,12 @@ export function validateCycleApplicationPeriod(
   return errors;
 }
 
-export function findActiveCycleApplicationPeriodOverlap(
-  cycles: readonly AdmissionCycle[] | undefined,
-  period: CycleApplicationPeriod,
-  currentCycleId?: string,
-): AdmissionCycle | null {
-  const errors = validateCycleApplicationPeriod(period);
-  if (Object.keys(errors).length > 0) return null;
-
-  return (
-    cycles?.find((cycle) => {
-      const isActiveCycle =
-        cycle.status === 'active' ||
-        cycle.status === 'open' ||
-        cycle.status === 'extended';
-      if (cycle.id === currentCycleId || cycle.deletedAt || !isActiveCycle) return false;
-      const activePeriod = resolveCycleApplicationPeriod(cycle);
-      return rangesOverlap(period, activePeriod);
-    }) ?? null
-  );
-}
-
 export function toCycleOpenIso(date: string): string {
   return `${normalizeDateOnly(date) ?? date}T00:00:00.000Z`;
 }
 
 export function toCycleCloseIso(date: string): string {
   return `${normalizeDateOnly(date) ?? date}T23:59:59.000Z`;
-}
-
-function rangesOverlap(a: CycleApplicationPeriod, b: CycleApplicationPeriod): boolean {
-  return a.startDate <= b.endDate && b.startDate <= a.endDate;
 }
 
 function dateOnly(value: string | null | undefined): string | null {

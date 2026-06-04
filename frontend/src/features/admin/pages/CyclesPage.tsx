@@ -51,10 +51,7 @@ import {
   useCycleSoftDelete,
   useCycleUpdateStatus,
 } from '../api/cycles.queries';
-import {
-  findActiveCycleApplicationPeriodOverlap,
-  resolveCycleApplicationPeriod,
-} from '../api/cycles.service';
+import { resolveCycleApplicationPeriod } from '../api/cycles.service';
 import {
   canDeleteAdmissionCycle,
   cycleDeleteBlockedReason,
@@ -188,18 +185,6 @@ export function CyclesPage(): JSX.Element {
     }
 
     const patch = listStatusToCyclePatch(next);
-    if (patch.isActive) {
-      const overlap = findActiveCycleApplicationPeriodOverlap(
-        data,
-        resolveCycleApplicationPeriod(cycle),
-        cycle.id,
-      );
-      if (overlap) {
-        toast(`فترة التقديم تتداخل مع الدورة النشطة "${overlap.nameAr}"`, 'danger');
-        setStatusTarget(null);
-        return;
-      }
-    }
 
     updateStatusMut.mutate(
       { id: cycle.id, next: patch.status, demoteCurrentActive: patch.isActive },
