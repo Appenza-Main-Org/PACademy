@@ -7,12 +7,21 @@
  */
 
 import { z } from 'zod';
+import { nationalIdErrorMessage } from '@/shared/lib/national-id';
 
-const NID_REGEX = /^[0-9]{14}$/;
 const EG_PHONE_REGEX = /^01[0125][0-9]{8}$/;
 
+/** Zod field that validates an Egyptian National ID through the full
+ *  analyser (length + numeric + century + birth date + governorate +
+ *  sequence + gender digit + checksum). Each failure surfaces a
+ *  specific Arabic message instead of a generic «14 رقماً» error. */
+const nationalIdField = z.string().superRefine((value, ctx) => {
+  const message = nationalIdErrorMessage(value);
+  if (message) ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+});
+
 export const stage1Schema = z.object({
-  nationalId: z.string().regex(NID_REGEX, 'الرقم القومي يجب أن يكون 14 رقماً'),
+  nationalId: nationalIdField,
   phoneNumber: z.string().regex(EG_PHONE_REGEX, 'رقم الهاتف غير صحيح'),
   /* Captcha — applicant types the answer to a randomly-generated arithmetic
    * challenge. The expected value is set on each render and matched at
@@ -150,7 +159,7 @@ export type Stage345Values = z.infer<typeof stage345Schema>;
 
 /** Verify step (PDF p.5 lower) — applicant re-enters NID + mobile. */
 export const verifyApplicantSchema = z.object({
-  nationalId: z.string().regex(NID_REGEX, 'الرقم القومي يجب أن يكون 14 رقماً'),
+  nationalId: nationalIdField,
   mobile: z.string().regex(EG_PHONE_REGEX, 'رقم المحمول غير صحيح'),
 });
 export type VerifyApplicantValues = z.infer<typeof verifyApplicantSchema>;

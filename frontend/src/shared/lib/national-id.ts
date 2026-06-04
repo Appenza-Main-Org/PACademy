@@ -368,3 +368,53 @@ export function parseNationalId(id: string): NationalIdInfo {
 export function isValidNationalId(id: string): boolean {
   return parseNationalId(id).valid;
 }
+
+/**
+ * Strict validity check — runs the full `analyseNationalId` pipeline
+ * (length + numeric + century + birth date + governorate + sequence +
+ * gender digit + checksum). Prefer this over `isValidNationalId` for
+ * any form that wants to block save on an invalid Egyptian NID.
+ */
+export function isStrictNationalId(id: string | null | undefined): boolean {
+  return analyseNationalId(id).valid;
+}
+
+/**
+ * Returns the Arabic detail of the first NID issue, or `undefined` when
+ * the value passes the full Egyptian-NID analysis. Suitable for forms
+ * that want a single inline error message per field.
+ *
+ * Falls back to short, field-friendly labels for the early-exit cases
+ * (empty / non-numeric / wrong length) so the message fits a single
+ * input row.
+ */
+export function nationalIdErrorMessage(
+  rawId: string | null | undefined,
+): string | undefined {
+  const analysis = analyseNationalId(rawId);
+  if (analysis.valid) return undefined;
+  const first = analysis.issues[0]!;
+  switch (first.code) {
+    case 'EMPTY':
+      return 'مطلوب';
+    case 'NON_NUMERIC':
+      return 'الرقم القومي يجب أن يحتوي على أرقام فقط';
+    case 'LENGTH_INVALID':
+      return 'الرقم القومي يجب أن يتكون من 14 رقماً';
+    default:
+      return first.detailAr;
+  }
+}
+
+/**
+ * React-hook-form `validate` helper. Returns `true` when valid,
+ * otherwise the Arabic error message — matching RHF's expected shape.
+ *
+ *   register('nationalId', { validate: validateNationalIdField })
+ */
+export function validateNationalIdField(
+  rawId: string | null | undefined,
+): true | string {
+  const message = nationalIdErrorMessage(rawId);
+  return message ?? true;
+}

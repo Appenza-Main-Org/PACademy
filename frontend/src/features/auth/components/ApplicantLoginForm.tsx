@@ -46,6 +46,7 @@ import { emptyDocument } from '@/features/applicant-portal/lib/vothiqaTaaruf.typ
 import { ROLE_DEFINITIONS } from '../rbac';
 import type { AuthUser } from '../types';
 import type { ApplicantDraft } from '@/shared/types/domain';
+import { nationalIdErrorMessage } from '@/shared/lib/national-id';
 
 /* Set of NIDs that should land directly on /applicant/acquaintance-doc
  * after login (وثيقة تعارف demo users). All three (fillable قسم عام
@@ -101,11 +102,10 @@ function buildDemoApplicantUser(nationalId: string, fullName: string): AuthUser 
 }
 
 const schema = z.object({
-  nationalId: z
-    .string()
-    .min(14, 'الرقم القومي يجب أن يكون 14 رقماً')
-    .max(14, 'الرقم القومي يجب أن يكون 14 رقماً')
-    .regex(/^[0-9]{14}$/, 'الرقم القومي يجب أن يحتوي على أرقام فقط'),
+  nationalId: z.string().superRefine((value, ctx) => {
+    const message = nationalIdErrorMessage(value);
+    if (message) ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+  }),
   mobile: z
     .string()
     .regex(
