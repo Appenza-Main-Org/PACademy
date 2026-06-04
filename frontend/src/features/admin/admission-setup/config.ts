@@ -88,7 +88,7 @@ export const ADMISSION_SETUP_STEPS: readonly AdmissionSetupStep[] = [
     permission: 'admission-setup:read',
     reuses: 'features/admin/pages/CycleDetailPage.tsx',
     isImplemented: true,
-    subtitleAr: 'رسوم التقديم وإعدادات بوابة فوري.',
+    subtitleAr: 'رسوم التقديم لهذه الدورة.',
   },
   {
     key: 'exams',

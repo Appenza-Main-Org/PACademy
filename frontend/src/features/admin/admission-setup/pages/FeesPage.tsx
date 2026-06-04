@@ -16,7 +16,6 @@ import {
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { useCycleUpdate } from '@/features/admin/api/cycles.queries';
-import { FawryConfigCard } from '@/features/admin/components/cycles/FawryConfigCard';
 import type { AdmissionCycle, CycleFees } from '@/shared/types/domain';
 import { AdmissionSetupShell, useAdmissionSetupCanWrite } from '../components/AdmissionSetupShell';
 import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
@@ -68,7 +67,7 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
     <div className="flex flex-col gap-4">
       <PageHeader
         title="الرسوم المالية"
-        subtitle="رسوم التقديم وبوابة الدفع لهذه الدورة."
+        subtitle="رسوم التقديم لهذه الدورة."
         actions={
           <Link to={ROUTES.admin.payments} className="inline-flex">
             <Button
@@ -106,7 +105,6 @@ function Body({ cycle, canWrite }: { cycle: AdmissionCycle; canWrite: boolean })
           </Button>
         </div>
       </Card>
-      <FawryConfigCard cycle={cycle} readOnly={readOnly} />
     </div>
   );
 }
