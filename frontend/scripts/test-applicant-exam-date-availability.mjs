@@ -36,6 +36,7 @@ try {
 
   const {
     filterBookableExamDates,
+    filterDatesWithinBookingWindow,
     isBookableExamDate,
     normalizeExamDateValue,
   } = await import(pathToFileURL(outFile).href);
@@ -56,14 +57,44 @@ try {
     ['2026-06-02', '2026-06-03'],
   );
 
+  assert.deepEqual(
+    filterDatesWithinBookingWindow(
+      ['2026-06-02', '2026-06-03', '2026-06-05', '2026-06-10'],
+      1,
+      now,
+    ),
+    ['2026-06-02', '2026-06-03'],
+    'a 1-day booking window keeps today and tomorrow only',
+  );
+  assert.deepEqual(
+    filterDatesWithinBookingWindow(['2026-06-02', '2026-06-10'], null, now),
+    ['2026-06-02', '2026-06-10'],
+    'a null booking window leaves the list untouched',
+  );
+  assert.deepEqual(
+    filterDatesWithinBookingWindow(['2026-06-02', '2026-06-10'], 0, now),
+    ['2026-06-02'],
+    'a zero-day booking window only keeps today',
+  );
+
   const stage8Source = readFileSync(
     path.join(frontendRoot, 'src/features/applicant-portal/pages/Stage8ExamSchedulePage.tsx'),
     'utf8',
   );
   assert.match(
     stage8Source,
-    /filterBookableExamDates\(examDates\)\.map/,
+    /filterBookableExamDates\(examDates\)/,
     'Stage 8 should hide expired dates from applicant booking options.',
+  );
+  assert.match(
+    stage8Source,
+    /filterDatesWithinBookingWindow\(bookable, slotWindowDays\)/,
+    'Stage 8 should narrow the bookable list to the General Settings booking window.',
+  );
+  assert.match(
+    stage8Source,
+    /examDaysPerApplicant != null/,
+    'Stage 8 should cap the visible date count to the General Settings examDaysPerApplicant value.',
   );
 
   const serviceSource = readFileSync(

@@ -23,6 +23,7 @@ import { date as fmtDate } from '@/shared/lib/format';
 import { arabicDayOfWeek } from '@/shared/lib/arabic';
 import { ROUTES } from '@/config/routes';
 import {
+  useExamDateSettings,
   usePickFirstExamDateMutation,
 } from '../api/applicantPortal.queries';
 import { useEligibleCategories } from '../api/categories.queries';
@@ -30,6 +31,7 @@ import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
 import {
   filterBookableExamDates,
+  filterDatesWithinBookingWindow,
   normalizeExamDateValue,
 } from '../lib/exam-date-availability';
 
@@ -46,6 +48,13 @@ export function Stage8ExamSchedulePage(): JSX.Element {
 
   /* Always fetch eligible-categories to get committeeName + examDates. */
   const eligibilityQuery = useEligibleCategories(nid);
+  /* General Settings (admin /admin/settings) control how many date options the
+   *  applicant sees («عدد أيام الاختبار للطالب») and the booking-window in days
+   *  before each exam date during which the applicant may pick that slot
+   *  («عدد الأيام المسموح للطالب خلالها باختيار موعد الاختبار قبل تاريخ الاختبار»). */
+  const examDateSettingsQuery = useExamDateSettings();
+  const examDaysPerApplicant = examDateSettingsQuery.data?.examDaysPerApplicant ?? null;
+  const slotWindowDays = examDateSettingsQuery.data?.examSlotSelectionWindowDays ?? null;
 
   const matchedCategory = eligibilityQuery.data?.categories.find(
     (c) => c.categoryId === selectedCategoryKey,
@@ -64,15 +73,22 @@ export function Stage8ExamSchedulePage(): JSX.Element {
   const [picked, setPicked] = useState<string>('');
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const dayOptions = useMemo(() =>
-    filterBookableExamDates(examDates).map((dateStr) => ({
+  const dayOptions = useMemo(() => {
+    const bookable = filterBookableExamDates(examDates);
+    const withinWindow = filterDatesWithinBookingWindow(bookable, slotWindowDays);
+    const capped = examDaysPerApplicant != null
+      ? withinWindow.slice(0, examDaysPerApplicant)
+      : withinWindow;
+    return capped.map((dateStr) => ({
       value: normalizeExamDateValue(dateStr) ?? dateStr,
       dayName: formatExamDayName(dateStr),
       dateLabel: formatExamDateLabel(dateStr),
-    })),
-  [examDates]);
+    }));
+  }, [examDates, slotWindowDays, examDaysPerApplicant]);
 
-  if (eligibilityQuery.isLoading) return <LoadingState variant="card-grid" count={2} />;
+  if (eligibilityQuery.isLoading || examDateSettingsQuery.isLoading) {
+    return <LoadingState variant="card-grid" count={2} />;
+  }
   if (eligibilityQuery.error) {
     return <ErrorState error={eligibilityQuery.error} onRetry={() => void eligibilityQuery.refetch()} />;
   }

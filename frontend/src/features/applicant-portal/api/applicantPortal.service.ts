@@ -84,6 +84,19 @@ interface ApplicationInstructionsResponse {
   applicationInstructions?: readonly string[] | string | null;
 }
 
+interface ExamDateSettingsResponse {
+  examDaysPerApplicant?: number | null;
+  examSlotSelectionWindowDays?: number | null;
+}
+
+export interface ExamDateSettings {
+  /** Max number of exam-date options to show the applicant in Stage 8. */
+  examDaysPerApplicant: number | null;
+  /** Booking-window in days before each exam date during which the applicant
+   *  may select that slot. Slots farther out are hidden until the window opens. */
+  examSlotSelectionWindowDays: number | null;
+}
+
 export interface AcquaintanceDocStatus {
   cycleId: string;
   status: 'not_open' | 'open' | 'closed';
@@ -124,6 +137,12 @@ export interface AdminPortalStatus {
 function metadataString(row: TestLookupRow, key: string): string | undefined {
   const value = row.metadata?.[key];
   return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function normalizePositiveInteger(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  const n = Math.trunc(value);
+  return n >= 1 ? n : null;
 }
 
 function lookupRowToFollowUpExam(row: TestLookupRow): FollowUpExam {
@@ -401,6 +420,19 @@ export const applicantPortalService = {
 
     await simulateLatency(100, 200);
     return normalizeApplicationInstructions(null);
+  },
+
+  async getExamDateSettings(): Promise<ExamDateSettings> {
+    if (isBackendEnabled()) {
+      const settings = await adminApiClient.get<ExamDateSettingsResponse>('/api/admin/settings');
+      return {
+        examDaysPerApplicant: normalizePositiveInteger(settings.examDaysPerApplicant),
+        examSlotSelectionWindowDays: normalizePositiveInteger(settings.examSlotSelectionWindowDays),
+      };
+    }
+
+    await simulateLatency(100, 200);
+    return { examDaysPerApplicant: null, examSlotSelectionWindowDays: null };
   },
 
   /** Admin-only: update one or more exam result fields for a given applicant.
