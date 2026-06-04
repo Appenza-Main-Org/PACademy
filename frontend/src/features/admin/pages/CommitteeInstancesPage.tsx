@@ -23,12 +23,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import {
-  ChevronsDownUp,
-  ChevronsUpDown,
-  RefreshCcw,
-  Trash2,
-} from 'lucide-react';
+import { RefreshCcw, Trash2 } from 'lucide-react';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import {
   Accordion,
@@ -205,9 +200,11 @@ export function CommitteeInstancesPage(): JSX.Element {
     definitionsQuery.isLoading ||
     categoriesQuery.isLoading;
 
-  /* Expansion state — persisted per cycle in localStorage. Default is
-   * "all days expanded" until the admin touches a section, after which
-   * their explicit set wins until they hit reset. */
+  /* Expansion state — single open day at a time so admins can focus.
+   * Persisted per cycle in localStorage; opening a different day
+   * implicitly collapses the previous one. Store keeps its array shape
+   * for backward compat with existing entries; we treat the first
+   * element as the currently-open date. */
   const byCycle = useDayExpansionStore((s) => s.byCycle);
   const setExpanded = useDayExpansionStore((s) => s.setExpanded);
   const allDayDates = useMemo(() => dayGroups.map((g) => g.date), [dayGroups]);
@@ -215,24 +212,12 @@ export function CommitteeInstancesPage(): JSX.Element {
     () => resolveExpandedDates(byCycle, activeCycleId, allDayDates),
     [byCycle, activeCycleId, allDayDates],
   );
+  const openDate = expandedDates[0] ?? '';
 
-  const handleExpansionChange = (next: string[]): void => {
+  const handleOpenChange = (next: string): void => {
     if (!activeCycleId) return;
-    setExpanded(activeCycleId, next);
+    setExpanded(activeCycleId, next ? [next] : []);
   };
-
-  const expandAll = (): void => {
-    if (!activeCycleId) return;
-    setExpanded(activeCycleId, allDayDates);
-  };
-
-  const collapseAll = (): void => {
-    if (!activeCycleId) return;
-    setExpanded(activeCycleId, []);
-  };
-
-  const allExpanded = allDayDates.length > 0 && expandedDates.length === allDayDates.length;
-  const allCollapsed = expandedDates.length === 0;
 
   const refreshMut = useRefreshReservedCountsMutation();
   const handleRefresh = (): void => {
@@ -302,30 +287,13 @@ export function CommitteeInstancesPage(): JSX.Element {
             >
               تحديث
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={expandAll}
-              disabled={allExpanded}
-              leadingIcon={<ChevronsUpDown size={14} strokeWidth={1.75} />}
-            >
-              توسيع الكل
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={collapseAll}
-              disabled={allCollapsed}
-              leadingIcon={<ChevronsDownUp size={14} strokeWidth={1.75} />}
-            >
-              طي الكل
-            </Button>
           </div>
           <Card>
             <Accordion
-              type="multiple"
-              value={expandedDates}
-              onValueChange={(next) => handleExpansionChange(next as string[])}
+              type="single"
+              collapsible
+              value={openDate}
+              onValueChange={(next) => handleOpenChange(next as string)}
             >
               {dayGroups.map((group) => (
                 <Accordion.Item key={group.date} value={group.date}>
