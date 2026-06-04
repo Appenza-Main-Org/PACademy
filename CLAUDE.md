@@ -10,8 +10,8 @@
 
 - **Owner:** وزارة الداخلية · أكاديمية الشرطة (Ministry of Interior · Police Academy)
 - **Built by:** Appenza Studio — Engineering Manager: Mortada
-- **Status:** Frontend feature-complete; design polish complete (`polish-complete` tag, 2026-05-03); major scope-alignment + admission-setup-wizard + lookups + admin-users-NID + applicant-grades work landed through 2026-05-16; post-2026-05-18 wave shipped the `/admin/committees-exam-config` management page, applicant unified-print + Stage-7 family-review, and cross-cutting chrome polish (see §11). Backend kickoff is the next workstream.
-- **Demo deadline:** 2026-05-29 (~2 weeks out). The polish program (docs/POLISH_REPORT.md) was sized against this date.
+- **Status:** Frontend feature-complete; backend covers Admin/Exams end-to-end with real persistence + the MOI and Biometric integration seams stubbed behind config flags. Recent waves: design polish (`polish-complete`, 2026-05-03); scope-alignment + admission-setup-wizard + lookups + admin-users-NID + applicant-grades (through 2026-05-16); committees-exam-config management page + applicant unified-print + chrome polish (2026-05-18 → 2026-05-20); admin backend integration pass (2026-05-21); cloud RBAC rebuild + Question Bank wired to backend (2026-05-24); eligibility endpoint + RFP-scope admin reports + general-settings (2026-05-25 → 2026-05-27); MOI SSO simulation + Biometric module + QB backend gap-fill (2026-05-30); DB schema separation + normalized operational records + Data Exchange center (2026-05-31); admission-setup overlap guard + committees-exam-config category-day aggregation + applicant-flow milestone status taxonomy (2026-06-02 → 2026-06-04). See §11.
+- **Demo deadline:** 2026-05-29 demo shipped. Ongoing hardening + scope-gap closure against the BRD ([docs/BRD_GAP_ANALYSIS.md](docs/BRD_GAP_ANALYSIS.md)).
 - **Live demo:** https://appenzademo.com (the old `pa-cademy.vercel.app` URL is dead).
 - **Deploy:** Vercel, configured by [vercel.json](vercel.json) at the repo root — installs + builds the `frontend/` workspace, serves `frontend/dist`, SPA-rewrites every path to `/index.html`, and sets long-cache headers for `/assets/*`.
 
@@ -26,6 +26,11 @@
 | (untagged, 2026-05-12 → 2026-05-16) | admission-setup wizard + lookups + admin-users-NID + applicant-grades — see §11 |
 | (untagged, 2026-05-19 → 2026-05-20) | committees-exam-config management page + applicant unified-print + chrome polish — see §11 |
 | (untagged, 2026-05-21) | admin backend integration pass — shared `apiClient`, backend-default admin services, typed backend errors, validation mapping — see [docs/ADMIN_BACKEND_INTEGRATION_STATUS.md](docs/ADMIN_BACKEND_INTEGRATION_STATUS.md) |
+| (untagged, 2026-05-24) | cloud RBAC rebuild + Question Bank wired to backend — see §11 |
+| (untagged, 2026-05-25 → 2026-05-27) | applicant eligibility endpoint + RFP-scope admin reports + general-settings module + admin-settings applicant-control screens — see §11 |
+| (untagged, 2026-05-30) | MOI SSO simulation + Biometric device gateway + Question Bank backend gap-fill — see [docs/SCOPE_GAP_QB_BIOMETRIC.md](docs/SCOPE_GAP_QB_BIOMETRIC.md), §11 |
+| (untagged, 2026-05-31) | DB schema separation (Prod/Staging on dbo, separate databases) + normalized operational records + Data Exchange center (`/admin/data-exchange`) — see [docs/db-migration/](docs/db-migration/), §11 |
+| (untagged, 2026-06-02 → 2026-06-04) | acquaintance-doc backend flow + admission-setup overlapping-rules guard + committees-exam-config category-day aggregation + lookups multi-distinction-criteria + applicant-flow milestone status taxonomy — see §11 |
 
 The doc baselines point at these tags — when reading `docs/*REPORT.md`, treat the named tag as the snapshot the doc was written against. Code may have moved since.
 
@@ -182,6 +187,10 @@ frontend/src/
 │   ├── lookups/          /admin/lookups — 22 typed lookups in 5 sections.
 │   │                     Drawer-based add/edit, FK-guarded delete, sortable + inline
 │   │                     status toggle, mapping screens. Replaces reference-data
+│   ├── data-exchange/    /admin/data-exchange — centralized Excel import/export hub
+│   │                     with change-tracking. Reads from normalized operational
+│   │                     store via OperationalRecordsService. Per-domain layouts +
+│   │                     filters; Applicants export gated on first-exam booking
 │   ├── applicant-portal/ Pre-wizard gate (`/applicant/start`, `/eligibility`, `/tests`)
 │   │                     + 11-stage Wizard (`/applicant/auth/step-1` … `/acquaintance-doc`)
 │   ├── applicants/       Shared applicant service+queries (consumed by admin)
@@ -267,6 +276,7 @@ The app is organised across **3 surfaces**:
 | `/admin` | AdminIndexRoute (super_admin → ReportsPage; others → DashboardPage) | `admin` |
 | `/admin/applicants` `/new` `/:id` `/:id/edit` | Applicants* | `admin` |
 | `/admin/applicant-grades` | ApplicantGradesPage (import + adjustments console) | `admin` |
+| `/admin/data-exchange` | DataExchangePage — centralized Excel import/export hub with change-tracking; reads from normalized operational store. Permission gate: `data-exchange:view`. | `admin` |
 | `/admin/users` `/new` `/:id` `/:id/edit` `/roles` | Users* (NID-driven create) + RolesPage (cloud permission matrix) | `admin` |
 | `/admin/audit` `/settings` `/reports` `/notifications` `/payments` | Audit / Settings / Reports / Notifications / Payments | `admin` |
 | `/admin/lookups` `/:typeCode` `/mappings/:kind` | LookupsHubPage (22 typed lookups in 5 sections) — replaces `/admin/reference-data` (redirects) | `admin` |
@@ -364,6 +374,14 @@ Shared integration utilities:
 Backend is **enabled by default**. Set `VITE_USE_MOCKS=true` only for explicit local demo/mock mode; production builds throw if that flag is enabled. When `VITE_API_BASE_URL` is empty, calls use same-origin `/api/...`.
 
 The admin-first backend pass on 2026-05-21 wired Auth/RBAC, users/roles/settings, cycles/categories/admission rules, lookups, admission setup, committees config, applicants, applicant grades, audit, payments, notifications, reports, and workflows to `apiClient` by default. See [docs/ADMIN_BACKEND_INTEGRATION_STATUS.md](docs/ADMIN_BACKEND_INTEGRATION_STATUS.md) for the current service inventory.
+
+**External-system simulation seams (2026-05-30).** Two integration points are stubbed behind config flags so the demo runs end-to-end and the real wiring is a switch-flip:
+- **MOI SSO** — `Moi:Mode = simulated | real` ([backend/admin/PACademy.Admin.Api/Modules/Identity/Moi/](backend/admin/PACademy.Admin.Api/Modules/Identity/Moi/)). Simulated path returns a deterministic identity payload by NID; real path holds the ministry HTTP shape dormant until configured. Powers applicant Stage-1/2 phone+SMS step and admin username/password generation, self-change, and super-admin reset.
+- **Biometric device gateway** — `Biometric:Mode = simulated | real` ([backend/admin/PACademy.Admin.Api/Modules/Biometric/](backend/admin/PACademy.Admin.Api/Modules/Biometric/)), mirrors the MOI seam. Simulated gateway returns deterministic match scores; real gateway is a 503 stub until a device is configured.
+
+**Operational records normalization (2026-05-31).** The admin JSON document store (`admin_records`) was refactored into normalized SQL columns. Reads now route through `OperationalRecordsService` (admin module), and `AdminRecords` is retained only for genuinely document-shaped buckets (`exam-attempts`, `exam-audit`, etc.). The `NormalizeOperationalRecords` migration is environment-portable and runs without seed.
+
+**Database schema separation (2026-05-31).** Prod and Staging are now **separate databases on `dbo`** (not two schemas in one DB). Staging skips auto-migrate; production owns its migration history. The migration package lives under [docs/db-migration/](docs/db-migration/) (RUNBOOK + executed log + Railway cutover script).
 
 Backend implementation instructions from the 2026-05-21 attached handoff live in [docs/BACKEND_IMPLEMENTATION_CONTEXT.md](docs/BACKEND_IMPLEMENTATION_CONTEXT.md). The hard backend rules are: two services (`backend/admin` on `:5101`, `backend/applicant` on `:5102`) over one SQL Server DB; admin owns all migrations; applicant exposes read-only projections where it should not mutate; seed data must copy the full frontend mock dataset verbatim with no invented rows.
 
@@ -623,6 +641,74 @@ A wave of work converging on three threads: the new `/admin/committees-exam-conf
 - **Login fallback for cloud roles** — `auth.service.ts` now tries the requested role first, then retries without a role (backend uses user's stored role), then falls back to `super_admin`. New cloud users like `admissions_manager` can log in through either picker tile without 403.
 - **Identity seed** ([backend/admin/PACademy.Admin.Api/SeedData/identity.seed.json](backend/admin/PACademy.Admin.Api/SeedData/identity.seed.json)) — ships the 8 cloud roles as system rows (super_admin is the only seeded user; admin creates the rest via `/admin/users/new`).
 
+✅ **Done (eligibility engine + RFP-scope admin reports + general-settings, 2026-05-25 → 2026-05-27)**
+
+- **Applicant eligibility endpoint** — `/api/applicants/eligibility/{nationalId}` returns the full set of eligible (and ineligible-with-reason) categories per applicant. Backed by the versioned eligibility rules engine: category windows, min-age, gender/marital filtering, graduation-year scoping, grade-range matching, university-program scoping by faculty/specialization, and a "manual school category" override for the secondary path. Grade metadata is preserved (full grade returned, not just pass/fail). The applicant portal `/applicant/start` now gates the category list on this response (was a client-side mock; eligibility was hashing NID before).
+- **RFP-scope admin reports** ([frontend/src/features/admin/pages/ReportsPage.tsx](frontend/src/features/admin/pages/ReportsPage.tsx) + [components/reports/](frontend/src/features/admin/components/reports/)) — full RFP reports scope landed. Super-admin Decision Brief section, risk-signal callouts, command-center mock derivations, collapsible filters (default-collapsed), active-cycle-categories-only filter scope. Dashboard polished against the live backend overview.
+- **General Settings module** ([backend/admin/PACademy.Admin.Api/Modules/Settings/](backend/admin/PACademy.Admin.Api/Modules/Settings/)) — dedicated singleton `general_settings` table replaces the legacy JSON record. `GeneralSettingsService` + `GeneralSettingsEntity` (single row, `Id = SingletonId`). Unified save endpoint. Frontend `/admin/settings` now configures applicant-control screens: exam-day count, booking window, document open/close trigger by exam-result, acquaintance-document scheduling (split from general settings into its own block). `useAdminSettings` + `useUpdateAdminSettings` queries.
+- **Admin Reports** filters collapse by default; admission-setup review layout stabilized.
+- **Audit** activity-details column now renders readable summaries (was raw payload).
+
+✅ **Done (MOI auth simulation + Biometric module + Question Bank backend gap-fill, 2026-05-30)**
+
+Closeout doc: [docs/SCOPE_GAP_QB_BIOMETRIC.md](docs/SCOPE_GAP_QB_BIOMETRIC.md). 1 PR (`#14 feat/moi-auth-simulation`), 3 new backend modules.
+
+- **MOI SSO simulation** — new [Modules/Identity/Moi/](backend/admin/PACademy.Admin.Api/Modules/Identity/Moi/) (`IMoiAuthGateway`, `SimulatedMoiAuthGateway`, `RealMoiAuthGateway`, `MoiModule`). Behind `Moi:Mode` config flag (default `simulated`). Powers applicant Stage-1/2 phone+SMS auth (deterministic NID → identity payload) and admin credential management: auto-generated admin username/password on user create, self-change endpoint, super-admin reset endpoint. The applicant Stage-2 OTP is no longer hardcoded — generated by the gateway. Frontend `auth.service.ts` gains a real backend path for these flows.
+- **Biometric module** — new [Modules/Biometric/](backend/admin/PACademy.Admin.Api/Modules/Biometric/) (`IBiometricDeviceGateway`, `SimulatedBiometricDeviceGateway`, `RealBiometricDeviceGateway`, `BiometricModule`, `BiometricController`). Mirrors the MOI seam: `Biometric:Mode` config flag, real gateway returns a clean 503 until configured. Biometric registration workflow wired end-to-end (was 100% frontend mock). The previous "biometric vaporware" gap from the BRD gap analysis is closed.
+- **Question Bank backend gap-fill** — filled the ~30% of the `exams.service.ts` INTEGRATION CONTRACT that previously 404'd on the backend: committee-users CRUD (`GET/POST/PATCH /api/exams/committee-users`), exam stop (`POST /api/exams/{id}/stop`), reopen attempt with 6-month override (`POST /api/exams/{id}/attempts/open`), pre-exam 7-point access validation (`POST /api/exams/access/validate`), authorized devices (`GET/POST/PATCH /api/exams/devices`), result approve/publish lifecycle (`GET /api/exams/results`, `POST .../{id}/approve`, `POST .../{id}/publish`), and a real audit endpoint (`GET /api/exams/audit`). New persistence buckets (AdminRecords JSON store, no migration): `exam-committee-users`, `exam-devices`, `exam-results`, `exam-audit`. Seeded verbatim from frontend mock in [exams.seed.json](backend/admin/PACademy.Admin.Api/SeedData/exams.seed.json). Auto-scoring extended to true-false + matching pairs. Exam preview wired up. Biometric exam-room entry by NID with biometric fallback.
+
+✅ **Done (Data Exchange center + normalized operational records + DB schema separation, 2026-05-31)**
+
+- **Data Exchange center** ([frontend/src/features/data-exchange/](frontend/src/features/data-exchange/), `/admin/data-exchange`) — centralized Excel import/export hub with change-tracking. Per-domain layouts + filter chips (applicants, grades, cycles, application settings, lookups). Page renamed from earlier "Import/Export" working title to «استيراد وتصدير البيانات». Backend reads/writes via `OperationalRecordsService` against the real applicants/grades tables (not the legacy mock). Resilient against schema drift. Filter scroll-jump bug fixed; selected-state UX on layout/filter cards clarified. **Applicants export is gated on first-exam booking** (no exports of empty/in-flight applicants). Cycle application-settings export added.
+- **Operational records normalization** — `OperationalRecordsAdmin` module added ([backend/admin/PACademy.Admin.Api/Modules/OperationalRecords/](backend/admin/PACademy.Admin.Api/Modules/OperationalRecords/)). The shared `admin_records` JSON document store was decomposed into normalized SQL columns for operational buckets (applicants, grades). Reads go through `OperationalRecordsService`; `AdminRecords` is retained for genuinely document-shaped buckets. Migration `NormalizeOperationalRecords` is environment-portable and runs without seed. Grades list reads from normalized columns with hardened fallback; applicant detail stabilized.
+- **DB schema separation** — Prod and Staging promoted from "schema-based on one DB" to **separate databases on `dbo`**. Staging skips auto-migrate. Runbook + executed log + Railway cutover script in [docs/db-migration/](docs/db-migration/). The schema-based migration that originally moved tables to `PACademy_staging_db` was reverted in favour of this clean separation. See the [migration schema gotcha memory](#) — admin migrations must use `AdminDbContext.Schema`, not a literal schema name.
+
+✅ **Done (applicant-flow hardening + admin operational tightening, 2026-05-29 → 2026-05-31)**
+
+- **Applicant portal gating** — portal is gated until the active cycle is **active AND published**. Category selection drops the separate eligibility step (eligibility runs inline as part of category list rendering); the `/applicant/eligibility` page is collapsed into the start page. Follow-up exams are loaded from cycle setup (not hardcoded). Applicant data is locked after payment. Previous-step edits are allowed only before exam scheduling.
+- **Profile cycle-scoping** — qualification/governorate/faculty/spec dropdowns on the applicant profile page are scoped to the cycle-allowed codes (not the global lookup). Specialized-officer specialization choices are restricted to active programs.
+- **MOI identity backfill** — applicant-auth derives MOI identity from NID for unknown applicants and backfills the row on login for incomplete records.
+- **Admin → applicant portal bridge** — admin applicant-detail card shows live portal identity, real assigned committee, the applicant's category, full portal applicant details, and routes the exam-results card through the admin API (legacy card hidden for portal applicants). Admin can edit portal exam outcomes; results are keyed by cycle test code (not legacy keys).
+- **Acquaintance document backend flow** ([frontend/src/features/applicant-portal/pages/Stage11AcquaintanceDocPage.tsx](frontend/src/features/applicant-portal/pages/Stage11AcquaintanceDocPage.tsx)) — Stage-11 acquaintance doc now persists to the backend (was `sessionStorage`-only). Stays editable until the closing test. Document-schedule split moved to General Settings.
+- **Cycles** — status edit from list with confirmation, allow deactivating all cycles, inactive-cycle deletion, refresh after delete, hidden from list when soft-deleted, demote flag on status transition, split application-date columns, label trimmed.
+- **Print fixes** — chrome crop fix across every staff print page, admission-setup review fits-to-page-width in print.
+
+✅ **Done (admission-setup + lookups + committees-exam-config + applicant-grades hardening, 2026-06-02 → 2026-06-04)**
+
+A dense polish wave converging on three threads:
+
+- **Admission-setup**:
+  - Block **overlapping rules** with a visual range indicator on the per-category grids (no two approved rows on the same scope can overlap on grade range × graduation-year × condition tuple).
+  - **Sequential wizard validation** — enforce step completion order; can't jump ahead past a partial step.
+  - **Declaration PDF** — upload, delete (honor explicit null on delete), and re-upload; require electronic-declaration content; disable Fridays in the committee date picker; hide inactive exam-plan tabs; drop Fawry config from fees step; fit category tabs without horizontal scroll; completion badge no longer overlaps long category names.
+- **Lookups**:
+  - Support **multiple distinction criteria** (`معيار التمييز` as a multi-select instead of single).
+  - **Block duplicate faculty/specialization per gender across categories** at the service level.
+  - Governorate codes — use NID codes directly (drop the region lookup field, allow editing NID codes, normalize legacy governorate codes on the lookup list).
+  - Soft-deleted records: list pages support showing + restoring deleted entries; FK-guarded delete with `Conflict` error and `force=true` override path.
+- **Committees-exam-config** (`/admin/committees-exam-config`):
+  - **Aggregate rows by category per day** (collapse the per-committee fan-out into one row per category-day with rollup capacity).
+  - Show **exam plan in place of committee name** in the rollup view (since the row represents a plan × day, not a single committee).
+  - **Collapse other days when expanding one** (single-open accordion behaviour).
+  - **Guard schedule deletion when bookings exist** (typed conflict); simplified instances page.
+- **Applicant-grades**:
+  - **Comprehensive NID validation** in import review (checksum + length + birth-date sanity per spec).
+  - **Lock grade edits for applicants who have submitted** (admin can no longer rewrite the grade backing an in-flight application).
+  - Import audit history persistence; import preflight + commit batched in chunks for large files; normalized-store reads with fallback; soft-delete + exclusion from reads; row delete actions routed through admin module.
+- **Applicant flow**:
+  - **Milestone status taxonomy** added to applicant rows (separate `applicantFlowStatus` from `paymentStatus`); admin applicants list surfaces the milestone state.
+  - **Printable application-form page** wired into the portal hub as a dedicated route (in addition to the Stage-9 unified print).
+  - Stage-9 print-card next-step CTA added.
+- **General Settings → admin**:
+  - **Pick exam-result that triggers document open/close** ([frontend/src/features/admin/pages/SettingsPage.tsx](frontend/src/features/admin/pages/SettingsPage.tsx)).
+  - Honor General Settings exam-day count and booking window on the applicant-side `/applicant/exam-schedule` step.
+- **Cycles**:
+  - **Derive submission period from per-category dates** (no separate cycle-level submission window field — cycle period is the union of its category windows).
+  - Align cycle publishing status across admin views.
+- **Tables shared**:
+  - **Continue sequence across custom pagination** (the row-number column counts cumulatively across pages, not per page).
+  - Display-sequence column added.
+
 🚧 **Next sprints**
 - **Sprint 10 — Hardening**: Vitest + Testing Library, Playwright smoke E2E, `eslint-plugin-boundaries`, Husky pre-commit, accessibility audit, print polish.
 - **Backend integration continuation**: keep expanding the admin-first `apiClient` pattern and remove remaining production-path mock leaks. Component/query/type contracts stay unchanged.
@@ -649,6 +735,11 @@ A wave of work converging on three threads: the new `/admin/committees-exam-conf
 16. **Cloud-vs-on-prem RBAC split.** The cloud permission matrix in [frontend/src/features/admin/users/lib/cloudPermissions.ts](frontend/src/features/admin/users/lib/cloudPermissions.ts) covers `admin` + `exams` + `applicant` sections. Operational on-prem modules (committees, medical, investigations, board, biometric, barcode, workflows) have a separate RBAC on the on-prem deployment and are intentionally absent from this matrix. Don't add their modules/actions here. The Question Bank joined the cloud plane on 2026-05-24 — see §11 for the rebuild notes.
 17. **Lookups replaced reference-data.** Don't add new entries under `/admin/reference-data` — it redirects. New admin-managed reference values become lookups in [frontend/src/features/lookups/](frontend/src/features/lookups/).
 18. **Single active cycle.** The admin cycles UI enforces "one active cycle at a time" with a one-click swap when activating a new one. Don't add code that assumes multiple active cycles can coexist.
+19. **Operational data lives in normalized columns now.** When extending an admin service that reads applicant/grade rows, route through `OperationalRecordsService` (admin module), not `AdminRecords` directly. `AdminRecords` is reserved for genuinely document-shaped buckets (`exam-attempts`, `exam-audit`, etc.). The 2026-05-31 normalization migration is env-portable — don't write migrations that assume a single schema or DB.
+20. **External-system seams use the `<System>:Mode` config pattern.** MOI and Biometric both follow it (`Moi:Mode`, `Biometric:Mode`). Simulated is the default for demo + dev; real is dormant until configured. If you add a new external integration (NID directory, payment gateway, SMS), follow the same `IFooGateway` + `SimulatedFooGateway` + `RealFooGateway` + `FooModule` shape so the demo never breaks while real wiring waits.
+21. **Cycle is gated for the applicant portal.** Don't add code paths that let an applicant reach the portal when the active cycle is not both **active AND published**. The eligibility endpoint is the single source of truth for category gating — do not reintroduce client-side NID-hash eligibility mocks (the 2026-05-30 wave deleted them).
+22. **Soft-delete + restore is now standard on list pages.** When adding a new admin list page or extending an existing one, the delete affordance should soft-delete (set a `deletedAt`) and the list should support showing + restoring deleted rows. The 2026-06-03 wave canonised this across cycles, grades, lookups.
+23. **Don't reintroduce `window.confirm()` or `alert()`.** Use the shared `AlertDialog`. The 2026-05-20 chrome wave removed the last of these.
 
 ---
 
@@ -678,7 +769,14 @@ A wave of work converging on three threads: the new `/admin/committees-exam-conf
 | Add an admission-setup step | Append an entry to `ADMISSION_SETUP_STEPS` in [frontend/src/features/admin/admission-setup/config.ts](frontend/src/features/admin/admission-setup/config.ts) + add the route segment under `ROUTES.admin.admissionSetup` + create the page file. Sidebar/breadcrumbs/wizard nav derive automatically. |
 | Add a lookup | Add the key to `LOOKUP_KEYS` in [frontend/src/features/lookups/types.ts](frontend/src/features/lookups/types.ts) + extend `LookupRowMap` with the row shape + seed in [frontend/src/features/lookups/mock/lookups.mock.ts](frontend/src/features/lookups/mock/lookups.mock.ts) + place in a `LOOKUP_SECTIONS` group. CRUD UI is generated by `LookupsHubPage`. |
 | Change cloud RBAC | [frontend/src/features/admin/users/lib/cloudPermissions.ts](frontend/src/features/admin/users/lib/cloudPermissions.ts) — admin + exams + applicant sections only. Mirror role definitions in [frontend/src/features/auth/rbac.ts](frontend/src/features/auth/rbac.ts), [frontend/src/shared/mock-data/roles.ts](frontend/src/shared/mock-data/roles.ts), and [backend/admin/PACademy.Admin.Api/SeedData/identity.seed.json](backend/admin/PACademy.Admin.Api/SeedData/identity.seed.json). Do **not** add on-prem operational modules; they have a separate RBAC. |
-| Question Bank backend | [backend/admin/PACademy.Admin.Api/Modules/Exams/](backend/admin/PACademy.Admin.Api/Modules/Exams/) — `ExamsService` over `AdminRecords`. Seeded from [exams.seed.json](backend/admin/PACademy.Admin.Api/SeedData/exams.seed.json). REST surface in [ExamsController.cs](backend/admin/PACademy.Admin.Api/Controllers/ExamsController.cs); frontend client in [exams.service.ts](frontend/src/features/exams/api/exams.service.ts). |
+| Question Bank backend | [backend/admin/PACademy.Admin.Api/Modules/Exams/](backend/admin/PACademy.Admin.Api/Modules/Exams/) — `ExamsService` over `AdminRecords`. Seeded from [exams.seed.json](backend/admin/PACademy.Admin.Api/SeedData/exams.seed.json). REST surface in [ExamsController.cs](backend/admin/PACademy.Admin.Api/Controllers/ExamsController.cs); frontend client in [exams.service.ts](frontend/src/features/exams/api/exams.service.ts). Buckets: `questions`, `exams`, `exam-attempts`, `exam-live-sessions`, `exam-committee-users`, `exam-devices`, `exam-results`, `exam-audit`. |
+| MOI auth simulation | [backend/admin/PACademy.Admin.Api/Modules/Identity/Moi/](backend/admin/PACademy.Admin.Api/Modules/Identity/Moi/) — `IMoiAuthGateway` behind `Moi:Mode = simulated \| real`. Powers applicant Stage-1/2 + admin credential management (auto-generate / self-change / super-admin reset). |
+| Biometric device gateway | [backend/admin/PACademy.Admin.Api/Modules/Biometric/](backend/admin/PACademy.Admin.Api/Modules/Biometric/) — `IBiometricDeviceGateway` behind `Biometric:Mode = simulated \| real`. Real gateway returns 503 until configured. Mirrors the MOI seam. |
+| General Settings (singleton) | [backend/admin/PACademy.Admin.Api/Modules/Settings/](backend/admin/PACademy.Admin.Api/Modules/Settings/) — dedicated `general_settings` table (one row, `Id = SingletonId`). Frontend page: [SettingsPage.tsx](frontend/src/features/admin/pages/SettingsPage.tsx). Powers applicant-control screens (exam-day count, booking window, document open/close trigger, acquaintance-doc scheduling). |
+| Eligibility endpoint | `/api/applicants/eligibility/{nationalId}` — versioned eligibility rules engine over admission-setup drafts. Returns eligible + ineligible-with-reason categories per NID. Applicant `/applicant/start` gates on this response. |
+| Data Exchange center | [frontend/src/features/data-exchange/](frontend/src/features/data-exchange/) (`/admin/data-exchange`) — centralized Excel import/export hub. Backend reads via `OperationalRecordsService`; backend module under [backend/admin/PACademy.Admin.Api/Modules/DataExchangeAdmin/](backend/admin/PACademy.Admin.Api/Modules/DataExchangeAdmin/). Applicants export gated on first-exam booking. |
+| Operational records (admin) | [backend/admin/PACademy.Admin.Api/Modules/OperationalRecords/](backend/admin/PACademy.Admin.Api/Modules/OperationalRecords/) — normalized SQL columns for applicants/grades buckets. `AdminRecords` retained for document-shaped buckets only. Migration `NormalizeOperationalRecords` is env-portable. |
+| DB schema separation | Prod and Staging are **separate databases on `dbo`** (not two schemas on one DB). Runbook + cutover script in [docs/db-migration/](docs/db-migration/). Staging skips auto-migrate. **Admin migrations must use `AdminDbContext.Schema`, not a literal** — see `pacademy-migration-schema-gotcha` memory. |
 | Add a DB constraint / conflict code | [docs/DB_CONSTRAINTS.md](docs/DB_CONSTRAINTS.md) — frontend mock services throw typed `ConflictError` codes that the backend must mirror at integration time. |
 | Per-cycle exam schedule | [frontend/src/features/committees/pages/CommitteeSchedulePage.tsx](frontend/src/features/committees/pages/CommitteeSchedulePage.tsx); service+queries under `features/committees/api/examSchedule.*`. |
 | Committee instances management | [frontend/src/features/admin/pages/CommitteeInstancesPage.tsx](frontend/src/features/admin/pages/CommitteeInstancesPage.tsx) (`/admin/committees-exam-config`). Service+queries under `features/committees/api/committeeInstance.*`. Shared add form: [CommitteeInstanceAddForm.tsx](frontend/src/features/admin/admission-setup/components/committeeBinding/CommitteeInstanceAddForm.tsx) — mounted on both the management page and the admission-setup wizard committees step. |
@@ -703,6 +801,11 @@ A wave of work converging on three threads: the new `/admin/committees-exam-conf
 | [docs/INTEGRATION_HANDOFF.md](docs/INTEGRATION_HANDOFF.md) | Backend integration bible — every `*.service.ts` contract mapped to its real REST endpoint, every typed error mapped to its required response shape (baseline tag: `admin-gaps-verified`) |
 | [docs/BACKEND_IMPLEMENTATION_CONTEXT.md](docs/BACKEND_IMPLEMENTATION_CONTEXT.md) | Backend implementation instructions from attached handoff docs: two-service topology, seed-data rule, conventions, build order, verification |
 | [docs/ADMIN_BACKEND_INTEGRATION_STATUS.md](docs/ADMIN_BACKEND_INTEGRATION_STATUS.md) | Current 2026-05-21 admin backend integration status: api client, env flags, wired services, validation mapping, remaining notes |
+| [docs/BRD_GAP_ANALYSIS.md](docs/BRD_GAP_ANALYSIS.md) | 2026-05-29 BRD gap analysis (~45–55% complete; bimodal — Admin/Exams real, Applicant/Biometric were largely mock). Drove the 2026-05-30 MOI/Biometric work. |
+| [docs/SCOPE_GAP_QB_BIOMETRIC.md](docs/SCOPE_GAP_QB_BIOMETRIC.md) | 2026-05-30 closeout: Question Bank backend gap-fill + Biometric module. Maps every BRD §5/§6 item to frontend/backend status before/after. |
+| [docs/FULL_SCOPE_GAP_ANALYSIS.md](docs/FULL_SCOPE_GAP_ANALYSIS.md) | Cross-cutting full-scope gap analysis. |
+| [docs/db-migration/](docs/db-migration/) | DB env-separation package: runbook, inventory, environment mapping, executed log, Railway cutover script. |
+| [docs/admin-finalization/](docs/admin-finalization/) | Admin finalization closeout: audit, backend wire-up, RBAC verification, mock residue, smoke. |
 | [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) | The script for the 2026-05-29 evaluator demo — the customer-facing narrative |
 | [Tasks/KARASA_GAPS.md](Tasks/KARASA_GAPS.md) | RFP Scope Document coverage map (filename retained; term inside is "RFP Scope Document") |
 | [Tasks/RADIX_ADOPTION_REPORT.md](Tasks/RADIX_ADOPTION_REPORT.md) | Inventory of sanctioned Radix primitives + composition patterns (referenced by §2.5) |
