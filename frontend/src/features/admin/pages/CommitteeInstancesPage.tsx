@@ -529,7 +529,7 @@ function CommitteeRowsTable({
               تاريخ الاختبار
             </th>
             <th className="px-4 py-2 text-start text-2xs font-medium uppercase tracking-wide text-ink-500">
-              اسم الاختبار
+              اسم اللجنة
             </th>
             <th className="px-4 py-2 text-center text-2xs font-medium uppercase tracking-wide text-ink-500">
               سعة اللجنة
