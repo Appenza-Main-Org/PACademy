@@ -178,20 +178,18 @@ function ConfigTab({
     <Tabs.Tab
       value={config.id}
       className={cn(
-        'min-h-20 w-full min-w-0 items-start rounded-md border border-border-subtle bg-surface-card px-3 py-3 text-start',
+        'h-auto min-h-24 w-full min-w-0 items-start rounded-md border border-border-subtle bg-surface-card px-3 py-3 text-start',
         'hover:border-border-default hover:bg-ink-50/70',
         'data-[state=active]:border-[color:var(--accent-500)] data-[state=active]:bg-[color:var(--accent-50)]',
         'data-[state=active]:shadow-xs',
       )}
     >
-      <span className="flex min-w-0 flex-col items-start gap-2">
-        <span className="flex w-full min-w-0 items-start justify-between gap-3">
-          <span className="min-w-0 truncate font-ar text-sm font-bold leading-6 text-ink-900">
-            {config.categoryNameAr}
-          </span>
-          <CompletionBadge state={completion} compact />
+      <span className="flex w-full min-w-0 flex-col items-start gap-2">
+        <span className="block w-full min-w-0 truncate font-ar text-sm font-bold leading-6 text-ink-900">
+          {config.categoryNameAr}
         </span>
-        <span className="flex max-w-full flex-wrap items-center gap-1.5">
+        <span className="flex w-full max-w-full flex-wrap items-center gap-1.5">
+          <CompletionBadge state={completion} compact />
           <span className="rounded-full bg-ink-50 px-2 py-0.5 font-ar text-2xs font-medium text-ink-600">
             {typeLabel}
           </span>
