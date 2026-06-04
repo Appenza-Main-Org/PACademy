@@ -104,9 +104,7 @@ export function computeStepStatus(
     }
     case 'fees': {
       const fee = cycle.fees?.applicationFee ?? 0;
-      const fawry = cycle.fees?.fawryConfig?.merchantCode ?? '';
-      if (fee > 0 && fawry) return 'complete';
-      if (fee > 0 || fawry) return 'in_progress';
+      if (fee > 0) return 'complete';
       return 'not_started';
     }
     case 'exams': {
