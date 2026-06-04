@@ -85,6 +85,9 @@ public sealed class ApplicantEligibilityService(
             var allowedAcademicGradeCodes = failedReasons.Count == 0
                 ? ResolveAllowedAcademicGradeCodes(evaluation.MatchedRuleIds, draftRules)
                 : [];
+            var allowedGraduationYears = failedReasons.Count == 0
+                ? ResolveAllowedGraduationYears(evaluation.MatchedRuleIds, categoryRules)
+                : [];
             results.Add(new CategoryEligibilityResult(
                 settings.CategoryId,
                 settings.CategoryName,
@@ -99,6 +102,7 @@ public sealed class ApplicantEligibilityService(
                 allowedMaritalStatusCodes,
                 allowedAcademicDegreeCodes,
                 allowedAcademicGradeCodes,
+                allowedGraduationYears,
                 failedReasons));
         }
 
@@ -773,6 +777,20 @@ public sealed class ApplicantEligibilityService(
             .ToArray();
     }
 
+    private static IReadOnlyList<int> ResolveAllowedGraduationYears(
+        IReadOnlyList<string> matchedRuleIds,
+        IReadOnlyList<ApplicationSettingsGraduationYearEntity> categoryRules)
+    {
+        if (matchedRuleIds.Count == 0) return [];
+        var matched = new HashSet<string>(matchedRuleIds, StringComparer.OrdinalIgnoreCase);
+        return categoryRules
+            .Where(rule => matched.Contains(rule.Id))
+            .SelectMany(rule => EligibilityJson.IntArray(rule.GraduationYearsJson))
+            .Distinct()
+            .OrderBy(year => year)
+            .ToArray();
+    }
+
     private static decimal? CalculatePercentage(JsonObject? grade)
     {
         var total = EligibilityJson.DecimalProp(grade, "effectiveTotal")
@@ -894,17 +912,34 @@ public sealed class ApplicantEligibilityService(
 
         if (!checks.GradesCheck.Passed)
         {
-            if (!checks.GradesCheck.HasGrade)
+            switch (checks.GradesCheck.FailureCode)
             {
-                reasons.Add("لا يوجد سجل درجات مرتبط بهذا الرقم القومي");
-            }
-            else if (!string.IsNullOrWhiteSpace(settings.RequiredGradesSource))
-            {
-                reasons.Add($"فئة المدرسة لا تطابق مصدر الدرجات المطلوب ({settings.RequiredGradesSource})");
-            }
-            else
-            {
-                reasons.Add("فئة المدرسة لا تطابق إعدادات الفئة");
+                case GradesCheckFailureCodes.BelowMinimumPercentage:
+                    reasons.Add("عذرًا، مجموع الثانوية العامة الخاص بك أقل من الحد الأدنى المطلوب للتقديم في هذه الدورة، لذلك لا يمكنك استكمال طلب التقديم.");
+                    break;
+                case GradesCheckFailureCodes.GraduationYearMismatch:
+                    reasons.Add("سنة التخرج لا تطابق إعدادات الفئة");
+                    break;
+                case GradesCheckFailureCodes.AcademicGradeMismatch:
+                    reasons.Add("التقدير لا يطابق الحد الأدنى المطلوب لهذه الفئة");
+                    break;
+                case GradesCheckFailureCodes.MissingGrade:
+                    reasons.Add("لا يوجد سجل درجات مرتبط بهذا الرقم القومي");
+                    break;
+                default:
+                    if (!checks.GradesCheck.HasGrade)
+                    {
+                        reasons.Add("لا يوجد سجل درجات مرتبط بهذا الرقم القومي");
+                    }
+                    else if (!string.IsNullOrWhiteSpace(settings.RequiredGradesSource))
+                    {
+                        reasons.Add($"فئة المدرسة لا تطابق مصدر الدرجات المطلوب ({settings.RequiredGradesSource})");
+                    }
+                    else
+                    {
+                        reasons.Add("فئة المدرسة لا تطابق إعدادات الفئة");
+                    }
+                    break;
             }
         }
 

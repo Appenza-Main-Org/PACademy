@@ -5,6 +5,15 @@ namespace PACademy.Admin.Api.Modules.Admissions.Eligibility;
 
 internal delegate object EligibilityCheck(ApplicantEligibilityContext applicant, CategoryEligibilitySettings category, EligibilityLookupSnapshot lookups);
 
+internal static class GradesCheckFailureCodes
+{
+    public const string MissingGrade = "MISSING_GRADE";
+    public const string GraduationYearMismatch = "GRADUATION_YEAR_MISMATCH";
+    public const string BelowMinimumPercentage = "BELOW_MIN_PERCENTAGE";
+    public const string AcademicGradeMismatch = "ACADEMIC_GRADE_MISMATCH";
+    public const string SchoolCategoryMismatch = "SCHOOL_CATEGORY_MISMATCH";
+}
+
 internal static class EligibilityCheckRegistry
 {
     public static readonly IReadOnlyDictionary<string, EligibilityCheck> Checks =
@@ -75,7 +84,10 @@ internal static class EligibilityCheckRegistry
         {
             if (!category.AllowsManualGradeEntryWithoutRecord)
             {
-                return new GradesCheckResult(false, false, applicant.SchoolCategory, [], applicant.GradeSource);
+                return new GradesCheckResult(false, false, applicant.SchoolCategory, [], applicant.GradeSource)
+                {
+                    FailureCode = GradesCheckFailureCodes.MissingGrade
+                };
             }
 
             var manualMatches = lookups.SchoolCategories
@@ -87,25 +99,37 @@ internal static class EligibilityCheckRegistry
                 false,
                 applicant.SchoolCategory,
                 manualMatches,
-                "إدخال يدوي");
+                "إدخال يدوي")
+            {
+                FailureCode = manualMatches.Length > 0 ? null : GradesCheckFailureCodes.SchoolCategoryMismatch
+            };
         }
 
         if (category.RequiredGraduationYears.Count > 0 &&
             (applicant.GraduationYear is null || !category.RequiredGraduationYears.Contains(applicant.GraduationYear.Value)))
         {
-            return new GradesCheckResult(false, true, applicant.SchoolCategory, [], applicant.GradeSource);
+            return new GradesCheckResult(false, true, applicant.SchoolCategory, [], applicant.GradeSource)
+            {
+                FailureCode = GradesCheckFailureCodes.GraduationYearMismatch
+            };
         }
 
         if (category.MinPercentage is not null &&
             (applicant.GradePercentage is null || applicant.GradePercentage.Value < category.MinPercentage.Value))
         {
-            return new GradesCheckResult(false, true, applicant.SchoolCategory, [], applicant.GradeSource);
+            return new GradesCheckResult(false, true, applicant.SchoolCategory, [], applicant.GradeSource)
+            {
+                FailureCode = GradesCheckFailureCodes.BelowMinimumPercentage
+            };
         }
 
         if (!string.IsNullOrWhiteSpace(category.AcademicGradeId) &&
             !EligibilityJson.TextEquals(category.AcademicGradeId, applicant.AcademicGradeId))
         {
-            return new GradesCheckResult(false, true, applicant.SchoolCategory, [], applicant.GradeSource);
+            return new GradesCheckResult(false, true, applicant.SchoolCategory, [], applicant.GradeSource)
+            {
+                FailureCode = GradesCheckFailureCodes.AcademicGradeMismatch
+            };
         }
 
         var matched = lookups.SchoolCategories
@@ -118,7 +142,10 @@ internal static class EligibilityCheckRegistry
             true,
             applicant.SchoolCategory,
             matched,
-            applicant.GradeSource);
+            applicant.GradeSource)
+        {
+            FailureCode = matched.Length > 0 ? null : GradesCheckFailureCodes.SchoolCategoryMismatch
+        };
     }
 
     private static bool RequiresGrade(CategoryEligibilitySettings category) =>

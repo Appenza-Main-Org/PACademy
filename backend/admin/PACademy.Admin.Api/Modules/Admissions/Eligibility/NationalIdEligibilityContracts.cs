@@ -30,6 +30,7 @@ public sealed record CategoryEligibilityResult(
     IReadOnlyList<string> AllowedMaritalStatusCodes,
     IReadOnlyList<string> AllowedAcademicDegreeCodes,
     IReadOnlyList<string> AllowedAcademicGradeCodes,
+    IReadOnlyList<int> AllowedGraduationYears,
     IReadOnlyList<string> FailedReasons);
 
 public sealed record EligibleCommitteeResult(
@@ -69,7 +70,10 @@ public sealed record GradesCheckResult(
     bool HasGrade,
     string? SchoolCategory,
     IReadOnlyList<JsonObject> MatchedLookup,
-    string? Source);
+    string? Source)
+{
+    public string? FailureCode { get; init; }
+}
 
 internal sealed record ApplicantEligibilityContext(
     EgyptianNationalIdInfo NationalId,
