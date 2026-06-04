@@ -32,6 +32,7 @@ import {
   buildAuditCsv,
   buildDuplicateAudit,
   buildIntegrityAuditRows,
+  isInformationalAuditCode,
   summarizeIntegrityDecisions,
 } from '../../../lib/duplicateAudit';
 import { useImportValidationRules } from '../../../lib/useImportValidationRules';
@@ -129,7 +130,13 @@ export function Step6Result(): JSX.Element {
     };
     const grouped = new Map<ImportGroupCode, ImportFailureRow[]>();
     for (const row of integrityRows) {
-      const bucket = grouped.get(row.code) ?? [];
+      /* Informational-only audit codes (intra-file + system-wide NID
+       * duplicates) are surfaced inline on the review step and don't
+       * map to an `ImportGroupCode` — skip them here so the commit
+       * summary stays scoped to the actual preflight rejection groups. */
+      if (isInformationalAuditCode(row.code)) continue;
+      const code = row.code as ImportGroupCode;
+      const bucket = grouped.get(code) ?? [];
       bucket.push({
         nationalId: row.nationalId,
         seatingNumber: null,
@@ -138,7 +145,7 @@ export function Step6Result(): JSX.Element {
         sourceRowIndex: row.sourceRowIndex,
         detail: row.detail,
       });
-      grouped.set(row.code, bucket);
+      grouped.set(code, bucket);
     }
     return Array.from(grouped.entries()).map(([code, rows]) => ({
       code,

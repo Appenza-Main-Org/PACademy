@@ -29,7 +29,7 @@ import {
 } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { useImportWizardStore } from '../store/importWizard.store';
-import { useApplicantGradesCommit } from '../api/grades.queries';
+import { useApplicantGradesCommit, useGrades } from '../api/grades.queries';
 import { normaliseRows } from '../lib/normalise';
 import { isMappingComplete } from '../components/importWizard/steps/Step3ColumnMapping';
 import { Step1Settings } from '../components/importWizard/steps/Step1Settings';
@@ -94,6 +94,11 @@ export function ApplicantGradesImportPage(): JSX.Element {
   const [commitProgress, setCommitProgress] = useState<ImportCommitProgress | null>(null);
   const commit = useApplicantGradesCommit();
   const validationRules = useImportValidationRules();
+  /* Existing grade rows backstop the integrity audit so the wizard-level
+   * gate (Step 5 next, Step 7 commit) treats system-wide NID collisions
+   * the same way Step 6 does — without it, the orchestrator could let a
+   * commit through while the review step is flagging duplicates. */
+  const { data: existingGradeRows } = useGrades();
 
   /* Safety rail: the `File` + `ParsedSheet` slices of the store are
    * deliberately not persisted (File objects can't be serialised), so
@@ -150,6 +155,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
       selectedSchoolCategories,
       maxGradeByCategory,
       validationRules,
+      existingRows: existingGradeRows ?? [],
     });
   }, [
     table,
@@ -160,6 +166,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
     selectedSchoolCategories,
     maxGradeByCategory,
     validationRules,
+    existingGradeRows,
   ]);
 
   const loudGuardBlocks =
