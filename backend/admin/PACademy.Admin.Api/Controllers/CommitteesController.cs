@@ -125,7 +125,12 @@ public sealed class CommitteesController(OperationalRecordsService records, IIde
     }
 
     [HttpDelete("schedule/{id}")]
-    public async Task<ActionResult<object>> DeleteSchedule(string id, CancellationToken ct) => Ok(new { deleted = await records.DeleteAsync("committeeInstances", id, ct) });
+    public async Task<ActionResult<object>> DeleteSchedule(string id, CancellationToken ct)
+    {
+        var target = await records.GetAsync("committeeInstances", id, ct);
+        EnsureScheduleCanBeDeleted(target);
+        return Ok(new { deleted = await records.DeleteAsync("committeeInstances", id, ct) });
+    }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<JsonObject?>> Get(string id, CancellationToken ct)
@@ -247,5 +252,25 @@ public sealed class CommitteesController(OperationalRecordsService records, IIde
         if (capacity is < 0) throw new ConflictException("CAPACITY_INVALID", "السعة لا يمكن أن تكون سالبة");
         if (capacity is not null && reserved is not null && reserved > capacity)
             throw new ConflictException(ErrorCodes.CommitteeAtCapacity, "الحجوزات الحالية تتجاوز سعة اللجنة");
+    }
+
+    private static void EnsureScheduleCanBeDeleted(JsonObject? target)
+    {
+        if (target is null) return;
+        var reserved = AdminRecordJson.NumberProp(target, "reserved") ??
+                       AdminRecordJson.NumberProp(target, "reservedCount") ??
+                       0;
+        if (reserved > 0)
+        {
+            throw new ConflictException(
+                "COMMITTEE_INSTANCE_HAS_BOOKINGS",
+                "لا يمكن حذف موعد لجنة يحتوي على حجوزات قائمة للمتقدمين.",
+                new
+                {
+                    id = AdminRecordJson.StringProp(target, "id"),
+                    date = AdminRecordJson.StringProp(target, "date"),
+                    reserved
+                });
+        }
     }
 }

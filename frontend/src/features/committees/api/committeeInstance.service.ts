@@ -69,7 +69,7 @@ export const committeeInstanceService = {
   },
 
   async removeDay(input: { cycleId: string; date: string }): Promise<CommitteeInstance[]> {
-    return apiClient.delete('/api/committee-instances', { body: input });
+    return apiClient.delete('/api/committee-instances', { query: input });
   },
 
   async transferDay(input: {

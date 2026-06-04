@@ -54,8 +54,12 @@ public sealed class OperationalAdminController(OperationalRecordsService records
         Ok(await records.UpsertAsync("committeeInstances", id, body, ct));
 
     [HttpDelete("api/committee-instances/{id}")]
-    public async Task<ActionResult<object>> DeleteCommitteeInstance(string id, CancellationToken ct) =>
-        Ok(new { deleted = await records.DeleteAsync("committeeInstances", id, ct) });
+    public async Task<ActionResult<object>> DeleteCommitteeInstance(string id, CancellationToken ct)
+    {
+        var target = await records.GetAsync("committeeInstances", id, ct);
+        EnsureCommitteeInstanceCanBeDeleted(target);
+        return Ok(new { deleted = await records.DeleteAsync("committeeInstances", id, ct) });
+    }
 
     [HttpPost("api/committee-instances/refresh-reserved")]
     public async Task<ActionResult<IReadOnlyList<JsonObject>>> RefreshReserved(CancellationToken ct)
@@ -79,17 +83,23 @@ public sealed class OperationalAdminController(OperationalRecordsService records
     }
 
     [HttpDelete("api/committee-instances")]
-    public async Task<ActionResult<object>> DeleteCommitteeDay([FromQuery] string? date, [FromQuery] string? categoryKey, CancellationToken ct)
+    public async Task<ActionResult<object>> DeleteCommitteeDay(
+        [FromQuery] string? date,
+        [FromQuery] string? categoryKey,
+        [FromQuery] string? cycleId,
+        CancellationToken ct)
     {
         var instances = await records.ListAsync("committeeInstances", ct);
         var targets = instances.Where(x =>
             (string.IsNullOrWhiteSpace(date) || AdminRecordJson.StringProp(x, "date") == date) &&
+            (string.IsNullOrWhiteSpace(cycleId) || AdminRecordJson.StringProp(x, "cycleId") == cycleId) &&
             (string.IsNullOrWhiteSpace(categoryKey) || AdminRecordJson.StringProp(x, "categoryKey") == categoryKey)).ToList();
+        foreach (var target in targets) EnsureCommitteeInstanceCanBeDeleted(target);
         foreach (var target in targets)
         {
             await records.DeleteAsync("committeeInstances", AdminRecordJson.StringProp(target, "id")!, ct);
         }
-        return Ok(new { deleted = targets.Count });
+        return Ok(targets);
     }
 
     [HttpPost("api/committee-instances/transfer-day")]
@@ -109,6 +119,26 @@ public sealed class OperationalAdminController(OperationalRecordsService records
             await records.UpsertAsync("committeeInstances", AdminRecordJson.StringProp(target, "id")!, target, ct);
         }
         return Ok(await records.ListAsync("committeeInstances", ct));
+    }
+
+    private static void EnsureCommitteeInstanceCanBeDeleted(JsonObject? target)
+    {
+        if (target is null) return;
+        var reserved = AdminRecordJson.NumberProp(target, "reserved") ??
+                       AdminRecordJson.NumberProp(target, "reservedCount") ??
+                       0;
+        if (reserved > 0)
+        {
+            throw new ConflictException(
+                "COMMITTEE_INSTANCE_HAS_BOOKINGS",
+                "لا يمكن حذف موعد لجنة يحتوي على حجوزات قائمة للمتقدمين.",
+                new
+                {
+                    id = AdminRecordJson.StringProp(target, "id"),
+                    date = AdminRecordJson.StringProp(target, "date"),
+                    reserved
+                });
+        }
     }
 
     [HttpGet("api/v1/admin/workflows")]

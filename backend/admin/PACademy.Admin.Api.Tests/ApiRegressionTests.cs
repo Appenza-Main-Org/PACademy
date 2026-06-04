@@ -266,6 +266,25 @@ public sealed class ApiRegressionTests
         Assert.Equal("CI-ACTIVE", row["id"]?.GetValue<string>());
     }
 
+    [Fact]
+    public async Task DeleteCommitteeInstanceRejectsReservedBookings()
+    {
+        await using var db = CreateDb();
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        await records.UpsertAsync(
+            "committeeInstances",
+            "CI-BOOKED",
+            CommitteeInstance("CI-BOOKED", "CAT-ACTIVE", reservedCount: 3),
+            TestContext.Current.CancellationToken);
+        var controller = new OperationalAdminController(records, db, new GeneralSettingsService(db));
+
+        var ex = await Assert.ThrowsAsync<ConflictException>(() =>
+            controller.DeleteCommitteeInstance("CI-BOOKED", TestContext.Current.CancellationToken));
+
+        Assert.Equal("COMMITTEE_INSTANCE_HAS_BOOKINGS", ex.ConflictCode);
+        Assert.Contains("حجوزات", ex.Message);
+    }
+
     private static void AssertRequireBearerAuth(MemberInfo? target)
     {
         Assert.NotNull(target);
@@ -299,7 +318,7 @@ public sealed class ApiRegressionTests
         });
     }
 
-    private static JsonObject CommitteeInstance(string id, string categoryKey)
+    private static JsonObject CommitteeInstance(string id, string categoryKey, int reservedCount = 0)
     {
         return new JsonObject
         {
@@ -309,7 +328,7 @@ public sealed class ApiRegressionTests
             ["definitionCode"] = "COM-GEN-01",
             ["date"] = "2026-07-10",
             ["capacity"] = 100,
-            ["reserved"] = 0
+            ["reserved"] = reservedCount
         };
     }
 

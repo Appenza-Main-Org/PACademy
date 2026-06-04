@@ -27,6 +27,7 @@
 import { useMemo, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import {
+  AlertDialog,
   Button,
   Card,
   CardHeader,
@@ -52,6 +53,25 @@ import type {
 export interface CommitteeInstanceAddFormProps {
   cycle: AdmissionCycle;
   active: ReadonlyArray<{ key: string; labelAr: string }>;
+}
+
+interface CapacityIncreaseUpdate {
+  id: string;
+  committeeName: string;
+  currentCapacity: number;
+  increaseBy: number;
+  nextCapacity: number;
+}
+
+interface CapacityAddPlan {
+  date: string;
+  updates: CapacityIncreaseUpdate[];
+  inserts: Array<{
+    categoryKey: string;
+    definitionCode: string;
+    date: string;
+    capacity: number;
+  }>;
 }
 
 /* ── Numeric-input guards ────────────────────────────────────────────
@@ -112,6 +132,7 @@ export function CommitteeInstanceAddForm({
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [pickedDate, setPickedDate] = useState<Date | null>(null);
   const [capacityStr, setCapacityStr] = useState<string>('');
+  const [pendingPlan, setPendingPlan] = useState<CapacityAddPlan | null>(null);
 
   const capacityRaw = Number(capacityStr);
   const capacityValid =
@@ -138,10 +159,47 @@ export function CommitteeInstanceAddForm({
     }, 0);
   }, [definitionsByCategory, selectedCategories]);
 
-  const handleAdd = async (): Promise<void> => {
-    if (!canSubmit || !pickedDate) return;
-    const iso = toIsoDate(pickedDate);
+  const executePlan = async (plan: CapacityAddPlan): Promise<void> => {
+    try {
+      await Promise.all([
+        ...plan.updates.map((u) =>
+          updateMut.mutateAsync({
+            id: u.id,
+            patch: { capacity: u.nextCapacity },
+          }),
+        ),
+        plan.inserts.length > 0
+          ? addMut.mutateAsync(
+              plan.inserts.map((i) => ({
+                cycleId: cycle.id,
+                categoryKey: i.categoryKey,
+                definitionCode: i.definitionCode,
+                date: i.date,
+                capacity: i.capacity,
+              })),
+            )
+          : Promise.resolve(null),
+      ]);
+      const added = plan.inserts.length;
+      const merged = plan.updates.length;
+      const message =
+        added > 0 && merged > 0
+          ? `تمت إضافة ${num(added)} موعد جديد وزيادة سعة ${num(merged)} موعد قائم`
+          : added > 0
+            ? `تمت إضافة ${num(added)} موعد`
+            : `تمت زيادة سعة ${num(merged)} موعد قائم`;
+      toast(message, 'success');
+      setPendingPlan(null);
+      setSelectedCategories([]);
+      setPickedDate(null);
+      setCapacityStr('');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'تعذّر إضافة المواعيد';
+      toast(message, 'danger');
+    }
+  };
 
+  const buildPlan = (iso: string): CapacityAddPlan => {
     /* Build (category × definition × date) targets for the selected
      * categories. */
     const targets: Array<{
@@ -169,54 +227,36 @@ export function CommitteeInstanceAddForm({
     for (const e of instancesQuery.data ?? []) {
       existingByKey.set(`${e.definitionCode}|${e.date}`, e);
     }
+    const definitionNameByCode = new Map<string, string>();
+    for (const def of allDefinitions) definitionNameByCode.set(def.code, def.name);
 
-    const updates: Array<{ id: string; nextCapacity: number }> = [];
+    const updates: CapacityIncreaseUpdate[] = [];
     const inserts: typeof targets = [];
     for (const t of targets) {
       const existing = existingByKey.get(`${t.definitionCode}|${t.date}`);
       if (existing) {
-        updates.push({ id: existing.id, nextCapacity: existing.capacity + t.capacity });
+        updates.push({
+          id: existing.id,
+          committeeName: definitionNameByCode.get(existing.definitionCode) ?? existing.definitionCode,
+          currentCapacity: existing.capacity,
+          increaseBy: t.capacity,
+          nextCapacity: existing.capacity + t.capacity,
+        });
       } else {
         inserts.push(t);
       }
     }
+    return { date: iso, updates, inserts };
+  };
 
-    try {
-      await Promise.all([
-        ...updates.map((u) =>
-          updateMut.mutateAsync({
-            id: u.id,
-            patch: { capacity: u.nextCapacity },
-          }),
-        ),
-        inserts.length > 0
-          ? addMut.mutateAsync(
-              inserts.map((i) => ({
-                cycleId: cycle.id,
-                categoryKey: i.categoryKey,
-                definitionCode: i.definitionCode,
-                date: i.date,
-                capacity: i.capacity,
-              })),
-            )
-          : Promise.resolve(null),
-      ]);
-      const added = inserts.length;
-      const merged = updates.length;
-      const message =
-        added > 0 && merged > 0
-          ? `تمت إضافة ${num(added)} موعد جديد ودمج ${num(merged)} موعد قائم`
-          : added > 0
-            ? `تمت إضافة ${num(added)} موعد`
-            : `تم دمج ${num(merged)} موعد قائم`;
-      toast(message, 'success');
-      setSelectedCategories([]);
-      setPickedDate(null);
-      setCapacityStr('');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'تعذّر إضافة المواعيد';
-      toast(message, 'danger');
+  const handleAdd = async (): Promise<void> => {
+    if (!canSubmit || !pickedDate) return;
+    const plan = buildPlan(toIsoDate(pickedDate));
+    if (plan.updates.length > 0) {
+      setPendingPlan(plan);
+      return;
     }
+    await executePlan(plan);
   };
 
   return (
@@ -290,6 +330,41 @@ export function CommitteeInstanceAddForm({
           إضافة
         </Button>
       </div>
+      <AlertDialog
+        open={pendingPlan !== null}
+        onOpenChange={(next) => {
+          if (!next) setPendingPlan(null);
+        }}
+        title="يوجد موعد اختبار في نفس اليوم"
+        description={
+          pendingPlan
+            ? `تم العثور على ${num(pendingPlan.updates.length)} موعد قائم بتاريخ ${pendingPlan.date}. هل تريد زيادة السعة الحالية لهذه المواعيد، أم إلغاء العملية؟`
+            : ''
+        }
+        actionLabel="زيادة السعة الحالية"
+        cancelLabel="إلغاء العملية"
+        tone="primary"
+        onAction={() => {
+          if (pendingPlan) void executePlan(pendingPlan);
+        }}
+        isActionLoading={submitting}
+      >
+        {pendingPlan && (
+          <ul className="mt-3 max-h-48 overflow-auto rounded-md border border-gold-200 bg-gold-50 p-2 text-2xs text-ink-700">
+            {pendingPlan.updates.map((update) => (
+              <li
+                key={update.id}
+                className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 py-0.5"
+              >
+                <span className="truncate font-medium">{update.committeeName}</span>
+                <span className="font-numeric tnum">
+                  {num(update.currentCapacity)} + {num(update.increaseBy)} = {num(update.nextCapacity)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </AlertDialog>
     </Card>
   );
 }
