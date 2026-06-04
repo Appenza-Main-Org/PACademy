@@ -24,7 +24,8 @@ import { Badge, Button, Drawer } from '@/shared/components';
 import { date as formatDate, initials } from '@/shared/lib/format';
 import { useLookup } from '@/features/lookups';
 import { EditMaxDegreeDialog } from './EditMaxDegreeDialog';
-import type { DerivedRow } from '../lib/derive';
+import { SubmissionLockNotice } from './SubmissionLockNotice';
+import { SUBMISSION_LOCK_TOOLTIP, type DerivedRow } from '../lib/derive';
 
 type Tab = 'basic' | 'grades' | 'log';
 
@@ -157,8 +158,22 @@ export function StudentDetailsDrawer({
             />
           </div>
 
+          {row.isLockedBySubmission && (
+            <div className="mb-4">
+              <SubmissionLockNotice row={row} />
+            </div>
+          )}
+
           {tab === 'basic' && <BasicTab row={row} />}
-          {tab === 'grades' && <GradesTab row={row} onEditMax={() => setEditMaxOpen(true)} />}
+          {tab === 'grades' && (
+            <GradesTab
+              row={row}
+              onEditMax={() => {
+                if (row.isLockedBySubmission) return;
+                setEditMaxOpen(true);
+              }}
+            />
+          )}
           {tab === 'log' && <LogTab row={row} />}
         </Drawer.Body>
         <Drawer.Footer>
@@ -170,7 +185,13 @@ export function StudentDetailsDrawer({
               <Button variant="secondary" onClick={onClose}>
                 إغلاق
               </Button>
-              <Button variant="primary" leadingIcon={<Plus size={14} />} onClick={onAddAdjustment}>
+              <Button
+                variant="primary"
+                leadingIcon={<Plus size={14} />}
+                onClick={onAddAdjustment}
+                disabled={row.isLockedBySubmission}
+                title={row.isLockedBySubmission ? SUBMISSION_LOCK_TOOLTIP : undefined}
+              >
                 إضافة تعديل
               </Button>
             </div>
@@ -408,10 +429,16 @@ function GradesTab({ row, onEditMax }: { row: DerivedRow; onEditMax: () => void 
         <BigStat
           label="الحد الأقصى"
           value={String(Math.round(row.max))}
-          sub={row.isOverridden ? `الأصلي عند الاستيراد: ${Math.round(row.importMax)}` : undefined}
+          sub={
+            row.isLockedBySubmission
+              ? SUBMISSION_LOCK_TOOLTIP
+              : row.isOverridden
+                ? `الأصلي عند الاستيراد: ${Math.round(row.importMax)}`
+                : undefined
+          }
           badge={row.isOverridden ? 'معدّل' : undefined}
           tone={row.isOverridden ? 'gold' : undefined}
-          onEdit={onEditMax}
+          onEdit={row.isLockedBySubmission ? undefined : onEditMax}
         />
         <BigStat label="النسبة الأصلية" value={`${row.pct.toFixed(2)}٪`} />
         <BigStat

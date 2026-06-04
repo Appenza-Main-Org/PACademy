@@ -48,7 +48,8 @@ export type ApplicantGradesSortKey =
   | 'adj'
   | 'pct'
   | 'eff'
-  | 'effPct';
+  | 'effPct'
+  | 'isLockedBySubmission';
 
 export interface ApplicantGradesSort {
   key: ApplicantGradesSortKey;

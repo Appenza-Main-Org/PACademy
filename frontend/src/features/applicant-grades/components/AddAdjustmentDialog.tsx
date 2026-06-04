@@ -13,7 +13,8 @@ import { AlertTriangle, Check, Info, Pencil } from 'lucide-react';
 import { Badge, Button, Field, Modal } from '@/shared/components';
 import { useAddAdjustment, useUpdateOverrideMax } from '../api/grades.queries';
 import type { AdjustmentReason } from '../types';
-import type { DerivedRow } from '../lib/derive';
+import { SUBMISSION_LOCK_TOOLTIP, type DerivedRow } from '../lib/derive';
+import { SubmissionLockNotice } from './SubmissionLockNotice';
 
 const REASONS: ReadonlyArray<{ v: AdjustmentReason; label: string }> = [
   { v: 'SPORTS_ACTIVITY', label: 'نشاط رياضي' },
@@ -72,8 +73,10 @@ export function AddAdjustmentDialog({
   const overMax = newProjected > effMax;
   const belowZero = newProjected < 0;
 
+  const locked = row.isLockedBySubmission;
   const canSubmit =
-    !noteEmpty
+    !locked
+    && !noteEmpty
     && !overMax
     && !belowZero
     && amount !== 0
@@ -125,6 +128,7 @@ export function AddAdjustmentDialog({
     >
       <Modal.Body>
         <div className="flex flex-col gap-5">
+          {locked && <SubmissionLockNotice row={row} />}
           {/* Stats strip */}
           <div className="grid grid-cols-3 overflow-hidden rounded-md border border-border-subtle">
             <StatCell
@@ -389,6 +393,7 @@ export function AddAdjustmentDialog({
           onClick={() => {
             void handleSubmit();
           }}
+          title={locked ? SUBMISSION_LOCK_TOOLTIP : undefined}
         >
           حفظ التعديل
         </Button>

@@ -13,7 +13,8 @@ import { useMemo, useState } from 'react';
 import { AlertTriangle, Check, History, Info, Lock } from 'lucide-react';
 import { Badge, Button, Field, Modal } from '@/shared/components';
 import { useUpdateOverrideMax } from '../api/grades.queries';
-import type { DerivedRow } from '../lib/derive';
+import { SUBMISSION_LOCK_TOOLTIP, type DerivedRow } from '../lib/derive';
+import { SubmissionLockNotice } from './SubmissionLockNotice';
 
 interface Props {
   open: boolean;
@@ -45,7 +46,8 @@ export function EditMaxDegreeDialog({
   const hasConflict = conflictsHigh || conflictsLow;
   const isReset = !isEmpty && value === importMax;
   const wasOverridden = row.isOverridden;
-  const valid = !isEmpty && !isNotPositive && !totalExceeds && !hasConflict;
+  const locked = row.isLockedBySubmission;
+  const valid = !locked && !isEmpty && !isNotPositive && !totalExceeds && !hasConflict;
 
   const newPct = !isEmpty && value > 0 ? +((total / value) * 100).toFixed(2) : null;
   const newEff = !isEmpty && value > 0 ? Math.max(0, Math.min(value, total + activeAdjSum)) : null;
@@ -86,6 +88,7 @@ export function EditMaxDegreeDialog({
     >
       <Modal.Body>
         <div className="flex flex-col gap-4">
+          {locked && <SubmissionLockNotice row={row} />}
           {/* Import max — read-only */}
           <div className="flex items-center justify-between rounded-md border border-border-subtle bg-ink-50 px-3.5 py-2.5">
             <div className="flex flex-col">
@@ -243,6 +246,7 @@ export function EditMaxDegreeDialog({
           onClick={() => {
             void handleSave();
           }}
+          title={locked ? SUBMISSION_LOCK_TOOLTIP : undefined}
         >
           {isReset && wasOverridden ? 'إلغاء التعديل' : 'حفظ'}
         </Button>

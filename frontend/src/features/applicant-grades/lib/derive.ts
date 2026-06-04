@@ -17,6 +17,12 @@ export interface DerivedRow extends GradeRow {
   eff: number;
   /** Effective percentage (eff / max). */
   effPct: number;
+  /**
+   * True when the applicant has already submitted an application linked
+   * to this grade row in any cycle. While true, every grade-editing
+   * affordance is locked in the admin UI.
+   */
+  isLockedBySubmission: boolean;
 }
 
 export function deriveRow(r: GradeRow): DerivedRow {
@@ -31,8 +37,17 @@ export function deriveRow(r: GradeRow): DerivedRow {
     pct: +((r.total / max) * 100).toFixed(2),
     eff,
     effPct: +((eff / max) * 100).toFixed(2),
+    isLockedBySubmission: r.hasSubmittedApplication === true,
   };
 }
+
+/** Standard Arabic message shown wherever the lock blocks an edit. */
+export const SUBMISSION_LOCK_MESSAGE =
+  'لا يمكن تعديل درجات هذا الطالب — تم استخدامها في طلب تقديم مُرسَل بالفعل، وأي تعديل يخل بصحة سجل التقديم.';
+
+/** Compact tooltip used on disabled icons / dropdown items. */
+export const SUBMISSION_LOCK_TOOLTIP =
+  'هذا الطالب قدّم بالفعل باستخدام هذه الدرجات؛ التعديل غير متاح.';
 
 /** Arabic-normalize a string for case-insensitive substring match. */
 export function arNormalize(s: string): string {

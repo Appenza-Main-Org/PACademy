@@ -7,10 +7,11 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Eye, History, Plus, Trash2 } from 'lucide-react';
+import { Eye, History, Lock, Plus, Trash2 } from 'lucide-react';
 import { Badge, Button, Drawer } from '@/shared/components';
 import { useDeleteAdjustment, useToggleAdjustment } from '../api/grades.queries';
-import type { DerivedRow } from '../lib/derive';
+import { SUBMISSION_LOCK_TOOLTIP, type DerivedRow } from '../lib/derive';
+import { SubmissionLockNotice } from './SubmissionLockNotice';
 
 interface Props {
   open: boolean;
@@ -74,6 +75,7 @@ export function LogDrawer({
     >
       <Drawer.Body>
         <div className="flex flex-col gap-3">
+          {row.isLockedBySubmission && <SubmissionLockNotice row={row} />}
           {/* Live totals strip */}
           <div className="flex items-stretch overflow-hidden rounded-md border border-border-subtle">
             <MiniStat
@@ -122,7 +124,16 @@ export function LogDrawer({
                 );
               })}
             </div>
-            <Button size="sm" variant="primary" leadingIcon={<Plus size={14} />} onClick={onAddAdjustment}>
+            <Button
+              size="sm"
+              variant="primary"
+              leadingIcon={
+                row.isLockedBySubmission ? <Lock size={14} aria-hidden /> : <Plus size={14} />
+              }
+              onClick={onAddAdjustment}
+              disabled={row.isLockedBySubmission}
+              title={row.isLockedBySubmission ? SUBMISSION_LOCK_TOOLTIP : undefined}
+            >
               إضافة تعديل
             </Button>
           </div>
@@ -146,6 +157,7 @@ export function LogDrawer({
                 <LogEntry
                   key={entry.id}
                   entry={entry}
+                  locked={row.isLockedBySubmission}
                   onToggle={() =>
                     toggleMutation.mutate({
                       seat: row.seat,
@@ -214,11 +226,12 @@ function MiniStat({
 
 interface EntryProps {
   entry: DerivedRow['log'][number];
+  locked: boolean;
   onToggle: () => void;
   onDelete: () => void;
 }
 
-function LogEntry({ entry, onToggle, onDelete }: EntryProps): JSX.Element {
+function LogEntry({ entry, locked, onToggle, onDelete }: EntryProps): JSX.Element {
   const { reasonLabel, reason, note, amount, by, when, isActive, fresh } = entry;
   const positive = amount > 0;
   const dotBorder = isActive
@@ -271,7 +284,9 @@ function LogEntry({ entry, onToggle, onDelete }: EntryProps): JSX.Element {
               onClick={onToggle}
               role="switch"
               aria-checked={isActive}
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border-default bg-white px-2.5 py-1 text-2xs text-ink-700"
+              disabled={locked}
+              title={locked ? SUBMISSION_LOCK_TOOLTIP : undefined}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border-default bg-white px-2.5 py-1 text-2xs text-ink-700 disabled:cursor-not-allowed disabled:opacity-50 enabled:cursor-pointer"
             >
               <span
                 className={`relative h-3 w-[22px] rounded-full transition-colors ${
@@ -290,7 +305,9 @@ function LogEntry({ entry, onToggle, onDelete }: EntryProps): JSX.Element {
               type="button"
               onClick={onDelete}
               aria-label="حذف"
-              className="inline-grid h-6 w-6 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-terra-700"
+              disabled={locked}
+              title={locked ? SUBMISSION_LOCK_TOOLTIP : undefined}
+              className="inline-grid h-6 w-6 place-items-center rounded-md border-0 bg-transparent text-terra-700 disabled:cursor-not-allowed disabled:opacity-50 enabled:cursor-pointer"
             >
               <Trash2 size={14} />
             </button>

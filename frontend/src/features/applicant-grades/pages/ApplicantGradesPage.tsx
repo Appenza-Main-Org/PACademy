@@ -28,6 +28,7 @@ import {
   Layers,
   ListChecks,
   Loader2,
+  Lock,
   MoreVertical,
   Plus,
   Search,
@@ -74,7 +75,7 @@ import { useImportWizardStore } from '../store/importWizard.store';
 import { AddAdjustmentDialog } from '../components/AddAdjustmentDialog';
 import { LogDrawer } from '../components/LogDrawer';
 import { StudentDetailsDrawer } from '../components/StudentDetailsDrawer';
-import { deriveRow, type DerivedRow } from '../lib/derive';
+import { deriveRow, SUBMISSION_LOCK_TOOLTIP, type DerivedRow } from '../lib/derive';
 import type { ApplicantGender } from '../types';
 
 type OverlayState =
@@ -586,16 +587,30 @@ export function ApplicantGradesPage(): JSX.Element {
     }
     const seats = selectedRowKeys
       .map((key) => (typeof key === 'number' ? key : Number(key)))
-      .filter((seat) => Number.isFinite(seat));
-    if (seats.length === 0) return;
+      .filter((seat) => Number.isFinite(seat) && !lockedSeatSet.has(seat));
+    if (seats.length === 0) {
+      setConfirmBulkDelete(false);
+      toast(
+        'كل الصفوف المحددة مرتبطة بطلبات تقديم مُرسَلة ولا يمكن حذفها.',
+        'warning',
+      );
+      return;
+    }
     try {
       const result = await deleteMut.mutateAsync(seats);
       setConfirmBulkDelete(false);
       setSelectedRowKeys([]);
-      toast(
-        `تم حذف ${result.deleted.toLocaleString('en')} صفًا من بيانات الدرجات.`,
-        'success',
-      );
+      if (lockedSelectedCount > 0) {
+        toast(
+          `تم حذف ${result.deleted.toLocaleString('en')} صفًا. تم تجاوز ${lockedSelectedCount.toLocaleString('en')} صفًا مرتبطًا بطلبات تقديم مُرسَلة.`,
+          'success',
+        );
+      } else {
+        toast(
+          `تم حذف ${result.deleted.toLocaleString('en')} صفًا من بيانات الدرجات.`,
+          'success',
+        );
+      }
     } catch {
       toast('تعذّر حذف الصفوف المحددة. حاول مرة أخرى.', 'danger');
     }
@@ -616,6 +631,23 @@ export function ApplicantGradesPage(): JSX.Element {
       ? rows.find((r) => r.seat === overlay.seat)
       : null;
   const activeDerived = activeRow ? deriveRow(activeRow) : null;
+
+  const lockedSeatSet = useMemo(() => {
+    const set = new Set<number>();
+    for (const r of rows) {
+      if (r.hasSubmittedApplication) set.add(r.seat);
+    }
+    return set;
+  }, [rows]);
+  const lockedSelectedCount = useMemo(
+    () =>
+      selectedRowKeys.reduce<number>((acc, key) => {
+        const seat = typeof key === 'number' ? key : Number(key);
+        return acc + (Number.isFinite(seat) && lockedSeatSet.has(seat) ? 1 : 0);
+      }, 0),
+    [lockedSeatSet, selectedRowKeys],
+  );
+  const deletableSelectedCount = selectedRowKeys.length - lockedSelectedCount;
 
   const columns: DataTableColumn<DerivedRow>[] = [
     {
@@ -1095,15 +1127,26 @@ export function ApplicantGradesPage(): JSX.Element {
 
               {selectedRowKeys.length > 0 && (
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-border-default bg-ink-50 px-3.5 py-2.5">
-                  <div className="flex items-center gap-2 text-sm text-ink-700">
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-ink-700">
                     <Badge tone="info">
                       <span className="font-numeric tabular-nums">
                         {selectedRowKeys.length.toLocaleString('en')}
                       </span>{' '}
                       محدد
                     </Badge>
+                    {lockedSelectedCount > 0 && (
+                      <Badge tone="danger">
+                        <Lock size={10} strokeWidth={2} className="me-1" aria-hidden />
+                        <span className="font-numeric tabular-nums">
+                          {lockedSelectedCount.toLocaleString('en')}
+                        </span>{' '}
+                        مُقفل لطلب تقديم
+                      </Badge>
+                    )}
                     <span className="text-2xs text-ink-500">
-                      تنطبق الإجراءات على الصفوف المحددة عبر صفحات الجدول.
+                      {lockedSelectedCount > 0
+                        ? 'سيتم تجاوز الصفوف المُقفلة المرتبطة بطلبات تقديم مُرسَلة.'
+                        : 'تنطبق الإجراءات على الصفوف المحددة عبر صفحات الجدول.'}
                     </span>
                   </div>
                   <Button
@@ -1111,6 +1154,7 @@ export function ApplicantGradesPage(): JSX.Element {
                     size="sm"
                     leadingIcon={<Trash2 size={13} strokeWidth={1.75} aria-hidden />}
                     onClick={openBulkDeleteDialog}
+                    disabled={deletableSelectedCount === 0}
                   >
                     حذف المحدد
                   </Button>
@@ -1223,13 +1267,17 @@ export function ApplicantGradesPage(): JSX.Element {
           if (!deleteMut.isPending) setConfirmBulkDelete(next);
         }}
         title="حذف الصفوف المحددة"
-        description={`سيتم حذف ${toEasternArabicNumerals(selectedRowKeys.length)} صفًا من النتائج الحالية. لا يمكن التراجع.`}
+        description={
+          lockedSelectedCount > 0
+            ? `سيتم حذف ${toEasternArabicNumerals(deletableSelectedCount)} صفًا. سيُتجاوز ${toEasternArabicNumerals(lockedSelectedCount)} صفًا مرتبطًا بطلبات تقديم مُرسَلة. لا يمكن التراجع.`
+            : `سيتم حذف ${toEasternArabicNumerals(selectedRowKeys.length)} صفًا من النتائج الحالية. لا يمكن التراجع.`
+        }
         actionLabel="حذف المحدد"
         actionLoadingLabel="جارٍ حذف المحدد…"
         cancelLabel="إلغاء"
         tone="danger"
         isActionLoading={deleteMut.isPending}
-        isActionDisabled={selectedRowKeys.length === 0 || total === 0}
+        isActionDisabled={deletableSelectedCount === 0 || total === 0}
         onAction={() => void handleBulkDelete()}
       >
         {deleteMut.isPending && (
@@ -1332,11 +1380,17 @@ function RowActions({
   onSelect: (next: OverlayState) => void;
 }): JSX.Element {
   const hasAdjustments = row.log.length > 0;
+  const locked = row.isLockedBySubmission;
+  const triggerTitle = locked
+    ? SUBMISSION_LOCK_TOOLTIP
+    : hasAdjustments
+      ? 'يوجد تعديلات'
+      : undefined;
   return (
     <span
       className="relative inline-flex"
       onClick={(e) => e.stopPropagation()}
-      title={hasAdjustments ? 'يوجد تعديلات' : undefined}
+      title={triggerTitle}
     >
       <DropdownMenu>
         <DropdownMenu.Trigger asChild>
@@ -1350,10 +1404,25 @@ function RowActions({
         </DropdownMenu.Trigger>
         <DropdownMenu.Content sideOffset={6}>
           <DropdownMenu.Item
-            leadingIcon={<Plus size={14} strokeWidth={1.75} className="text-teal-700" aria-hidden />}
-            onSelect={() => onSelect({ kind: 'add-adj', seat: row.seat })}
+            leadingIcon={
+              locked ? (
+                <Lock size={14} strokeWidth={1.75} className="text-ink-400" aria-hidden />
+              ) : (
+                <Plus size={14} strokeWidth={1.75} className="text-teal-700" aria-hidden />
+              )
+            }
+            disabled={locked}
+            onSelect={() => {
+              if (locked) return;
+              onSelect({ kind: 'add-adj', seat: row.seat });
+            }}
           >
-            إضافة تعديل
+            <span className="flex flex-col">
+              <span>إضافة تعديل</span>
+              {locked && (
+                <span className="text-2xs text-ink-500">{SUBMISSION_LOCK_TOOLTIP}</span>
+              )}
+            </span>
           </DropdownMenu.Item>
           <DropdownMenu.Item
             leadingIcon={<History size={14} strokeWidth={1.75} className="text-gold-700" aria-hidden />}
@@ -1369,12 +1438,20 @@ function RowActions({
           </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu>
-      {hasAdjustments && (
+      {locked ? (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -end-0.5 -top-0.5 grid h-3 w-3 place-items-center rounded-full bg-terra-500 ring-2 ring-white"
+          title={SUBMISSION_LOCK_TOOLTIP}
+        >
+          <Lock size={7} strokeWidth={2.5} className="text-white" aria-hidden />
+        </span>
+      ) : hasAdjustments ? (
         <span
           aria-hidden
           className="pointer-events-none absolute -end-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-gold-500 ring-2 ring-white"
         />
-      )}
+      ) : null}
     </span>
   );
 }

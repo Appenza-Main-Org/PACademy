@@ -97,6 +97,21 @@ export interface GradeRow {
   /** حالة الطالب — مستجد / باقٍ للإعادة / —. */
   status: string;
   log: GradeAdjustment[];
+  /**
+   * Set by the backend when the applicant identified by `nid` has a
+   * submitted application linked to this grade row in any open cycle.
+   * While true, all grade-editing affordances (add/toggle/delete
+   * adjustment, override-max, individual delete) are disabled in the
+   * admin UI to keep the application snapshot consistent with what the
+   * applicant printed on their admission form.
+   *
+   * INTEGRATION CONTRACT: backend must populate this from
+   * `applicants.cycleId IS NOT NULL AND stage >= 6` (post-payment) for
+   * the applicant whose `nationalId` matches this row's `nid`.
+   */
+  hasSubmittedApplication?: boolean | null;
+  /** Optional cycle label displayed in the lock banner — e.g. "دورة 2026". */
+  submittedCycleName?: string | null;
 }
 
 /** Aggregate counts used by the page header strip. */
