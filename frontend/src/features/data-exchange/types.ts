@@ -162,3 +162,18 @@ export interface DataExchangeTemplate {
   titleAr: string;
   columns: string[];
 }
+
+/** Roster projection of a booked applicant — backs the admin's selectable list
+ *  inside the Data Exchange export card. Mirrors backend `ApplicantRosterRow`.
+ *  `nationalId` is the identity column / business key + the re-import match key. */
+export interface ApplicantRosterRow {
+  nationalId: string;
+  applicantId: string;
+  fullName: string | null;
+  gender: string | null;
+  status: string | null;
+  examSlotDate: string | null;
+  examSlotTime: string | null;
+  examSlotLocation: string | null;
+  updatedAt: string | null;
+}

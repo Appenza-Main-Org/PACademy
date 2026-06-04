@@ -151,3 +151,21 @@ public sealed record HistoryEntryDto(
     DateTimeOffset Timestamp);
 
 public sealed record TemplateDto(string Domain, string SheetName, string TitleAr, IReadOnlyList<string> Columns);
+
+// ── Applicants roster (selectable list driving export) ──────────────────
+/// <summary>
+/// Roster projection of a booked applicant — the row shape backing the
+/// admin's selectable list inside the Data Exchange export card. Columns
+/// match the right-edge of the eventual Excel export (`nationalId` is the
+/// identity column / business key + the re-import match key).
+/// </summary>
+public sealed record ApplicantRosterRow(
+    string NationalId,
+    string ApplicantId,
+    string? FullName,
+    string? Gender,
+    string? Status,
+    string? ExamSlotDate,
+    string? ExamSlotTime,
+    string? ExamSlotLocation,
+    DateTimeOffset? UpdatedAt);

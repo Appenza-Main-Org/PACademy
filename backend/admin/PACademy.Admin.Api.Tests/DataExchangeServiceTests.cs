@@ -91,6 +91,49 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
+    public async Task Applicants_roster_lists_only_booked_with_slot_columns()
+    {
+        var (svc, db) = Create();
+        await SeedOperationalAsync(db, "applicants", "APP-D",
+            """{"id":"APP-D","nationalId":"29801011230001","fullName":"مسودة","status":"draft"}""");
+        await SeedOperationalAsync(db, "applicants", "APP-S",
+            """{"id":"APP-S","nationalId":"29801011230002","fullName":"محجوز","status":"exam_scheduled","examSlot":{"slotId":"SLOT-7","date":"2026-06-15","time":"08:00","location":"كلية الشرطة"}}""");
+
+        var roster = await svc.ListBookedApplicantsAsync(default);
+
+        var row = Assert.Single(roster);
+        Assert.Equal("29801011230002", row.NationalId);
+        Assert.Equal("محجوز", row.FullName);
+        Assert.Equal("2026-06-15", row.ExamSlotDate);
+        Assert.Equal("كلية الشرطة", row.ExamSlotLocation);
+    }
+
+    [Fact]
+    public async Task Applicants_export_with_nationalIds_filter_returns_only_selected_rows()
+    {
+        var (svc, db) = Create();
+        await SeedOperationalAsync(db, "applicants", "APP-A",
+            """{"id":"APP-A","nationalId":"29801011230101","fullName":"محجوز أ","status":"exam_scheduled"}""");
+        await SeedOperationalAsync(db, "applicants", "APP-B",
+            """{"id":"APP-B","nationalId":"29801011230102","fullName":"محجوز ب","status":"exam_scheduled"}""");
+        await SeedOperationalAsync(db, "applicants", "APP-C",
+            """{"id":"APP-C","nationalId":"29801011230103","fullName":"محجوز ج","status":"exam_scheduled"}""");
+
+        var allow = (IReadOnlySet<string>)new HashSet<string>(StringComparer.Ordinal) { "29801011230101", "29801011230103" };
+        var result = await svc.ExportAsync(
+            [ExchangeDomain.Applicants],
+            "single-workbook",
+            ExportFilter.Default with { NationalIds = allow },
+            default);
+
+        var rows = result.Sheets[0].Rows.Select(r => r["business_key"]).ToHashSet();
+        Assert.Equal(2, result.Sheets[0].Rows.Count);
+        Assert.Contains("29801011230101", rows);
+        Assert.Contains("29801011230103", rows);
+        Assert.DoesNotContain("29801011230102", rows);
+    }
+
+    [Fact]
     public async Task Applicants_export_excludes_unbooked_and_includes_booked()
     {
         var (svc, db) = Create();

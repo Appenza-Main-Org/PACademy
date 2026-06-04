@@ -14,12 +14,20 @@ import type {
 export const dataExchangeKeys = {
   all: ['data-exchange'] as const,
   history: () => [...dataExchangeKeys.all, 'history'] as const,
+  applicantsRoster: () => [...dataExchangeKeys.all, 'applicants-roster'] as const,
 };
 
 export function useDataExchangeHistory() {
   return useQuery({
     queryKey: dataExchangeKeys.history(),
     queryFn: () => dataExchangeService.history(),
+  });
+}
+
+export function useBookedApplicantsRoster() {
+  return useQuery({
+    queryKey: dataExchangeKeys.applicantsRoster(),
+    queryFn: () => dataExchangeService.listBookedApplicants(),
   });
 }
 
