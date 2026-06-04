@@ -34,6 +34,8 @@ export interface AdminSettings {
   acquaintanceDocumentsOpenOffsetValue?: number | null;
   /** وحدة مدة فتح وثيقة التعارف. */
   acquaintanceDocumentsOpenOffsetUnit?: 'days' | 'hours';
+  /** كود نتيجة الاختبار (من lookup `test-results`) الذي يُفعّل فتح الوثيقة عند اختيار «بعد ظهور النتيجة». */
+  acquaintanceDocumentsOpenResultCode?: string | null;
   /** الاختبار المسؤول عن إغلاق وثيقة التعارف. */
   acquaintanceDocumentsCloseResponsibleTestCode?: string;
   /** توقيت إغلاق وثيقة التعارف بالنسبة للاختبار المختار. */
@@ -42,6 +44,8 @@ export interface AdminSettings {
   acquaintanceDocumentsCloseOffsetValue?: number | null;
   /** وحدة مدة إغلاق وثيقة التعارف. */
   acquaintanceDocumentsCloseOffsetUnit?: 'days' | 'hours';
+  /** كود نتيجة الاختبار (من lookup `test-results`) الذي يُفعّل إغلاق الوثيقة عند اختيار «بعد ظهور النتيجة». */
+  acquaintanceDocumentsCloseResultCode?: string | null;
   /** المرحلة/الاختبار المسؤول عن إظهار شاشات الأقارب الأولية. */
   primaryRelativesVisibilityResponsibleTestCode?: string;
   /** Applicant-facing application instructions shown in the portal drawer. */
@@ -54,10 +58,12 @@ export type ApplicantControlScreensSettingsPatch = Pick<
   | 'acquaintanceDocumentsOpenTiming'
   | 'acquaintanceDocumentsOpenOffsetValue'
   | 'acquaintanceDocumentsOpenOffsetUnit'
+  | 'acquaintanceDocumentsOpenResultCode'
   | 'acquaintanceDocumentsCloseResponsibleTestCode'
   | 'acquaintanceDocumentsCloseTiming'
   | 'acquaintanceDocumentsCloseOffsetValue'
   | 'acquaintanceDocumentsCloseOffsetUnit'
+  | 'acquaintanceDocumentsCloseResultCode'
   | 'applicationInstructions'
 >;
 
@@ -69,10 +75,12 @@ export function buildApplicantControlScreensSettingsPatch(
     acquaintanceDocumentsOpenTiming: settings.acquaintanceDocumentsOpenTiming,
     acquaintanceDocumentsOpenOffsetValue: settings.acquaintanceDocumentsOpenOffsetValue,
     acquaintanceDocumentsOpenOffsetUnit: settings.acquaintanceDocumentsOpenOffsetUnit,
+    acquaintanceDocumentsOpenResultCode: settings.acquaintanceDocumentsOpenResultCode,
     acquaintanceDocumentsCloseResponsibleTestCode: settings.acquaintanceDocumentsCloseResponsibleTestCode,
     acquaintanceDocumentsCloseTiming: settings.acquaintanceDocumentsCloseTiming,
     acquaintanceDocumentsCloseOffsetValue: settings.acquaintanceDocumentsCloseOffsetValue,
     acquaintanceDocumentsCloseOffsetUnit: settings.acquaintanceDocumentsCloseOffsetUnit,
+    acquaintanceDocumentsCloseResultCode: settings.acquaintanceDocumentsCloseResultCode,
     applicationInstructions: settings.applicationInstructions,
   };
 }

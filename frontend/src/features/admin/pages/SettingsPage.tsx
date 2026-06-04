@@ -28,10 +28,12 @@ const EMPTY_CONTROL: ControlScreensForm = {
   acquaintanceDocumentsOpenTiming: DEFAULT_DOCUMENT_TIMING,
   acquaintanceDocumentsOpenOffsetValue: '',
   acquaintanceDocumentsOpenOffsetUnit: DEFAULT_DURATION_UNIT,
+  acquaintanceDocumentsOpenResultCode: '',
   acquaintanceDocumentsCloseResponsibleTestCode: '',
   acquaintanceDocumentsCloseTiming: DEFAULT_DOCUMENT_TIMING,
   acquaintanceDocumentsCloseOffsetValue: '',
   acquaintanceDocumentsCloseOffsetUnit: DEFAULT_DURATION_UNIT,
+  acquaintanceDocumentsCloseResultCode: '',
   applicationInstructionsText: [
     'قبل التقدم: راجع البيانات المسجلة على بوابة وزارة الداخلية، وتأكد من صحتها.',
     'أثناء التقدم: سيطلب منك إدخال بيانات الدراسة بدقة. أي مخالفة قد تؤدي إلى منعك من الاختبار.',
@@ -48,6 +50,7 @@ export function SettingsPage(): JSX.Element {
   const policyQuery = useLockPolicy();
   const updatePolicy = useUpdateLockPolicy();
   const testsQuery = useLookup('tests');
+  const testResultsQuery = useLookup('test-results');
 
   const [examDays, setExamDays] = useState('');
   const [slotWindowDays, setSlotWindowDays] = useState('');
@@ -80,6 +83,7 @@ export function SettingsPage(): JSX.Element {
       acquaintanceDocumentsOpenTiming: data.acquaintanceDocumentsOpenTiming ?? DEFAULT_DOCUMENT_TIMING,
       acquaintanceDocumentsOpenOffsetValue: formatOptionalNumber(data.acquaintanceDocumentsOpenOffsetValue),
       acquaintanceDocumentsOpenOffsetUnit: data.acquaintanceDocumentsOpenOffsetUnit ?? DEFAULT_DURATION_UNIT,
+      acquaintanceDocumentsOpenResultCode: data.acquaintanceDocumentsOpenResultCode ?? '',
       acquaintanceDocumentsCloseResponsibleTestCode:
         data.acquaintanceDocumentsCloseResponsibleTestCode
         ?? data.acquaintanceDocumentsPrintResponsibleTestCode
@@ -90,6 +94,7 @@ export function SettingsPage(): JSX.Element {
         ?? mapLegacyLockTiming(data.acquaintanceDocumentsMutationLockTiming),
       acquaintanceDocumentsCloseOffsetValue: formatOptionalNumber(data.acquaintanceDocumentsCloseOffsetValue),
       acquaintanceDocumentsCloseOffsetUnit: data.acquaintanceDocumentsCloseOffsetUnit ?? DEFAULT_DURATION_UNIT,
+      acquaintanceDocumentsCloseResultCode: data.acquaintanceDocumentsCloseResultCode ?? '',
       applicationInstructionsText: formatInstructionsText(data.applicationInstructions),
     });
   }, [settingsQuery.data]);
@@ -106,7 +111,14 @@ export function SettingsPage(): JSX.Element {
     ];
   }, [testsQuery.data]);
 
+  const resultOptions = useMemo(() => {
+    return (testResultsQuery.data ?? [])
+      .filter((row) => row.isActive)
+      .map((row) => ({ value: row.code, label: row.name }));
+  }, [testResultsQuery.data]);
+
   const hasTests = (testsQuery.data?.length ?? 0) > 0;
+  const hasResults = resultOptions.length > 0;
 
   const parsedExamDays = examDays === '' ? null : Number(examDays);
   const parsedSlotWindow = slotWindowDays === '' ? null : Number(slotWindowDays);
@@ -136,11 +148,17 @@ export function SettingsPage(): JSX.Element {
     && (parsedOpenOffset === null || !Number.isInteger(parsedOpenOffset) || parsedOpenOffset < 1);
   const isCloseOffsetInvalid = isDurationRequired(control.acquaintanceDocumentsCloseTiming)
     && (parsedCloseOffset === null || !Number.isInteger(parsedCloseOffset) || parsedCloseOffset < 1);
+  const isOpenResultInvalid = isResultRequired(control.acquaintanceDocumentsOpenTiming)
+    && !control.acquaintanceDocumentsOpenResultCode;
+  const isCloseResultInvalid = isResultRequired(control.acquaintanceDocumentsCloseTiming)
+    && !control.acquaintanceDocumentsCloseResultCode;
   const isControlInvalid =
     !control.acquaintanceDocumentsEntryResponsibleTestCode
     || !control.acquaintanceDocumentsCloseResponsibleTestCode
     || isOpenOffsetInvalid
-    || isCloseOffsetInvalid;
+    || isCloseOffsetInvalid
+    || isOpenResultInvalid
+    || isCloseResultInvalid;
   const isInvalid =
     isExamDaysInvalid ||
     isSlotWindowInvalid ||
@@ -172,12 +190,18 @@ export function SettingsPage(): JSX.Element {
               ? parsedOpenOffset
               : null,
             acquaintanceDocumentsOpenOffsetUnit: control.acquaintanceDocumentsOpenOffsetUnit,
+            acquaintanceDocumentsOpenResultCode: isResultRequired(control.acquaintanceDocumentsOpenTiming)
+              ? control.acquaintanceDocumentsOpenResultCode
+              : null,
             acquaintanceDocumentsCloseResponsibleTestCode: control.acquaintanceDocumentsCloseResponsibleTestCode,
             acquaintanceDocumentsCloseTiming: control.acquaintanceDocumentsCloseTiming,
             acquaintanceDocumentsCloseOffsetValue: isDurationRequired(control.acquaintanceDocumentsCloseTiming)
               ? parsedCloseOffset
               : null,
             acquaintanceDocumentsCloseOffsetUnit: control.acquaintanceDocumentsCloseOffsetUnit,
+            acquaintanceDocumentsCloseResultCode: isResultRequired(control.acquaintanceDocumentsCloseTiming)
+              ? control.acquaintanceDocumentsCloseResultCode
+              : null,
             applicationInstructions: parseInstructionsText(control.applicationInstructionsText),
           }),
         }),
@@ -218,11 +242,15 @@ export function SettingsPage(): JSX.Element {
           <ApplicantControlScreensSettingsCard
             form={control}
             testOptions={testOptions}
+            resultOptions={resultOptions}
             hasTests={hasTests}
+            hasResults={hasResults}
             showErrors={touched}
-            loading={settingsQuery.isLoading || testsQuery.isLoading}
+            loading={settingsQuery.isLoading || testsQuery.isLoading || testResultsQuery.isLoading}
             openDurationError={isOpenOffsetInvalid ? 'أدخل مدة صحيحة أكبر من صفر' : undefined}
             closeDurationError={isCloseOffsetInvalid ? 'أدخل مدة صحيحة أكبر من صفر' : undefined}
+            openResultError={isOpenResultInvalid ? 'اختر حالة النتيجة' : undefined}
+            closeResultError={isCloseResultInvalid ? 'اختر حالة النتيجة' : undefined}
             onChange={patchControl}
           />
           <LockPolicyCard
@@ -274,6 +302,10 @@ function parseOptionalNumber(value: string): number | null {
 
 function isDurationRequired(timing: DocumentTiming): boolean {
   return timing === 'before_test' || timing === 'after_test_passed';
+}
+
+function isResultRequired(timing: DocumentTiming): boolean {
+  return timing === 'after_test_passed';
 }
 
 function mapLegacyLockTiming(

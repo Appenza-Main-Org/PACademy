@@ -28,7 +28,7 @@ export const DEFAULT_DURATION_UNIT: DurationUnit = 'days';
 
 const DOCUMENT_TIMING_OPTIONS: Array<{ value: DocumentTiming; label: string }> = [
   { value: 'before_test', label: 'قبل موعد الاختبار' },
-  { value: 'after_test_passed', label: 'بعد اجتياز الاختبار' },
+  { value: 'after_test_passed', label: 'بعد ظهور نتيجة الاختبار' },
   { value: 'on_test_time', label: 'بالتزامن مع موعد الاختبار' },
 ];
 
@@ -42,32 +42,42 @@ export interface ControlScreensForm {
   acquaintanceDocumentsOpenTiming: DocumentTiming;
   acquaintanceDocumentsOpenOffsetValue: string;
   acquaintanceDocumentsOpenOffsetUnit: DurationUnit;
+  acquaintanceDocumentsOpenResultCode: string;
   acquaintanceDocumentsCloseResponsibleTestCode: string;
   acquaintanceDocumentsCloseTiming: DocumentTiming;
   acquaintanceDocumentsCloseOffsetValue: string;
   acquaintanceDocumentsCloseOffsetUnit: DurationUnit;
+  acquaintanceDocumentsCloseResultCode: string;
   applicationInstructionsText: string;
 }
 
 interface ApplicantControlScreensSettingsCardProps {
   form: ControlScreensForm;
   testOptions: Array<{ value: string; label: string }>;
+  resultOptions: Array<{ value: string; label: string }>;
   hasTests: boolean;
+  hasResults: boolean;
   showErrors: boolean;
   loading?: boolean;
   openDurationError?: string;
   closeDurationError?: string;
+  openResultError?: string;
+  closeResultError?: string;
   onChange: <K extends keyof ControlScreensForm>(key: K, value: ControlScreensForm[K]) => void;
 }
 
 export function ApplicantControlScreensSettingsCard({
   form,
   testOptions,
+  resultOptions,
   hasTests,
+  hasResults,
   showErrors,
   loading,
   openDurationError,
   closeDurationError,
+  openResultError,
+  closeResultError,
   onChange,
 }: ApplicantControlScreensSettingsCardProps): JSX.Element {
   const disabled = loading || !hasTests;
@@ -84,39 +94,55 @@ export function ApplicantControlScreensSettingsCard({
             title="إعدادات فتح الوثيقة"
             testLabel="الاختبار"
             timingLabel="توقيت الفتح"
-            timingHelper="اختر قبل موعد الاختبار، بعد اجتياز الاختبار، أو بالتزامن مع موعد الاختبار."
+            timingHelper="اختر قبل موعد الاختبار، بعد ظهور نتيجة الاختبار، أو بالتزامن مع موعد الاختبار."
+            resultLabel="نتيجة الاختبار المُفعِّلة للفتح"
+            resultHelper="حدد حالة النتيجة (مثل: ناجح / راسب / منسحب) التي تفتح الوثيقة للمتقدم."
+            resultPlaceholder={hasResults ? 'اختر حالة النتيجة' : 'لا توجد نتائج معرفة'}
             testCode={form.acquaintanceDocumentsEntryResponsibleTestCode}
             timing={form.acquaintanceDocumentsOpenTiming}
             offsetValue={form.acquaintanceDocumentsOpenOffsetValue}
             offsetUnit={form.acquaintanceDocumentsOpenOffsetUnit}
+            resultCode={form.acquaintanceDocumentsOpenResultCode}
             testOptions={testOptions}
+            resultOptions={resultOptions}
             disabled={disabled}
             loading={loading}
+            resultDisabled={!hasResults}
             testError={showErrors && !form.acquaintanceDocumentsEntryResponsibleTestCode ? 'اختر اختباراً' : undefined}
             durationError={showErrors ? openDurationError : undefined}
+            resultError={showErrors ? openResultError : undefined}
             onTestChange={(value) => onChange('acquaintanceDocumentsEntryResponsibleTestCode', value)}
             onTimingChange={(value) => onChange('acquaintanceDocumentsOpenTiming', value)}
             onOffsetValueChange={(value) => onChange('acquaintanceDocumentsOpenOffsetValue', value)}
             onOffsetUnitChange={(value) => onChange('acquaintanceDocumentsOpenOffsetUnit', value)}
+            onResultChange={(value) => onChange('acquaintanceDocumentsOpenResultCode', value)}
           />
           <DocumentScheduleSection
             title="إعدادات إغلاق الوثيقة"
             testLabel="الاختبار"
             timingLabel="توقيت الإغلاق"
-            timingHelper="اختر قبل موعد الاختبار، بعد اجتياز الاختبار، أو بالتزامن مع موعد الاختبار."
+            timingHelper="اختر قبل موعد الاختبار، بعد ظهور نتيجة الاختبار، أو بالتزامن مع موعد الاختبار."
+            resultLabel="نتيجة الاختبار المُفعِّلة للإغلاق"
+            resultHelper="حدد حالة النتيجة (مثل: ناجح / راسب / منسحب) التي تغلق الوثيقة للمتقدم."
+            resultPlaceholder={hasResults ? 'اختر حالة النتيجة' : 'لا توجد نتائج معرفة'}
             testCode={form.acquaintanceDocumentsCloseResponsibleTestCode}
             timing={form.acquaintanceDocumentsCloseTiming}
             offsetValue={form.acquaintanceDocumentsCloseOffsetValue}
             offsetUnit={form.acquaintanceDocumentsCloseOffsetUnit}
+            resultCode={form.acquaintanceDocumentsCloseResultCode}
             testOptions={testOptions}
+            resultOptions={resultOptions}
             disabled={disabled}
             loading={loading}
+            resultDisabled={!hasResults}
             testError={showErrors && !form.acquaintanceDocumentsCloseResponsibleTestCode ? 'اختر اختباراً' : undefined}
             durationError={showErrors ? closeDurationError : undefined}
+            resultError={showErrors ? closeResultError : undefined}
             onTestChange={(value) => onChange('acquaintanceDocumentsCloseResponsibleTestCode', value)}
             onTimingChange={(value) => onChange('acquaintanceDocumentsCloseTiming', value)}
             onOffsetValueChange={(value) => onChange('acquaintanceDocumentsCloseOffsetValue', value)}
             onOffsetUnitChange={(value) => onChange('acquaintanceDocumentsCloseOffsetUnit', value)}
+            onResultChange={(value) => onChange('acquaintanceDocumentsCloseResultCode', value)}
           />
         </div>
         <Textarea
@@ -142,19 +168,27 @@ interface DocumentScheduleSectionProps {
   testLabel: string;
   timingLabel: string;
   timingHelper: string;
+  resultLabel: string;
+  resultHelper: string;
+  resultPlaceholder: string;
   testCode: string;
   timing: DocumentTiming;
   offsetValue: string;
   offsetUnit: DurationUnit;
+  resultCode: string;
   testOptions: Array<{ value: string; label: string }>;
+  resultOptions: Array<{ value: string; label: string }>;
   disabled?: boolean;
   loading?: boolean;
+  resultDisabled?: boolean;
   testError?: string;
   durationError?: string;
+  resultError?: string;
   onTestChange: (value: string) => void;
   onTimingChange: (value: DocumentTiming) => void;
   onOffsetValueChange: (value: string) => void;
   onOffsetUnitChange: (value: DurationUnit) => void;
+  onResultChange: (value: string) => void;
 }
 
 function DocumentScheduleSection({
@@ -162,21 +196,31 @@ function DocumentScheduleSection({
   testLabel,
   timingLabel,
   timingHelper,
+  resultLabel,
+  resultHelper,
+  resultPlaceholder,
   testCode,
   timing,
   offsetValue,
   offsetUnit,
+  resultCode,
   testOptions,
+  resultOptions,
   disabled,
   loading,
+  resultDisabled,
   testError,
   durationError,
+  resultError,
   onTestChange,
   onTimingChange,
   onOffsetValueChange,
   onOffsetUnitChange,
+  onResultChange,
 }: DocumentScheduleSectionProps): JSX.Element {
   const showsDuration = timing === 'before_test' || timing === 'after_test_passed';
+  const showsResult = timing === 'after_test_passed';
+  const resultSelectOptions = [{ value: '', label: resultPlaceholder }, ...resultOptions];
 
   return (
     <section className="rounded-lg border border-border-subtle bg-ink-50/60 p-4">
@@ -198,6 +242,17 @@ function DocumentScheduleSection({
           helper={timingHelper}
           onChange={(event) => onTimingChange(event.target.value as DocumentTiming)}
         />
+        {showsResult && (
+          <Select
+            label={resultLabel}
+            value={resultCode}
+            options={resultSelectOptions}
+            disabled={loading || resultDisabled}
+            error={resultError}
+            helper={resultHelper}
+            onChange={(event) => onResultChange(event.target.value)}
+          />
+        )}
         {showsDuration && (
           <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_10rem]">
             <Input
