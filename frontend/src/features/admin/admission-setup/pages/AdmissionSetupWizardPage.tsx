@@ -145,9 +145,13 @@ export function AdmissionSetupWizardPage(): JSX.Element {
 
   const categoriesQuery = useCategoriesAdmin();
   const categoryConfigsQuery = useCategoryConfigs(canRead);
+  const applicantCategoriesOptions = useMemo(
+    () => ({ ...applicationSettingsQueryOptions, enabled: canRead }),
+    [canRead],
+  );
   const applicantCategoriesQuery = useLookup(
     'applicant-categories',
-    { ...applicationSettingsQueryOptions, enabled: canRead },
+    applicantCategoriesOptions,
   );
   const committeesQuery = useCommittees();
   const examScheduleAggregateQuery = useExamScheduleAggregate(cycleId);
