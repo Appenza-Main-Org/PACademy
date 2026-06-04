@@ -343,11 +343,16 @@ public sealed class AdmissionSetupController(OperationalRecordsService records, 
         next["createdBy"] = AdminRecordJson.StringProp(existing, "createdBy") ?? "system";
         next["updatedAt"] = now;
 
-        if (!next.TryGetPropertyValue("document", out var document) || document is null)
+        var hasDocumentKey = next.TryGetPropertyValue("document", out var document);
+        if (!hasDocumentKey)
         {
             next["document"] = mode == "pdf"
                 ? existing["document"]?.DeepClone()
                 : null;
+        }
+        else if (document is null)
+        {
+            next["document"] = null;
         }
 
         if (AdminRecordJson.StringProp(existing, "publishedAt") is { } publishedAt)

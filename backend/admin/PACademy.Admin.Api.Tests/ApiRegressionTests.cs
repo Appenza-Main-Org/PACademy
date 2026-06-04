@@ -225,6 +225,74 @@ public sealed class ApiRegressionTests
     }
 
     [Fact]
+    public async Task ElectronicDeclarationExplicitNullDocumentClearsSavedPdf()
+    {
+        await using var db = CreateDb();
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        var controller = new AdmissionSetupController(records, null!);
+        await using var stream = new MemoryStream([0x25, 0x50, 0x44, 0x46]);
+        var file = new FormFile(stream, 0, stream.Length, "document", "declaration.pdf")
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = "application/pdf"
+        };
+        await controller.SaveDeclarationPdf(
+            "CYC-TEST",
+            "pdf",
+            "",
+            "2026-06-03T00:00:00.000Z",
+            file,
+            TestContext.Current.CancellationToken);
+
+        var response = await controller.SaveDeclaration("CYC-TEST", new JsonObject
+        {
+            ["mode"] = "pdf",
+            ["bodyAr"] = "",
+            ["document"] = null,
+            ["effectiveFrom"] = "2026-06-03T00:00:00.000Z"
+        }, TestContext.Current.CancellationToken);
+
+        var ok = Assert.IsType<OkObjectResult>(response.Result);
+        var body = Assert.IsType<JsonObject>(ok.Value);
+        Assert.True(body.TryGetPropertyValue("document", out var document));
+        Assert.Null(document);
+        Assert.Equal(2, body["version"]?.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task ElectronicDeclarationMissingDocumentKeyPreservesSavedPdf()
+    {
+        await using var db = CreateDb();
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        var controller = new AdmissionSetupController(records, null!);
+        await using var stream = new MemoryStream([0x25, 0x50, 0x44, 0x46]);
+        var file = new FormFile(stream, 0, stream.Length, "document", "declaration.pdf")
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = "application/pdf"
+        };
+        await controller.SaveDeclarationPdf(
+            "CYC-TEST",
+            "pdf",
+            "",
+            "2026-06-03T00:00:00.000Z",
+            file,
+            TestContext.Current.CancellationToken);
+
+        var response = await controller.SaveDeclaration("CYC-TEST", new JsonObject
+        {
+            ["mode"] = "pdf",
+            ["bodyAr"] = "",
+            ["effectiveFrom"] = "2026-06-03T00:00:00.000Z"
+        }, TestContext.Current.CancellationToken);
+
+        var ok = Assert.IsType<OkObjectResult>(response.Result);
+        var body = Assert.IsType<JsonObject>(ok.Value);
+        var document = Assert.IsType<JsonObject>(body["document"]);
+        Assert.Equal("declaration.pdf", document["fileName"]?.GetValue<string>());
+    }
+
+    [Fact]
     public async Task BlockedLookupDeleteReturnsConflict()
     {
         await using var db = CreateDb();
