@@ -23,9 +23,12 @@ import {
   ArrowLeft,
   CalendarCheck,
   CreditCard,
+  Eye,
+  FileDown,
   Info,
   Pencil,
   Phone,
+  Printer,
   ScrollText,
 } from 'lucide-react';
 import { Badge, Button, Card, Drawer, IconStamp } from '@/shared/components';
@@ -41,6 +44,10 @@ import {
   isApplicantAppointmentLocked,
   isApplicationLocked,
 } from '../lib/application-lock';
+import {
+  APPLICATION_FORM_ACTIONS,
+  canUseApplicationFormActions,
+} from '../lib/application-form-actions';
 import {
   RELATIVE_LABEL,
   formatMemberName,
@@ -69,7 +76,7 @@ export function ApplicantPortalPage(): JSX.Element {
   const parentsApproved = storeParentsApproved || Boolean(draft?.parentsApproved || draft?.parentsApprovedAt);
   const firstExamDate = storeFirstExamDate ?? draft?.examSlot?.date ?? null;
   const applicationLocked = isApplicationLocked(draft, storePaid);
-  const appointmentLocked = isApplicantAppointmentLocked(draft);
+  const appointmentLocked = isApplicantAppointmentLocked(draft) || Boolean(storeFirstExamDate);
   /* Profile fields come from the draft saved in Stage 3 (real data).
    * The draft is undefined until fetched, so every field is optional. */
   const profile = draft?.profile;
@@ -121,6 +128,12 @@ export function ApplicantPortalPage(): JSX.Element {
     }
     return null;
   })();
+  const showApplicationFormActions = canUseApplicationFormActions({
+    paid,
+    parentsApproved,
+    firstExamDate,
+    appointmentLocked,
+  });
   const birthplace = [session.birthGovernorate, session.birthDistrict]
     .map((part) => part.trim())
     .filter(Boolean)
@@ -173,6 +186,34 @@ export function ApplicantPortalPage(): JSX.Element {
             >
               عرض إرشادات التقدم
             </Button>
+            {showApplicationFormActions && (
+              <>
+                <Link to={ROUTES.applicantApplicationForm}>
+                  <Button
+                    variant="secondary"
+                    leadingIcon={<Eye size={14} strokeWidth={1.75} />}
+                  >
+                    {APPLICATION_FORM_ACTIONS[0].label}
+                  </Button>
+                </Link>
+                <Link to={`${ROUTES.applicantApplicationForm}${APPLICATION_FORM_ACTIONS[1].query}`}>
+                  <Button
+                    variant="secondary"
+                    leadingIcon={<Printer size={14} strokeWidth={1.75} />}
+                  >
+                    {APPLICATION_FORM_ACTIONS[1].label}
+                  </Button>
+                </Link>
+                <Link to={`${ROUTES.applicantApplicationForm}${APPLICATION_FORM_ACTIONS[2].query}`}>
+                  <Button
+                    variant="secondary"
+                    leadingIcon={<FileDown size={14} strokeWidth={1.75} />}
+                  >
+                    {APPLICATION_FORM_ACTIONS[2].label}
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </Card>

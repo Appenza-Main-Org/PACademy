@@ -47,9 +47,14 @@ const MARITAL_LABEL: Record<string, string> = {
 interface Props {
   fileNumber: string;
   draft?: ApplicantDraft;
+  breakBefore?: boolean;
 }
 
-export function AdmissionFormSection({ fileNumber: _fileNumber, draft }: Props): JSX.Element {
+export function AdmissionFormSection({
+  fileNumber: _fileNumber,
+  draft,
+  breakBefore = true,
+}: Props): JSX.Element {
   const moiSession = useApplicantPortalStore((s) => s.moiSession);
   const storeNid = useApplicantPortalStore((s) => s.nationalId);
   const selectedFaculty = useApplicantPortalStore((s) => s.selectedFaculty);
@@ -138,8 +143,8 @@ export function AdmissionFormSection({ fileNumber: _fileNumber, draft }: Props):
 
   return (
     <div
-      className="admission-form mt-8 print:break-before-page"
-      style={{ breakBefore: 'page', fontFamily: 'var(--font-ar)', color: '#000' }}
+      className={breakBefore ? 'admission-form mt-8 print:break-before-page' : 'admission-form'}
+      style={{ breakBefore: breakBefore ? 'page' : 'auto', fontFamily: 'var(--font-ar)', color: '#000' }}
     >
       {/* Print-only watermark — student name diagonally across every printed page. */}
       <StudentNameWatermark name={fullName} />

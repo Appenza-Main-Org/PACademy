@@ -9,7 +9,7 @@
  */
 
 import { Link } from 'react-router-dom';
-import { Pencil, ShieldAlert } from 'lucide-react';
+import { Eye, FileDown, Pencil, Printer, ShieldAlert } from 'lucide-react';
 import { Badge, Button, Card, LoadingState, PageHeader } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { useDraft } from '../api/applicantPortal.queries';
@@ -19,6 +19,11 @@ import {
   isApplicantFamilyLocked,
   isApplicantPaymentLocked,
 } from '../lib/application-lock';
+import {
+  APPLICATION_FORM_ACTIONS,
+  canUseApplicationFormActions,
+} from '../lib/application-form-actions';
+import { useApplicantPortalStore } from '../store/applicantPortal.store';
 
 const APPLICANT_ID = 'APP-2026000';
 
@@ -34,6 +39,9 @@ interface SectionRow {
 
 export function ApplicationSummaryPage(): JSX.Element {
   const { data: draft, isLoading } = useDraft(APPLICANT_ID);
+  const storePaid = useApplicantPortalStore((s) => s.paid);
+  const storeParentsApproved = useApplicantPortalStore((s) => s.parentsApproved);
+  const storeFirstExamDate = useApplicantPortalStore((s) => s.firstExamDate);
 
   if (isLoading || !draft) return <LoadingState variant="page" />;
 
@@ -53,7 +61,13 @@ export function ApplicationSummaryPage(): JSX.Element {
     : '— لم يُحجَز موعد —';
   const paymentLocked = isApplicantPaymentLocked(draft, false);
   const familyLocked = isApplicantFamilyLocked(draft, false);
-  const appointmentLocked = isApplicantAppointmentLocked(draft);
+  const appointmentLocked = isApplicantAppointmentLocked(draft) || Boolean(storeFirstExamDate);
+  const showApplicationFormActions = canUseApplicationFormActions({
+    paid: storePaid || Boolean(draft.payment?.paidAt),
+    parentsApproved: storeParentsApproved || Boolean(draft.parentsApproved || draft.parentsApprovedAt),
+    firstExamDate: storeFirstExamDate ?? draft.examSlot?.date ?? null,
+    appointmentLocked,
+  });
 
   /* MOI-aligned: stageIndex values mirror the new STAGE_KEYS order:
    *   2 = profile (collapsed 3/4/5)
@@ -111,6 +125,45 @@ export function ApplicationSummaryPage(): JSX.Element {
               <p className="mt-1 text-sm text-terra-700/85">
                 لا يمكن تعديل أيّ قسم في الوقت الحالي. سيتم إخطارك فور تحديث الحالة.
               </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {showApplicationFormActions && (
+        <Card className="border-teal-500 bg-teal-50/30">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="font-ar-display text-md font-bold text-ink-900">طلب الإلتحاق النهائي</h3>
+              <p className="mt-1 text-sm text-ink-600">
+                يمكنك معاينة طلب الإلتحاق، أو طباعته، أو حفظه كملف PDF بعد اكتمال التقديم.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link to={ROUTES.applicantApplicationForm}>
+                <Button
+                  variant="secondary"
+                  leadingIcon={<Eye size={14} strokeWidth={1.75} />}
+                >
+                  {APPLICATION_FORM_ACTIONS[0].label}
+                </Button>
+              </Link>
+              <Link to={`${ROUTES.applicantApplicationForm}${APPLICATION_FORM_ACTIONS[1].query}`}>
+                <Button
+                  variant="secondary"
+                  leadingIcon={<Printer size={14} strokeWidth={1.75} />}
+                >
+                  {APPLICATION_FORM_ACTIONS[1].label}
+                </Button>
+              </Link>
+              <Link to={`${ROUTES.applicantApplicationForm}${APPLICATION_FORM_ACTIONS[2].query}`}>
+                <Button
+                  variant="primary"
+                  leadingIcon={<FileDown size={14} strokeWidth={1.75} />}
+                >
+                  {APPLICATION_FORM_ACTIONS[2].label}
+                </Button>
+              </Link>
             </div>
           </div>
         </Card>

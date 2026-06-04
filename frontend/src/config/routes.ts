@@ -110,6 +110,7 @@ export const ROUTES = {
   applicantIneligible: '/applicant/ineligible',
   applicantTests: '/applicant/tests',
   applicantApplicationSummary: '/applicant/application/summary',
+  applicantApplicationForm: '/applicant/application/form',
   /* MOI-alignment additions:
    *  - `applicantProfile` collapses the old `/applicant/profile/{personal,education,marital}`
    *    triplet into a single scrollable page per the MOI reference (PDF p.4).

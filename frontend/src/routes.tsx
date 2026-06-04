@@ -29,6 +29,7 @@ import { ApplicantCategoryDetailPage } from '@/features/lookups/pages/ApplicantC
 import {
   ApplicantIneligiblePage,
   ApplicantPortalLayout,
+  ApplicationFormPage,
   ApplicationSummaryPage,
   ApplicantPortalPage,
   ApplicantPreWizardLayout,
@@ -337,6 +338,7 @@ export const routes: RouteObject[] = [
       { path: 'follow-up', element: <Stage10FollowUpPage /> },
       { path: 'acquaintance-doc', element: <Stage11AcquaintanceDocPage /> },
       { path: 'application/summary', element: <ApplicationSummaryPage /> },
+      { path: 'application/form', element: <ApplicationFormPage /> },
     ],
   },
 

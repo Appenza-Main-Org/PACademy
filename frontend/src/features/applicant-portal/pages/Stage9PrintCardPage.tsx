@@ -11,8 +11,8 @@
  * applicant made earlier in the flow.
  */
 
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileDown, Printer } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Eye, FileDown, Printer } from 'lucide-react';
 import {
   Button,
   Card,
@@ -35,6 +35,7 @@ import {
 } from '../lib/deterministic-codes';
 import { AdmissionFormSection } from '../components/AdmissionFormSection';
 import { ROUTES } from '@/config/routes';
+import { APPLICATION_FORM_ACTIONS } from '../lib/application-form-actions';
 
 export function Stage9PrintCardPage(): JSX.Element {
   const navigate = useNavigate();
@@ -103,6 +104,43 @@ export function Stage9PrintCardPage(): JSX.Element {
             </li>
           ))}
         </ul>
+      </Card>
+
+      <Card className="no-print border-teal-500 bg-teal-50/30">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h3 className="font-ar-display text-md font-bold text-ink-900">طلب الإلتحاق النهائي</h3>
+            <p className="mt-1 text-sm text-ink-600">
+              بعد إتمام التقديم يمكنك معاينة طلب الإلتحاق أو طباعته أو حفظه كملف PDF مستقل.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link to={ROUTES.applicantApplicationForm}>
+              <Button
+                variant="secondary"
+                leadingIcon={<Eye size={14} strokeWidth={1.75} />}
+              >
+                {APPLICATION_FORM_ACTIONS[0].label}
+              </Button>
+            </Link>
+            <Link to={`${ROUTES.applicantApplicationForm}${APPLICATION_FORM_ACTIONS[1].query}`}>
+              <Button
+                variant="secondary"
+                leadingIcon={<Printer size={14} strokeWidth={1.75} />}
+              >
+                {APPLICATION_FORM_ACTIONS[1].label}
+              </Button>
+            </Link>
+            <Link to={`${ROUTES.applicantApplicationForm}${APPLICATION_FORM_ACTIONS[2].query}`}>
+              <Button
+                variant="primary"
+                leadingIcon={<FileDown size={14} strokeWidth={1.75} />}
+              >
+                {APPLICATION_FORM_ACTIONS[2].label}
+              </Button>
+            </Link>
+          </div>
+        </div>
       </Card>
 
       {/* ── The printable card itself ── */}

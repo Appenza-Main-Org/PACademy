@@ -9,7 +9,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarCheck, CheckCircle2, Check } from 'lucide-react';
+import { CalendarCheck, CheckCircle2, Check, ScrollText } from 'lucide-react';
 import {
   Button,
   Card,
@@ -190,11 +190,21 @@ export function Stage8ExamSchedulePage(): JSX.Element {
               تم اختيار تاريخ الإختبار بنجاح
             </p>
             <p className="text-sm text-ink-500">
-              يمكنك الآن طباعة بطاقة التردد.
+              يمكنك الآن معاينة طلب الإلتحاق وطباعته أو حفظه PDF، ثم طباعة بطاقة التردد.
             </p>
           </div>
         </Modal.Body>
         <Modal.Footer>
+          <Button
+            variant="secondary"
+            leadingIcon={<ScrollText size={14} strokeWidth={1.75} />}
+            onClick={() => {
+              setConfirmOpen(false);
+              navigate(ROUTES.applicantApplicationForm);
+            }}
+          >
+            معاينة الطلب
+          </Button>
           <Button
             variant="primary"
             onClick={() => {
