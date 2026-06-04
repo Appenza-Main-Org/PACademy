@@ -6,6 +6,7 @@
 
 import { useState } from 'react';
 import {
+  AlertTriangle,
   ArrowDownUp,
   CalendarClock,
   Check,
@@ -18,6 +19,7 @@ import {
   ListFilter,
   ShieldCheck,
   Upload,
+  Users,
 } from 'lucide-react';
 import {
   Badge,
@@ -132,6 +134,7 @@ export function DataExchangePage(): JSX.Element {
   const actionablePreviewCount = preview
     ? (preview.counts.new ?? 0) + (preview.counts.changed ?? 0)
     : 0;
+  const isApplicantsSelected = selected.has('Applicants');
 
   function toggleDomain(domain: ExchangeDomain): void {
     setSelected((prev) => {
@@ -339,7 +342,18 @@ export function DataExchangePage(): JSX.Element {
                     <Check size={13} strokeWidth={2.25} />
                   </span>
                   <span className="min-w-0">
-                    <span className="block font-semibold">{DOMAIN_TITLES_AR[domain]}</span>
+                    <span className="flex items-center gap-1.5 font-semibold">
+                      {DOMAIN_TITLES_AR[domain]}
+                      {domain === 'Applicants' && (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full border border-gold-300 bg-gold-50 px-1.5 py-0.5 text-[10px] font-semibold text-gold-700"
+                          title="يقتصر التصدير على المتقدمين الذين حجزوا موعد الاختبار الأول"
+                        >
+                          <Users size={10} />
+                          محجوز فقط
+                        </span>
+                      )}
+                    </span>
                     <span dir="ltr" className="mt-1 block truncate font-mono text-[10px] text-ink-400">
                       {SHEET_NAMES[domain]}
                     </span>
@@ -393,6 +407,25 @@ export function DataExchangePage(): JSX.Element {
               )}
             </fieldset>
           </div>
+
+          {isApplicantsSelected && (
+            <div
+              role="note"
+              className="flex items-start gap-3 rounded-lg border border-dashed border-gold-300 bg-gold-50 px-4 py-3 text-gold-700"
+            >
+              <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+              <div className="space-y-1 text-xs leading-6">
+                <p className="font-semibold">
+                  تصدير المتقدمين مقصور على من حجز موعد الاختبار الأول.
+                </p>
+                <p className="text-gold-700/90">
+                  المتقدمون في حالة مسودة أو غير المكتمل ملفّهم أو الذين لم يحجزوا الموعد بعد
+                  لا يظهرون في ملف التصدير. تُستأنف صلاحية التصدير تلقائيًا بعد حجز الموعد
+                  واعتماد الجدول.
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-subtle bg-ink-50 px-4 py-3">
             <p className="text-xs leading-6 text-ink-500">
