@@ -316,6 +316,92 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
+    public async Task Relatives_export_explodes_nested_family_into_rows_linked_by_nationalId()
+    {
+        var (svc, db) = Create();
+        await SeedOperationalAsync(db, "applicants", "APP-FAMILY",
+            """
+            {
+              "id":"APP-FAMILY","nationalId":"29801011235101","fullName":"المتقدم","status":"exam_scheduled",
+              "examSlot":{"date":"2026-06-15"},
+              "family":{
+                "father":{"fullName":"أحمد محمد","nationalId":"27001011235001","occupation":"ضابط شرطة"},
+                "mother":{"fullName":"فاطمة علي","nationalId":"27201011235002"},
+                "siblings":[
+                  {"fullName":"خالد محمد","nationalId":"30001011235003","relationshipId":"الأخ"},
+                  {"fullName":"سلمى محمد","nationalId":"30201011235004","relationshipId":"الأخت"}
+                ],
+                "relatives":[
+                  {"fullName":"محمود محمد","relationshipId":"العم"}
+                ]
+              }
+            }
+            """);
+
+        var result = await svc.ExportAsync([ExchangeDomain.Relatives], "single-workbook", ExportFilter.Default, default);
+        var sheet = result.Sheets[0];
+
+        Assert.Equal(5, sheet.Rows.Count);
+        var allLinked = sheet.Rows.All(r => r["applicantNationalId"] == "29801011235101");
+        Assert.True(allLinked, "every relative row must carry the applicant's NID as FK");
+        Assert.Contains(sheet.Rows, r => r["kinship"] == "father" && r["name"] == "أحمد محمد");
+        Assert.Contains(sheet.Rows, r => r["kinship"] == "mother" && r["name"] == "فاطمة علي");
+        Assert.Contains(sheet.Rows, r => r["kinship"] == "brother");
+        Assert.Contains(sheet.Rows, r => r["kinship"] == "sister");
+        Assert.Contains(sheet.Rows, r => r["kinship"] == "paternal_uncle");
+        Assert.Contains("applicantNationalId", sheet.Columns);
+        Assert.Contains("kinship", sheet.Columns);
+        Assert.Contains("name", sheet.Columns);
+    }
+
+    [Fact]
+    public async Task ExamResults_export_explodes_followUp_outcomes_per_applicant()
+    {
+        var (svc, db) = Create();
+        await SeedOperationalAsync(db, "applicants", "APP-RESULTS",
+            """
+            {
+              "id":"APP-RESULTS","nationalId":"29801011235201","fullName":"المتقدم","status":"exam_scheduled",
+              "examSlot":{"date":"2026-06-15"},
+              "followUp":{"TST-01":"passed","TST-02":"failed","TST-03":"in-progress"}
+            }
+            """);
+
+        var result = await svc.ExportAsync([ExchangeDomain.ExamResults], "single-workbook", ExportFilter.Default, default);
+        var sheet = result.Sheets[0];
+
+        Assert.Equal(3, sheet.Rows.Count);
+        var allLinked = sheet.Rows.All(r => r["applicantNationalId"] == "29801011235201");
+        Assert.True(allLinked, "every result row must carry the applicant's NID as FK");
+        Assert.Contains(sheet.Rows, r => r["examCode"] == "TST-01" && r["result"] == "passed");
+        Assert.Contains(sheet.Rows, r => r["examCode"] == "TST-02" && r["result"] == "failed");
+        Assert.Contains(sheet.Rows, r => r["examCode"] == "TST-03" && r["result"] == "in-progress");
+        Assert.Contains("applicantNationalId", sheet.Columns);
+        Assert.Contains("examCode", sheet.Columns);
+        Assert.Contains("result", sheet.Columns);
+    }
+
+    [Fact]
+    public async Task Relatives_and_ExamResults_skip_applicants_who_have_not_booked()
+    {
+        var (svc, db) = Create();
+        await SeedOperationalAsync(db, "applicants", "APP-DRAFT",
+            """
+            {
+              "id":"APP-DRAFT","nationalId":"29801011235301","fullName":"مسودة","status":"draft",
+              "family":{"father":{"fullName":"أحمد"}},
+              "followUp":{"TST-01":"passed"}
+            }
+            """);
+
+        var rel = await svc.ExportAsync([ExchangeDomain.Relatives], "single-workbook", ExportFilter.Default, default);
+        var res = await svc.ExportAsync([ExchangeDomain.ExamResults], "single-workbook", ExportFilter.Default, default);
+
+        Assert.Empty(rel.Sheets[0].Rows);
+        Assert.Empty(res.Sheets[0].Rows);
+    }
+
+    [Fact]
     public async Task Applicants_roster_lists_only_booked_with_slot_columns()
     {
         var (svc, db) = Create();
