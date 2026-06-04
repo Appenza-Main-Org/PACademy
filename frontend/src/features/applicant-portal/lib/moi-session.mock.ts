@@ -12,15 +12,18 @@
  * ministry protocol used by the admin login (POST /token → POST
  * /api/moiMemberApi/ValidateLogin). For the applicant the service receives the
  * identity hand-off and resolves the member data by national id; `lookupMoiSession`
- * is that ValidateLogin-equivalent. Flip `*_USE_APPLICANT_AUTH_BACKEND=true` to
- * call the real endpoint — the call site does not change. See the admin
- * SimulatedMoiAuthGateway for the username/password variant of the same flow.
+ * is that ValidateLogin-equivalent and always calls the real backend endpoint.
+ * See the admin SimulatedMoiAuthGateway for the username/password variant of the
+ * same flow.
  *
  * Values are static (no rng()) so the same render always shows the same
  * applicant — matching the seed=42 determinism guarantee in
  * `shared/mock-data/seed.ts`. The applicant id is the same APP-2026000
  * used across the wizard mocks.
  */
+
+import { applicantApiClient } from '@/shared/lib/api-client';
+import { NotFoundError } from '@/shared/lib/errors';
 
 export interface MoiApplicantSession {
   applicantId: string;
@@ -641,40 +644,29 @@ export function mockMoiLookup(nid: string): MoiLookupResult {
   return { kind: 'not_found' };
 }
 
-/* ── Backend-aware MOI lookup ─────────────────────────────────────────
+/* ── Backend MOI lookup ───────────────────────────────────────────────
  *
- * When the active environment's `*_USE_APPLICANT_AUTH_BACKEND=true` flag is set, the helper calls the real
- * .NET endpoint `GET /applicant/moi/verify/:nid` and reshapes the
- * response into a `MoiLookupResult`. The backend currently returns just
- * `MoiApplicantSession | 404` — it doesn't yet decide eligibility
- * (that's coming in a later slice). To preserve the existing routing
- * (Khaled → ineligible, others → eligible/officers_general), the
- * verdict for "session-found" rows is still derived here from the NID.
- *
- * Flag off → synchronous fallback to `mockMoiLookup` so demos without
- * the backend running stay unchanged. */
-const APPLICANT_API_BASE = (import.meta.env.VITE_PROD_APPLICANT_API_BASE_URL
-  ?? import.meta.env.VITE_STAGING_APPLICANT_API_BASE_URL)
-  ?? 'http://localhost:5102';
-const USE_BACKEND = (import.meta.env.VITE_PROD_USE_APPLICANT_AUTH_BACKEND
-  ?? import.meta.env.VITE_STAGING_USE_APPLICANT_AUTH_BACKEND) === 'true';
-
+ * Always calls the real backend endpoint `GET /applicant/moi/verify/:nid`
+ * via `applicantApiClient`. 404 → `not_found`; any other failure throws
+ * so the login flow surfaces the real error instead of silently falling
+ * back to mock data. The verdict for "session-found" rows is derived
+ * from the NID until the backend ships its eligibility endpoint. */
 export async function lookupMoiSession(nid: string): Promise<MoiLookupResult> {
-  if (!USE_BACKEND) return mockMoiLookup(nid);
-
-  const res = await fetch(`${APPLICANT_API_BASE}/applicant/moi/verify/${encodeURIComponent(nid)}`);
-  if (res.status === 404) return { kind: 'not_found' };
-  if (!res.ok) {
-    // Network/5xx — fall back to the mock so the demo flow doesn't dead-end.
-    return mockMoiLookup(nid);
+  let rawSession: MoiApplicantSession;
+  try {
+    rawSession = await applicantApiClient.get<MoiApplicantSession>(
+      `/applicant/moi/verify/${encodeURIComponent(nid)}`,
+      { skipAuth: true },
+    );
+  } catch (err) {
+    if (err instanceof NotFoundError) return { kind: 'not_found' };
+    throw err;
   }
-  const rawSession = (await res.json()) as MoiApplicantSession;
+
   const session: MoiApplicantSession = {
     ...rawSession,
     gender: normalizeApplicantGender(rawSession.gender, rawSession.nationalId),
   };
-  /* Verdict derivation — until the backend ships its eligibility
-   * endpoint, mirror the existing NID-keyed routing exactly. */
   if (session.nationalId === KHALED_SESSION.nationalId) {
     return {
       kind: 'ineligible',
