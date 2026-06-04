@@ -24,8 +24,11 @@ public sealed class CyclesController(CyclesService service) : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<JsonObject>> Create([FromBody] JsonObject input, CancellationToken ct) =>
-        Ok(await service.CreateAsync(input, ct));
+    public async Task<ActionResult<JsonObject>> Create(
+        [FromBody] JsonObject input,
+        [FromQuery] bool demoteCurrentActive,
+        CancellationToken ct) =>
+        Ok(await service.CreateAsync(input, ct, swap: demoteCurrentActive));
 
     [HttpPatch("{id}")]
     public async Task<ActionResult<JsonObject>> Update(string id, [FromBody] JsonObject patch, CancellationToken ct) =>
@@ -57,8 +60,12 @@ public sealed class CyclesController(CyclesService service) : ControllerBase
     }
 
     [HttpPost("{id}/transition")]
-    public async Task<ActionResult<JsonObject>> Transition(string id, [FromBody] JsonObject body, CancellationToken ct) =>
-        Ok(await service.TransitionAsync(id, body["status"]?.GetValue<string>() ?? "draft", ct));
+    public async Task<ActionResult<JsonObject>> Transition(
+        string id,
+        [FromBody] JsonObject body,
+        [FromQuery] bool demoteCurrentActive,
+        CancellationToken ct) =>
+        Ok(await service.TransitionAsync(id, body["status"]?.GetValue<string>() ?? "draft", ct, swap: demoteCurrentActive));
 
     [HttpPost("{id}/close")]
     public async Task<ActionResult<JsonObject>> Close(string id, CancellationToken ct) =>

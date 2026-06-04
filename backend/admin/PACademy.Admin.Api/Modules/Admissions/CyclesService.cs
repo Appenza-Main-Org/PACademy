@@ -34,7 +34,7 @@ public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink,
         return row is null ? null : ToJson(row);
     }
 
-    public async Task<JsonObject> CreateAsync(JsonObject input, CancellationToken ct)
+    public async Task<JsonObject> CreateAsync(JsonObject input, CancellationToken ct, bool swap = false)
     {
         var obj = AdmissionJson.Clone(input);
         var id = AdmissionJson.StringProp(obj, "id") ?? $"CYC-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
@@ -43,7 +43,10 @@ public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink,
         obj["nameAr"] = nameAr;
         obj["status"] = AdmissionJson.StringProp(obj, "status") ?? "draft";
         if (AdmissionJson.BoolProp(obj, "isActive") == true)
-            await EnsureNoOtherActiveAsync(null, ct);
+        {
+            if (swap) await DemoteOtherActiveAsync(null, ct);
+            else await EnsureNoOtherActiveAsync(null, ct);
+        }
 
         var now = DateTimeOffset.UtcNow;
         var entity = new AdmissionCycleEntity
@@ -80,19 +83,8 @@ public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink,
     public async Task<JsonObject> ActivateAsync(string id, bool swap, CancellationToken ct)
     {
         var entity = await FindAsync(id, ct);
-        if (!swap) await EnsureNoOtherActiveAsync(id, ct);
-
-        if (swap)
-        {
-            var others = await db.AdmissionCycles.Where(x => x.Id != id && x.IsActive).ToListAsync(ct);
-            foreach (var other in others)
-            {
-                var otherJson = ToJson(other);
-                otherJson["isActive"] = false;
-                otherJson["status"] = "closed";
-                Apply(other, otherJson);
-            }
-        }
+        if (swap) await DemoteOtherActiveAsync(id, ct);
+        else await EnsureNoOtherActiveAsync(id, ct);
 
         var obj = ToJson(entity);
         obj["isActive"] = true;
@@ -114,14 +106,18 @@ public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink,
         return ToJson(entity);
     }
 
-    public async Task<JsonObject> TransitionAsync(string id, string status, CancellationToken ct)
+    public async Task<JsonObject> TransitionAsync(string id, string status, CancellationToken ct, bool swap = false)
     {
         var entity = await FindAsync(id, ct);
         var obj = ToJson(entity);
         obj["status"] = status;
         if (status is "closed" or "archived" or "draft") obj["isActive"] = false;
-        if (status is "active" or "open") await EnsureNoOtherActiveAsync(id, ct);
-        if (status is "active" or "open") obj["isActive"] = true;
+        if (status is "active" or "open")
+        {
+            if (swap) await DemoteOtherActiveAsync(id, ct);
+            else await EnsureNoOtherActiveAsync(id, ct);
+            obj["isActive"] = true;
+        }
         Apply(entity, obj);
         await db.SaveChangesAsync(ct);
         await EmitAuditAsync("transition", id, $"تغيير حالة دورة قبول إلى {status} · {entity.NameAr}", ct);
@@ -203,6 +199,20 @@ public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink,
             ct);
         if (exists)
             throw new ConflictException(ErrorCodes.ActiveCycleExists, "توجد دورة قبول نشطة بالفعل");
+    }
+
+    private async Task DemoteOtherActiveAsync(string? currentId, CancellationToken ct)
+    {
+        var others = await db.AdmissionCycles
+            .Where(x => x.Id != currentId && x.IsActive)
+            .ToListAsync(ct);
+        foreach (var other in others)
+        {
+            var otherJson = ToJson(other);
+            otherJson["isActive"] = false;
+            otherJson["status"] = "closed";
+            Apply(other, otherJson);
+        }
     }
 
     private async Task<int> CountApplicantsForCycleAsync(string cycleId, CancellationToken ct)
