@@ -37,6 +37,7 @@ import type { UploadFile } from '@/shared/components/FileUpload';
 import { useAuthStore } from '@/features/auth';
 import { emitAudit } from '@/shared/lib/audit';
 import {
+  type ApplicantReconciliationPreview,
   type DataExchangeHistoryEntry,
   type ExchangeDomain,
   type ExportFilter,
@@ -49,6 +50,8 @@ import {
   SHEET_NAMES,
 } from '../types';
 import {
+  useApplicantsReconciliationCommitMutation,
+  useApplicantsReconciliationPreviewMutation,
   useApplyMutation,
   useBookedApplicantsRoster,
   useDataExchangeHistory,
@@ -56,6 +59,10 @@ import {
   usePreviewMutation,
 } from '../api/queries';
 import { buildPerTypeBlobs, buildWorkbookBlob, downloadBlob, parseWorkbook } from '../lib/workbook';
+import {
+  ApplicantReconciliationTable,
+  type ReconciliationDecisionState,
+} from '../components/ApplicantReconciliationTable';
 import { ApplicantRosterPanel } from '../components/ApplicantRosterPanel';
 import { DataExchangePreview } from '../components/DataExchangePreview';
 import { SectionErrorBoundary } from '../components/SectionErrorBoundary';
@@ -126,8 +133,12 @@ export function DataExchangePage(): JSX.Element {
   const [files, setFiles] = useState<UploadFile[]>([]);
   const [parsedSheets, setParsedSheets] = useState<ImportSheetInput[]>([]);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
+  const [applicantsPreview, setApplicantsPreview] = useState<ApplicantReconciliationPreview | null>(null);
+  const [reconcileDecisions, setReconcileDecisions] = useState<Map<string, ReconciliationDecisionState>>(new Map());
   const previewMutation = usePreviewMutation();
   const applyMutation = useApplyMutation();
+  const reconcilePreviewMutation = useApplicantsReconciliationPreviewMutation();
+  const reconcileCommitMutation = useApplicantsReconciliationCommitMutation();
 
   const historyQuery = useDataExchangeHistory();
   const selectedDomains = EXCHANGE_DOMAINS.filter((domain) => selected.has(domain));
@@ -218,19 +229,72 @@ export function DataExchangePage(): JSX.Element {
     try {
       const { sheets, unknownSheets } = await parseWorkbook(target.file);
       setParsedSheets(sheets);
+      setReconcileDecisions(new Map());
       if (unknownSheets.length > 0) {
         toast(`أوراق غير معروفة سيتم تجاهلها: ${unknownSheets.join('، ')}`, 'warning');
       }
       if (sheets.length === 0) {
         toast('لا توجد أوراق مطابقة لأسماء النظام في الملف.', 'danger');
         setPreview(null);
+        setApplicantsPreview(null);
         return;
       }
+      // Generic 6-class change-detection — runs for all sheets.
       const result = await previewMutation.mutateAsync(sheets);
       setPreview(result);
+      // Applicants sheet additionally goes through the field-level diff
+      // reconciliation preview so the admin can accept/reject corrections
+      // and a per-round result + next-exam writeback per applicant.
+      const applicantsSheet = sheets.find((s) => s.sheetName === SHEET_NAMES.Applicants);
+      if (applicantsSheet) {
+        const recon = await reconcilePreviewMutation.mutateAsync(applicantsSheet);
+        setApplicantsPreview(recon);
+      } else {
+        setApplicantsPreview(null);
+      }
     } catch {
       toast('تعذّرت قراءة الملف أو معاينته.', 'danger');
       setPreview(null);
+      setApplicantsPreview(null);
+    }
+  }
+
+  async function handleReconcileCommit(): Promise<void> {
+    if (!applicantsPreview) return;
+    const sheet = parsedSheets.find((s) => s.sheetName === SHEET_NAMES.Applicants);
+    if (!sheet) return;
+    const decisions = Array.from(reconcileDecisions.entries())
+      .filter(([, d]) => d.acceptedFields.size > 0 || d.applyWriteback)
+      .map(([nid, d]) => ({
+        nationalId: nid,
+        acceptedFields: Array.from(d.acceptedFields),
+        applyWriteback: d.applyWriteback,
+      }));
+    if (decisions.length === 0) {
+      toast('اختر تغييرًا واحدًا على الأقل للاعتماد.', 'warning');
+      return;
+    }
+    try {
+      const result = await reconcileCommitMutation.mutateAsync({ decisions, sheet });
+      emitAudit({
+        action: 'entity_imported',
+        module: 'admin',
+        entityType: 'data-exchange',
+        entityLabel: 'اعتماد مراجعة المتقدمين',
+        entityId: `reconcile-${Date.now()}`,
+        details: `اعتماد · ${result.successCount} متقدم · ${result.fieldsWrittenCount} حقل · ${result.writebacksAppliedCount} نتيجة · ${result.failedCount} فشل`,
+        after: result,
+      });
+      toast(
+        `تم الاعتماد: ${result.successCount} متقدم · ${result.fieldsWrittenCount} حقل · ${result.writebacksAppliedCount} نتيجة.`,
+        result.failedCount > 0 ? 'warning' : 'success',
+      );
+      // Re-preview against the now-updated store so the diff reflects reality.
+      const refreshed = await reconcilePreviewMutation.mutateAsync(sheet);
+      setApplicantsPreview(refreshed);
+      setReconcileDecisions(new Map());
+    } catch {
+      toast('تعذّر اعتماد المراجعة.', 'danger');
     }
   }
 
@@ -528,6 +592,19 @@ export function DataExchangePage(): JSX.Element {
           applying={applyMutation.isPending}
           onApply={(args) => void handleApply(args)}
         />
+      )}
+
+      {/* ── Applicants reconciliation (field-level diff) ─────────────── */}
+      {applicantsPreview && (
+        <SectionErrorBoundary title="تعذّر عرض مراجعة بيانات المتقدمين">
+          <ApplicantReconciliationTable
+            preview={applicantsPreview}
+            decisions={reconcileDecisions}
+            onDecisionsChange={setReconcileDecisions}
+            committing={reconcileCommitMutation.isPending}
+            onCommit={() => void handleReconcileCommit()}
+          />
+        </SectionErrorBoundary>
       )}
 
       {/* ── History ─────────────────────────────────────────────────── */}
