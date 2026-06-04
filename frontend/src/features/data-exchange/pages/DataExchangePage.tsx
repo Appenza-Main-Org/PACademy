@@ -587,11 +587,11 @@ function ChoiceCard({
   return (
     <label
       className={[
-        'relative flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 transition-colors duration-fast ease-standard',
+        'group relative flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 transition-colors duration-fast ease-standard',
         'focus-within:shadow-focus-teal',
         checked
-          ? 'border-[var(--accent-500)] bg-[var(--accent-50)]'
-          : 'border-border-subtle bg-surface-card hover:border-border-default hover:bg-ink-50',
+          ? 'border-[var(--accent-500)] bg-[var(--accent-50)] text-ink-900'
+          : 'border-border-subtle bg-surface-card text-ink-600 hover:border-border-default hover:bg-ink-50',
       ].join(' ')}
     >
       <input
@@ -605,10 +605,12 @@ function ChoiceCard({
         aria-hidden
         className={[
           'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors',
-          checked ? 'border-[var(--accent-500)]' : 'border-border-default bg-surface-card',
+          checked
+            ? 'border-[var(--accent-500)] bg-[var(--accent-500)] text-white'
+            : 'border-border-default bg-surface-card text-transparent group-hover:border-[var(--accent-500)]',
         ].join(' ')}
       >
-        {checked && <span className="h-2.5 w-2.5 rounded-full bg-[var(--accent-500)]" />}
+        <Check size={13} strokeWidth={2.5} />
       </span>
       <span className="min-w-0">
         <span className="block text-sm font-semibold text-ink-900">{label}</span>
