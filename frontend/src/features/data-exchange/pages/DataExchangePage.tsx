@@ -50,11 +50,13 @@ import {
 } from '../types';
 import {
   useApplyMutation,
+  useBookedApplicantsRoster,
   useDataExchangeHistory,
   useExportMutation,
   usePreviewMutation,
 } from '../api/queries';
 import { buildPerTypeBlobs, buildWorkbookBlob, downloadBlob, parseWorkbook } from '../lib/workbook';
+import { ApplicantRosterPanel } from '../components/ApplicantRosterPanel';
 import { DataExchangePreview } from '../components/DataExchangePreview';
 import { SectionErrorBoundary } from '../components/SectionErrorBoundary';
 import { ApplicationSettingsCycleExportCard } from '@/features/admin/admission-setup';
@@ -116,7 +118,9 @@ export function DataExchangePage(): JSX.Element {
   const [layout, setLayout] = useState<ExportLayout>('single-workbook');
   const [filterKind, setFilterKind] = useState<FilterKind>('all');
   const [changedAfter, setChangedAfter] = useState('');
+  const [selectedNationalIds, setSelectedNationalIds] = useState<string[]>([]);
   const exportMutation = useExportMutation();
+  const rosterQuery = useBookedApplicantsRoster();
 
   /* ── Import state ──────────────────────────────────────────────────── */
   const [files, setFiles] = useState<UploadFile[]>([]);
@@ -135,6 +139,7 @@ export function DataExchangePage(): JSX.Element {
     ? (preview.counts.new ?? 0) + (preview.counts.changed ?? 0)
     : 0;
   const isApplicantsSelected = selected.has('Applicants');
+  const roster = rosterQuery.data ?? [];
 
   function toggleDomain(domain: ExchangeDomain): void {
     setSelected((prev) => {
@@ -165,8 +170,21 @@ export function DataExchangePage(): JSX.Element {
       toast('حدّد تاريخًا صالحًا لفلتر «اعتبارًا من تاريخ مُحدَّد».', 'warning');
       return;
     }
+    // Per-row admin selection (national-id allow-list) — Applicants only,
+    // and only when the admin has narrowed the roster from its default
+    // (all booked) state to a non-empty subset.
+    const nationalIds =
+      domains.includes('Applicants') &&
+      selectedNationalIds.length > 0 &&
+      selectedNationalIds.length < roster.length
+        ? selectedNationalIds
+        : undefined;
+    if (domains.includes('Applicants') && roster.length > 0 && selectedNationalIds.length === 0) {
+      toast('اختر متقدمًا واحدًا على الأقل لتصدير ورقة المتقدمين.', 'warning');
+      return;
+    }
     try {
-      const result = await exportMutation.mutateAsync({ domains, layout, filter: resolveFilter() });
+      const result = await exportMutation.mutateAsync({ domains, layout, filter: resolveFilter(), nationalIds });
       const stamp = new Date().toISOString().slice(0, 10);
       if (layout === 'file-per-type') {
         const blobs = await buildPerTypeBlobs(result.sheets);
@@ -425,6 +443,17 @@ export function DataExchangePage(): JSX.Element {
                 </p>
               </div>
             </div>
+          )}
+
+          {isApplicantsSelected && (
+            <SectionErrorBoundary title="تعذّر عرض قائمة المتقدمين المحجوزين">
+              <ApplicantRosterPanel
+                roster={roster}
+                loading={rosterQuery.isLoading}
+                selectedNationalIds={selectedNationalIds}
+                onSelectionChange={setSelectedNationalIds}
+              />
+            </SectionErrorBoundary>
           )}
 
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-subtle bg-ink-50 px-4 py-3">

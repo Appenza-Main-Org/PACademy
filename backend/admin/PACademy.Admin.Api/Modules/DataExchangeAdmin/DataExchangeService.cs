@@ -81,7 +81,9 @@ public sealed class DataExchangeService(
     }
 
     private static IReadOnlyList<LoadedRow> ApplyFilter(IReadOnlyList<LoadedRow> rows, ExportFilter filter)
-        => filter.Kind switch
+    {
+        // Date-based / watermark filters first…
+        var dateScoped = filter.Kind switch
         {
             ExportFilterKind.ChangedAfter => rows.Where(r => filter.ChangedAfter is { } d && r.UpdatedAt >= d).ToList(),
             ExportFilterKind.ModifiedSinceCreation => rows.Where(r => r.UpdatedAt != r.CreatedAt).ToList(),
@@ -89,6 +91,57 @@ public sealed class DataExchangeService(
                 ? rows.Where(r => r.UpdatedAt >= w).ToList() : rows,
             _ => rows,
         };
+        // …then the admin's per-row selection (national-id allow-list) when present.
+        // BusinessKey for Applicants == nationalId (DataExchangeRegistry / BusinessKeyFields=["nationalId"]).
+        if (filter.NationalIds is { Count: > 0 } allow)
+        {
+            return dateScoped.Where(r => allow.Contains(r.BusinessKey)).ToList();
+        }
+        return dateScoped;
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // ROSTER (booked applicants — drives the selectable export list)
+    // ──────────────────────────────────────────────────────────────────────
+    /// <summary>
+    /// Lists the applicants currently eligible for export — those who have
+    /// booked the first exam appointment (`IsApplicantBooked` true). Projects
+    /// the identity columns the admin selects against on the data-exchange
+    /// page. Reads through <see cref="OperationalRecordsService.ListAsync"/>;
+    /// no mock fallback.
+    /// </summary>
+    public async Task<IReadOnlyList<ApplicantRosterRow>> ListBookedApplicantsAsync(CancellationToken ct)
+    {
+        IReadOnlyList<JsonObject> payloads;
+        try { payloads = await records.ListAsync("applicants", ct); }
+        catch (InvalidOperationException) { return []; }
+
+        var roster = new List<ApplicantRosterRow>(payloads.Count);
+        foreach (var payload in payloads)
+        {
+            if (AdminRecordJson.IsSoftDeleted(payload)) continue;
+            if (!IsApplicantBooked(payload)) continue;
+
+            var slot = payload["examSlot"] as JsonObject;
+            var nid = payload["nationalId"]?.ToString();
+            if (string.IsNullOrWhiteSpace(nid)) continue; // roster keys on NID
+
+            roster.Add(new ApplicantRosterRow(
+                NationalId: nid,
+                ApplicantId: payload["id"]?.ToString() ?? nid,
+                FullName: payload["fullName"]?.ToString() ?? payload["name"]?.ToString(),
+                Gender: payload["gender"]?.ToString(),
+                Status: payload["status"]?.ToString(),
+                ExamSlotDate: slot?["date"]?.ToString(),
+                ExamSlotTime: slot?["time"]?.ToString(),
+                ExamSlotLocation: slot?["location"]?.ToString(),
+                UpdatedAt: ParseDto(payload["updatedAt"] ?? payload["updated_at"])));
+        }
+        return roster
+            .OrderBy(r => r.ExamSlotDate ?? string.Empty, StringComparer.Ordinal)
+            .ThenBy(r => r.FullName ?? string.Empty, StringComparer.Ordinal)
+            .ToList();
+    }
 
     // ──────────────────────────────────────────────────────────────────────
     // PREVIEW (stateless / read-only)
@@ -602,7 +655,11 @@ public sealed class DataExchangeService(
 
 public enum ExportFilterKind { All, ChangedAfter, ModifiedSinceCreation, SinceLastExport }
 
-public sealed record ExportFilter(ExportFilterKind Kind, DateTimeOffset? ChangedAfter, DateTimeOffset? LastExportAt)
+public sealed record ExportFilter(
+    ExportFilterKind Kind,
+    DateTimeOffset? ChangedAfter,
+    DateTimeOffset? LastExportAt,
+    IReadOnlySet<string>? NationalIds = null)
 {
-    public static readonly ExportFilter Default = new(ExportFilterKind.All, null, null);
+    public static readonly ExportFilter Default = new(ExportFilterKind.All, null, null, null);
 }

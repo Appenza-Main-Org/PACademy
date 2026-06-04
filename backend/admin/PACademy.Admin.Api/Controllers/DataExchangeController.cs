@@ -11,7 +11,8 @@ namespace PACademy.Admin.Api.Controllers;
 /// domains with row-level change-detection + a no-duplicate-key guarantee.
 ///
 /// INTEGRATION CONTRACT (mirrored by frontend `dataExchange.service.ts`):
-///   GET  /api/admin/data-exchange/export?type=&layout=&filter=&changedAfter=
+///   GET  /api/admin/data-exchange/export?type=&layout=&filter=&changedAfter=&nationalIds=
+///   GET  /api/admin/data-exchange/applicants/roster
 ///   POST /api/admin/data-exchange/import/preview
 ///   POST /api/admin/data-exchange/import/apply
 ///   GET  /api/admin/data-exchange/history
@@ -28,18 +29,23 @@ public sealed class DataExchangeController(DataExchangeService service) : Contro
         [FromQuery] string? layout,
         [FromQuery] string? filter,
         [FromQuery] string? changedAfter,
+        [FromQuery] string? nationalIds,
         CancellationToken ct)
     {
         if (!TryResolveDomains(type, out var domains, out var unknown))
             return Conflict(new { code = ErrorCodes.DataExchangeUnknownDomain, message = $"نطاق غير معروف: {unknown}" });
 
-        var exportFilter = ResolveFilter(filter, changedAfter, ct);
+        var exportFilter = ResolveFilter(filter, changedAfter, ct) with { NationalIds = ParseNationalIds(nationalIds) };
         var resolvedLayout = string.Equals(layout, "file-per-type", StringComparison.OrdinalIgnoreCase)
             ? "file-per-type" : "single-workbook";
 
         var result = await service.ExportAsync(domains, resolvedLayout, exportFilter, ct);
         return Ok(result);
     }
+
+    [HttpGet("applicants/roster")]
+    public async Task<ActionResult<IReadOnlyList<ApplicantRosterRow>>> Roster(CancellationToken ct)
+        => Ok(await service.ListBookedApplicantsAsync(ct));
 
     [HttpPost("import/preview")]
     public async Task<ActionResult<ImportPreviewResult>> Preview([FromBody] ImportPreviewRequest body, CancellationToken ct)
@@ -97,4 +103,15 @@ public sealed class DataExchangeController(DataExchangeService service) : Contro
         "sinceLastExport" => new ExportFilter(ExportFilterKind.SinceLastExport, null, service.LastExportWatermark(ct)),
         _ => ExportFilter.Default,
     };
+
+    /// <summary>Parses a comma-separated nationalIds query parameter; returns null
+    /// when absent so the export honors the unfiltered roster.</summary>
+    private static IReadOnlySet<string>? ParseNationalIds(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var set = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var token in raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            set.Add(token);
+        return set.Count == 0 ? null : set;
+    }
 }

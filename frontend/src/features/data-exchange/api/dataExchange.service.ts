@@ -17,6 +17,7 @@ import { apiClient, isBackendEnabled } from '@/shared/lib/api-client';
 import { reseed, rng } from '@/shared/mock-data/seed';
 import { computeRowChecksum } from '../lib/checksum';
 import {
+  type ApplicantRosterRow,
   type DataExchangeHistoryEntry,
   type DataExchangeTemplate,
   type ExchangeCellMap,
@@ -42,9 +43,13 @@ export interface ExportParams {
   domains: ExchangeDomain[];
   layout: ExportLayout;
   filter: ExportFilter;
+  /** Admin-selected applicant NIDs from the roster panel. When omitted, the
+   *  export honors the unfiltered booked roster. Only meaningful when the
+   *  `Applicants` domain is selected. */
+  nationalIds?: readonly string[];
 }
 
-function exportQuery({ domains, layout, filter }: ExportParams): Record<string, string> {
+function exportQuery({ domains, layout, filter, nationalIds }: ExportParams): Record<string, string> {
   const query: Record<string, string> = {
     type: domains.length === Object.keys(SHEET_NAMES).length ? 'all' : domains.join(','),
     layout,
@@ -56,6 +61,9 @@ function exportQuery({ domains, layout, filter }: ExportParams): Record<string, 
     query.changedAfter = filter.changedAfter;
   } else {
     query.filter = 'all'; // cycleId / categoryKey scoping handled server-side where applicable
+  }
+  if (nationalIds && nationalIds.length > 0) {
+    query.nationalIds = nationalIds.join(',');
   }
   return query;
 }
@@ -100,6 +108,13 @@ export const dataExchangeService = {
       columns: mockColumns(domain),
     };
   },
+
+  async listBookedApplicants(): Promise<ApplicantRosterRow[]> {
+    if (isBackendEnabled()) {
+      return apiClient.get<ApplicantRosterRow[]>(`${BASE}/applicants/roster`);
+    }
+    return mockRoster();
+  },
 };
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -109,7 +124,7 @@ export const dataExchangeService = {
 function mockColumns(domain: ExchangeDomain): string[] {
   // Normalized columns (no payload_json) — mirrors the backend's flattened export.
   const data: Record<ExchangeDomain, string[]> = {
-    Applicants: ['nationalId', 'fullName', 'gender', 'status', 'examSlot.slotId', 'examSlot.date'],
+    Applicants: ['nationalId', 'fullName', 'gender', 'status', 'examSlot.slotId', 'examSlot.date', 'examSlot.time', 'examSlot.location'],
     Exams: ['name_ar', 'cycle_id', 'status'],
     Relatives: ['applicantNationalId', 'name', 'kinship'],
     AcquaintanceDocs: ['applicantNationalId', 'docType', 'status'],
@@ -157,6 +172,22 @@ const BOOKED_OR_LATER_STATUSES = new Set<string>([
   'under-review',
 ]);
 
+function mockRoster(): ApplicantRosterRow[] {
+  return seededStore('Applicants')
+    .filter((r) => isApplicantBooked(r.cells))
+    .map((r) => ({
+      nationalId: r.cells.nationalId ?? r.businessKey,
+      applicantId: r.cells.id ?? r.businessKey,
+      fullName: r.cells.fullName ?? null,
+      gender: r.cells.gender ?? null,
+      status: r.cells.status ?? null,
+      examSlotDate: r.cells['examSlot.date'] ?? null,
+      examSlotTime: r.cells['examSlot.time'] ?? null,
+      examSlotLocation: r.cells['examSlot.location'] ?? null,
+      updatedAt: r.updatedAt,
+    }));
+}
+
 function isApplicantBooked(cells: ExchangeCellMap): boolean {
   if (cells['examSlot.slotId'] || cells['examSlot.date']) return true;
   if (cells.examSlotId || cells.examScheduledAt) return true;
@@ -196,6 +227,8 @@ function buildMockRow(domain: ExchangeDomain, i: number): MockRow {
     if (isBooked) {
       cells['examSlot.slotId'] = `SLOT-${i + 1}`;
       cells['examSlot.date'] = `2026-06-${String(12 + i).padStart(2, '0')}`;
+      cells['examSlot.time'] = i === 0 ? '08:00' : '10:00';
+      cells['examSlot.location'] = 'كلية الشرطة - مبنى الاختبارات - القاهرة';
     }
   } else {
     const id = `${domain}-${i + 1}`;
@@ -224,9 +257,10 @@ async function withChecksum(domain: ExchangeDomain, row: MockRow): Promise<Excha
   return { ...row.cells, checksum };
 }
 
-async function mockExport({ domains, layout, filter }: ExportParams): Promise<ExportResult> {
+async function mockExport({ domains, layout, filter, nationalIds }: ExportParams): Promise<ExportResult> {
   const sheets: ExportSheet[] = [];
   let total = 0;
+  const allow = nationalIds && nationalIds.length > 0 ? new Set(nationalIds) : null;
   for (const domain of domains) {
     let rows = seededStore(domain);
     // Applicants are only exported once the first exam appointment is booked.
@@ -235,6 +269,10 @@ async function mockExport({ domains, layout, filter }: ExportParams): Promise<Ex
     if (filter === 'modifiedSinceCreation') rows = rows.filter((r) => r.updatedAt !== r.createdAt);
     else if (typeof filter === 'object' && 'changedAfter' in filter) {
       rows = rows.filter((r) => r.updatedAt >= filter.changedAfter);
+    }
+    // Per-row admin selection (national-id allow-list) — Applicants only.
+    if (allow && domain === 'Applicants') {
+      rows = rows.filter((r) => allow.has(r.businessKey));
     }
     const cells = await Promise.all(rows.map((r) => withChecksum(domain, r)));
     total += cells.length;
