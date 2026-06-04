@@ -146,7 +146,16 @@ export function AdmissionSetupWizardPage(): JSX.Element {
   const categoriesQuery = useCategoriesAdmin();
   const categoryConfigsQuery = useCategoryConfigs(canRead);
   const applicantCategoriesOptions = useMemo(
-    () => ({ ...applicationSettingsQueryOptions, enabled: canRead }),
+    () => ({
+      ...applicationSettingsQueryOptions,
+      enabled: canRead,
+      /* useLookup sets refetchOnMount: 'always' for `applicant-categories`
+       * (it's in NO_CACHE_LOOKUPS). The wizard mounts this query from
+       * multiple descendants — that aggressive default cascades observer
+       * remounts into a refetch loop. Respect the 2-minute stale window
+       * instead. Mutations on this lookup already invalidate. */
+      refetchOnMount: true as const,
+    }),
     [canRead],
   );
   const applicantCategoriesQuery = useLookup(

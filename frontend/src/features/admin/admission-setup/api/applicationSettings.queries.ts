@@ -55,12 +55,19 @@ export const APPLICATION_SETTINGS_STALE_TIME_MS = 2 * 60 * 1000;
 export const applicationSettingsQueryOptions = {
   staleTime: APPLICATION_SETTINGS_STALE_TIME_MS,
   gcTime: 10 * 60 * 1000,
+  /* When this options bag is composed into `useLookup` for lookups in
+   * NO_CACHE_LOOKUPS (e.g. applicant-categories), the wrapper's default
+   * `refetchOnMount: 'always'` would cascade observer remounts into a
+   * refetch loop. Pin to the standard "refetch when stale" behavior so
+   * the 2-minute stale window actually applies. */
+  refetchOnMount: true as const,
   refetchOnWindowFocus: false,
   refetchOnReconnect: true,
 } satisfies Pick<
   QueryObserverOptions,
   | 'staleTime'
   | 'gcTime'
+  | 'refetchOnMount'
   | 'refetchOnWindowFocus'
   | 'refetchOnReconnect'
 >;

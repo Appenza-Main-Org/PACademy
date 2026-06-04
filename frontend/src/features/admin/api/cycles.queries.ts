@@ -1,6 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { cyclesService } from './cycles.service';
 import { noServerStateCacheOptions } from '@/shared/lib/query-options';
+
+/**
+ * Cycle queries used by the admission-setup wizard get a longer stale
+ * window than other "no cache" data. Multiple wizard descendants subscribe
+ * to these queries; if every mount of every descendant fires a refetch
+ * (which `noServerStateCacheOptions.refetchOnMount: 'always'` does), the
+ * resulting cascade flips `cycle?.id` and traps the wizard in a
+ * hydration loop. Cycles are mutated through dedicated mutations that
+ * call `invalidateCycle` explicitly, so a short stale window is safe.
+ */
+const cycleQueryOptions = {
+  staleTime: 30_000,
+  gcTime: 5 * 60_000,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: true,
+} as const;
 import type {
   AdmissionCycle,
   AdmissionCycleCategoryConfig,
@@ -40,7 +56,7 @@ export function useCycles(opts: { includeDeleted?: boolean } = {}) {
   return useQuery({
     queryKey: cyclesKeys.list(opts),
     queryFn: () => cyclesService.list(opts),
-    ...noServerStateCacheOptions,
+    ...cycleQueryOptions,
   });
 }
 
@@ -74,7 +90,7 @@ export function useCycle(id: string | null) {
     queryKey: cyclesKeys.detail(id ?? ''),
     queryFn: () => cyclesService.getById(id!),
     enabled: Boolean(id),
-    ...noServerStateCacheOptions,
+    ...cycleQueryOptions,
   });
 }
 
@@ -82,7 +98,7 @@ export function useActiveCycle() {
   return useQuery({
     queryKey: cyclesKeys.active(),
     queryFn: () => cyclesService.getActive(),
-    ...noServerStateCacheOptions,
+    ...cycleQueryOptions,
   });
 }
 
