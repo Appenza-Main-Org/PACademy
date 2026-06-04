@@ -55,13 +55,25 @@ import {
   useActiveCategoriesForCycle,
 } from '@/features/admin/admission-setup';
 import {
+  useAcademyExams,
+  useCycleExamPlans,
+} from '@/features/admin/api/examPlans.queries';
+import {
   resolveExpandedDates,
   useDayExpansionStore,
 } from './committee-instances/expansionStore';
 
 interface InstanceRow extends CommitteeInstance {
   categoryLabelAr: string;
+  /** Underlying committee definition name. Kept on the row so delete
+   *  dialogs, aria-labels, and the «حجوزات» list keep showing the
+   *  concrete committee — only the visible exam-name column is wired
+   *  off this value. */
   committeeName: string;
+  /** Joined exam plan for the row's category, e.g.
+   *  «اختبار اللياقة · الكشف الطبي · المقابلة». Sourced from the
+   *  admission-setup «إدارة الاختبارات» wizard step. */
+  examLabel: string;
 }
 
 interface DayGroup {
@@ -110,6 +122,15 @@ export function CommitteeInstancesPage(): JSX.Element {
   const activeCycle = activeCycleQuery.data ?? null;
   const activeCycleId = activeCycle?.id ?? null;
 
+  /* Exam plans drive the «اسم الاختبار» column. Each category in the
+   * active cycle has an ordered exam plan authored at
+   * /admin/cycles/admission-setup/wizard/exams. We join the plan's
+   * exam names (in order) and show that string for every committee
+   * row under the matching category — committees themselves don't
+   * link to a specific exam in the domain model. */
+  const academyExamsQuery = useAcademyExams();
+  const cycleExamPlansQuery = useCycleExamPlans(activeCycleId);
+
   /* Active categories for the cycle — feeds the inline «إضافة موعد اختبار»
    * form so admins can author the same (committee × date × capacity)
    * rows the admission-setup wizard would. The cycleId arg is currently
@@ -148,6 +169,25 @@ export function CommitteeInstancesPage(): JSX.Element {
     return map;
   }, [definitionsQuery.data]);
 
+  const examNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const e of academyExamsQuery.data ?? []) map.set(e.id, e.nameAr);
+    return map;
+  }, [academyExamsQuery.data]);
+
+  /** categoryKey → «اختبار اللياقة · الكشف الطبي · …» */
+  const examLabelByCategory = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const plan of cycleExamPlansQuery.data ?? []) {
+      const names = [...plan.exams]
+        .sort((a, b) => a.order - b.order)
+        .map((entry) => examNameById.get(entry.examId))
+        .filter((label): label is string => Boolean(label && label.length > 0));
+      if (names.length > 0) map.set(plan.categoryId, names.join(' · '));
+    }
+    return map;
+  }, [cycleExamPlansQuery.data, examNameById]);
+
   const rows = useMemo<InstanceRow[]>(() => {
     if (!activeCycleId) return [];
     return (allInstancesQuery.data ?? [])
@@ -159,6 +199,7 @@ export function CommitteeInstancesPage(): JSX.Element {
         reserved: normalizeNonNegativeInteger(inst.reserved),
         categoryLabelAr: categoryLabelByKey.get(inst.categoryKey) ?? inst.categoryKey,
         committeeName: definitionNameByCode.get(inst.definitionCode) ?? inst.definitionCode,
+        examLabel: examLabelByCategory.get(inst.categoryKey) ?? '',
       }));
   }, [
     allInstancesQuery.data,
@@ -166,6 +207,7 @@ export function CommitteeInstancesPage(): JSX.Element {
     activeCategoryCodes,
     categoryLabelByKey,
     definitionNameByCode,
+    examLabelByCategory,
   ]);
 
   /* Group rows by date; sort dates ascending. Within each day, primary
@@ -198,7 +240,9 @@ export function CommitteeInstancesPage(): JSX.Element {
     activeCycleQuery.isLoading ||
     allInstancesQuery.isLoading ||
     definitionsQuery.isLoading ||
-    categoriesQuery.isLoading;
+    categoriesQuery.isLoading ||
+    academyExamsQuery.isLoading ||
+    cycleExamPlansQuery.isLoading;
 
   /* Expansion state — single open day at a time so admins can focus.
    * Persisted per cycle in localStorage; opening a different day
@@ -497,7 +541,7 @@ function CommitteeRowsTable({
               تاريخ الاختبار
             </th>
             <th className="px-4 py-2 text-start text-2xs font-medium uppercase tracking-wide text-ink-500">
-              اسم اللجنة
+              اسم الاختبار
             </th>
             <th className="px-4 py-2 text-center text-2xs font-medium uppercase tracking-wide text-ink-500">
               سعة اللجنة
@@ -522,8 +566,11 @@ function CommitteeRowsTable({
               <td className="px-4 py-2 align-middle">
                 <DateCell value={row.date} />
               </td>
-              <td className="px-4 py-2 align-middle text-ink-900">
-                {row.committeeName}
+              <td
+                className="px-4 py-2 align-middle text-ink-900"
+                title={row.committeeName}
+              >
+                {row.examLabel || <span className="text-ink-400">—</span>}
               </td>
               <td className="px-4 py-2 align-middle text-center">
                 <CapacityCell row={row} />
