@@ -13,6 +13,7 @@ namespace PACademy.Admin.Api.Controllers;
 /// INTEGRATION CONTRACT (mirrored by frontend `dataExchange.service.ts`):
 ///   GET  /api/admin/data-exchange/export?type=&layout=&filter=&changedAfter=&nationalIds=
 ///   GET  /api/admin/data-exchange/applicants/roster
+///   POST /api/admin/data-exchange/applicants/reconcile/preview
 ///   POST /api/admin/data-exchange/import/preview
 ///   POST /api/admin/data-exchange/import/apply
 ///   GET  /api/admin/data-exchange/history
@@ -46,6 +47,17 @@ public sealed class DataExchangeController(DataExchangeService service) : Contro
     [HttpGet("applicants/roster")]
     public async Task<ActionResult<IReadOnlyList<ApplicantRosterRow>>> Roster(CancellationToken ct)
         => Ok(await service.ListBookedApplicantsAsync(ct));
+
+    [HttpPost("applicants/reconcile/preview")]
+    public async Task<ActionResult<ApplicantReconciliationPreview>> ReconcilePreview(
+        [FromBody] ImportSheetInput body, CancellationToken ct)
+    {
+        if (body?.Rows is null || body.Rows.Count == 0)
+            return BadRequest(new { code = ErrorCodes.ValidationFailed, message = "لا توجد صفوف للمعاينة." });
+        if (!string.Equals(body.SheetName, "Applicants", StringComparison.Ordinal))
+            return BadRequest(new { code = ErrorCodes.ValidationFailed, message = "ورقة المعاينة يجب أن تكون «Applicants»." });
+        return Ok(await service.PreviewApplicantsReconciliationAsync(body, ct));
+    }
 
     [HttpPost("import/preview")]
     public async Task<ActionResult<ImportPreviewResult>> Preview([FromBody] ImportPreviewRequest body, CancellationToken ct)

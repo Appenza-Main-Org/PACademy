@@ -91,6 +91,112 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
+    public async Task Reconcile_preview_returns_field_diffs_matched_unmatched_and_writeback()
+    {
+        var (svc, db) = Create();
+        db.LookupRows.Add(new LookupRowEntity
+        {
+            LookupKey = "test-results", Code = "RES-01", Name = "ناجح", IsActive = true,
+            PayloadJson = """{"code":"RES-01","name":"ناجح","outcome":"pass"}""",
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        db.LookupRows.Add(new LookupRowEntity
+        {
+            LookupKey = "test-results", Code = "RES-02", Name = "راسب", IsActive = true,
+            PayloadJson = """{"code":"RES-02","name":"راسب","outcome":"fail"}""",
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+        await SeedOperationalAsync(db, "applicants", "APP-1",
+            """{"id":"APP-1","nationalId":"29801011230501","fullName":"اسم قديم","gender":"male","status":"exam_scheduled"}""");
+
+        var matchedRow = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            ["nationalId"] = "29801011230501",
+            ["fullName"] = "اسم مُصحَّح",
+            ["gender"] = "male",
+            ["result"] = "ناجح",
+            ["next_exam_date"] = "2026-07-01",
+            ["round"] = "1",
+            ["test_code"] = "TST-01",
+        };
+        var unmatchedRow = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            ["nationalId"] = "29801011239999",
+            ["fullName"] = "غير معروف",
+            ["result"] = "راسب",
+        };
+
+        var preview = await svc.PreviewApplicantsReconciliationAsync(
+            new ImportSheetInput("Applicants", new List<Dictionary<string, string?>> { matchedRow, unmatchedRow }), default);
+
+        Assert.Equal(2, preview.Rows.Count);
+        Assert.Equal(1, preview.Counts["matched"]);
+        Assert.Equal(1, preview.Counts["unmatched"]);
+
+        var matched = preview.Rows[0];
+        Assert.False(matched.Unmatched);
+        var nameDiff = Assert.Single(matched.FieldDiffs.Where(d => d.Field == "fullName"));
+        Assert.Equal("اسم قديم", nameDiff.Before);
+        Assert.Equal("اسم مُصحَّح", nameDiff.After);
+        Assert.DoesNotContain(matched.FieldDiffs, d => d.Field == "gender");
+        Assert.Equal("passed", matched.Writeback?.Outcome);
+        Assert.Equal("2026-07-01", matched.Writeback?.NextExamDate);
+        Assert.Equal("TST-01", matched.Writeback?.TestCode);
+        Assert.Equal(1, matched.Writeback?.Round);
+
+        var unmatched = preview.Rows[1];
+        Assert.True(unmatched.Unmatched);
+        Assert.Contains("APPLICANT_NID_UNMATCHED", unmatched.Errors);
+    }
+
+    [Fact]
+    public async Task Reconcile_preview_unknown_result_value_records_typed_error()
+    {
+        var (svc, db) = Create();
+        db.LookupRows.Add(new LookupRowEntity
+        {
+            LookupKey = "test-results", Code = "RES-01", Name = "ناجح", IsActive = true,
+            PayloadJson = """{"code":"RES-01","name":"ناجح","outcome":"pass"}""",
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+        await SeedOperationalAsync(db, "applicants", "APP-2",
+            """{"id":"APP-2","nationalId":"29801011230701","status":"exam_scheduled"}""");
+
+        var preview = await svc.PreviewApplicantsReconciliationAsync(
+            new ImportSheetInput("Applicants", new List<Dictionary<string, string?>>
+            {
+                new(StringComparer.Ordinal) { ["nationalId"] = "29801011230701", ["result"] = "متذبذب" },
+            }), default);
+
+        Assert.Contains("RESULT_VALUE_UNKNOWN", preview.Rows[0].Writeback!.Errors);
+    }
+
+    [Fact]
+    public async Task Reconcile_preview_passed_without_next_exam_date_flags_missing()
+    {
+        var (svc, db) = Create();
+        db.LookupRows.Add(new LookupRowEntity
+        {
+            LookupKey = "test-results", Code = "RES-01", Name = "ناجح", IsActive = true,
+            PayloadJson = """{"code":"RES-01","name":"ناجح","outcome":"pass"}""",
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+        await SeedOperationalAsync(db, "applicants", "APP-3",
+            """{"id":"APP-3","nationalId":"29801011230801","status":"exam_scheduled"}""");
+
+        var preview = await svc.PreviewApplicantsReconciliationAsync(
+            new ImportSheetInput("Applicants", new List<Dictionary<string, string?>>
+            {
+                new(StringComparer.Ordinal) { ["nationalId"] = "29801011230801", ["result"] = "ناجح" },
+            }), default);
+
+        Assert.Contains("WRITEBACK_NEXT_EXAM_MISSING", preview.Rows[0].Writeback!.Errors);
+    }
+
+    [Fact]
     public async Task Applicants_roster_lists_only_booked_with_slot_columns()
     {
         var (svc, db) = Create();

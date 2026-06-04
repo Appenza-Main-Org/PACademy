@@ -144,6 +144,205 @@ public sealed class DataExchangeService(
     }
 
     // ──────────────────────────────────────────────────────────────────────
+    // RECONCILIATION (applicants — field-level diff + result writeback)
+    // ──────────────────────────────────────────────────────────────────────
+
+    /// <summary>Editable applicant fields the admin may correct via the
+    /// round-trip Excel. Anything outside this set is ignored during diff
+    /// (system / identity / writeback / read-only columns).</summary>
+    private static readonly IReadOnlySet<string> EditableApplicantFields = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "fullName", "name", "gender", "phoneNumber", "mobile", "email",
+        "religion", "birthDate", "birthGovernorate", "birthDistrict",
+        "maritalStatus", "governorate", "city",
+        "address.governorate", "address.city", "address.detail", "address.street",
+    };
+
+    /// <summary>Reserved writeback columns — parsed into ApplicantWritebackResult,
+    /// never diffed as a regular field.</summary>
+    private static readonly IReadOnlySet<string> WritebackColumns = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "result", "next_exam_date", "round", "test_code",
+    };
+
+    /// <summary>Computes the per-applicant field diff for a parsed Applicants
+    /// sheet. Writes nothing; the admin chooses which fields to accept on the
+    /// commit endpoint. Unmatched national IDs are surfaced rather than
+    /// silently dropped.</summary>
+    public async Task<ApplicantReconciliationPreview> PreviewApplicantsReconciliationAsync(
+        ImportSheetInput sheet, CancellationToken ct)
+    {
+        var booked = await LoadBookedApplicantsByNidAsync(ct);
+        var resultLookup = await LoadResultLookupAsync(ct);
+        var rows = new List<ApplicantReconciliationRow>(sheet.Rows.Count);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        for (var i = 0; i < sheet.Rows.Count; i++)
+        {
+            var importRow = sheet.Rows[i];
+            var nid = Get(importRow, "nationalId") ?? Get(importRow, "business_key") ?? "";
+            var errors = new List<string>();
+            if (string.IsNullOrWhiteSpace(nid))
+            {
+                errors.Add("الرقم القومي مفقود");
+                rows.Add(new ApplicantReconciliationRow("", null, null, true, [], null, errors));
+                continue;
+            }
+            if (!seen.Add(nid))
+            {
+                errors.Add("مفتاح مكرر داخل الملف");
+                rows.Add(new ApplicantReconciliationRow(nid, null, null, false, [], null, errors));
+                continue;
+            }
+
+            var writeback = ParseWritebackResult(importRow, resultLookup);
+            if (!booked.TryGetValue(nid, out var payload))
+            {
+                rows.Add(new ApplicantReconciliationRow(
+                    nid, null, Get(importRow, "fullName") ?? Get(importRow, "name"),
+                    true, [], writeback, ["APPLICANT_NID_UNMATCHED"]));
+                continue;
+            }
+
+            var diffs = ComputeFieldDiffs(payload, importRow);
+            rows.Add(new ApplicantReconciliationRow(
+                nid,
+                payload["id"]?.ToString() ?? nid,
+                payload["fullName"]?.ToString() ?? payload["name"]?.ToString(),
+                false, diffs, writeback, errors));
+        }
+
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal)
+        {
+            ["total"] = rows.Count,
+            ["matched"] = rows.Count(r => !r.Unmatched),
+            ["unmatched"] = rows.Count(r => r.Unmatched),
+            ["withDiff"] = rows.Count(r => r.FieldDiffs.Count > 0),
+            ["withWriteback"] = rows.Count(r => r.Writeback?.Outcome is not null),
+            ["invalid"] = rows.Count(r => r.Errors.Count > 0 && r.Errors.All(e => e != "APPLICANT_NID_UNMATCHED")),
+        };
+        return new ApplicantReconciliationPreview(counts, rows);
+    }
+
+    /// <summary>Computes the diff for one applicant row. Only fields in
+    /// <see cref="EditableApplicantFields"/> are considered, only when the
+    /// imported cell has a non-null value AND differs from the live DB.</summary>
+    private static IReadOnlyList<ApplicantFieldDiff> ComputeFieldDiffs(
+        JsonObject dbPayload, IReadOnlyDictionary<string, string?> importRow)
+    {
+        var dbFlat = JsonFlatten.Flatten(dbPayload).ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
+        var diffs = new List<ApplicantFieldDiff>();
+        foreach (var (field, importedRaw) in importRow)
+        {
+            if (!EditableApplicantFields.Contains(field)) continue;
+            if (NonDataColumns.Contains(field)) continue;
+            if (WritebackColumns.Contains(field)) continue;
+            var imported = importedRaw?.Trim();
+            if (string.IsNullOrEmpty(imported)) continue;
+            var current = dbFlat.TryGetValue(field, out var v) ? (v ?? "") : "";
+            if (string.Equals(current.Trim(), imported, StringComparison.Ordinal)) continue;
+            diffs.Add(new ApplicantFieldDiff(field, current, imported));
+        }
+        return diffs;
+    }
+
+    /// <summary>Resolves the imported `result` cell (and round/test_code/
+    /// next_exam_date siblings) into an ApplicantWritebackResult. Result codes
+    /// resolve via the `test-results` lookup. Returns a writeback with all
+    /// nulls when no result column was supplied.</summary>
+    private static ApplicantWritebackResult ParseWritebackResult(
+        IReadOnlyDictionary<string, string?> row,
+        IReadOnlyDictionary<string, string> resultLookup)
+    {
+        var raw = Get(row, "result");
+        var testCode = Get(row, "test_code");
+        var nextExamDate = Get(row, "next_exam_date");
+        var roundRaw = Get(row, "round");
+        int? round = int.TryParse(roundRaw, out var r) ? r : null;
+        var errors = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return new ApplicantWritebackResult(raw, null, testCode, round, nextExamDate, errors);
+        }
+
+        var trimmed = raw.Trim();
+        if (!resultLookup.TryGetValue(trimmed, out var outcome))
+        {
+            errors.Add("RESULT_VALUE_UNKNOWN");
+            return new ApplicantWritebackResult(raw, null, testCode, round, nextExamDate, errors);
+        }
+
+        // Passed applicants must carry a next-exam date (admin-supplied via file)
+        // unless this is the terminal round — leave date-presence enforcement to
+        // the commit endpoint, which knows the cycle's follow-up plan length.
+        if (string.Equals(outcome, "passed", StringComparison.Ordinal)
+            && string.IsNullOrWhiteSpace(nextExamDate))
+        {
+            errors.Add("WRITEBACK_NEXT_EXAM_MISSING");
+        }
+        return new ApplicantWritebackResult(raw, outcome, testCode, round, nextExamDate, errors);
+    }
+
+    /// <summary>Booked applicants indexed by nationalId, used as the diff base.
+    /// Mirrors LoadDocStoreAsync's eligibility gate (only booked applicants
+    /// participate in reconciliation).</summary>
+    private async Task<IReadOnlyDictionary<string, JsonObject>> LoadBookedApplicantsByNidAsync(CancellationToken ct)
+    {
+        IReadOnlyList<JsonObject> payloads;
+        try { payloads = await records.ListAsync("applicants", ct); }
+        catch (InvalidOperationException) { return new Dictionary<string, JsonObject>(); }
+        var map = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
+        foreach (var payload in payloads)
+        {
+            if (AdminRecordJson.IsSoftDeleted(payload)) continue;
+            if (!IsApplicantBooked(payload)) continue;
+            var nid = payload["nationalId"]?.ToString();
+            if (!string.IsNullOrWhiteSpace(nid)) map[nid] = payload;
+        }
+        return map;
+    }
+
+    /// <summary>Loads the `test-results` lookup once per request; returns a
+    /// reverse-map from every accepted phrasing (code, Arabic name, English
+    /// outcome) → canonical FollowUpOutcomes value.</summary>
+    private async Task<IReadOnlyDictionary<string, string>> LoadResultLookupAsync(CancellationToken ct)
+    {
+        var rows = await db.LookupRows.AsNoTracking()
+            .Where(x => x.LookupKey == "test-results").ToListAsync(ct);
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var row in rows)
+        {
+            // payload carries `outcome` (`pass|fail|defer|withdrawn`) per lookups.mock
+            var payload = AdminRecordJson.Parse(row.PayloadJson);
+            var outcome = payload["outcome"]?.ToString();
+            if (string.IsNullOrWhiteSpace(outcome)) continue;
+            var canonical = MapOutcomeToFollowUp(outcome);
+            map[row.Code] = canonical;
+            map[row.Name] = canonical;
+            map[outcome] = canonical;
+            map[canonical] = canonical;
+        }
+        if (map.Count > 0)
+        {
+            map.TryAdd("ناجح", "passed");
+            map.TryAdd("راسب", "failed");
+            map.TryAdd("pass", "passed");
+            map.TryAdd("fail", "failed");
+        }
+        return map;
+    }
+
+    private static string MapOutcomeToFollowUp(string outcome) => outcome switch
+    {
+        "pass" => "passed",
+        "fail" => "failed",
+        "defer" => "in-progress",
+        "withdrawn" => "failed",
+        _ => outcome,
+    };
+
+    // ──────────────────────────────────────────────────────────────────────
     // PREVIEW (stateless / read-only)
     // ──────────────────────────────────────────────────────────────────────
     public async Task<ImportPreviewResult> PreviewAsync(ImportPreviewRequest request, CancellationToken ct)
