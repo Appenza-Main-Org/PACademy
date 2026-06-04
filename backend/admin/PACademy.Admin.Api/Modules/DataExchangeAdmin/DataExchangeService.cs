@@ -680,15 +680,50 @@ public sealed class DataExchangeService(
     // ──────────────────────────────────────────────────────────────────────
     // READ → LoadedRow (Data already holds the normalized data columns)
     // ──────────────────────────────────────────────────────────────────────
-    private async Task<IReadOnlyList<LoadedRow>> LoadAsync(DomainSpec spec, CancellationToken ct) => spec.Storage switch
+    private async Task<IReadOnlyList<LoadedRow>> LoadAsync(DomainSpec spec, CancellationToken ct) => spec.Domain switch
     {
-        ExchangeStorage.DocStore => await LoadDocStoreAsync(spec, ct),
-        ExchangeStorage.Lookups => await LoadLookupsAsync(ct),
-        ExchangeStorage.AdmissionRules => await LoadAdmissionRulesAsync(ct),
-        ExchangeStorage.Exams => await LoadExamsAsync(ct),
-        ExchangeStorage.ExamSlots => await LoadExamSlotsAsync(ct),
-        _ => [],
+        // Domain-specific loaders for sheets whose data lives nested in another
+        // bucket — registry's `module=relatives|acquaintance|examResults` rows
+        // are empty in production because the data physically lives elsewhere:
+        //   - Relatives  → nested in applicant.family.{father,mother,siblings,…}
+        //   - ExamResults → nested in applicant.followUp[TST-NN]
+        //   - AcquaintanceDocs → dedicated `applicant_acquaintance_docs` table
+        ExchangeDomain.Relatives => await LoadApplicantRelativesAsync(ct),
+        ExchangeDomain.ExamResults => await LoadApplicantExamResultsAsync(ct),
+        ExchangeDomain.AcquaintanceDocs => await LoadAcquaintanceDocsAsync(ct),
+        _ => spec.Storage switch
+        {
+            ExchangeStorage.DocStore => await LoadDocStoreAsync(spec, ct),
+            ExchangeStorage.Lookups => await LoadLookupsAsync(ct),
+            ExchangeStorage.AdmissionRules => await LoadAdmissionRulesAsync(ct),
+            ExchangeStorage.Exams => await LoadExamsAsync(ct),
+            ExchangeStorage.ExamSlots => await LoadExamSlotsAsync(ct),
+            _ => [],
+        },
     };
+
+    /// <summary>Top-level branches of the applicant payload that have their
+    /// OWN dedicated sheets — pruned from the flattened Applicants row so the
+    /// sheet stays focused on the applicant proper (no `family.father.…`
+    /// columns alongside the dedicated Relatives sheet, etc.).</summary>
+    private static readonly IReadOnlySet<string> ApplicantSheetExcludedBranches = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "family", "followUp", "profile",
+    };
+
+    /// <summary>Shallow-clones a payload omitting the named top-level branches.
+    /// Used to keep the Applicants sheet clean of branches whose data has its
+    /// own dedicated export sheet (relatives, exam results, raw portal profile).</summary>
+    private static JsonObject PruneBranches(JsonObject payload, IReadOnlySet<string> excludedTopLevel)
+    {
+        var pruned = new JsonObject();
+        foreach (var (key, node) in payload)
+        {
+            if (excludedTopLevel.Contains(key)) continue;
+            pruned[key] = node?.DeepClone();
+        }
+        return pruned;
+    }
 
     private async Task<IReadOnlyList<LoadedRow>> LoadDocStoreAsync(DomainSpec spec, CancellationToken ct)
     {
@@ -707,8 +742,15 @@ public sealed class DataExchangeService(
             // Draft / incomplete / awaiting-booking rows are intentionally withheld so
             // external consumers receive officially scheduled applicants only.
             if (spec.Domain == ExchangeDomain.Applicants && !IsApplicantBooked(payload)) continue;
+            // For the Applicants sheet, prune branches that have their own dedicated
+            // sheets so we don't ship `family.father.…` columns next to the dedicated
+            // Relatives sheet. Also drop the original `profile.*` shape — the
+            // projection already lifts those fields to canonical top-level columns.
+            var flattenSource = spec.Domain == ExchangeDomain.Applicants
+                ? PruneBranches(payload, ApplicantSheetExcludedBranches)
+                : payload;
             var data = new Dictionary<string, string?>(StringComparer.Ordinal);
-            foreach (var (k, v) in JsonFlatten.Flatten(payload))
+            foreach (var (k, v) in JsonFlatten.Flatten(flattenSource))
                 if (!NonDataColumns.Contains(k)) data[k] = v; // payload "id" mirrors record id — drop the dup
             var id = payload["id"]?.ToString() ?? "";
             var bk = ResolveDocBusinessKey(spec, payload, id);
@@ -815,6 +857,178 @@ public sealed class DataExchangeService(
             ["location"] = x.Location, ["capacity"] = x.Capacity.ToString(CultureInfo.InvariantCulture),
             ["reserved"] = x.Reserved.ToString(CultureInfo.InvariantCulture),
         }, x.CreatedAt, x.UpdatedAt, x.RowVersion, x.LastModifiedBy, x.SourceSystem)).ToList();
+    }
+
+    /// <summary>Explodes each booked applicant's `family` payload into per-member
+    /// rows so the Relatives sheet links back to the applicant via
+    /// `applicantNationalId`. Covers father, mother, paternal/maternal
+    /// grandparents, fatherWives[], motherHusbands[], siblings[],
+    /// extended relatives[] (uncles/aunts), and guardian.</summary>
+    private async Task<IReadOnlyList<LoadedRow>> LoadApplicantRelativesAsync(CancellationToken ct)
+    {
+        IReadOnlyList<JsonObject> applicants;
+        try { applicants = await records.ListAsync("applicants", ct); }
+        catch (InvalidOperationException) { return []; }
+
+        var result = new List<LoadedRow>();
+        foreach (var applicant in applicants)
+        {
+            if (AdminRecordJson.IsSoftDeleted(applicant)) continue;
+            if (!IsApplicantBooked(applicant)) continue;
+            var nid = applicant["nationalId"]?.ToString();
+            if (string.IsNullOrWhiteSpace(nid)) continue;
+            var family = applicant["family"] as JsonObject;
+            if (family is null) continue;
+
+            var updated = ParseDto(applicant["updatedAt"] ?? applicant["updated_at"]) ?? default;
+            var created = ParseDto(applicant["createdAt"] ?? applicant["created_at"]) ?? updated;
+
+            void Emit(string seq, string kinshipKey, JsonObject? member)
+            {
+                if (member is null) return;
+                var data = ProjectFamilyMember(member, kinshipKey);
+                if (data.Count == 0) return;
+                data["applicantNationalId"] = nid;
+                var bk = $"{nid}|{seq}";
+                result.Add(Loaded(bk, bk, data, created, updated, [], null, "applicant-portal"));
+            }
+
+            Emit("father", "father", family["father"] as JsonObject);
+            Emit("mother", "mother", family["mother"] as JsonObject);
+            Emit("paternalGrandfather", "paternal_grandfather", family["paternalGrandfather"] as JsonObject);
+            Emit("paternalGrandmother", "paternal_grandmother", family["paternalGrandmother"] as JsonObject);
+            Emit("maternalGrandfather", "maternal_grandfather", family["maternalGrandfather"] as JsonObject);
+            Emit("maternalGrandmother", "maternal_grandmother", family["maternalGrandmother"] as JsonObject);
+            Emit("guardian", "guardian", family["guardian"] as JsonObject);
+
+            var idx = 0;
+            foreach (var node in family["fatherWives"] as JsonArray ?? [])
+                Emit($"fatherWife_{++idx}", "father_wife", node as JsonObject);
+            idx = 0;
+            foreach (var node in family["motherHusbands"] as JsonArray ?? [])
+                Emit($"motherHusband_{++idx}", "mother_husband", node as JsonObject);
+            idx = 0;
+            foreach (var node in family["siblings"] as JsonArray ?? [])
+                Emit($"sibling_{++idx}", InferKinshipFromRelationship(node, "sibling"), node as JsonObject);
+            idx = 0;
+            foreach (var node in family["relatives"] as JsonArray ?? [])
+                Emit($"relative_{++idx}", InferKinshipFromRelationship(node, "relative"), node as JsonObject);
+        }
+        return result;
+    }
+
+    private static Dictionary<string, string?> ProjectFamilyMember(JsonObject member, string kinshipKey)
+    {
+        var data = new Dictionary<string, string?>(StringComparer.Ordinal) { ["kinship"] = kinshipKey };
+        var fullName = member["fullName"]?.ToString();
+        if (!string.IsNullOrWhiteSpace(fullName)) data["name"] = fullName;
+        var memberNid = member["nationalId"]?.ToString();
+        if (!string.IsNullOrWhiteSpace(memberNid)) data["nationalId"] = memberNid;
+        var occupation = member["occupation"]?.ToString();
+        if (!string.IsNullOrWhiteSpace(occupation)) data["occupation"] = occupation;
+        var governorate = member["governorate"]?.ToString();
+        if (!string.IsNullOrWhiteSpace(governorate)) data["governorate"] = governorate;
+        var education = member["education"]?.ToString();
+        if (!string.IsNullOrWhiteSpace(education)) data["education"] = education;
+        var alive = member["alive"];
+        if (alive is not null) data["alive"] = alive.ToString().ToLowerInvariant();
+        var relationshipId = member["relationshipId"]?.ToString();
+        if (!string.IsNullOrWhiteSpace(relationshipId)) data["relationshipLabel"] = relationshipId;
+        return data;
+    }
+
+    private static string InferKinshipFromRelationship(JsonNode? node, string fallback)
+    {
+        if (node is not JsonObject obj) return fallback;
+        var rel = obj["relationshipId"]?.ToString();
+        return rel switch
+        {
+            "الأخ" => "brother",
+            "الأخت" => "sister",
+            "العم" => "paternal_uncle",
+            "العمة" => "paternal_aunt",
+            "الخال" => "maternal_uncle",
+            "الخالة" => "maternal_aunt",
+            _ => fallback,
+        };
+    }
+
+    /// <summary>Explodes each booked applicant's `followUp` outcomes into one
+    /// row per (applicantNationalId, examCode). Mirrors the same shape Stage-10
+    /// reads — `followUp[TST-NN] = passed|failed|in-progress|awaiting-approval|pending`.
+    /// </summary>
+    private async Task<IReadOnlyList<LoadedRow>> LoadApplicantExamResultsAsync(CancellationToken ct)
+    {
+        IReadOnlyList<JsonObject> applicants;
+        try { applicants = await records.ListAsync("applicants", ct); }
+        catch (InvalidOperationException) { return []; }
+
+        var result = new List<LoadedRow>();
+        foreach (var applicant in applicants)
+        {
+            if (AdminRecordJson.IsSoftDeleted(applicant)) continue;
+            if (!IsApplicantBooked(applicant)) continue;
+            var nid = applicant["nationalId"]?.ToString();
+            if (string.IsNullOrWhiteSpace(nid)) continue;
+            var followUp = applicant["followUp"] as JsonObject;
+            if (followUp is null || followUp.Count == 0) continue;
+
+            var updated = ParseDto(applicant["updatedAt"] ?? applicant["updated_at"]) ?? default;
+            var created = ParseDto(applicant["createdAt"] ?? applicant["created_at"]) ?? updated;
+            foreach (var (examCode, node) in followUp)
+            {
+                var outcome = node?.ToString();
+                if (string.IsNullOrWhiteSpace(examCode) || string.IsNullOrWhiteSpace(outcome)) continue;
+                var bk = $"{nid}|{examCode}";
+                var data = new Dictionary<string, string?>(StringComparer.Ordinal)
+                {
+                    ["applicantNationalId"] = nid,
+                    ["examCode"] = examCode,
+                    ["result"] = outcome,
+                };
+                result.Add(Loaded(bk, bk, data, created, updated, [], null, "applicant-portal"));
+            }
+        }
+        return result;
+    }
+
+    /// <summary>Reads acquaintance-doc rows from the dedicated table introduced
+    /// by the 2026-06-02 migration. Joins applicant identity to surface the
+    /// canonical `applicantNationalId` FK column.</summary>
+    private async Task<IReadOnlyList<LoadedRow>> LoadAcquaintanceDocsAsync(CancellationToken ct)
+    {
+        if (!db.Database.IsRelational()) return [];
+        var docs = await db.ApplicantAcquaintanceDocs.AsNoTracking().ToListAsync(ct);
+        if (docs.Count == 0) return [];
+
+        // Resolve applicantId(GUID) → nationalId via the booked-applicants map.
+        var booked = await LoadBookedApplicantsByNidAsync(ct);
+        var nidById = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (nid, payload) in booked)
+        {
+            var tableId = payload["applicantTableId"]?.ToString();
+            if (!string.IsNullOrWhiteSpace(tableId)) nidById[tableId] = nid;
+            var id = payload["id"]?.ToString();
+            if (!string.IsNullOrWhiteSpace(id)) nidById[id] = nid;
+        }
+
+        var result = new List<LoadedRow>(docs.Count);
+        foreach (var doc in docs)
+        {
+            if (!nidById.TryGetValue(doc.ApplicantId, out var nid)) continue;
+            var data = new Dictionary<string, string?>(StringComparer.Ordinal)
+            {
+                ["applicantNationalId"] = nid,
+                ["cycleId"] = doc.CycleId,
+                ["status"] = doc.Status,
+            };
+            if (doc.OpenedAt is { } opened) data["openedAt"] = opened.ToString("O", CultureInfo.InvariantCulture);
+            if (doc.ClosedAt is { } closed) data["closedAt"] = closed.ToString("O", CultureInfo.InvariantCulture);
+            if (doc.LastAutosavedAt is { } saved) data["lastAutosavedAt"] = saved.ToString("O", CultureInfo.InvariantCulture);
+            var bk = $"{nid}|{doc.CycleId}";
+            result.Add(Loaded(doc.Id, bk, data, doc.CreatedAt, doc.UpdatedAt, [], null, "acquaintance-doc"));
+        }
+        return result;
     }
 
     // ──────────────────────────────────────────────────────────────────────
