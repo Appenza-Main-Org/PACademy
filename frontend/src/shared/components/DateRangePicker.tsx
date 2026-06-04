@@ -12,7 +12,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Calendar } from 'lucide-react';
 import { cn } from '@/shared/lib/cn';
-import { CalendarGrid } from './DatePicker';
+import { CalendarGrid, cairoToday } from './DatePicker';
 
 const POPOVER_GAP = 8;
 /* Estimated popover width on md+ (two month grids side-by-side + quick-range
@@ -45,47 +45,47 @@ const QUICK_RANGES: { key: string; label: string; build: () => DateRange }[] = [
     key: 'today',
     label: 'اليوم',
     build: () => {
-      const now = new Date();
-      return { start: stripTime(now), end: stripTime(now) };
+      const now = cairoToday();
+      return { start: now, end: now };
     },
   },
   {
     key: 'week',
     label: 'الأسبوع',
     build: () => {
-      const now = new Date();
+      const now = cairoToday();
       const start = stripTime(now);
       start.setDate(start.getDate() - 6);
-      return { start, end: stripTime(now) };
+      return { start, end: now };
     },
   },
   {
     key: 'month',
     label: 'الشهر',
     build: () => {
-      const now = new Date();
+      const now = cairoToday();
       const start = new Date(now.getFullYear(), now.getMonth(), 1);
-      return { start, end: stripTime(now) };
+      return { start, end: now };
     },
   },
   {
     key: 'last-30',
     label: 'آخر 30 يوم',
     build: () => {
-      const now = new Date();
+      const now = cairoToday();
       const start = stripTime(now);
       start.setDate(start.getDate() - 29);
-      return { start, end: stripTime(now) };
+      return { start, end: now };
     },
   },
   {
     key: 'season',
     label: 'هذا الفصل',
     build: () => {
-      const now = new Date();
+      const now = cairoToday();
       const seasonStart = Math.floor(now.getMonth() / 3) * 3;
       const start = new Date(now.getFullYear(), seasonStart, 1);
-      return { start, end: stripTime(now) };
+      return { start, end: now };
     },
   },
 ];
@@ -105,7 +105,7 @@ export function DateRangePicker({
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
-  const [cursor, setCursor] = useState<Date>(value?.start ?? new Date());
+  const [cursor, setCursor] = useState<Date>(value?.start ?? cairoToday());
   const [draftStart, setDraftStart] = useState<Date | null>(value?.start ?? null);
   const [draftEnd, setDraftEnd] = useState<Date | null>(value?.end ?? null);
 

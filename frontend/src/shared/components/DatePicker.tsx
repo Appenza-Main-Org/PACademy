@@ -100,7 +100,7 @@ export function DatePicker({
 }: DatePickerProps): JSX.Element {
   const id = useId();
   const [open, setOpen] = useState(false);
-  const [cursor, setCursor] = useState<Date>(value ?? new Date());
+  const [cursor, setCursor] = useState<Date>(value ?? cairoToday());
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -166,7 +166,7 @@ export function DatePicker({
     };
   }, [open]);
 
-  const todayDate = useMemo(() => stripTime(new Date()), []);
+  const todayDate = useMemo(() => cairoToday(), []);
   const configuredMinDate = min ? stripTime(new Date(min)) : null;
   const minDate =
     configuredMinDate && configuredMinDate.getTime() > todayDate.getTime()
@@ -281,6 +281,7 @@ export function CalendarGrid({
   onSelect,
 }: CalendarGridProps): JSX.Element {
   const cells = useMemo(() => buildMonthCells(cursor), [cursor]);
+  const todayDate = useMemo(() => cairoToday(), []);
   const monthIndex = cursor.getMonth();
   const year = cursor.getFullYear();
 
@@ -339,6 +340,7 @@ export function CalendarGrid({
             rangeStart && stripTime(rangeStart).getTime() === stripTime(cell).getTime();
           const end = rangeEnd && stripTime(rangeEnd).getTime() === stripTime(cell).getTime();
           const inRange = isInRange(cell);
+          const isToday = stripTime(todayDate).getTime() === stripTime(cell).getTime();
           const disabled =
             (minDate && stripTime(cell).getTime() < stripTime(minDate).getTime()) ||
             (maxDate && stripTime(cell).getTime() > stripTime(maxDate).getTime()) ||
@@ -350,10 +352,12 @@ export function CalendarGrid({
               onClick={() => !disabled && onSelect(cell)}
               disabled={Boolean(disabled)}
               aria-pressed={Boolean(sel || start || end)}
+              aria-current={isToday ? 'date' : undefined}
               className={cn(
                 'flex h-9 w-9 items-center justify-center rounded-md font-numeric tnum text-sm transition-colors duration-fast ease-standard',
                 'hover:bg-teal-50',
                 disabled && 'cursor-not-allowed text-ink-300 hover:bg-transparent',
+                isToday && !sel && !start && !end && !inRange && 'ring-1 ring-inset ring-teal-500 font-semibold text-teal-700',
                 inRange && !sel && !start && !end && 'bg-teal-50 text-teal-700',
                 (sel || start || end) && 'bg-teal-500 text-white hover:bg-teal-600',
               )}
@@ -387,6 +391,25 @@ function addMonths(d: Date, delta: number): Date {
 
 function stripTime(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/**
+ * Returns a local-time Date whose Y/M/D match the current calendar day
+ * in Africa/Cairo, regardless of the browser's local timezone. The cells
+ * built by `buildMonthCells` are local-time Dates, so comparing a
+ * Cairo-anchored "today" against them via Y/M/D works correctly even
+ * when the user's browser is set to a different zone.
+ */
+export function cairoToday(): Date {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Cairo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const get = (type: string): number =>
+    Number(parts.find((p) => p.type === type)?.value ?? 0);
+  return new Date(get('year'), get('month') - 1, get('day'));
 }
 
 function formatDate(d: Date): string {
