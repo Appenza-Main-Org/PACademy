@@ -342,6 +342,147 @@ public sealed class DataExchangeService(
         _ => outcome,
     };
 
+    /// <summary>Commits the admin's reconciliation decisions for an Applicants
+    /// sheet: writes only the accepted field-level corrections plus (per
+    /// decision) the round result / next-exam-date writeback. Per-applicant
+    /// partial semantics — one failing applicant does NOT block the others.
+    /// Result writeback follows the existing portal contract: round result is
+    /// patched into `followUp[testCode]` (the same key Stage-10 reads), and
+    /// `examSlot.date` is updated to the next-round date for passed applicants.
+    /// </summary>
+    public async Task<ApplicantReconciliationCommitResult> CommitApplicantsReconciliationAsync(
+        ApplicantReconciliationCommitRequest request, CancellationToken ct)
+    {
+        if (!string.Equals(request.Sheet.SheetName, "Applicants", StringComparison.Ordinal))
+            throw new InvalidOperationException("ورقة الاعتماد يجب أن تكون «Applicants».");
+
+        // Re-resolve diffs against the LIVE db so a concurrent edit (since the
+        // admin's preview) cannot be overwritten without a fresh preview.
+        var preview = await PreviewApplicantsReconciliationAsync(request.Sheet, ct);
+        var rowByNid = preview.Rows.ToDictionary(r => r.NationalId, r => r, StringComparer.Ordinal);
+        var importByNid = request.Sheet.Rows
+            .Where(r => !string.IsNullOrWhiteSpace(Get(r, "nationalId")))
+            .ToDictionary(r => Get(r, "nationalId")!, r => r, StringComparer.Ordinal);
+
+        var attempted = 0; var successCount = 0; var fieldsWritten = 0; var writebacksApplied = 0;
+        var failed = new List<ImportFailedRow>();
+
+        for (var i = 0; i < request.Decisions.Count; i++)
+        {
+            var decision = request.Decisions[i];
+            attempted++;
+            if (!rowByNid.TryGetValue(decision.NationalId, out var diffRow) || diffRow.Unmatched)
+            {
+                failed.Add(new ImportFailedRow(i, request.Sheet.SheetName, ["APPLICANT_NID_UNMATCHED"]));
+                continue;
+            }
+            if (!importByNid.TryGetValue(decision.NationalId, out var importRow))
+            {
+                failed.Add(new ImportFailedRow(i, request.Sheet.SheetName, ["IMPORT_ROW_MISSING"]));
+                continue;
+            }
+
+            try
+            {
+                var (fields, writeback) = await ApplyOneAsync(diffRow, importRow, decision, ct);
+                fieldsWritten += fields;
+                if (writeback) writebacksApplied++;
+                successCount++;
+            }
+            catch (Exception ex)
+            {
+                failed.Add(new ImportFailedRow(i, request.Sheet.SheetName, [ex.Message]));
+            }
+        }
+
+        await EmitAuditAsync("reconcile",
+            $"اعتماد {successCount} متقدم · {fieldsWritten} حقل · {writebacksApplied} نتيجة",
+            attempted, 0, successCount, 0, failed.Count, ct);
+
+        return new ApplicantReconciliationCommitResult(
+            attempted, successCount, fieldsWritten, writebacksApplied, failed.Count, failed);
+    }
+
+    /// <summary>Applies one applicant's accepted-field set and (optional) result
+    /// writeback. Patches the live applicant payload through
+    /// `OperationalRecordsService.UpsertAsync` so the audit sink fires and any
+    /// concurrent update path stays consistent. Idempotent per round —
+    /// re-importing the same round overwrites `followUp[testCode]` in place.</summary>
+    private async Task<(int FieldsWritten, bool WritebackApplied)> ApplyOneAsync(
+        ApplicantReconciliationRow diff,
+        IReadOnlyDictionary<string, string?> importRow,
+        ApplicantReconciliationDecision decision,
+        CancellationToken ct)
+    {
+        var payload = await records.GetAsync("applicants", diff.ApplicantId ?? diff.NationalId, ct);
+        if (payload is null)
+        {
+            // Fallback: search by nationalId across the bucket since some seed
+            // paths set the record id to the GUID, not the NID.
+            var byNid = await LoadBookedApplicantsByNidAsync(ct);
+            if (!byNid.TryGetValue(diff.NationalId, out payload))
+                throw new InvalidOperationException("APPLICANT_NID_UNMATCHED");
+        }
+
+        var workingPayload = payload.DeepClone().AsObject();
+        var fieldsWritten = 0;
+        var writebackApplied = false;
+
+        // 1. Field-level corrections — accepted diffs only.
+        foreach (var diffEntry in diff.FieldDiffs)
+        {
+            if (!decision.AcceptedFields.Contains(diffEntry.Field)) continue;
+            var newValue = importRow.TryGetValue(diffEntry.Field, out var v) ? v : null;
+            SetFlattenedPath(workingPayload, diffEntry.Field, newValue);
+            fieldsWritten++;
+        }
+
+        // 2. Result + next-exam writeback — only when admin opted in AND the
+        // writeback parsed cleanly (no RESULT_VALUE_UNKNOWN).
+        if (decision.ApplyWriteback
+            && diff.Writeback?.Outcome is { } outcome
+            && !diff.Writeback.Errors.Contains("RESULT_VALUE_UNKNOWN"))
+        {
+            var followUp = workingPayload["followUp"] as JsonObject ?? new JsonObject();
+            var testCode = diff.Writeback.TestCode ?? "TST-01";
+            followUp[testCode] = outcome;
+            workingPayload["followUp"] = followUp;
+
+            // Passed → schedule the next round's slot date in examSlot.date so
+            // the applicant portal Stage-10 follow-up table picks it up.
+            if (string.Equals(outcome, "passed", StringComparison.Ordinal)
+                && !string.IsNullOrWhiteSpace(diff.Writeback.NextExamDate))
+            {
+                var slot = workingPayload["examSlot"] as JsonObject ?? new JsonObject();
+                slot["date"] = diff.Writeback.NextExamDate;
+                workingPayload["examSlot"] = slot;
+            }
+            writebackApplied = true;
+        }
+
+        if (fieldsWritten == 0 && !writebackApplied) return (0, false);
+
+        workingPayload["id"] ??= diff.ApplicantId ?? diff.NationalId;
+        workingPayload["sourceSystem"] = ImportSource;
+        await records.UpsertAsync("applicants", workingPayload["id"]!.ToString(), workingPayload, ct);
+        return (fieldsWritten, writebackApplied);
+    }
+
+    /// <summary>Sets a dotted-path key on a JsonObject, creating intermediate
+    /// JsonObjects as needed. Mirrors `JsonFlatten.Unflatten`'s SetPath logic
+    /// but for a single key — keeps the existing payload's type-safe shape.</summary>
+    private static void SetFlattenedPath(JsonObject root, string path, string? value)
+    {
+        var parts = path.Split('.');
+        JsonObject node = root;
+        for (var i = 0; i < parts.Length - 1; i++)
+        {
+            if (node[parts[i]] is JsonObject child) { node = child; }
+            else { var fresh = new JsonObject(); node[parts[i]] = fresh; node = fresh; }
+        }
+        node[parts[^1]] = value;
+    }
+
     // ──────────────────────────────────────────────────────────────────────
     // PREVIEW (stateless / read-only)
     // ──────────────────────────────────────────────────────────────────────
