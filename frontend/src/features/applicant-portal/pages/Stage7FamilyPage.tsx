@@ -56,6 +56,10 @@ import {
   policeStationMatchesGovernorate,
   resolveGovernorateRow,
 } from '../lib/governorateLookup';
+import {
+  isStrictNationalId,
+  validateNationalIdField,
+} from '@/shared/lib/national-id';
 
 const MEMBERSHIP_PROFESSIONS = new Set(['police_officer', 'army_officer']);
 
@@ -792,8 +796,7 @@ function MemberFormCard({
             {...register('nationalId', {
               validate: (v: string) => {
                 if (nidUnavailable) return true;
-                if (!v) return 'مطلوب';
-                return /^[0-9]{14}$/.test(v) || 'الرقم القومي يجب أن يكون 14 رقماً';
+                return validateNationalIdField(v);
               },
             })}
             error={errors.nationalId?.message}
@@ -1428,7 +1431,7 @@ function isFilled(m: FamilyMemberForm): boolean {
     m.firstName.length >= 2 &&
     (m.nidUnavailable
       ? m.nidUnavailableReason.length > 0
-      : /^[0-9]{14}$/.test(m.nationalId)) &&
+      : isStrictNationalId(m.nationalId)) &&
     m.dateOfBirth.length > 0 &&
     birthLocalityOk &&
     m.profession.length > 0 &&

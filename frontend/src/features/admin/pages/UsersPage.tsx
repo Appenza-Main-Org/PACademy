@@ -30,6 +30,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useUsers, usersKeys } from '../api/users.queries';
 import { usersService } from '../api/users.service';
 import type { AccountStatus, SystemUser, UserType } from '@/shared/types/domain';
+import { nationalIdErrorMessage } from '@/shared/lib/national-id';
 
 const ROLE_OPTIONS = [
   { value: 'all', label: 'كل الأدوار' },
@@ -46,7 +47,10 @@ const STATUS_OPTIONS: ReadonlyArray<{ value: AccountStatus | 'all'; label: strin
 ];
 
 const userImportSchema = z.object({
-  nationalId: z.string().regex(/^\d{14}$/, 'الرقم القومي يجب أن يكون 14 رقماً'),
+  nationalId: z.string().superRefine((value, ctx) => {
+    const message = nationalIdErrorMessage(value);
+    if (message) ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+  }),
   fullArabicName: z.string().min(3, 'الاسم الرباعي مطلوب'),
   officerCode: z.string().min(1, 'كود الضابط مطلوب'),
   mobileNumber: z.string().regex(/^\d{11}$/, 'رقم الموبايل يجب أن يكون 11 رقماً'),
