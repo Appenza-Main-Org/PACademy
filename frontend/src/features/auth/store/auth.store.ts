@@ -3,6 +3,11 @@
  *
  * Staff and applicant sessions intentionally live under different keys so a
  * saved applicant session cannot hijack /staff-login, and vice versa.
+ *
+ * Cross-tab logout: sessionStorage is per-tab, and tabs opened via
+ * Ctrl-/Cmd-Click inherit a one-time copy. Without sync, logging out in one
+ * tab leaves every other tab "logged in" until refresh. A BroadcastChannel
+ * fans the logout out to every tab on the same surface.
  */
 
 import { create } from 'zustand';
@@ -16,6 +21,9 @@ export const AUTH_STORAGE_KEYS: Record<AuthSurface, string> = {
 };
 
 const LEGACY_AUTH_STORAGE_KEY = 'pa-auth';
+const AUTH_BROADCAST_CHANNEL = 'pa-auth-sync';
+
+type AuthBroadcastMessage = { type: 'logout'; surface: AuthSurface };
 
 interface PersistedAuthState {
   state?: {
@@ -97,6 +105,26 @@ function removeAuthSession(surface: AuthSurface): void {
 
 const initialSession = readAuthSession(getAuthSurfaceForPath());
 
+function createAuthChannel(): BroadcastChannel | null {
+  if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return null;
+  try {
+    return new BroadcastChannel(AUTH_BROADCAST_CHANNEL);
+  } catch {
+    return null;
+  }
+}
+
+const authChannel = createAuthChannel();
+
+function broadcastLogout(surface: AuthSurface): void {
+  if (!authChannel) return;
+  try {
+    authChannel.postMessage({ type: 'logout', surface } satisfies AuthBroadcastMessage);
+  } catch {
+    /* swallow — broadcast best-effort */
+  }
+}
+
 export const useAuthStore = create<AuthState>()((set, get) => ({
   user: initialSession.user,
   lastActivityAt: initialSession.lastActivityAt,
@@ -123,8 +151,23 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     if (!currentUser || getAuthSurfaceForUser(currentUser) === targetSurface) {
       set({ user: null, lastActivityAt: null });
     }
+    broadcastLogout(targetSurface);
   },
 }));
+
+if (authChannel) {
+  /* Sibling-tab logout: clear our in-memory + sessionStorage state without
+   * re-broadcasting (BroadcastChannel does not echo to the sender, but the
+   * receiver must also not loop). AuthGuard will then bounce protected
+   * pages to the right login screen on the next render. */
+  authChannel.onmessage = (ev: MessageEvent<AuthBroadcastMessage>) => {
+    if (!ev.data || ev.data.type !== 'logout') return;
+    const currentUser = useAuthStore.getState().user;
+    if (!currentUser || getAuthSurfaceForUser(currentUser) !== ev.data.surface) return;
+    removeAuthSession(ev.data.surface);
+    useAuthStore.setState({ user: null, lastActivityAt: null });
+  };
+}
 
 export function getCurrentUser(): AuthUser | null {
   return useAuthStore.getState().user;

@@ -36,10 +36,12 @@ export function AuthGuard({ children, app, perm }: AuthGuardProps): JSX.Element 
   if (!user) {
     /* Applicant-gated routes (and any /applicant/* URL) send the visitor
      * to the dedicated applicant login. All other gated routes use the
-     * staff login. */
+     * staff login. Preserve the full URL (path + query + hash) so the
+     * login page can bounce the user back to where they were headed. */
     const isApplicantRoute = app === 'applicant' || location.pathname.startsWith('/applicant');
     const loginPath = isApplicantRoute ? ROUTES.applicantLogin : ROUTES.staffLogin;
-    return <Navigate to={loginPath} replace state={{ from: location.pathname }} />;
+    const from = `${location.pathname}${location.search}${location.hash}`;
+    return <Navigate to={loginPath} replace state={{ from }} />;
   }
 
   const hasUniversalAccess = user.role === 'super_admin' || hasPermission(user.permissions, '*');
