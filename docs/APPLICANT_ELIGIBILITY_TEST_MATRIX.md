@@ -97,15 +97,15 @@ Use these first because they are authoritative staging MOI records.
 
 | Purpose | NID | Mobile | Gender | DOB | Expected first-step result | Expected category result |
 |---|---:|---:|---|---|---|---|
-| General officers positive | `30606060123451` | `01066000101` | Male | `2006-06-06` | Pass | `officers_general` visible |
+| General officers full-cycle/resume | `30606060123451` | `01066000101` | Male | `2006-06-06` | Pass | Existing staging draft is already at `furthestStage: 8`, so login resumes at `كارت التردد` |
 | PE positive | `30103150246828` | `01066000104` | Female | `2001-03-15` | Pass | `physical_education_bachelor` visible |
 | Law seeded identity | `29809220145624` | `01066000103` | Female | `1998-09-22` | Pass | No Law category until active year rule is configured |
 | Specialized seeded identity | `29202150167831` | `01066000102` | Male | `1992-02-15` | Pass | No Specialized category until active year rule is configured; also age is 34 |
-| Legacy general positive | `30412180103456` | `01012345678` | Male | `2004-12-18` | Pass | General candidate shape |
+| Legacy general full-cycle/resume | `30412180103456` | `01012345678` | Male | `2004-12-18` | Pass | Existing staging draft is already at `furthestStage: 8`, so login resumes at `كارت التردد` |
 | Legacy over-age negative | `28503150103456` | `01098765432` | Male | `1985-03-15` | Pass | Should fail age-limited categories |
 | Legacy submitted demo | `30407010103456` | `01098765432` | Male | `2004-07-01` | Pass | Existing/submitted-flow demo |
-| Legacy acquaintance fillable | `30501010103456` | `01098765432` | Male | `2005-01-01` | Pass | Existing applicant flow demo |
-| Legacy acquaintance expired | `30501010203456` | `01098765433` | Male | `2005-01-01` | Pass | Existing applicant flow demo |
+| Legacy paid/resume | `30501010103456` | `01098765432` | Male | `2005-01-01` | Pass | Existing staging draft is at `furthestStage: 6`, so login resumes after payment |
+| Fresh seeded general | `30501010203456` | `01098765433` | Male | `2005-01-01` | Pass | Current staging draft has `furthestStage: 0`; use this for a fresh general first-step test |
 | Legacy specialized identity | `30502010103456` | `01098765434` | Male | `1990-02-15` | Pass | Specialized identity sample if settings are configured |
 | Legacy law identity | `30503010103456` | `01098765435` | Male | `1988-09-22` | Pass | Law identity sample if settings are configured |
 | MOI not-found/manual path | `30506200103456` | `01055555555` | Male from NID | `2005-06-20` | Pass only through derived/manual fallback | Use to test unknown-MOI fallback |
@@ -116,7 +116,7 @@ These are syntactically valid NIDs for fallback/manual testing. Use any valid mo
 
 | Case | NID | Mobile | Derived gender | DOB | Expected category behavior |
 |---|---:|---:|---|---|---|
-| General male in age | `30606060123451` | `01066000101` | Male | `2006-06-06` | `officers_general` visible |
+| General male in age | `30501010203456` | `01098765433` | Male | `2005-01-01` | `officers_general` visible from a fresh seeded draft |
 | General female same age | `30606060123460` | `01077000001` | Female | `2006-06-06` | `officers_general` hidden by gender |
 | General male under age | `31006060123451` | `01077000002` | Male | `2010-06-06` | `officers_general` hidden by age |
 | General male over age | `30201010123451` | `01077000003` | Male | `2002-01-01` | `officers_general` hidden by age |
