@@ -24,6 +24,7 @@
  *   GET  /api/applicant/acquaintance-doc           → AcquaintanceDocResponse
  *   PATCH /api/applicant/acquaintance-doc          → AcquaintanceDocResponse
  *   GET  /api/applicant/acquaintance-doc/print     → AcquaintanceDocResponse
+ *   GET  /api/admission-setup/declaration/published → PublishedDeclaration | null
  *   GET  /api/lookups/tests?isActive=true          → active test names/order
  *   GET  /api/cycles/:cycleId/categories/:categoryId/exam-plan
  *                                                  → configured cycle tests
@@ -95,6 +96,23 @@ export interface ExamDateSettings {
   /** Booking-window in days before each exam date during which the applicant
    *  may select that slot. Slots farther out are hidden until the window opens. */
   examSlotSelectionWindowDays: number | null;
+}
+
+export interface PublishedDeclarationDocument {
+  fileName: string;
+  fileUrl: string;
+  size: number;
+}
+
+export interface PublishedDeclaration {
+  id: string;
+  cycleId: string;
+  mode: 'text' | 'pdf';
+  bodyAr?: string;
+  document?: PublishedDeclarationDocument | null;
+  version: number;
+  effectiveFrom: string;
+  publishedAt?: string;
 }
 
 export interface AcquaintanceDocStatus {
@@ -433,6 +451,25 @@ export const applicantPortalService = {
 
     await simulateLatency(100, 200);
     return { examDaysPerApplicant: null, examSlotSelectionWindowDays: null };
+  },
+
+  async getPublishedDeclaration(): Promise<PublishedDeclaration | null> {
+    if (isBackendEnabled()) {
+      return adminApiClient.get<PublishedDeclaration | null>('/api/admission-setup/declaration/published');
+    }
+
+    await simulateLatency(100, 200);
+    return {
+      id: 'DECL-MOCK-ACTIVE',
+      cycleId: DRAFT.cycleId,
+      mode: 'text',
+      bodyAr:
+        'أقر بأنني اطلعت على شروط الإلتحاق بأكاديمية الشرطة، وأن جميع البيانات والمستندات المقدمة صحيحة ومطابقة للأوراق الثبوتية، وألتزم بالحضور في المواعيد المحددة وإحضار الأصول المطلوبة يوم الاختبار.',
+      document: null,
+      version: 1,
+      effectiveFrom: new Date().toISOString(),
+      publishedAt: new Date().toISOString(),
+    };
   },
 
   /** Admin-only: update one or more exam result fields for a given applicant.
