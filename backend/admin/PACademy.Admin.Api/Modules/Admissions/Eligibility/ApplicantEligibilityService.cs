@@ -596,7 +596,7 @@ public sealed class ApplicantEligibilityService(
                 Rules = [rule],
                 RequiredSchoolCategoryCodes = EligibilityJson.StringArray(rule.SchoolCategoryCodesJson),
                 RequiredGraduationYears = EligibilityJson.IntArray(rule.GraduationYearsJson),
-                AllowedGenders = EligibilityJson.StringArray(rule.GenderTypesJson),
+                AllowedGenders = ResolveAllowedGenders(category.CategoryLookup, rule),
                 MaxAge = rule.MaxAge,
                 MinAge = rule.AgeMin ?? EligibilityJson.IntProp(category.CategoryLookup, "minAge") ?? 17,
                 AgeReferenceDate = rule.AgeReferenceDate,
@@ -628,6 +628,39 @@ public sealed class ApplicantEligibilityService(
 
         return best ?? new CategoryEvaluation(RunChecks(applicant, category, lookups), null, [], null, ["لا توجد إعدادات قبول نشطة لهذه الفئة"]);
     }
+
+    private static IReadOnlyList<string> ResolveAllowedGenders(
+        JsonObject categoryLookup,
+        ApplicationSettingsGraduationYearEntity rule)
+    {
+        var categoryGenders = EligibilityJson.StringArray(categoryLookup, "genderScope");
+        if (categoryGenders.Count == 0)
+        {
+            var conditionGender = EligibilityJson.FirstString(
+                EligibilityJson.ObjectProp(categoryLookup, "conditions"),
+                "gender");
+            if (!string.IsNullOrWhiteSpace(conditionGender) &&
+                !EligibilityJson.TextEquals(conditionGender, "any"))
+            {
+                categoryGenders = [conditionGender];
+            }
+        }
+
+        var ruleGenders = EligibilityJson.StringArray(rule.GenderTypesJson);
+        if (categoryGenders.Count == 0) return DistinctGenderValues(ruleGenders);
+        if (ruleGenders.Count == 0) return DistinctGenderValues(categoryGenders);
+
+        return DistinctGenderValues(ruleGenders
+            .Where(ruleGender =>
+                categoryGenders.Any(categoryGender =>
+                    EligibilityJson.TextEquals(categoryGender, ruleGender))));
+    }
+
+    private static IReadOnlyList<string> DistinctGenderValues(IEnumerable<string> values) =>
+        values
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
 
     private static EligibilityChecks RunChecks(
         ApplicantEligibilityContext applicant,

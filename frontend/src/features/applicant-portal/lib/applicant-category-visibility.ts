@@ -1,13 +1,17 @@
 type ApplicantCategoryTypeValue = 'pre_university' | 'university' | string;
+type ApplicantGender = 'male' | 'female';
 
 interface ApplicantCategoryMetadata {
   code?: string;
   key?: string;
   categoryId?: string;
+  genderScope?: readonly ApplicantGender[];
+  lockedGender?: ApplicantGender | null;
   type?: ApplicantCategoryTypeValue;
   categoryType?: ApplicantCategoryTypeValue;
   conditions?: {
     requiredQualification?: string | null;
+    gender?: ApplicantGender | 'any' | null;
   };
 }
 
@@ -24,6 +28,7 @@ interface EligibilityCategoryMetadata {
 export interface VisibleEligibleCategoryInput {
   eligibility: readonly EligibilityCategoryMetadata[] | null | undefined;
   applicantCategories: readonly ApplicantCategoryMetadata[] | null | undefined;
+  applicantGender: ApplicantGender | null | undefined;
   hasImportedSecondaryGrade: boolean;
   selectedCategoryKey: string | null | undefined;
 }
@@ -55,6 +60,28 @@ function isPreUniversityCategory(
   );
 }
 
+function allowsApplicantGender(
+  category: ApplicantCategoryMetadata | undefined,
+  applicantGender: ApplicantGender | null | undefined,
+): boolean {
+  if (!applicantGender || !category) return true;
+
+  const conditionGender = category.conditions?.gender;
+  if (conditionGender === 'male' || conditionGender === 'female') {
+    return conditionGender === applicantGender;
+  }
+
+  if (category.lockedGender === 'male' || category.lockedGender === 'female') {
+    return category.lockedGender === applicantGender;
+  }
+
+  if (Array.isArray(category.genderScope) && category.genderScope.length > 0) {
+    return category.genderScope.includes(applicantGender);
+  }
+
+  return true;
+}
+
 /**
  * Returns the applicant-start category keys that may be rendered.
  *
@@ -66,26 +93,34 @@ function isPreUniversityCategory(
 export function deriveVisibleEligibleCategoryKeys({
   eligibility,
   applicantCategories,
+  applicantGender,
   hasImportedSecondaryGrade,
   selectedCategoryKey,
 }: VisibleEligibleCategoryInput): readonly string[] | null {
+  const metadataByKey = new Map<string, ApplicantCategoryMetadata>();
+  for (const category of applicantCategories ?? []) {
+    const key = categoryIdOf(category);
+    if (key) metadataByKey.set(key, category);
+  }
+
   if (!eligibility) {
-    return selectedCategoryKey ? [selectedCategoryKey] : null;
+    if (!selectedCategoryKey) return null;
+    return allowsApplicantGender(metadataByKey.get(selectedCategoryKey), applicantGender)
+      ? [selectedCategoryKey]
+      : [];
   }
 
   const eligibleKeys = eligibility
-    .filter((category) => category.eligible)
+    .filter((category) => (
+      category.eligible &&
+      allowsApplicantGender(metadataByKey.get(category.categoryId), applicantGender)
+    ))
     .map((category) => category.categoryId);
 
   if (!hasImportedSecondaryGrade) {
     return eligibleKeys;
   }
 
-  const metadataByKey = new Map<string, ApplicantCategoryMetadata>();
-  for (const category of applicantCategories ?? []) {
-    const key = categoryIdOf(category);
-    if (key) metadataByKey.set(key, category);
-  }
   const verdictByKey = new Map(eligibility.map((category) => [category.categoryId, category]));
   const secondaryKeys = eligibleKeys.filter((key) =>
     isPreUniversityCategory(key, metadataByKey.get(key), verdictByKey.get(key)),

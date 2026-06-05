@@ -72,6 +72,7 @@ import {
   deriveVisibleEligibleCategoryKeys,
   filterApplicantCategoriesByVisibleKeys,
 } from '../lib/applicant-category-visibility';
+import { normalizeApplicantGender } from '../lib/applicant-gender';
 
 const COHORT_LABEL: Record<AdmissionCycle['cohort'], string> = {
   male: 'الذكور',
@@ -147,6 +148,9 @@ export function CategorySelectionPage(): JSX.Element {
 
   const categoriesQuery = useCategories(effectiveCycleId ?? undefined);
   const applicantNationalId = identity?.nationalId ?? storeNid;
+  const applicantGender = applicantNationalId
+    ? normalizeApplicantGender(identity?.gender, applicantNationalId)
+    : null;
   const eligibilityCategoriesQuery = useEligibleCategories(
     applicantNationalId,
     effectiveCycleId,
@@ -180,11 +184,13 @@ export function CategorySelectionPage(): JSX.Element {
           ...(applicantCategoriesQuery.data ?? []),
           ...(categoriesQuery.data ?? []),
         ],
+        applicantGender,
         hasImportedSecondaryGrade: Boolean(eligibilityCategoriesQuery.data?.grade),
         selectedCategoryKey,
       }),
     [
       applicantCategoriesQuery.data,
+      applicantGender,
       categoriesQuery.data,
       eligibilityCategoriesQuery.data,
       selectedCategoryKey,
