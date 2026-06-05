@@ -376,6 +376,77 @@ public sealed class ApplicantEligibilityServiceTests
     }
 
     [Fact]
+    public async Task CategoryGenderScopeConstrainsBroadRuleGenderSet()
+    {
+        await using var db = CreateDb();
+        await SeedBaseAsync(db, schoolCategoryCode: "SCH-EXT");
+        var now = DateTimeOffset.UtcNow;
+        db.ApplicationSettingsCategoryConfigs.Add(new ApplicationSettingsCategoryConfigEntity
+        {
+            Id = "acc-pe",
+            CategoryId = "physical_education_bachelor",
+            IsActive = true,
+            SortOrder = 2,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+        db.ApplicationSettingsCategorySpecializations.Add(new ApplicationSettingsCategorySpecializationEntity
+        {
+            Id = "acs-pe",
+            ConfigId = "acc-pe",
+            SpecializationId = "SPC-71",
+            IsActive = true,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+        db.ApplicationSettingsGraduationYears.Add(new ApplicationSettingsGraduationYearEntity
+        {
+            Id = "asy-pe",
+            CategorySpecializationId = "acs-pe",
+            GraduationYearsJson = "[2026]",
+            GenderTypesJson = JsonSerializer.Serialize(new[] { "male", "female" }),
+            MaritalStatusCodesJson = "[]",
+            AgeMin = 17,
+            MaxAge = 30,
+            DivisionCodesJson = "[]",
+            SchoolCategoryCodesJson = "[]",
+            ApplicationStartDate = new DateOnly(2026, 6, 4),
+            ApplicationEndDate = new DateOnly(2026, 6, 6),
+            AgeReferenceDate = new DateOnly(2026, 6, 4),
+            IsActive = true,
+            GradeKind = "TAGDIR",
+            MinPercentage = null,
+            AcademicGradeId = "AGR-04",
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+        db.LookupRows.Add(Lookup("applicant-categories", "physical_education_bachelor", "بكالوريوس تربية رياضية", new JsonObject
+        {
+            ["minAge"] = 17,
+            ["type"] = "university",
+            ["genderScope"] = new JsonArray("female"),
+            ["conditions"] = new JsonObject
+            {
+                ["gender"] = "female"
+            }
+        }));
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var service = CreateService(db);
+
+        var maleResponse = await service.GetEligibleCategoriesAsync("30001010123457", CancellationToken.None, includeIneligible: true);
+        var malePe = Assert.Single(maleResponse.Categories, x => x.CategoryId == "physical_education_bachelor");
+        Assert.False(malePe.Eligible);
+        Assert.False(malePe.Checks.GenderCheck.Passed);
+        Assert.Equal(["female"], malePe.Checks.GenderCheck.AllowedGender);
+
+        var femaleResponse = await service.GetEligibleCategoriesAsync("30001010123467", CancellationToken.None);
+        var femalePe = Assert.Single(femaleResponse.Categories, x => x.CategoryId == "physical_education_bachelor");
+        Assert.True(femalePe.Eligible);
+        Assert.True(femalePe.Checks.GenderCheck.Passed);
+        Assert.Equal(["female"], femalePe.Checks.GenderCheck.AllowedGender);
+    }
+
+    [Fact]
     public async Task LookupSourceMismatchFailsEvenWhenCertificateTypeMatches()
     {
         await using var db = CreateDb();
