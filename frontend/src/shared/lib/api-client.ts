@@ -92,12 +92,26 @@ function applicantApiBaseUrl(): string {
 }
 
 function readAuthToken(surface: AuthSurface): string | null {
-  if (typeof sessionStorage === 'undefined') return null;
-  const raw = sessionStorage.getItem(AUTH_STORAGE_KEYS[surface]);
+  const raw = readStoredAuth(AUTH_STORAGE_KEYS[surface]);
   const token = readTokenFromRawAuth(raw, surface);
   if (token) return token;
 
-  return readTokenFromRawAuth(sessionStorage.getItem(LEGACY_AUTH_STORAGE_KEY), surface);
+  return readTokenFromRawAuth(readStoredAuth(LEGACY_AUTH_STORAGE_KEY), surface);
+}
+
+function readStoredAuth(key: string): string | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw) return raw;
+  } catch {
+    /* localStorage unavailable — try tab storage. */
+  }
+
+  try {
+    return sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
 }
 
 function readTokenFromRawAuth(raw: string | null, surface: AuthSurface): string | null {

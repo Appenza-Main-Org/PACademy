@@ -1,13 +1,12 @@
 /**
- * Auth store — surface-aware sessionStorage persistence.
+ * Auth store — surface-aware browser persistence.
  *
  * Staff and applicant sessions intentionally live under different keys so a
  * saved applicant session cannot hijack /staff-login, and vice versa.
  *
- * Cross-tab logout: sessionStorage is per-tab, and tabs opened via
- * Ctrl-/Cmd-Click inherit a one-time copy. Without sync, logging out in one
- * tab leaves every other tab "logged in" until refresh. A BroadcastChannel
- * fans the logout out to every tab on the same surface.
+ * Cross-tab logout: sessions are shared across same-browser tabs/windows so
+ * staff can open admin links in a new tab without logging in again. A
+ * BroadcastChannel fans logout out to every tab on the same surface.
  */
 
 import { create } from 'zustand';
@@ -62,28 +61,71 @@ function parsePersistedAuth(raw: string | null): PersistedAuthState | null {
   }
 }
 
-function readAuthSession(surface: AuthSurface): Pick<AuthState, 'user' | 'lastActivityAt'> {
-  if (typeof sessionStorage === 'undefined') return { user: null, lastActivityAt: null };
+function readStoredAuth(key: string): string | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw) return raw;
+  } catch {
+    /* localStorage unavailable — try tab storage. */
+  }
 
-  const persisted = parsePersistedAuth(sessionStorage.getItem(AUTH_STORAGE_KEYS[surface]));
+  try {
+    return sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredAuth(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* localStorage unavailable — tab storage still preserves this tab. */
+  }
+
+  try {
+    sessionStorage.setItem(key, value);
+  } catch {
+    /* storage unavailable — in-memory Zustand state still works. */
+  }
+}
+
+function removeStoredAuth(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    /* localStorage unavailable. */
+  }
+
+  try {
+    sessionStorage.removeItem(key);
+  } catch {
+    /* sessionStorage unavailable. */
+  }
+}
+
+function readAuthSession(surface: AuthSurface): Pick<AuthState, 'user' | 'lastActivityAt'> {
+  const persisted = parsePersistedAuth(readStoredAuth(AUTH_STORAGE_KEYS[surface]));
   const user = persisted?.state?.user ?? null;
   if (user && getAuthSurfaceForUser(user) === surface) {
+    const lastActivityAt = typeof persisted?.state?.lastActivityAt === 'number'
+      ? persisted.state.lastActivityAt
+      : user.loggedInAt;
+    writeAuthSession(surface, user, lastActivityAt);
     return {
       user,
-      lastActivityAt: typeof persisted?.state?.lastActivityAt === 'number'
-        ? persisted.state.lastActivityAt
-        : user.loggedInAt,
+      lastActivityAt,
     };
   }
 
-  const legacy = parsePersistedAuth(sessionStorage.getItem(LEGACY_AUTH_STORAGE_KEY));
+  const legacy = parsePersistedAuth(readStoredAuth(LEGACY_AUTH_STORAGE_KEY));
   const legacyUser = legacy?.state?.user ?? null;
   if (legacyUser && getAuthSurfaceForUser(legacyUser) === surface) {
     const lastActivityAt = typeof legacy?.state?.lastActivityAt === 'number'
       ? legacy.state.lastActivityAt
       : legacyUser.loggedInAt;
     writeAuthSession(surface, legacyUser, lastActivityAt);
-    sessionStorage.removeItem(LEGACY_AUTH_STORAGE_KEY);
+    removeStoredAuth(LEGACY_AUTH_STORAGE_KEY);
     return { user: legacyUser, lastActivityAt };
   }
 
@@ -91,16 +133,14 @@ function readAuthSession(surface: AuthSurface): Pick<AuthState, 'user' | 'lastAc
 }
 
 function writeAuthSession(surface: AuthSurface, user: AuthUser, lastActivityAt: number): void {
-  if (typeof sessionStorage === 'undefined') return;
   const payload: PersistedAuthState = { state: { user, lastActivityAt } };
-  sessionStorage.setItem(AUTH_STORAGE_KEYS[surface], JSON.stringify(payload));
-  sessionStorage.removeItem(LEGACY_AUTH_STORAGE_KEY);
+  writeStoredAuth(AUTH_STORAGE_KEYS[surface], JSON.stringify(payload));
+  removeStoredAuth(LEGACY_AUTH_STORAGE_KEY);
 }
 
 function removeAuthSession(surface: AuthSurface): void {
-  if (typeof sessionStorage === 'undefined') return;
-  sessionStorage.removeItem(AUTH_STORAGE_KEYS[surface]);
-  sessionStorage.removeItem(LEGACY_AUTH_STORAGE_KEY);
+  removeStoredAuth(AUTH_STORAGE_KEYS[surface]);
+  removeStoredAuth(LEGACY_AUTH_STORAGE_KEY);
 }
 
 const initialSession = readAuthSession(getAuthSurfaceForPath());
