@@ -97,6 +97,24 @@ function toIsoDate(d: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+function toDateKey(value: string): string {
+  return value.slice(0, 10);
+}
+
+function instanceKey(input: {
+  cycleId: string;
+  categoryKey: string;
+  definitionCode: string;
+  date: string;
+}): string {
+  return [
+    input.cycleId,
+    input.categoryKey,
+    input.definitionCode,
+    toDateKey(input.date),
+  ].join('|');
+}
+
 /* Friday is the weekly day off — admins shouldn't be able to schedule
  * exam committees on it. `Date.getDay()` returns 5 for Friday. */
 function isFriday(d: Date): boolean {
@@ -220,12 +238,15 @@ export function CommitteeInstanceAddForm({
       }
     }
 
-    /* Partition: rows already present in this cycle accumulate; rows
-     * missing are inserted. Keyed by (definitionCode, date) since cycle
-     * is fixed in this form. */
+    /* Partition: rows already present for the exact
+     * (cycle × category × definition × date) accumulate; rows missing are
+     * inserted. Keep the cycle/category scope explicit because the API can
+     * legally return broader datasets and committee codes are not enough
+     * to identify a category-day on their own. */
     const existingByKey = new Map<string, CommitteeInstance>();
     for (const e of instancesQuery.data ?? []) {
-      existingByKey.set(`${e.definitionCode}|${e.date}`, e);
+      if (e.cycleId !== cycle.id) continue;
+      existingByKey.set(instanceKey(e), e);
     }
     const definitionNameByCode = new Map<string, string>();
     for (const def of allDefinitions) definitionNameByCode.set(def.code, def.name);
@@ -233,7 +254,14 @@ export function CommitteeInstanceAddForm({
     const updates: CapacityIncreaseUpdate[] = [];
     const inserts: typeof targets = [];
     for (const t of targets) {
-      const existing = existingByKey.get(`${t.definitionCode}|${t.date}`);
+      const existing = existingByKey.get(
+        instanceKey({
+          cycleId: cycle.id,
+          categoryKey: t.categoryKey,
+          definitionCode: t.definitionCode,
+          date: t.date,
+        }),
+      );
       if (existing) {
         updates.push({
           id: existing.id,
