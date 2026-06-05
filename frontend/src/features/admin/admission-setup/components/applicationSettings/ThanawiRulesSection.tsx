@@ -57,7 +57,6 @@ import {
 import { cn } from '@/shared/lib/cn';
 import { ExcellenceModeToggle } from './ExcellenceModeToggle';
 import { OperatorScoreField } from './OperatorScoreField';
-import { RuleRangeIndicator } from './RuleRangeIndicator';
 
 const EMPTY_INPUT: ThanawiRuleRowInput = {
   excellenceMode: 'GRADES',
@@ -986,10 +985,6 @@ function ThanawiForm({
         </div>
       </Card>
 
-      <RuleRangeIndicator
-        rows={rows}
-        overlappingIds={new Set(overlapsById.keys())}
-      />
       <ThanawiOverlapBanner
         pairs={overlapPairs}
         rows={rows}
