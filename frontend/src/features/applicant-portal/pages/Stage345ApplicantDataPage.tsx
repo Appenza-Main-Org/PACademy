@@ -23,7 +23,8 @@ import { useNavigate } from 'react-router-dom';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import {
   Check,
-  Download,
+  ExternalLink,
+  FileText,
   GraduationCap,
   Info,
   MapPin,
@@ -48,7 +49,9 @@ import { isBackendEnabled } from '@/shared/lib/api-client';
 import { zodResolver } from '@/shared/lib/zod-resolver';
 import { ROUTES } from '@/config/routes';
 import { stage345Schema, type Stage345Values } from '../schemas';
+import { usePublishedDeclaration } from '../api/applicantPortal.queries';
 import { applicantPortalService } from '../api/applicantPortal.service';
+import type { PublishedDeclaration } from '../api/applicantPortal.service';
 import { saveProfileSnapshot } from '../lib/profileData';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import {
@@ -286,6 +289,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
    * literally cannot proceed. Client direction 2026-05-21. */
   const maritalBlocked =
     selectedCategoryKey === 'officers_general' && manualPersonal.maritalStatus === 'married';
+  const publishedDeclarationQuery = usePublishedDeclaration();
 
   /* قسم الضباط (قسم عام) is male-only — hide the gender dropdown for
    * the manual-entry path and force the stored value to 'male' so
@@ -1337,6 +1341,12 @@ export function Stage345ApplicantDataPage(): JSX.Element {
       </Card>
 
       <Card className="order-6">
+        <DeclarationReviewPanel
+          declaration={publishedDeclarationQuery.data ?? null}
+          isLoading={publishedDeclarationQuery.isLoading}
+          hasError={publishedDeclarationQuery.isError}
+        />
+
         <Controller
           control={control}
           name="declaration"
@@ -1363,15 +1373,6 @@ export function Stage345ApplicantDataPage(): JSX.Element {
         )}
         <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
           <Button
-            type="button"
-            variant="secondary"
-            size="lg"
-            leadingIcon={<Download size={16} strokeWidth={1.75} />}
-            onClick={downloadInstructions}
-          >
-            تحميل ملف الإرشادات
-          </Button>
-          <Button
             type="submit"
             variant="primary"
             size="lg"
@@ -1396,102 +1397,65 @@ export function Stage345ApplicantDataPage(): JSX.Element {
   );
 }
 
-/**
- * Open the applicant instructions as a printable document in a new
- * window and immediately trigger the browser's print dialog so the
- * user can save it as PDF. Avoids pulling a heavy PDF library for
- * what's a one-off demo asset.
- */
-function downloadInstructions(): void {
-  const html = `<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8">
-  <title>إرشادات التقديم — أكاديمية الشرطة</title>
-  <style>
-    @page { size: A4; margin: 18mm; }
-    * { box-sizing: border-box; }
-    body {
-      font-family: 'Cairo', Tahoma, system-ui, Arial;
-      color: #1a1a1a;
-      line-height: 1.85;
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 16px;
-    }
-    header { border-bottom: 3px solid #1a6868; padding-bottom: 12px; margin-bottom: 24px; }
-    header h1 { font-size: 22px; color: #1a6868; margin: 0 0 4px; }
-    header p { font-size: 12px; color: #555; margin: 0; }
-    h2 { font-size: 16px; color: #1a6868; margin: 24px 0 8px; }
-    p { margin: 8px 0; }
-    ul { padding-right: 22px; margin: 8px 0; }
-    li { margin-bottom: 6px; }
-    .note { background: #fff8e6; border: 1px dashed #d4a445; padding: 10px 14px; border-radius: 6px; font-size: 13px; }
-    .meta { font-size: 11px; color: #777; margin-top: 32px; border-top: 1px dashed #ccc; padding-top: 12px; }
-  </style>
-</head>
-<body>
-  <header>
-    <h1>إرشادات التقديم لأكاديمية الشرطة</h1>
-    <p>منظومة القبول — وزارة الداخلية</p>
-  </header>
-
-  <h2>قبل التقدم</h2>
-  <ul>
-    <li>راجع البيانات المُسجَّلة على بوابة وزارة الداخلية (الاسم رباعي والرقم القومي ورقم المحمول)، وتأكد من صحتها.</li>
-    <li>ستُستخدم هذه البيانات لاستكمال إجراءات التقدم وإرسال الإخطارات.</li>
-    <li>للتعديل على البيانات الخاطئة يجب التوجه إلى الجهة المختصة قبل بدء التقدم.</li>
-  </ul>
-
-  <h2>أثناء التقدم</h2>
-  <ul>
-    <li>سيُطلب منك إدخال بيانات الدراسة بدقة طبقاً لأوراقك الثبوتية.</li>
-    <li>أيّ مخالفة بين البيانات المُدرَجة والأوراق الأصلية قد تؤدي إلى منعك من الاختبار.</li>
-    <li>تأكد من إدخال البيانات الشخصية، محل الإقامة والميلاد، وبيانات التواصل بشكل كامل.</li>
-    <li>أدخل بيانات أفراد العائلة بدقة، فهي تخضع للتحقق الأمني قبل الموافقة على الطلب.</li>
-  </ul>
-
-  <h2>مقابل الخدمة</h2>
-  <ul>
-    <li>مقابل تقديم الخدمة إلكترونياً: ٢٥٠ جنيه.</li>
-    <li>يُسدَّد مرة واحدة خلال الدورة الحالية، ويُستحَق فور تأكيد البيانات.</li>
-    <li>الدفع متاح عبر بوابة فوري.</li>
-  </ul>
-
-  <h2>يوم الاختبار</h2>
-  <ul>
-    <li>احضر إلى موقع الاختبار قبل الموعد المُحدَّد بنصف ساعة على الأقل.</li>
-    <li>أحضر معك المستندات الأصلية: بطاقة الرقم القومي، أصل الثانوية العامة، شهادة طبية معتمدة، كارت التردد المطبوع، ٤ صور شخصية حديثة، شهادة حسن السير والسلوك.</li>
-    <li>احرص على طباعة بطاقة التردد والإقرار قبل موعد أول اختبار، وعلى توقيعها من المتقدم وولي الأمر.</li>
-  </ul>
-
-  <p class="note">
-    تأكيدك على الإقرار الإلكتروني يعني موافقتك على أن البيانات المُدرَجة صحيحة ومطابقة للأوراق الثبوتية،
-    وأنك ستلتزم بإحضارها يوم الاختبار.
-  </p>
-
-  <p class="meta">
-    وثيقة الإرشادات للعرض والتحميل · أكاديمية الشرطة — وزارة الداخلية · ${new Date().getFullYear()}
-  </p>
-</body>
-</html>`;
-  const win = window.open('', '_blank');
-  if (!win) {
-    toast('يرجى السماح بفتح النوافذ المنبثقة لتنزيل ملف الإرشادات', 'warning');
-    return;
-  }
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
-  /* Wait for fonts/layout to settle before triggering print so the
-   * Arabic text renders correctly in the PDF preview. */
-  window.setTimeout(() => {
-    win.focus();
-    win.print();
-  }, 350);
-}
-
 /* ─── helpers ─────────────────────────────────────────────────────── */
+
+function DeclarationReviewPanel({
+  declaration,
+  isLoading,
+  hasError,
+}: {
+  declaration: PublishedDeclaration | null;
+  isLoading: boolean;
+  hasError: boolean;
+}): JSX.Element {
+  const isText = declaration?.mode === 'text' && Boolean(declaration.bodyAr?.trim());
+  const isPdf = declaration?.mode === 'pdf' && Boolean(declaration.document?.fileUrl);
+
+  return (
+    <div className="mb-4 rounded-md border border-border-subtle bg-ink-50 p-4">
+      <header className="mb-3 flex items-center gap-2">
+        <FileText size={16} strokeWidth={1.75} className="text-teal-700" />
+        <h3 className="font-ar-display text-md font-bold text-ink-900">
+          شروط الإلتحاق والإقرار الإلكتروني
+        </h3>
+        {declaration && (
+          <Badge tone="neutral">{declaration.mode === 'text' ? 'نص' : 'PDF'}</Badge>
+        )}
+      </header>
+
+      {isLoading ? (
+        <LoadingState label="جاري تحميل الإقرار المعتمد..." />
+      ) : hasError ? (
+        <p className="text-sm leading-relaxed text-ink-700">
+          تعذر تحميل الإقرار المعتمد حالياً. يمكنك المتابعة وسيتم التحقق من الإقرار عند مراجعة الطلب.
+        </p>
+      ) : isText ? (
+        <div className="max-h-56 overflow-auto whitespace-pre-wrap rounded-md border border-border-subtle bg-surface-card p-3 text-sm leading-relaxed text-ink-900">
+          {declaration.bodyAr}
+        </div>
+      ) : isPdf ? (
+        <div className="flex flex-col gap-2 rounded-md border border-border-subtle bg-surface-card p-3 text-sm text-ink-800">
+          <p>
+            الإقرار المعتمد لهذه الدورة محفوظ كمستند PDF. افتح المستند وراجعه قبل تأكيد الموافقة.
+          </p>
+          <a
+            href={declaration.document!.fileUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 self-start rounded-md px-2 py-1 text-2xs font-medium text-teal-700 hover:bg-teal-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
+          >
+            <ExternalLink size={12} strokeWidth={1.75} />
+            فتح الإقرار
+          </a>
+        </div>
+      ) : (
+        <p className="text-sm leading-relaxed text-ink-700">
+          أقر بأنني اطلعت على شروط الإلتحاق بأكاديمية الشرطة، وأن جميع البيانات والمستندات المقدمة صحيحة ومطابقة للأوراق الثبوتية، وألتزم بالحضور في المواعيد المحددة وإحضار الأصول المطلوبة يوم الاختبار.
+        </p>
+      )}
+    </div>
+  );
+}
 
 function SectionHeader({
   icon,

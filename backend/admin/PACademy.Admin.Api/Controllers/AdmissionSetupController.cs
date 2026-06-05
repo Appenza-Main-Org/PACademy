@@ -8,7 +8,9 @@ namespace PACademy.Admin.Api.Controllers;
 
 [ApiController]
 [Route("")]
-public sealed class AdmissionSetupController(OperationalRecordsService records, ApplicationSettingsService appSettings) : ControllerBase
+public sealed class AdmissionSetupController(
+    OperationalRecordsService records,
+    ApplicationSettingsService appSettings) : ControllerBase
 {
     private const int MaxDeclarationPdfBytes = 10 * 1024 * 1024;
 
@@ -31,6 +33,25 @@ public sealed class AdmissionSetupController(OperationalRecordsService records, 
         var id = DeclarationId(cycleId);
         var current = await records.GetAsync(DeclarationModule(cycleId), id, ct);
         return Ok(NormalizeDeclaration(cycleId, current));
+    }
+
+    [HttpGet("api/admission-setup/declaration/published")]
+    public async Task<ActionResult<JsonObject?>> PublishedDeclaration(CancellationToken ct)
+    {
+        var cycles = await records.ListAsync("cycles", ct);
+        var cycle = cycles.FirstOrDefault(IsActiveCycle) ?? cycles.FirstOrDefault();
+        var cycleId = cycle is null ? null : AdminRecordJson.StringProp(cycle, "id");
+        if (string.IsNullOrWhiteSpace(cycleId)) return Ok(null);
+
+        var current = NormalizeDeclaration(
+            cycleId,
+            await records.GetAsync(DeclarationModule(cycleId), DeclarationId(cycleId), ct));
+        var isPublished =
+            !string.IsNullOrWhiteSpace(AdminRecordJson.StringProp(current, "publishedAt")) ||
+            BoolProp(current, "published") == true;
+        if (!isPublished || !HasDeclarationContentForSelectedMode(current)) return Ok(null);
+
+        return Ok(ProjectPublishedDeclaration(current));
     }
 
     [HttpPut("api/admission-setup/cycles/{cycleId}/declaration")]
@@ -412,6 +433,44 @@ public sealed class AdmissionSetupController(OperationalRecordsService records, 
         return !string.IsNullOrWhiteSpace(AdminRecordJson.StringProp(doc, "fileName")) &&
             !string.IsNullOrWhiteSpace(AdminRecordJson.StringProp(doc, "fileUrl"));
     }
+
+    private static JsonObject ProjectPublishedDeclaration(JsonObject declaration)
+    {
+        var projected = AdminRecordJson.Clone(declaration);
+        var mode = ValidDeclarationMode(AdminRecordJson.StringProp(projected, "mode"));
+        projected["mode"] = mode;
+        if (mode == "text")
+        {
+            projected["document"] = null;
+        }
+        else
+        {
+            projected["bodyAr"] = "";
+        }
+        return projected;
+    }
+
+    private static bool HasDeclarationContentForSelectedMode(JsonObject declaration)
+    {
+        var mode = ValidDeclarationMode(AdminRecordJson.StringProp(declaration, "mode"));
+        if (mode == "text") return !string.IsNullOrWhiteSpace(AdminRecordJson.StringProp(declaration, "bodyAr"));
+        if (!declaration.TryGetPropertyValue("document", out var document) || document is not JsonObject doc)
+        {
+            return false;
+        }
+        return !string.IsNullOrWhiteSpace(AdminRecordJson.StringProp(doc, "fileName")) &&
+            !string.IsNullOrWhiteSpace(AdminRecordJson.StringProp(doc, "fileUrl"));
+    }
+
+    private static bool? BoolProp(JsonObject obj, string key)
+    {
+        if (!obj.TryGetPropertyValue(key, out var node) || node is null) return null;
+        return bool.TryParse(node.ToString().Trim().Trim('"'), out var parsed) ? parsed : null;
+    }
+
+    private static bool IsActiveCycle(JsonObject cycle) =>
+        BoolProp(cycle, "isActive") == true ||
+        AdminRecordJson.StringProp(cycle, "status") is "active" or "open";
 
     private static void ValidateExamDateRanges(JsonObject body)
     {

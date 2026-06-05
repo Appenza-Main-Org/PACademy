@@ -14,6 +14,7 @@ export const apKeys = {
     [...apKeys.all, 'follow-up-exam-plan', cycleId, categoryKey] as const,
   applicationInstructions: () => [...apKeys.all, 'application-instructions'] as const,
   examDateSettings: () => [...apKeys.all, 'exam-date-settings'] as const,
+  publishedDeclaration: () => [...apKeys.all, 'published-declaration'] as const,
   moi: (nid: string) => [...apKeys.all, 'moi', nid] as const,
   adminStatus: (identifier: string) => [...apKeys.all, 'admin-status', identifier] as const,
 };
@@ -155,6 +156,14 @@ export function useExamDateSettings() {
   return useQuery({
     queryKey: apKeys.examDateSettings(),
     queryFn: () => applicantPortalService.getExamDateSettings(),
+    ...noServerStateCacheOptions,
+  });
+}
+
+export function usePublishedDeclaration() {
+  return useQuery({
+    queryKey: apKeys.publishedDeclaration(),
+    queryFn: () => applicantPortalService.getPublishedDeclaration(),
     ...noServerStateCacheOptions,
   });
 }
