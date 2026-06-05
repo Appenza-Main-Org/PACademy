@@ -75,7 +75,6 @@ import {
 } from '../../lib/ruleOverlapValidation';
 import { ExcellenceModeToggle } from './ExcellenceModeToggle';
 import { OperatorScoreField } from './OperatorScoreField';
-import { RuleRangeIndicator } from './RuleRangeIndicator';
 
 /* ── Static option sets ───────────────────────────────────────────── */
 
@@ -1066,10 +1065,6 @@ function SpecializedOfficersWorkspace({
             </span>
           )}
         </div>
-        <RuleRangeIndicator
-          rows={categoryRows}
-          overlappingIds={new Set(overlapsById.keys())}
-        />
         <UniversityOverlapBanner pairs={overlapPairs} rows={categoryRows} />
         <LocalUniversityGrid
           rows={categoryRows}
@@ -1824,10 +1819,6 @@ function PerSpecForm({
 
       {!hideRowsGrid && (
         <>
-          <RuleRangeIndicator
-            rows={rows}
-            overlappingIds={new Set(overlapsById.keys())}
-          />
           <UniversityOverlapBanner pairs={overlapPairs} rows={rows} />
           <LocalUniversityGrid
             rows={rows}
