@@ -78,7 +78,7 @@ This document lists the applicant first-step NID/mobile samples and the configur
 | Configured specializations | `acs-4` جراحة عامة, `acs-5` مسالك بولية, `acs-6` صدرية |
 | Cycle status | Open |
 | Application settings year rows | Not configured in the current summary |
-| Expected applicant visibility | Should stay unavailable until an active year rule exists |
+| Current staging behavior | Male applicants aged 17 to 30 can still match the active cycle draft rule; `29202150167831` is rejected because age is 34 |
 
 ## How NID Is Linked With Mobile
 
@@ -100,7 +100,7 @@ Use these first because they are authoritative staging MOI records.
 | General officers full-cycle/resume | `30606060123451` | `01066000101` | Male | `2006-06-06` | Pass | Existing staging draft is already at `furthestStage: 8`, so login resumes at `كارت التردد` |
 | PE positive | `30103150246828` | `01066000104` | Female | `2001-03-15` | Pass | `physical_education_bachelor` visible |
 | Law seeded identity | `29809220145624` | `01066000103` | Female | `1998-09-22` | Pass | No Law category until active year rule is configured |
-| Specialized seeded identity | `29202150167831` | `01066000102` | Male | `1992-02-15` | Pass | No Specialized category until active year rule is configured; also age is 34 |
+| Specialized seeded identity | `29202150167831` | `01066000102` | Male | `1992-02-15` | Pass | Auth succeeds, but no category is visible; specialized fails age check because max age is 30 and the applicant is 34 |
 | Legacy general full-cycle/resume | `30412180103456` | `01012345678` | Male | `2004-12-18` | Pass | Existing staging draft is already at `furthestStage: 8`, so login resumes at `كارت التردد` |
 | Legacy over-age negative | `28503150103456` | `01098765432` | Male | `1985-03-15` | Pass | Should fail age-limited categories |
 | Legacy submitted demo | `30407010103456` | `01098765432` | Male | `2004-07-01` | Pass | Existing/submitted-flow demo |
@@ -108,7 +108,7 @@ Use these first because they are authoritative staging MOI records.
 | Fresh seeded general | `30501010203456` | `01098765433` | Male | `2005-01-01` | Pass | Current staging draft has `furthestStage: 0`; use this for a fresh general first-step test |
 | Legacy specialized identity | `30502010103456` | `01098765434` | Male | `1990-02-15` | Pass | Specialized identity sample if settings are configured |
 | Legacy law identity | `30503010103456` | `01098765435` | Male | `1988-09-22` | Pass | Law identity sample if settings are configured |
-| MOI not-found/manual path | `30506200103456` | `01055555555` | Male from NID | `2005-06-20` | Pass only through derived/manual fallback | Use to test unknown-MOI fallback |
+| MOI not-found/manual path | `30506210123451` | `01077000014` | Male from NID | `2005-06-21` | Pass through derived/manual fallback | Use to test unknown-MOI fallback; mobile is stored on first successful login |
 
 ## Generated Edge-Case Samples
 
@@ -126,10 +126,10 @@ These are syntactically valid NIDs for fallback/manual testing. Use any valid mo
 | PE female over age | `29401010123460` | `01077000006` | Female | `1994-01-01` | `physical_education_bachelor` hidden by age |
 | Law female identity | `30102010123460` | `01077000007` | Female | `2001-02-01` | First step can pass through fallback; Law hidden until year rule is configured |
 | Law male identity | `30102010123451` | `01077000008` | Male | `2001-02-01` | First step can pass through fallback; Law hidden until year rule is configured |
-| Specialized female identity | `30104010123460` | `01077000009` | Female | `2001-04-01` | First step can pass through fallback; Specialized hidden until year rule is configured |
-| Specialized male identity | `30104010123451` | `01077000010` | Male | `2001-04-01` | First step can pass through fallback; Specialized hidden until year rule is configured |
+| Specialized female identity | `30104010123460` | `01077000009` | Female | `2001-04-01` | First step can pass through fallback; Specialized hidden by current male-only effective rule |
+| Specialized male identity | `30104010123451` | `01077000010` | Male | `2001-04-01` | First step can pass through fallback; `specialized_officers` visible on current staging |
 | Invalid NID format | `123` | `01077000011` | N/A | N/A | First step should reject format |
-| Invalid future DOB | `33001010123451` | `01077000012` | Male | `2030-01-01` | First step/eligibility should reject future DOB |
+| Invalid future DOB | `33001010123451` | `01077000012` | Male | `2030-01-01` | Frontend field validation should reject future DOB; direct API auth currently accepts it, while admin eligibility rejects it |
 | Invalid mobile format | `30606060123451` | `011` | Male | `2006-06-06` | First step should reject mobile |
 | Seeded MOI wrong mobile | `30103150246828` | `01077000013` | Female | `2001-03-15` | First step should reject credentials because seeded mobile differs |
 
