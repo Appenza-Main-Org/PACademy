@@ -106,6 +106,15 @@ function filterGenderSelection(
   );
 }
 
+function normalizeGenderSelectionForScope(
+  values: readonly string[],
+  allowed: ReadonlySet<ApplicantCategoryGenderScope>,
+  lockedGender: ApplicantCategoryGenderScope | null,
+): ApplicantCategoryGenderScope[] {
+  const filtered = filterGenderSelection(values, allowed);
+  return lockedGender && filtered.length === 0 ? [lockedGender] : filtered;
+}
+
 function sameStringSet(a: readonly string[], b: readonly string[]): boolean {
   if (a.length !== b.length) return false;
   const set = new Set(a);
@@ -1325,8 +1334,12 @@ function PerSpecForm({
     [genderOptions],
   );
   const lockedGender = genderOptions.length === 1 ? genderOptions[0] : null;
+  const emptyScopedInput = (): GeneralRuleRowInput => ({
+    ...emptyInputFor(defaultExcellenceMode),
+    type: lockedGender ? [lockedGender.value] : [],
+  });
   const [draft, setDraft] = useState<GeneralRuleRowInput>(() =>
-    emptyInputFor(defaultExcellenceMode),
+    emptyScopedInput(),
   );
   const [formResetKey, setFormResetKey] = useState(0);
   const formRef = useRef<HTMLDivElement>(null);
@@ -1431,18 +1444,34 @@ function PerSpecForm({
   const lastEditingIdRef = useRef<string | null>(null);
   if (lastEditingIdRef.current !== editingId) {
     lastEditingIdRef.current = editingId;
-    setDraft(editingRow ? rowToUniversityInput(editingRow) : emptyInputFor(defaultExcellenceMode));
+    const next = editingRow ? rowToUniversityInput(editingRow) : emptyScopedInput();
+    setDraft({
+      ...next,
+      type: normalizeGenderSelectionForScope(
+        next.type,
+        allowedGenders,
+        lockedGender?.value ?? null,
+      ),
+    });
   }
   const lastDefaultModeRef = useRef<ExcellenceMode>(defaultExcellenceMode);
   if (!isEditing && lastDefaultModeRef.current !== defaultExcellenceMode) {
     lastDefaultModeRef.current = defaultExcellenceMode;
-    setDraft(emptyInputFor(defaultExcellenceMode));
+    setDraft(emptyScopedInput());
   }
-  const sanitizedDraftType = filterGenderSelection(draft.type, allowedGenders);
+  const sanitizedDraftType = normalizeGenderSelectionForScope(
+    draft.type,
+    allowedGenders,
+    lockedGender?.value ?? null,
+  );
   if (!sameStringSet(draft.type, sanitizedDraftType)) {
     setDraft((current) => ({
       ...current,
-      type: filterGenderSelection(current.type, allowedGenders),
+      type: normalizeGenderSelectionForScope(
+        current.type,
+        allowedGenders,
+        lockedGender?.value ?? null,
+      ),
     }));
   }
   const showGradePair = draft.excellenceMode === 'TAGDIR';
@@ -1507,7 +1536,11 @@ function PerSpecForm({
    *  for the inactive branch. */
   const normalizeForSubmit = (input: GeneralRuleRowInput): GeneralRuleRowInput => ({
     ...input,
-    type: filterGenderSelection(input.type, allowedGenders),
+    type: normalizeGenderSelectionForScope(
+      input.type,
+      allowedGenders,
+      lockedGender?.value ?? null,
+    ),
     grade: showGradePair ? input.grade : '',
     gradeMax: showGradePair ? input.gradeMax : '',
     scoreMin: showScorePair ? input.scoreMin : null,
@@ -1515,7 +1548,7 @@ function PerSpecForm({
   });
 
   const resetForm = (): void => {
-    setDraft(emptyInputFor(defaultExcellenceMode));
+    setDraft(emptyScopedInput());
     setScoreMinMessage(null);
     setScoreMaxMessage(null);
     setFormResetKey((key) => key + 1);
@@ -1556,7 +1589,7 @@ function PerSpecForm({
         );
         return;
       }
-      setDraft(emptyInputFor(defaultExcellenceMode));
+      setDraft(emptyScopedInput());
       toast('تم تعديل الشرط', 'success');
       return;
     }
@@ -1676,7 +1709,11 @@ function PerSpecForm({
                 onChange={(next) =>
                   setDraft((d) => ({
                     ...d,
-                    type: filterGenderSelection(next, allowedGenders),
+                    type: normalizeGenderSelectionForScope(
+                      next,
+                      allowedGenders,
+                      lockedGender?.value ?? null,
+                    ),
                   }))
                 }
                 options={genderOptions}
