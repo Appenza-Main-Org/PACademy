@@ -8,7 +8,8 @@
  * keys include the cycle id where needed).
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useActiveCycle, useCycles } from '@/features/admin/api/cycles.queries';
 import type { AdmissionCycle } from '@/shared/types/domain';
 import { ADMISSION_SETUP_CYCLE_STORAGE_KEY } from '../config';
@@ -40,32 +41,53 @@ function writePersisted(id: string | null): void {
 }
 
 export function useAdmissionSetupCycle(): AdmissionSetupCycleContext {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlCycleId = searchParams.get('cycleId');
   const activeQuery = useActiveCycle();
   const listQuery = useCycles();
   const available = listQuery.data ?? [];
 
-  const [selectedId, setSelectedId] = useState<string | null>(() => readPersisted());
+  const [selectedId, setSelectedId] = useState<string | null>(() => urlCycleId ?? readPersisted());
+
+  const updateSelection = useCallback(
+    (id: string | null) => {
+      setSelectedId(id);
+      writePersisted(id);
+      const next = new URLSearchParams(searchParams);
+      if (id) next.set('cycleId', id);
+      else next.delete('cycleId');
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  useEffect(() => {
+    if (!urlCycleId || urlCycleId === selectedId) return;
+    setSelectedId(urlCycleId);
+    writePersisted(urlCycleId);
+  }, [selectedId, urlCycleId]);
+
+  useEffect(() => {
+    if (!selectedId || urlCycleId) return;
+    updateSelection(selectedId);
+  }, [selectedId, updateSelection, urlCycleId]);
 
   /* Once the active cycle resolves, prefer it as the default if no
    * persisted choice exists. Avoid clobbering an explicit pick. */
   useEffect(() => {
     if (selectedId !== null) return;
     if (activeQuery.data) {
-      setSelectedId(activeQuery.data.id);
-      writePersisted(activeQuery.data.id);
+      updateSelection(activeQuery.data.id);
       return;
     }
     /* No active cycle — fall back to the most recent draft/active in the list. */
     if (available.length > 0) {
-      const fallbackId = available[0]!.id;
-      setSelectedId(fallbackId);
-      writePersisted(fallbackId);
+      updateSelection(available[0]!.id);
     }
-  }, [activeQuery.data, available, selectedId]);
+  }, [activeQuery.data, available, selectedId, updateSelection]);
 
   const setCycle = (id: string | null): void => {
-    setSelectedId(id);
-    writePersisted(id);
+    updateSelection(id);
   };
 
   /* Hold the last resolved cycle so a transient list refetch (during which

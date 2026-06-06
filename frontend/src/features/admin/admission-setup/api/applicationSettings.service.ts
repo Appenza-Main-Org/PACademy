@@ -102,12 +102,17 @@ function cycleHeaders(cycleId?: string | null): HeadersInit | undefined {
   return resolved ? { 'X-Cycle-Id': resolved } : undefined;
 }
 
+function cycleQuery(cycleId?: string | null): { cycleId?: string } | undefined {
+  const resolved = cycleId ?? readSelectedCycleId();
+  return resolved ? { cycleId: resolved } : undefined;
+}
+
 async function buildApplicationSettingsSummaryFromTree(
   cycleId?: string | null,
 ): Promise<CategorySettingsSummary[]> {
   const configs = await apiClient.get<CategoryConfigJoined[]>(
     '/api/admin/app-settings/category-configs',
-    { headers: cycleHeaders(cycleId) },
+    { headers: cycleHeaders(cycleId), query: cycleQuery(cycleId) },
   );
 
   return Promise.all(
@@ -128,7 +133,7 @@ async function buildReviewGroups(
 ): Promise<YearGroupForReview[]> {
   const specializations = await apiClient.get<CategorySpecializationJoined[]>(
     `/api/admin/app-settings/category-configs/${encodeURIComponent(config.id)}/specializations`,
-    { headers: cycleHeaders(cycleId) },
+    { headers: cycleHeaders(cycleId), query: cycleQuery(cycleId) },
   );
 
   return Promise.all(
@@ -137,7 +142,7 @@ async function buildReviewGroups(
       nameAr: config.singleAxis ? null : specialization.specializationNameAr,
       years: await apiClient.get<ApplicantSpecializationYear[]>(
         `/api/admin/app-settings/specializations/${encodeURIComponent(specialization.id)}/years`,
-        { headers: cycleHeaders(cycleId) },
+        { headers: cycleHeaders(cycleId), query: cycleQuery(cycleId) },
       ),
     })),
   );
@@ -153,7 +158,7 @@ async function resolveReviewGradingMode(
   try {
     const response = await apiClient.get<{ gradingMode: YearGradeKind | null }>(
       `/api/admin/app-settings/specializations/${encodeURIComponent(firstGroup.csId)}/grading-mode`,
-      { headers: cycleHeaders(cycleId) },
+      { headers: cycleHeaders(cycleId), query: cycleQuery(cycleId) },
     );
     return response.gradingMode;
   } catch {
@@ -165,6 +170,7 @@ export const applicationSettingsService = {
   async listCategoryConfigs(): Promise<CategoryConfigJoined[]> {
     return apiClient.get('/api/admin/app-settings/category-configs', {
       headers: cycleHeaders(),
+      query: cycleQuery(),
     });
   },
 
@@ -173,6 +179,7 @@ export const applicationSettingsService = {
   ): Promise<CategoryConfigJoined[]> {
     return apiClient.get('/api/admin/app-settings/category-configs', {
       headers: cycleHeaders(cycleId),
+      query: cycleQuery(cycleId),
     });
   },
 
@@ -181,6 +188,7 @@ export const applicationSettingsService = {
   ): Promise<CategorySpecializationJoined[]> {
     return apiClient.get(`/api/admin/app-settings/category-configs/${encodeURIComponent(configId)}/specializations`, {
       headers: cycleHeaders(),
+      query: cycleQuery(),
     });
   },
 
@@ -189,6 +197,7 @@ export const applicationSettingsService = {
   ): Promise<SpecializationRow[]> {
     return apiClient.get(`/api/admin/app-settings/category-configs/${encodeURIComponent(configId)}/eligible-specializations`, {
       headers: cycleHeaders(),
+      query: cycleQuery(),
     });
   },
 
@@ -197,6 +206,7 @@ export const applicationSettingsService = {
   ): Promise<ApplicantSpecializationYear[]> {
     return apiClient.get(`/api/admin/app-settings/specializations/${encodeURIComponent(categorySpecializationId)}/years`, {
       headers: cycleHeaders(),
+      query: cycleQuery(),
     });
   },
 
@@ -204,6 +214,7 @@ export const applicationSettingsService = {
     try {
       return await apiClient.get<CategorySettingsSummary[]>('/api/admin/app-settings/summary', {
         headers: cycleHeaders(cycleId),
+        query: cycleQuery(cycleId),
       });
     } catch {
       /* Some backend environments do not yet expose the aggregate summary. */
@@ -214,6 +225,7 @@ export const applicationSettingsService = {
   async getCycleDraft(cycleId: string): Promise<ApplicationSettingsCycleDraftPayload> {
     return apiClient.get(`/api/admin/app-settings/cycle-drafts/${encodeURIComponent(cycleId)}`, {
       headers: cycleHeaders(cycleId),
+      query: cycleQuery(cycleId),
     });
   },
 
@@ -223,6 +235,7 @@ export const applicationSettingsService = {
   ): Promise<ApplicationSettingsCycleDraftPayload> {
     return apiClient.put(`/api/admin/app-settings/cycle-drafts/${encodeURIComponent(cycleId)}`, draft, {
       headers: cycleHeaders(cycleId),
+      query: cycleQuery(cycleId),
     });
   },
 
@@ -231,7 +244,7 @@ export const applicationSettingsService = {
   ): Promise<YearGradeKind | null> {
     const response = await apiClient.get<{ gradingMode: YearGradeKind | null }>(
       `/api/admin/app-settings/specializations/${encodeURIComponent(categorySpecializationId)}/grading-mode`,
-      { headers: cycleHeaders() },
+      { headers: cycleHeaders(), query: cycleQuery() },
     );
     return response.gradingMode;
   },
@@ -241,6 +254,7 @@ export const applicationSettingsService = {
   ): Promise<ParentCategorySnapshot | null> {
     return apiClient.get(`/api/admin/app-settings/specializations/${encodeURIComponent(categorySpecializationId)}/parent-category`, {
       headers: cycleHeaders(),
+      query: cycleQuery(),
     });
   },
 
@@ -252,12 +266,14 @@ export const applicationSettingsService = {
       specializationId,
     }, {
       headers: cycleHeaders(),
+      query: cycleQuery(),
     });
   },
 
   async detachSpecialization(id: string): Promise<void> {
     await apiClient.delete(`/api/admin/app-settings/specializations/${encodeURIComponent(id)}`, {
       headers: cycleHeaders(),
+      query: cycleQuery(),
     });
   },
 
@@ -266,7 +282,7 @@ export const applicationSettingsService = {
     return apiClient.post(
       `/api/admin/app-settings/category-configs/${encodeURIComponent(categorySpecializationId)}/years`,
       row,
-      { headers: cycleHeaders() },
+      { headers: cycleHeaders(), query: cycleQuery() },
     );
   },
 
@@ -276,18 +292,21 @@ export const applicationSettingsService = {
   ): Promise<ApplicantSpecializationYear> {
     return apiClient.patch(`/api/admin/app-settings/years/${encodeURIComponent(id)}`, patch, {
       headers: cycleHeaders(),
+      query: cycleQuery(),
     });
   },
 
   async deleteYear(id: string): Promise<void> {
     await apiClient.delete(`/api/admin/app-settings/years/${encodeURIComponent(id)}`, {
       headers: cycleHeaders(),
+      query: cycleQuery(),
     });
   },
 
   async toggleYearActive(id: string): Promise<ApplicantSpecializationYear> {
     return apiClient.post(`/api/admin/app-settings/years/${encodeURIComponent(id)}/toggle-active`, undefined, {
       headers: cycleHeaders(),
+      query: cycleQuery(),
     });
   },
 
@@ -298,12 +317,14 @@ export const applicationSettingsService = {
       toggleActive: true,
     }, {
       headers: cycleHeaders(),
+      query: cycleQuery(),
     });
   },
 
   async bulkSave(payload: BulkYearChange[]): Promise<BulkSaveResult> {
     return apiClient.post('/api/admin/app-settings/bulk-save', payload, {
       headers: cycleHeaders(),
+      query: cycleQuery(),
     });
   },
 };

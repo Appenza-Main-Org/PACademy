@@ -103,7 +103,7 @@ export function CyclesPage(): JSX.Element {
     } catch {
       /* sessionStorage unavailable — wizard will fall back to active cycle. */
     }
-    navigate(ROUTES.admin.admissionSetup.wizard('application_settings'));
+    navigate(`${ROUTES.admin.admissionSetup.wizard('application_settings')}?cycleId=${encodeURIComponent(cycleId)}`);
   };
 
   const [deleteTarget, setDeleteTarget] = useState<AdmissionCycle | null>(null);
