@@ -711,7 +711,7 @@ function ThanawiForm({
         payload,
         rows,
         gradeRank,
-        editingRow?.header,
+        header,
       );
       if (overlap) {
         toast(thanawiOverlapMessage(overlap), 'danger');

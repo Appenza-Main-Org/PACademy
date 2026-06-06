@@ -491,8 +491,9 @@ export const useAdmissionSetupWizardStore = create<Store>((set, get) => ({
     if (!existing || existing.kind !== 'university') {
       return { ok: false, reason: 'not-found' };
     }
+    const header = state.headers[existing.categoryCode] ?? existing.header;
     const candidate: LocalUniversityRow = {
-      ...buildUniversityRow(existing.categoryCode, spec, input, existing.header),
+      ...buildUniversityRow(existing.categoryCode, spec, input, header),
       id,
       createdAt: existing.createdAt,
     };
@@ -529,8 +530,9 @@ export const useAdmissionSetupWizardStore = create<Store>((set, get) => ({
     if (!existing || existing.kind !== 'thanawi') {
       return { ok: false, reason: 'not-found' };
     }
+    const header = state.headers[existing.categoryCode] ?? existing.header;
     const candidate: LocalThanawiRow = {
-      ...buildThanawiRow(existing.categoryCode, input, existing.header),
+      ...buildThanawiRow(existing.categoryCode, input, header),
       id,
       createdAt: existing.createdAt,
     };
