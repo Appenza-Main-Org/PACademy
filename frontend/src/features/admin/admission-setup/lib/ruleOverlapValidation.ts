@@ -162,7 +162,9 @@ function thanawiScopesIntersect(
   b: LocalThanawiRow,
 ): boolean {
   if (a.examRound !== b.examRound) return false;
-  if (a.committee !== b.committee) return false;
+  /* Committee is the assignment target, not an applicant discriminator.
+   * Matching academic conditions across different committees would make
+   * the same applicant eligible for multiple committees. */
   if (a.graduationYear === null || b.graduationYear === null) return false;
   if (a.graduationYear !== b.graduationYear) return false;
   if (!intersectsArr(a.schoolCategories, b.schoolCategories)) return false;
