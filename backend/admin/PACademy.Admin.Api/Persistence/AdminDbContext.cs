@@ -132,7 +132,10 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
             entity.Property(x => x.CreatedAt).HasColumnName("created_at");
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
             entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
-            entity.HasIndex(x => x.IsActive).HasDatabaseName("ix_admission_cycles_is_active");
+            entity.HasIndex(x => x.IsActive)
+                .IsUnique()
+                .HasFilter("[is_active] = CAST(1 AS bit)")
+                .HasDatabaseName("ux_admission_cycles_single_active");
         });
 
         modelBuilder.Entity<ApplicantCategoryEntity>(entity =>

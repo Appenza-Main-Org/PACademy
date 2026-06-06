@@ -131,7 +131,9 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("IsActive")
-                        .HasDatabaseName("ix_admission_cycles_is_active");
+                        .IsUnique()
+                        .HasDatabaseName("ux_admission_cycles_single_active")
+                        .HasFilter("[is_active] = CAST(1 AS bit)");
 
                     b.ToTable("admission_cycles", "dbo");
                 });
