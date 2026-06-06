@@ -7,8 +7,8 @@
  * admission-setup, audit, and other surfaces continue to differentiate.
  * For the cycles list + add form we collapse the lifecycle to a binary:
  *
- *   review    → draft cycle, still being authored — inactive
- *   published → approved & published cycle — active
+ *   review    → draft/inactive cycle, still being authored or unpublished
+ *   published → approved & published cycle — active/open/extended
  *
  * The list no longer exposes a separate activation status. Active/inactive
  * is derived from this two-state value.
@@ -34,7 +34,7 @@ export const LIST_STATUS_OPTIONS: ReadonlyArray<{ value: CycleListStatus; label:
 ];
 
 export function toListStatus(s: CycleStatus): CycleListStatus {
-  return s === 'draft' ? 'review' : 'published';
+  return s === 'active' || s === 'open' || s === 'extended' ? 'published' : 'review';
 }
 
 /** Map the list-status back to the domain enum the service layer accepts. */

@@ -37,6 +37,7 @@ try {
   const {
     isCycleActiveByListStatus,
     listStatusToCyclePatch,
+    toListStatus,
   } = await import(pathToFileURL(outFile).href);
 
   assert.equal(
@@ -58,6 +59,31 @@ try {
     listStatusToCyclePatch('published'),
     { status: 'active', isActive: true },
     'Published status must persist as active and active',
+  );
+  assert.equal(
+    toListStatus('active'),
+    'published',
+    'Active cycles must render as Approved & Published',
+  );
+  assert.equal(
+    toListStatus('open'),
+    'published',
+    'Open cycles must render as Approved & Published',
+  );
+  assert.equal(
+    toListStatus('extended'),
+    'published',
+    'Extended cycles must render as Approved & Published',
+  );
+  assert.equal(
+    toListStatus('closed'),
+    'review',
+    'Closed cycles demoted by a publish swap must not still render as Approved & Published',
+  );
+  assert.equal(
+    toListStatus('archived'),
+    'review',
+    'Archived cycles must not render as Approved & Published',
   );
 
   const cyclesPageSource = await readFile(

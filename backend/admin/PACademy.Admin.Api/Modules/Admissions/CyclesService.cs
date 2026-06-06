@@ -42,7 +42,8 @@ public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink,
         obj["id"] = id;
         obj["nameAr"] = nameAr;
         obj["status"] = AdmissionJson.StringProp(obj, "status") ?? "draft";
-        if (AdmissionJson.BoolProp(obj, "isActive") == true)
+        NormalizeCycleActivity(obj);
+        if (IsPublishedStatus(AdmissionJson.StringProp(obj, "status")))
         {
             if (swap) await DemoteOtherActiveAsync(null, ct);
             else await EnsureNoOtherActiveAsync(null, ct);
@@ -72,7 +73,8 @@ public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink,
         var entity = await FindAsync(id, ct);
         var obj = ToJson(entity);
         foreach (var item in patch) obj[item.Key] = item.Value?.DeepClone();
-        if (AdmissionJson.BoolProp(obj, "isActive") == true)
+        NormalizeCycleActivity(obj);
+        if (IsPublishedStatus(AdmissionJson.StringProp(obj, "status")))
             await EnsureNoOtherActiveAsync(id, ct);
         Apply(entity, obj);
         await db.SaveChangesAsync(ct);
@@ -100,6 +102,7 @@ public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink,
         var entity = await FindAsync(id, ct);
         var obj = ToJson(entity);
         obj["isActive"] = false;
+        obj["status"] = "draft";
         Apply(entity, obj);
         await db.SaveChangesAsync(ct);
         await EmitAuditAsync("deactivate", id, $"إلغاء تفعيل دورة قبول · {entity.NameAr}", ct);
@@ -199,6 +202,15 @@ public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink,
             ct);
         if (exists)
             throw new ConflictException(ErrorCodes.ActiveCycleExists, "توجد دورة قبول نشطة بالفعل");
+    }
+
+    private static bool IsPublishedStatus(string? status) =>
+        status is "active" or "open" or "extended";
+
+    private static void NormalizeCycleActivity(JsonObject obj)
+    {
+        var status = AdmissionJson.StringProp(obj, "status") ?? "draft";
+        obj["isActive"] = IsPublishedStatus(status);
     }
 
     private async Task DemoteOtherActiveAsync(string? currentId, CancellationToken ct)

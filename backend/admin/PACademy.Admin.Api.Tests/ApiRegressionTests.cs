@@ -12,6 +12,7 @@ using PACademy.Admin.Api.Infrastructure;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Admin.Api.Modules.Exams;
+using PACademy.Admin.Api.Modules.OperationalRecords;
 using PACademy.Admin.Api.Modules.Reports.Dtos;
 using PACademy.Admin.Api.Modules.Reports.Validators;
 using PACademy.Admin.Api.Modules.Settings;
@@ -121,6 +122,38 @@ public sealed class ApiRegressionTests
 
         Assert.True(handled);
         Assert.Equal(expectedStatus, context.Response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CyclePublishSwapLeavesExactlyOneActiveCycle()
+    {
+        await using var db = CreateDb();
+        var service = new CyclesService(db, new NullAuditSink(), new OperationalRecordStore(db));
+
+        _ = await service.CreateAsync(CyclePayload("CYC-A", "دورة أولى", isActive: true), TestContext.Current.CancellationToken);
+        _ = await service.CreateAsync(CyclePayload("CYC-B", "دورة ثانية", isActive: true), TestContext.Current.CancellationToken, swap: true);
+
+        var rows = await db.AdmissionCycles.OrderBy(x => x.Id).ToListAsync(TestContext.Current.CancellationToken);
+        Assert.Single(rows, x => x.IsActive);
+        Assert.Equal("closed", rows.Single(x => x.Id == "CYC-A").Status);
+        Assert.False(rows.Single(x => x.Id == "CYC-A").IsActive);
+        Assert.Equal("active", rows.Single(x => x.Id == "CYC-B").Status);
+        Assert.True(rows.Single(x => x.Id == "CYC-B").IsActive);
+    }
+
+    [Fact]
+    public async Task CyclePublishWithoutSwapRejectsSecondActiveCycle()
+    {
+        await using var db = CreateDb();
+        var service = new CyclesService(db, new NullAuditSink(), new OperationalRecordStore(db));
+
+        _ = await service.CreateAsync(CyclePayload("CYC-A", "دورة أولى", isActive: true), TestContext.Current.CancellationToken);
+
+        var ex = await Assert.ThrowsAsync<ConflictException>(() =>
+            service.CreateAsync(CyclePayload("CYC-B", "دورة ثانية", isActive: true), TestContext.Current.CancellationToken));
+
+        Assert.Equal(ErrorCodes.ActiveCycleExists, ex.ConflictCode);
+        Assert.Single(await db.AdmissionCycles.Where(x => x.IsActive).ToListAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -411,6 +444,20 @@ public sealed class ApiRegressionTests
             CreatedAt = now,
             UpdatedAt = now
         });
+    }
+
+    private static JsonObject CyclePayload(string id, string nameAr, bool isActive)
+    {
+        return new JsonObject
+        {
+            ["id"] = id,
+            ["nameAr"] = nameAr,
+            ["year"] = 2026,
+            ["status"] = isActive ? "active" : "draft",
+            ["isActive"] = isActive,
+            ["openDate"] = "2026-01-01T00:00:00.000Z",
+            ["closeDate"] = "2026-04-15T23:59:59.000Z"
+        };
     }
 
     private static JsonObject CommitteeInstance(string id, string categoryKey, int reservedCount = 0)
