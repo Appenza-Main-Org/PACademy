@@ -21,7 +21,7 @@ export interface OfficerCandidate {
 export type NidLookupResult =
   | { status: 'found'; data: OfficerCandidate }
   | { status: 'not_found'; nationalId: string }
-  | { status: 'invalid'; nationalId: string; reason: 'format' | 'checksum' };
+  | { status: 'invalid'; nationalId: string; reason: 'format' };
 
 export class NidLookupNotFoundError extends Error {
   readonly code = 'NOT_FOUND' as const;
@@ -35,7 +35,7 @@ export class InvalidNidError extends Error {
   readonly code = 'INVALID_NID' as const;
   constructor(
     public readonly nationalId: string,
-    public readonly reason: 'format' | 'checksum',
+    public readonly reason: 'format',
   ) {
     super(`Invalid national ID: ${reason}`);
     this.name = 'InvalidNidError';
@@ -56,7 +56,7 @@ export const nidLookupService = {
     } catch (err) {
       if (isNotFoundError(err)) return { status: 'not_found', nationalId: trimmed };
       if (isValidationError(err) || (err instanceof Error && err.name === 'INVALID_NID')) {
-        return { status: 'invalid', nationalId: trimmed, reason: 'checksum' };
+        return { status: 'invalid', nationalId: trimmed, reason: 'format' };
       }
       throw err;
     }

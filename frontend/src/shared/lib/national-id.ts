@@ -9,7 +9,7 @@
  *   GG   governorate code (01-35 = Egyptian governorates, 88 = foreign births)
  *   SSSS 4-digit sequence within the day + governorate; the 4th (13th overall)
  *        digit encodes gender — odd = male, even = female
- *   X    check digit (last position) — verified by the weighted-sum algorithm
+ *   X    final digit. The importer does not validate this digit.
  *
  * `parseNationalId` keeps the legacy lightweight API (`valid` + optional
  * `birthDate`/`governorateCode`/`gender`) for existing callers. The
@@ -37,8 +37,7 @@ export type NationalIdIssueCode =
   | 'FUTURE_BIRTH_DATE'
   | 'INVALID_GOVERNORATE'
   | 'INVALID_SEQUENCE'
-  | 'INVALID_GENDER_DIGIT'
-  | 'INVALID_CHECKSUM';
+  | 'INVALID_GENDER_DIGIT';
 
 export interface NationalIdIssue {
   code: NationalIdIssueCode;
@@ -94,23 +93,6 @@ export const EGYPTIAN_GOVERNORATE_CODES: ReadonlyArray<{
 ];
 
 const GOVERNORATE_CODE_SET = new Set(EGYPTIAN_GOVERNORATE_CODES.map((g) => g.code));
-
-/** Weights applied to digits 1–13 (positions 0–12) for the Egyptian
- *  national-id check-digit calculation. Digit 14 (position 13) is the
- *  check digit being verified. */
-const CHECKSUM_WEIGHTS = [2, 7, 6, 5, 4, 3, 2, 7, 6, 5, 4, 3, 2] as const;
-
-function computeChecksum(first13: string): number {
-  let sum = 0;
-  for (let i = 0; i < CHECKSUM_WEIGHTS.length; i += 1) {
-    sum += Number(first13[i]) * CHECKSUM_WEIGHTS[i]!;
-  }
-  const mod = sum % 11;
-  const candidate = 11 - mod;
-  if (candidate === 10) return 0;
-  if (candidate === 11) return 1;
-  return candidate;
-}
 
 function centuryFor(prefix: string): number | null {
   if (prefix === '1') return 1800;
@@ -303,19 +285,6 @@ export function analyseNationalId(
     gender = genderDigit % 2 === 0 ? 'female' : 'male';
   }
 
-  const first13 = id.slice(0, 13);
-  const checkDigit = Number(id[13]);
-  if (/^\d{13}$/.test(first13) && Number.isFinite(checkDigit)) {
-    const expected = computeChecksum(first13);
-    if (expected !== checkDigit) {
-      issues.push({
-        code: 'INVALID_CHECKSUM',
-        labelAr: 'رقم التحقق غير مطابق',
-        detailAr: `رقم التحقق المتوقع وفق خوارزمية البطاقة (${expected}) لا يطابق الرقم المخزن (${checkDigit}).`,
-      });
-    }
-  }
-
   return {
     valid: issues.length === 0,
     issues,
@@ -329,7 +298,7 @@ export function analyseNationalId(
  * Lightweight, backwards-compatible parser. Returns the same shape the
  * legacy callers expect (`valid` + optional `birthDate`/`governorateCode`/
  * `gender`) without the issue list — but is intentionally lenient on
- * the checksum, future-date, and governorate-code checks so that the
+ * future-date and governorate-code checks so that the
  * seeded mock fixtures (which were authored before those rules existed)
  * still pass. Callers that need the full audit should use
  * `analyseNationalId` instead.
@@ -372,7 +341,7 @@ export function isValidNationalId(id: string): boolean {
 /**
  * Strict validity check — runs the full `analyseNationalId` pipeline
  * (length + numeric + century + birth date + governorate + sequence +
- * gender digit + checksum). Prefer this over `isValidNationalId` for
+ * gender digit). Prefer this over `isValidNationalId` for
  * any form that wants to block save on an invalid Egyptian NID.
  */
 export function isStrictNationalId(id: string | null | undefined): boolean {

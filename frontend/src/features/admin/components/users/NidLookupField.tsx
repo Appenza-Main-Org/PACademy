@@ -15,9 +15,9 @@
  *   not_found — terra-500 helper + retry affordance.
  *   found     — calls `onLookupResult(data)` so parent auto-fills.
  *
- * The "format" vs "checksum" distinction is collapsed into a single
- * user-facing message for security (don't reveal which branch failed);
- * the underlying reason is logged to the dev console.
+ * The exact invalid-format reason is collapsed into a single
+ * user-facing message for security; the underlying reason is logged
+ * to the dev console.
  */
 
 import { useEffect, useId } from 'react';
