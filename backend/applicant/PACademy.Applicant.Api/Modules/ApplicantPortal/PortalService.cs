@@ -158,11 +158,13 @@ public sealed class PortalService(PortalDbContext db)
 
     // ── Payment ────────────────────────────────────────────────────────
 
-    public async Task<(string IntentId, string RefNumber, string FawryCode)> CreatePaymentIntentAsync(
+    public async Task<(string IntentId, string RefNumber, string FawryCode, decimal Amount)> CreatePaymentIntentAsync(
         string applicantId,
         string method,
+        decimal amount,
         CancellationToken ct)
     {
+        var normalizedAmount = amount > 0 ? amount : 250m;
         var refNumber = GenerateRef(applicantId);
         var fawryCode = GenerateFawryCode(applicantId, DateTimeOffset.UtcNow);
         var intentId = $"INT-{refNumber}";
@@ -179,6 +181,7 @@ public sealed class PortalService(PortalDbContext db)
                 ["applicantId"] = applicantId,
                 ["intentId"] = intentId,
                 ["method"] = method,
+                ["amount"] = normalizedAmount,
                 ["status"] = "pending",
                 ["fawryCode"] = fawryCode,
                 ["initiatedAt"] = now.ToUnixTimeMilliseconds(),
@@ -195,7 +198,7 @@ public sealed class PortalService(PortalDbContext db)
             await db.SaveChangesAsync(ct);
         }
 
-        return (intentId, refNumber, fawryCode);
+        return (intentId, refNumber, fawryCode, normalizedAmount);
     }
 
     public async Task<(string Status, JsonObject? Receipt)> GetPaymentStatusAsync(
@@ -234,6 +237,7 @@ public sealed class PortalService(PortalDbContext db)
 
         string? refNumber = null;
         string? fawryCode = null;
+        decimal? amount = null;
         if (record is not null)
         {
             var payload = ParseJson(record.PayloadJson);
@@ -243,6 +247,7 @@ public sealed class PortalService(PortalDbContext db)
             record.UpdatedAt = now;
             refNumber = record.RecordId;
             fawryCode = payload["fawryCode"]?.GetValue<string>();
+            amount = payload["amount"]?.GetValue<decimal>();
             await db.SaveChangesAsync(ct);
         }
 
@@ -257,6 +262,7 @@ public sealed class PortalService(PortalDbContext db)
         };
         if (refNumber is not null) paymentNode["refNumber"] = refNumber;
         if (fawryCode is not null) paymentNode["fawryCode"] = fawryCode;
+        if (amount is not null) paymentNode["amount"] = amount.Value;
         await SaveDraftAsync(applicantId, new JsonObject
         {
             ["furthestStage"] = Math.Max(current, 6),

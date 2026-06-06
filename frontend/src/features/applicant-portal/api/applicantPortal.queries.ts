@@ -14,6 +14,7 @@ export const apKeys = {
     [...apKeys.all, 'follow-up-exam-plan', cycleId, categoryKey] as const,
   applicationInstructions: () => [...apKeys.all, 'application-instructions'] as const,
   examDateSettings: () => [...apKeys.all, 'exam-date-settings'] as const,
+  paymentConfig: () => [...apKeys.all, 'payment-config'] as const,
   publishedDeclaration: () => [...apKeys.all, 'published-declaration'] as const,
   moi: (nid: string) => [...apKeys.all, 'moi', nid] as const,
   adminStatus: (identifier: string) => [...apKeys.all, 'admin-status', identifier] as const,
@@ -160,6 +161,14 @@ export function useExamDateSettings() {
   });
 }
 
+export function usePaymentConfig() {
+  return useQuery({
+    queryKey: apKeys.paymentConfig(),
+    queryFn: () => applicantPortalService.getPaymentConfig(),
+    ...noServerStateCacheOptions,
+  });
+}
+
 export function usePublishedDeclaration() {
   return useQuery({
     queryKey: apKeys.publishedDeclaration(),
@@ -200,7 +209,7 @@ export function useVerifyApplicantMutation() {
 
 export function useCreatePaymentIntent() {
   return useMutation({
-    mutationFn: (input: { method: 'fawry-code' }) =>
+    mutationFn: (input: { method: 'fawry-code'; amount: number }) =>
       applicantPortalService.createPaymentIntent(input),
   });
 }
