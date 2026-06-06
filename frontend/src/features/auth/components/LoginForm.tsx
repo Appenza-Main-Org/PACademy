@@ -7,6 +7,7 @@
  * Until the ministry API is live the backend runs a simulated MOI gateway.
  */
 
+import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -14,7 +15,8 @@ import { ArrowLeft, Lock, ShieldCheck } from 'lucide-react';
 import { Button, Input, toast } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
 import { useLoginMutation } from '../api/auth.queries';
-import { RoleSelector } from './RoleSelector';
+import { ROLE_TILES, RoleSelector } from './RoleSelector';
+import type { RoleTile, RoleTileLanding } from './RoleSelector';
 import { getDefaultRouteForUser } from '../lib/default-route';
 import type { Role } from '../rbac';
 import type { AuthUser } from '../types';
@@ -26,9 +28,22 @@ const STAFF_LOGIN_ROLES = [
   'admissions_system_admin',
 ] as const;
 
-const BIOMETRIC_LOGIN_ROLES: readonly Role[] = [
-  'admissions_system_admin',
-];
+/** Resolve a tile's post-login landing route. `auto` defers to the user's
+ *  default route; the app-specific landings mirror how Question Bank +
+ *  Biometric already redirect from their tiles. */
+function landingRoute(landing: RoleTileLanding, user: AuthUser): string {
+  switch (landing) {
+    case 'barcode':
+      return ROUTES.barcode.overview;
+    case 'biometric':
+      return ROUTES.biometric.overview;
+    case 'exams':
+      return ROUTES.questionBank.overview;
+    case 'auto':
+    default:
+      return getDefaultRouteForUser(user);
+  }
+}
 
 const loginSchema = z.object({
   username: z
@@ -63,7 +78,7 @@ export function LoginForm(): JSX.Element {
     (location.state as { from?: unknown } | null)?.from,
   );
 
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<LoginValues>({
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       username: 'superadmin',
@@ -72,11 +87,10 @@ export function LoginForm(): JSX.Element {
     },
   });
 
-  const role = watch('role');
-
-  const goToLanding = (user: AuthUser): void => {
-    navigate(getDefaultRouteForUser(user), { replace: true });
-  };
+  /* The selected *tile* (not just its role) drives the post-login landing,
+   * so the barcode + biometric tiles can share the admissions_system_admin
+   * role yet route to different apps. */
+  const [selectedTile, setSelectedTile] = useState<RoleTile>(ROLE_TILES[0]!);
 
   const onSubmit = async (values: LoginValues): Promise<void> => {
     loginMut.mutate({
@@ -93,15 +107,7 @@ export function LoginForm(): JSX.Element {
           navigate(redirectTo, { replace: true });
           return;
         }
-        if (BIOMETRIC_LOGIN_ROLES.includes(values.role)) {
-          navigate(ROUTES.biometric.overview, { replace: true });
-          return;
-        }
-        if (values.role === 'exams_admin') {
-          navigate(ROUTES.questionBank.overview, { replace: true });
-          return;
-        }
-        goToLanding(user);
+        navigate(landingRoute(selectedTile.landing, user), { replace: true });
       },
       onError: (err) => toast(err.message || 'تعذّر بدء الدخول', 'danger'),
     });
@@ -150,10 +156,11 @@ export function LoginForm(): JSX.Element {
           اختر التطبيق المطلوب
         </span>
         <RoleSelector
-          value={role}
-          onChange={(r: Role) => {
-            if ((STAFF_LOGIN_ROLES as readonly Role[]).includes(r)) {
-              setValue('role', r, { shouldValidate: true });
+          value={selectedTile.id}
+          onChange={(tile: RoleTile) => {
+            if ((STAFF_LOGIN_ROLES as readonly Role[]).includes(tile.role)) {
+              setSelectedTile(tile);
+              setValue('role', tile.role, { shouldValidate: true });
             }
           }}
         />

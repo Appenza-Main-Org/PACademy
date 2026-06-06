@@ -137,7 +137,18 @@ export type Permission =
   | 'biometric:medical'
   | 'biometric:history'
   | 'biometric:reports'
-  | 'biometric:audit';
+  | 'biometric:audit'
+  /* Barcode — on-prem barcode app (RFP §7 / US-BC-001→017). These live
+   * only here, never in the cloud permission matrix
+   * (features/admin/users/lib/cloudPermissions.ts). */
+  | 'barcode:view'
+  | 'barcode:generate'
+  | 'barcode:print'
+  | 'barcode:reprint'
+  | 'barcode:replace'
+  | 'barcode:bulk-print'
+  | 'barcode:scan'
+  | 'barcode:config';
 
 export interface RoleDefinition {
   labelAr: string;
@@ -163,6 +174,27 @@ const EXAM_PERMISSIONS: readonly Permission[] = [
   'exams:publish',
   'exams:proctor',
   'exams:results',
+];
+
+/** Barcode operator capability set — generate / print / reprint / replace /
+ *  bulk-print / scan. Granted to committee + medical heads (data-scoped at
+ *  the operation layer in Phase 6). Excludes `barcode:config`. */
+const BARCODE_OPERATOR_PERMISSIONS: readonly Permission[] = [
+  'barcode:view',
+  'barcode:generate',
+  'barcode:print',
+  'barcode:reprint',
+  'barcode:replace',
+  'barcode:bulk-print',
+  'barcode:scan',
+];
+
+/** Barcode administrator capability set — operator caps plus
+ *  `barcode:config` (format / content / layout). The College System
+ *  Administrator (`admissions_system_admin`) owns this. */
+const BARCODE_ADMIN_PERMISSIONS: readonly Permission[] = [
+  ...BARCODE_OPERATOR_PERMISSIONS,
+  'barcode:config',
 ];
 
 export const ROLE_DEFINITIONS: Record<Role, RoleDefinition> = {
@@ -311,31 +343,31 @@ export const ROLE_DEFINITIONS: Record<Role, RoleDefinition> = {
   student_committee_head: {
     labelAr: 'رئيس لجنة الطلبة',
     apps: ['committee', 'barcode', 'biometric'],
-    permissions: ['biometric:view', 'biometric:lookup', 'biometric:verify', 'biometric:history'],
+    permissions: ['biometric:view', 'biometric:lookup', 'biometric:verify', 'biometric:history', ...BARCODE_OPERATOR_PERMISSIONS],
   },
 
   exam_committee_head: {
     labelAr: 'رئيس لجنة الاختبار',
     apps: ['committee', 'barcode', 'biometric', 'exams'],
-    permissions: ['biometric:view', 'biometric:lookup', 'biometric:verify', 'biometric:history', ...EXAM_PERMISSIONS],
+    permissions: ['biometric:view', 'biometric:lookup', 'biometric:verify', 'biometric:history', ...EXAM_PERMISSIONS, ...BARCODE_OPERATOR_PERMISSIONS],
   },
 
   security_gate_user: {
     labelAr: 'مستخدم بوابة التأمين',
     apps: ['barcode', 'biometric'],
-    permissions: ['biometric:view', 'biometric:lookup', 'biometric:verify', 'biometric:gate', 'biometric:history'],
+    permissions: ['biometric:view', 'biometric:lookup', 'biometric:verify', 'biometric:gate', 'biometric:history', 'barcode:view', 'barcode:scan'],
   },
 
   admissions_system_admin: {
     labelAr: 'مدير نظام القبول',
     apps: ['admin', 'committee', 'barcode', 'biometric'],
-    permissions: ['admin:view', 'applicants:view', 'audit:view', 'reports:view', 'biometric:*'],
+    permissions: ['admin:view', 'applicants:view', 'audit:view', 'reports:view', 'biometric:*', ...BARCODE_ADMIN_PERMISSIONS],
   },
 
   medical_committee_head: {
     labelAr: 'رئيس اللجنة الطبية',
     apps: ['medical', 'barcode', 'biometric'],
-    permissions: ['biometric:view', 'biometric:lookup', 'biometric:verify', 'biometric:medical', 'biometric:history'],
+    permissions: ['biometric:view', 'biometric:lookup', 'biometric:verify', 'biometric:medical', 'biometric:history', ...BARCODE_OPERATOR_PERMISSIONS],
   },
 
   medical_clinic_manager: {

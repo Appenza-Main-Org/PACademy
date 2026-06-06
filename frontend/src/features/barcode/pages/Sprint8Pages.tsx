@@ -4,7 +4,6 @@
  */
 
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Camera, History, RefreshCw, ScanLine } from 'lucide-react';
 import {
   Avatar,
@@ -24,7 +23,7 @@ import {
 import type { DataTableColumn } from '@/shared/components';
 import { CenteredShell } from '@/app/layouts/CenteredShell';
 import { date as fmtDate } from '@/shared/lib/format';
-import { barcodeService } from '../api/barcode.service';
+import { useBarcodeScans, useReplaceBarcodeMutation, useScanBarcodeMutation } from '../api/barcode.queries';
 import type { BarcodeScan } from '@/shared/types/domain';
 
 export function BarcodeScannerPage(): JSX.Element {
@@ -33,14 +32,17 @@ export function BarcodeScannerPage(): JSX.Element {
   const [action, setAction] = useState<BarcodeScan['action']>('attendance');
   const [result, setResult] = useState<{ scan: BarcodeScan; duplicate: boolean } | null>(null);
 
-  const scanMut = useMutation({
-    mutationFn: () => barcodeService.scan({ code, scannedBy: 'U-006', station, action }),
-    onSuccess: (r) => {
-      setResult(r);
-      if (r.duplicate) toast('تنبيه: مسح مكرر خلال آخر 10 ثوانٍ — يحتاج تأكيد', 'warning');
-      else toast('تم تسجيل المسح', 'success');
-    },
-  });
+  const scanMut = useScanBarcodeMutation();
+
+  const handleScan = (): void => {
+    scanMut.mutate({ code, scannedBy: 'U-006', station, action }, {
+      onSuccess: (r) => {
+        setResult(r);
+        if (r.duplicate) toast('تنبيه: مسح مكرر خلال آخر 10 ثوانٍ — يحتاج تأكيد', 'warning');
+        else toast('تم تسجيل المسح', 'success');
+      },
+    });
+  };
 
   return (
     <CenteredShell>
@@ -66,7 +68,7 @@ export function BarcodeScannerPage(): JSX.Element {
               { value: 'gate-out', label: 'خروج بوابة' },
               { value: 'forward', label: 'إحالة لمحطة أخرى' },
             ]} />
-            <Button variant="primary" size="lg" leadingIcon={<ScanLine size={14} strokeWidth={1.75} />} isLoading={scanMut.isPending} onClick={() => scanMut.mutate()}>
+            <Button variant="primary" size="lg" leadingIcon={<ScanLine size={14} strokeWidth={1.75} />} isLoading={scanMut.isPending} onClick={handleScan}>
               تسجيل المسح
             </Button>
           </div>
@@ -106,17 +108,16 @@ const ACTION_LABEL: Record<BarcodeScan['action'], string> = {
 };
 
 export function BarcodeReplacementPage(): JSX.Element {
-  const qc = useQueryClient();
   const [applicantId, setApplicantId] = useState('APP-2026000005');
   const [reason, setReason] = useState('فقد البطاقة الأصلية');
 
-  const replaceMut = useMutation({
-    mutationFn: () => barcodeService.replace(applicantId, reason),
-    onSuccess: (r) => {
-      toast(`تم إصدار باركود بديل: ${r.code}`, 'success');
-      qc.invalidateQueries({ queryKey: ['barcode'] });
-    },
-  });
+  const replaceMut = useReplaceBarcodeMutation();
+
+  const handleReplace = (): void => {
+    replaceMut.mutate({ applicantId, reason }, {
+      onSuccess: (r) => toast(`تم إصدار باركود بديل: ${r.code}`, 'success'),
+    });
+  };
 
   return (
     <CenteredShell>
@@ -128,7 +129,7 @@ export function BarcodeReplacementPage(): JSX.Element {
           <Textarea label="ملاحظات" placeholder="أي ملاحظات إضافية تُحفظ في سجل العمليات" containerClassName="md:col-span-2" />
         </div>
         <div className="mt-4 flex justify-end">
-          <Button variant="primary" leadingIcon={<RefreshCw size={14} strokeWidth={1.75} />} isLoading={replaceMut.isPending} onClick={() => replaceMut.mutate()}>
+          <Button variant="primary" leadingIcon={<RefreshCw size={14} strokeWidth={1.75} />} isLoading={replaceMut.isPending} onClick={handleReplace}>
             إصدار بدل فاقد
           </Button>
         </div>
@@ -138,7 +139,7 @@ export function BarcodeReplacementPage(): JSX.Element {
 }
 
 export function BarcodeScansHistoryPage(): JSX.Element {
-  const { data, isLoading, isError, error, refetch } = useQuery({ queryKey: ['barcode', 'scans'], queryFn: () => barcodeService.listScans() });
+  const { data, isLoading, isError, error, refetch } = useBarcodeScans();
 
   const columns: DataTableColumn<BarcodeScan>[] = [
     { key: 'id', label: 'الرقم', render: (s) => <span className="font-mono" dir="ltr">{s.id}</span> },
