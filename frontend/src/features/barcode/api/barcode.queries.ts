@@ -6,8 +6,10 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { barcodeService } from './barcode.service';
+import { barcodeConfigService } from './barcodeConfig.service';
 import type { BarcodeSearchMode } from './barcode.service';
 import type { GroupSelection } from '../lib/barcodeGroups';
+import type { BarcodeConfig } from '../lib/barcodeConfig';
 import type { BarcodeScan } from '@/shared/types/domain';
 
 /** Query-key factory for the barcode feature. */
@@ -17,7 +19,27 @@ export const barcodeKeys = {
   search: (mode: BarcodeSearchMode, query: string) => ['barcode', 'search', mode, query] as const,
   group: (selection: GroupSelection) =>
     ['barcode', 'group', selection.category, selection.examType, selection.committee, selection.qualification] as const,
+  config: ['barcode', 'config'] as const,
 };
+
+/** Read the barcode card configuration (format / content / layout). */
+export function useBarcodeConfig() {
+  return useQuery({
+    queryKey: barcodeKeys.config,
+    queryFn: () => barcodeConfigService.getConfig(),
+  });
+}
+
+/** Persist a full barcode configuration (College System Administrator). */
+export function useUpdateBarcodeConfigMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (config: BarcodeConfig) => barcodeConfigService.updateConfig(config),
+    onSuccess: (saved) => {
+      qc.setQueryData(barcodeKeys.config, saved);
+    },
+  });
+}
 
 /** Live group/bulk-print candidate list for the current filter selection. */
 export function useBarcodeGroupPrint(selection: GroupSelection) {

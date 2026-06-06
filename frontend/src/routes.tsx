@@ -119,6 +119,7 @@ import {
 } from '@/features/medical';
 import {
   BarcodeBatchPage,
+  BarcodeConfigPage,
   BarcodeGeneratePage,
   BarcodeLayout,
   BarcodeLookupPage,
@@ -419,6 +420,7 @@ export const routes: RouteObject[] = [
       { path: 'scan', element: <BarcodeScannerPage /> },
       { path: 'replace', element: <BarcodeReplacementPage /> },
       { path: 'scans', element: <BarcodeScansHistoryPage /> },
+      { path: 'config', element: <AuthGuard app="barcode" perm="barcode:config"><BarcodeConfigPage /></AuthGuard> },
     ],
   },
 

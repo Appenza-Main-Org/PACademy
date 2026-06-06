@@ -168,6 +168,7 @@ export const ROUTES = {
     scan: '/barcode/scan',
     replace: '/barcode/replace',
     scans: '/barcode/scans',
+    config: '/barcode/config',
   },
   biometric: {
     overview: '/biometric',
