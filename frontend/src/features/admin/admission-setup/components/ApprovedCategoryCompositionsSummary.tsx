@@ -66,6 +66,7 @@ import {
   sortGeneralRuleRowsNewestFirst,
   useAdmissionSetupWizardStore,
 } from '../store/wizardSharedState';
+import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
 import type { ApplicantSpecializationYear } from '../types';
 
 const GENDER_LABEL: Readonly<Record<string, string>> = {
@@ -77,6 +78,8 @@ const GENDER_LABEL: Readonly<Record<string, string>> = {
 };
 
 export function ApprovedCategoryCompositionsSummary(): JSX.Element {
+  const { cycle } = useAdmissionSetupCycle();
+  const cycleId = cycle?.id ?? null;
   const localDraftRows = useAdmissionSetupWizardStore((state) => state.local);
   const approvedDraftRows = useAdmissionSetupWizardStore((state) => state.approved);
   const draftHeaders = useAdmissionSetupWizardStore((state) => state.headers);
@@ -85,8 +88,8 @@ export function ApprovedCategoryCompositionsSummary(): JSX.Element {
     [localDraftRows, approvedDraftRows],
   );
   const hasDraftData = draftRows.length > 0 || Object.keys(draftHeaders).length > 0;
-  const summaryQuery = useApplicationSettingsSummary(!hasDraftData);
-  const configsQuery = useCategoryConfigs(hasDraftData);
+  const summaryQuery = useApplicationSettingsSummary(!hasDraftData, cycleId);
+  const configsQuery = useCategoryConfigs(hasDraftData, cycleId);
   const maritalQuery = useLookup('marital-statuses', applicationSettingsQueryOptions);
   const academicGradesQuery = useLookup('academic-grades', applicationSettingsQueryOptions);
   const academicDegreesQuery = useLookup('academic-degrees', applicationSettingsQueryOptions);

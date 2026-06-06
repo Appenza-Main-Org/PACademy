@@ -98,7 +98,7 @@ async function resolveCycleDraft(cycleId: string): Promise<ResolvedDraft> {
 export function ApplicationSettingsCycleExportCard(): JSX.Element {
   const { cycle, setCycle, availableCycles, isLoading: cyclesLoading } =
     useAdmissionSetupCycle();
-  const configsQuery = useCategoryConfigs(true);
+  const configsQuery = useCategoryConfigs(true, cycle?.id ?? null);
   const maritalQuery = useLookup('marital-statuses', applicationSettingsQueryOptions);
   const academicGradesQuery = useLookup('academic-grades', applicationSettingsQueryOptions);
   const academicDegreesQuery = useLookup('academic-degrees', applicationSettingsQueryOptions);

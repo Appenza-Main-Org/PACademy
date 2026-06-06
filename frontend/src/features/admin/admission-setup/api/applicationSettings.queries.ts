@@ -36,7 +36,8 @@ import type {
 
 export const appSettingsKeys = {
   all: ['admin', 'app-settings'] as const,
-  configs: () => [...appSettingsKeys.all, 'configs'] as const,
+  configs: (cycleId?: string | null) =>
+    [...appSettingsKeys.all, 'configs', cycleId ?? '__selected'] as const,
   specs: (configId: string) =>
     [...appSettingsKeys.all, 'specs', configId] as const,
   eligible: (configId: string) =>
@@ -47,7 +48,8 @@ export const appSettingsKeys = {
     [...appSettingsKeys.all, 'grading-mode', categorySpecializationId] as const,
   parentCategory: (categorySpecializationId: string) =>
     [...appSettingsKeys.all, 'parent-category', categorySpecializationId] as const,
-  summary: () => [...appSettingsKeys.all, 'summary'] as const,
+  summary: (cycleId?: string | null) =>
+    [...appSettingsKeys.all, 'summary', cycleId ?? '__selected'] as const,
 };
 
 export const APPLICATION_SETTINGS_STALE_TIME_MS = 2 * 60 * 1000;
@@ -55,6 +57,7 @@ export const APPLICATION_SETTINGS_STALE_TIME_MS = 2 * 60 * 1000;
 export const applicationSettingsQueryOptions = {
   staleTime: APPLICATION_SETTINGS_STALE_TIME_MS,
   gcTime: 10 * 60 * 1000,
+  retry: false,
   /* When this options bag is composed into `useLookup` for lookups in
    * NO_CACHE_LOOKUPS (e.g. applicant-categories), the wrapper's default
    * `refetchOnMount: 'always'` would cascade observer remounts into a
@@ -67,6 +70,7 @@ export const applicationSettingsQueryOptions = {
   QueryObserverOptions,
   | 'staleTime'
   | 'gcTime'
+  | 'retry'
   | 'refetchOnMount'
   | 'refetchOnWindowFocus'
   | 'refetchOnReconnect'
@@ -104,11 +108,11 @@ function surfaceConflict(err: unknown, fallback: string): void {
 
 /* ─── Reads ──────────────────────────────────────────────────────────── */
 
-export function useCategoryConfigs(enabled = true) {
+export function useCategoryConfigs(enabled = true, cycleId?: string | null) {
   return useQuery<CategoryConfigJoined[]>({
-    queryKey: appSettingsKeys.configs(),
-    queryFn: () => applicationSettingsService.listCategoryConfigs(),
-    enabled,
+    queryKey: appSettingsKeys.configs(cycleId),
+    queryFn: () => applicationSettingsService.listCategoryConfigsForCycle(cycleId),
+    enabled: enabled && cycleId !== null,
     ...applicationSettingsQueryOptions,
   });
 }
@@ -185,11 +189,14 @@ export function useResolvedGradingModeForSpec(
  * review step). Cache invalidates on any app-settings mutation via the
  * shared `appSettingsKeys.all` prefix.
  */
-export function useApplicationSettingsSummary(enabled = true) {
+export function useApplicationSettingsSummary(
+  enabled = true,
+  cycleId?: string | null,
+) {
   return useQuery<CategorySettingsSummary[]>({
-    queryKey: appSettingsKeys.summary(),
-    queryFn: () => applicationSettingsService.getApplicationSettingsSummary(),
-    enabled,
+    queryKey: appSettingsKeys.summary(cycleId),
+    queryFn: () => applicationSettingsService.getApplicationSettingsSummary(cycleId),
+    enabled: enabled && cycleId !== null,
     ...applicationSettingsQueryOptions,
   });
 }

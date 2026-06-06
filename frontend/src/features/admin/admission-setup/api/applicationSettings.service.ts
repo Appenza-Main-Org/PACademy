@@ -22,6 +22,7 @@ import type {
   ApplicantCategoryType,
   SpecializationRow,
 } from '@/features/lookups/types';
+import { ADMISSION_SETUP_CYCLE_STORAGE_KEY } from '../config';
 import type { YearRowDraft } from '../lib/appSettingsValidation';
 import type {
   ApplicantCategoryConfig,
@@ -88,16 +89,34 @@ export interface ApplicationSettingsCycleDraftPayload {
   approved: unknown[];
 }
 
-async function buildApplicationSettingsSummaryFromTree(): Promise<CategorySettingsSummary[]> {
-  const configs = await apiClient.get<CategoryConfigJoined[]>('/api/admin/app-settings/category-configs');
+function readSelectedCycleId(): string | null {
+  try {
+    return sessionStorage.getItem(ADMISSION_SETUP_CYCLE_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function cycleHeaders(cycleId?: string | null): HeadersInit | undefined {
+  const resolved = cycleId ?? readSelectedCycleId();
+  return resolved ? { 'X-Cycle-Id': resolved } : undefined;
+}
+
+async function buildApplicationSettingsSummaryFromTree(
+  cycleId?: string | null,
+): Promise<CategorySettingsSummary[]> {
+  const configs = await apiClient.get<CategoryConfigJoined[]>(
+    '/api/admin/app-settings/category-configs',
+    { headers: cycleHeaders(cycleId) },
+  );
 
   return Promise.all(
     configs.map(async (config) => {
-      const groups = await buildReviewGroups(config);
+      const groups = await buildReviewGroups(config, cycleId);
       return {
         config,
         groups,
-        gradingMode: await resolveReviewGradingMode(groups),
+        gradingMode: await resolveReviewGradingMode(groups, cycleId),
       };
     }),
   );
@@ -105,9 +124,11 @@ async function buildApplicationSettingsSummaryFromTree(): Promise<CategorySettin
 
 async function buildReviewGroups(
   config: CategoryConfigJoined,
+  cycleId?: string | null,
 ): Promise<YearGroupForReview[]> {
   const specializations = await apiClient.get<CategorySpecializationJoined[]>(
     `/api/admin/app-settings/category-configs/${encodeURIComponent(config.id)}/specializations`,
+    { headers: cycleHeaders(cycleId) },
   );
 
   return Promise.all(
@@ -116,6 +137,7 @@ async function buildReviewGroups(
       nameAr: config.singleAxis ? null : specialization.specializationNameAr,
       years: await apiClient.get<ApplicantSpecializationYear[]>(
         `/api/admin/app-settings/specializations/${encodeURIComponent(specialization.id)}/years`,
+        { headers: cycleHeaders(cycleId) },
       ),
     })),
   );
@@ -123,6 +145,7 @@ async function buildReviewGroups(
 
 async function resolveReviewGradingMode(
   groups: readonly YearGroupForReview[],
+  cycleId?: string | null,
 ): Promise<YearGradeKind | null> {
   const firstGroup = groups[0];
   if (!firstGroup) return null;
@@ -130,6 +153,7 @@ async function resolveReviewGradingMode(
   try {
     const response = await apiClient.get<{ gradingMode: YearGradeKind | null }>(
       `/api/admin/app-settings/specializations/${encodeURIComponent(firstGroup.csId)}/grading-mode`,
+      { headers: cycleHeaders(cycleId) },
     );
     return response.gradingMode;
   } catch {
@@ -139,45 +163,67 @@ async function resolveReviewGradingMode(
 
 export const applicationSettingsService = {
   async listCategoryConfigs(): Promise<CategoryConfigJoined[]> {
-    return apiClient.get('/api/admin/app-settings/category-configs');
+    return apiClient.get('/api/admin/app-settings/category-configs', {
+      headers: cycleHeaders(),
+    });
+  },
+
+  async listCategoryConfigsForCycle(
+    cycleId?: string | null,
+  ): Promise<CategoryConfigJoined[]> {
+    return apiClient.get('/api/admin/app-settings/category-configs', {
+      headers: cycleHeaders(cycleId),
+    });
   },
 
   async listSpecializationsForConfig(
     configId: string,
   ): Promise<CategorySpecializationJoined[]> {
-    return apiClient.get(`/api/admin/app-settings/category-configs/${encodeURIComponent(configId)}/specializations`);
+    return apiClient.get(`/api/admin/app-settings/category-configs/${encodeURIComponent(configId)}/specializations`, {
+      headers: cycleHeaders(),
+    });
   },
 
   async getEligibleSpecializations(
     configId: string,
   ): Promise<SpecializationRow[]> {
-    return apiClient.get(`/api/admin/app-settings/category-configs/${encodeURIComponent(configId)}/eligible-specializations`);
+    return apiClient.get(`/api/admin/app-settings/category-configs/${encodeURIComponent(configId)}/eligible-specializations`, {
+      headers: cycleHeaders(),
+    });
   },
 
   async listYears(
     categorySpecializationId: string,
   ): Promise<ApplicantSpecializationYear[]> {
-    return apiClient.get(`/api/admin/app-settings/specializations/${encodeURIComponent(categorySpecializationId)}/years`);
+    return apiClient.get(`/api/admin/app-settings/specializations/${encodeURIComponent(categorySpecializationId)}/years`, {
+      headers: cycleHeaders(),
+    });
   },
 
-  async getApplicationSettingsSummary(): Promise<CategorySettingsSummary[]> {
+  async getApplicationSettingsSummary(cycleId?: string | null): Promise<CategorySettingsSummary[]> {
     try {
-      return await apiClient.get<CategorySettingsSummary[]>('/api/admin/app-settings/summary');
+      return await apiClient.get<CategorySettingsSummary[]>('/api/admin/app-settings/summary', {
+        headers: cycleHeaders(cycleId),
+      });
     } catch {
       /* Some backend environments do not yet expose the aggregate summary. */
     }
-    return buildApplicationSettingsSummaryFromTree();
+    return buildApplicationSettingsSummaryFromTree(cycleId);
   },
 
   async getCycleDraft(cycleId: string): Promise<ApplicationSettingsCycleDraftPayload> {
-    return apiClient.get(`/api/admin/app-settings/cycle-drafts/${encodeURIComponent(cycleId)}`);
+    return apiClient.get(`/api/admin/app-settings/cycle-drafts/${encodeURIComponent(cycleId)}`, {
+      headers: cycleHeaders(cycleId),
+    });
   },
 
   async saveCycleDraft(
     cycleId: string,
     draft: ApplicationSettingsCycleDraftPayload,
   ): Promise<ApplicationSettingsCycleDraftPayload> {
-    return apiClient.put(`/api/admin/app-settings/cycle-drafts/${encodeURIComponent(cycleId)}`, draft);
+    return apiClient.put(`/api/admin/app-settings/cycle-drafts/${encodeURIComponent(cycleId)}`, draft, {
+      headers: cycleHeaders(cycleId),
+    });
   },
 
   async getGradingModeForSpec(
@@ -185,6 +231,7 @@ export const applicationSettingsService = {
   ): Promise<YearGradeKind | null> {
     const response = await apiClient.get<{ gradingMode: YearGradeKind | null }>(
       `/api/admin/app-settings/specializations/${encodeURIComponent(categorySpecializationId)}/grading-mode`,
+      { headers: cycleHeaders() },
     );
     return response.gradingMode;
   },
@@ -192,7 +239,9 @@ export const applicationSettingsService = {
   async getParentCategoryForSpec(
     categorySpecializationId: string,
   ): Promise<ParentCategorySnapshot | null> {
-    return apiClient.get(`/api/admin/app-settings/specializations/${encodeURIComponent(categorySpecializationId)}/parent-category`);
+    return apiClient.get(`/api/admin/app-settings/specializations/${encodeURIComponent(categorySpecializationId)}/parent-category`, {
+      headers: cycleHeaders(),
+    });
   },
 
   async attachSpecialization(
@@ -201,11 +250,15 @@ export const applicationSettingsService = {
   ): Promise<CategorySpecializationJoined> {
     return apiClient.post(`/api/admin/app-settings/category-configs/${encodeURIComponent(configId)}/specializations`, {
       specializationId,
+    }, {
+      headers: cycleHeaders(),
     });
   },
 
   async detachSpecialization(id: string): Promise<void> {
-    await apiClient.delete(`/api/admin/app-settings/specializations/${encodeURIComponent(id)}`);
+    await apiClient.delete(`/api/admin/app-settings/specializations/${encodeURIComponent(id)}`, {
+      headers: cycleHeaders(),
+    });
   },
 
   async createYear(input: YearRowDraft & { categorySpecializationId: string }): Promise<ApplicantSpecializationYear> {
@@ -213,6 +266,7 @@ export const applicationSettingsService = {
     return apiClient.post(
       `/api/admin/app-settings/category-configs/${encodeURIComponent(categorySpecializationId)}/years`,
       row,
+      { headers: cycleHeaders() },
     );
   },
 
@@ -220,15 +274,21 @@ export const applicationSettingsService = {
     id: string,
     patch: Partial<YearRowDraft>,
   ): Promise<ApplicantSpecializationYear> {
-    return apiClient.patch(`/api/admin/app-settings/years/${encodeURIComponent(id)}`, patch);
+    return apiClient.patch(`/api/admin/app-settings/years/${encodeURIComponent(id)}`, patch, {
+      headers: cycleHeaders(),
+    });
   },
 
   async deleteYear(id: string): Promise<void> {
-    await apiClient.delete(`/api/admin/app-settings/years/${encodeURIComponent(id)}`);
+    await apiClient.delete(`/api/admin/app-settings/years/${encodeURIComponent(id)}`, {
+      headers: cycleHeaders(),
+    });
   },
 
   async toggleYearActive(id: string): Promise<ApplicantSpecializationYear> {
-    return apiClient.post(`/api/admin/app-settings/years/${encodeURIComponent(id)}/toggle-active`);
+    return apiClient.post(`/api/admin/app-settings/years/${encodeURIComponent(id)}/toggle-active`, undefined, {
+      headers: cycleHeaders(),
+    });
   },
 
   async toggleCategoryActive(
@@ -236,11 +296,15 @@ export const applicationSettingsService = {
   ): Promise<CategoryConfigJoined> {
     return apiClient.patch(`/api/admin/app-settings/category-configs/${encodeURIComponent(configId)}`, {
       toggleActive: true,
+    }, {
+      headers: cycleHeaders(),
     });
   },
 
   async bulkSave(payload: BulkYearChange[]): Promise<BulkSaveResult> {
-    return apiClient.post('/api/admin/app-settings/bulk-save', payload);
+    return apiClient.post('/api/admin/app-settings/bulk-save', payload, {
+      headers: cycleHeaders(),
+    });
   },
 };
 

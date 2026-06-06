@@ -144,7 +144,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
   }, [cycleId]);
 
   const categoriesQuery = useCategoriesAdmin();
-  const categoryConfigsQuery = useCategoryConfigs(canRead);
+  const categoryConfigsQuery = useCategoryConfigs(canRead, cycleId);
   const applicantCategoriesOptions = useMemo(
     () => ({
       ...applicationSettingsQueryOptions,
