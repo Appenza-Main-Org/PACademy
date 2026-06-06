@@ -31,6 +31,7 @@ const NO_CACHE_LOOKUPS = new Set<LookupKey>([
 
 type LookupQueryOptions = {
   enabled?: boolean;
+  retry?: boolean | number;
   staleTime?: number;
   gcTime?: number;
   refetchOnMount?: boolean | 'always';

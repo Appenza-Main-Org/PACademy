@@ -6,10 +6,8 @@
  * `isActive: true`, joined with the `applicant-categories` lookup row
  * for `nameAr`, sorted by `sortOrder`.
  *
- * The `cycleId` parameter is reserved for the day the source becomes
- * cycle-scoped (today it's global master data — see migration report
- * Open Questions). Callers can pass the picked cycle id without any
- * code change at the call site when that day comes.
+ * The `cycleId` parameter scopes the app-settings source so switching
+ * admission cycles never reuses another cycle's category configuration.
  */
 
 import { useCategoryConfigs } from '../api/applicationSettings.queries';
@@ -33,9 +31,9 @@ export interface UseActiveCategoriesForCycleResult {
 }
 
 export function useActiveCategoriesForCycle(
-  _cycleId: string,
+  cycleId: string,
 ): UseActiveCategoriesForCycleResult {
-  const query = useCategoryConfigs();
+  const query = useCategoryConfigs(Boolean(cycleId), cycleId);
   const categoriesQuery = useLookup('applicant-categories');
   const activeLookupCodes = new Set(
     (categoriesQuery.data ?? [])

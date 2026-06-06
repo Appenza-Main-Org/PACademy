@@ -56,7 +56,7 @@ function Body({
   cycle: AdmissionCycle;
   onWizardDraftsChange?: (state: ExamPlanStepDraftState | null) => void;
 }): JSX.Element {
-  const configsQuery = useCategoryConfigs();
+  const configsQuery = useCategoryConfigs(true, cycle.id);
   const inWizard = useIsInWizardMode();
   const [draftsByCategory, setDraftsByCategory] = useState<ExamPlanDraftsByCategory>({});
 

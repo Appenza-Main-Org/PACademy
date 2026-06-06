@@ -52,11 +52,14 @@ export function useAdmissionSetupCycle(): AdmissionSetupCycleContext {
     if (selectedId !== null) return;
     if (activeQuery.data) {
       setSelectedId(activeQuery.data.id);
+      writePersisted(activeQuery.data.id);
       return;
     }
     /* No active cycle — fall back to the most recent draft/active in the list. */
     if (available.length > 0) {
-      setSelectedId(available[0]!.id);
+      const fallbackId = available[0]!.id;
+      setSelectedId(fallbackId);
+      writePersisted(fallbackId);
     }
   }, [activeQuery.data, available, selectedId]);
 

@@ -40,6 +40,7 @@ import {
   useLookup,
   type ApplicantCategoryRow,
   type ApplicantCategoryType,
+  type SubmissionTypeRow,
 } from '@/features/lookups';
 import { cn } from '@/shared/lib/cn';
 import {
@@ -51,6 +52,8 @@ import {
   deriveExcellenceMode,
   type ExcellenceMode,
 } from '../../lib/excellenceMode';
+import { resolveCategoryGradingMode } from '../../lib/resolveGradingMode';
+import { useAdmissionSetupCycle } from '../../hooks/useAdmissionSetupCycle';
 import {
   selectCategoryCompletion,
   useAdmissionSetupWizardStore,
@@ -60,16 +63,21 @@ import { GeneralRulesSection } from './GeneralRulesSection';
 import { ThanawiRulesSection } from './ThanawiRulesSection';
 
 export function CategoryTabs(): JSX.Element {
-  const configsQuery = useCategoryConfigs();
+  const { cycle, isInitialised } = useAdmissionSetupCycle();
+  const cycleId = cycle?.id ?? null;
+  const configsQuery = useCategoryConfigs(isInitialised, cycleId);
   const categoriesQuery = useLookup('applicant-categories', applicationSettingsQueryOptions);
   const excellenceQuery = useLookup('excellence-criteria', applicationSettingsQueryOptions);
+  const submissionTypesQuery = useLookup('submission-types', applicationSettingsQueryOptions);
 
   const [activeId, setActiveId] = useState<string | undefined>(undefined);
 
   if (
     configsQuery.isLoading ||
+    !isInitialised ||
     categoriesQuery.isLoading ||
-    excellenceQuery.isLoading
+    excellenceQuery.isLoading ||
+    submissionTypesQuery.isLoading
   ) {
     return <LoadingState variant="list" />;
   }
@@ -77,16 +85,24 @@ export function CategoryTabs(): JSX.Element {
     configsQuery.isError ||
     categoriesQuery.isError ||
     excellenceQuery.isError ||
+    submissionTypesQuery.isError ||
     !configsQuery.data
   ) {
     return (
       <ErrorState
+        error={
+          configsQuery.error ??
+          categoriesQuery.error ??
+          excellenceQuery.error ??
+          submissionTypesQuery.error
+        }
         title="تعذر تحميل الفئات"
         description="حاول إعادة المحاولة بعد قليل."
         onRetry={() => {
           configsQuery.refetch();
           categoriesQuery.refetch();
           excellenceQuery.refetch();
+          submissionTypesQuery.refetch();
         }}
       />
     );
@@ -99,9 +115,10 @@ export function CategoryTabs(): JSX.Element {
   const visibleConfigs = mergeCategoryConfigsWithActiveLookups(
     configsQuery.data,
     categoriesQuery.data ?? [],
+    submissionTypesQuery.data ?? [],
+    excellenceQuery.data ?? [],
   );
 
-  const excellenceRows = excellenceQuery.data ?? [];
   const selectedId = activeId && visibleConfigs.some((config) => config.id === activeId)
     ? activeId
     : visibleConfigs[0]?.id;
@@ -115,6 +132,7 @@ export function CategoryTabs(): JSX.Element {
           configsQuery.refetch();
           categoriesQuery.refetch();
           excellenceQuery.refetch();
+          submissionTypesQuery.refetch();
         }}
       />
     );
@@ -136,10 +154,7 @@ export function CategoryTabs(): JSX.Element {
             <ConfigTab
               key={config.id}
               config={config}
-              excellenceLabels={resolveExcellenceCriteriaLabels(
-                config.excellenceCriterion,
-                excellenceRows,
-              )}
+              excellenceLabels={config.lookupExcellenceLabels}
             />
           ))}
         </Tabs.List>
@@ -150,10 +165,7 @@ export function CategoryTabs(): JSX.Element {
           <div className="rounded-lg border border-border-subtle bg-ink-50/30 p-4 shadow-xs">
             <ConfigPanel
               config={config}
-              excellenceMode={deriveExcellenceMode(
-                config.excellenceCriterion,
-                excellenceRows,
-              )}
+              excellenceMode={config.lookupExcellenceMode}
             />
           </div>
         </Tabs.Panel>
@@ -207,10 +219,17 @@ function ConfigTab({
   );
 }
 
+type CategoryConfigWithLookupMode = CategoryConfigJoined & {
+  lookupExcellenceMode: ExcellenceMode | null;
+  lookupExcellenceLabels: readonly string[];
+};
+
 function mergeCategoryConfigsWithActiveLookups(
   configs: readonly CategoryConfigJoined[],
   categories: readonly ApplicantCategoryRow[],
-): CategoryConfigJoined[] {
+  submissionTypes: readonly SubmissionTypeRow[],
+  excellenceRows: Parameters<typeof deriveExcellenceMode>[1],
+): CategoryConfigWithLookupMode[] {
   const activeCategories = categories.filter((category) => category.isActive);
   const configByCode = new Map(
     configs.map((config) => [config.categoryCode, config] as const),
@@ -218,6 +237,15 @@ function mergeCategoryConfigsWithActiveLookups(
 
   return activeCategories.map((category, index) => {
     const config = configByCode.get(category.code);
+    const lookupExcellenceMode = resolveLookupExcellenceMode(
+      category,
+      activeCategories,
+      submissionTypes,
+      excellenceRows,
+    );
+    const lookupExcellenceLabels = lookupExcellenceMode
+      ? [excellenceModeLabel(lookupExcellenceMode)]
+      : resolveExcellenceCriteriaLabels(category.excellenceCriterion, excellenceRows);
 
     if (!config) {
       return {
@@ -239,6 +267,8 @@ function mergeCategoryConfigsWithActiveLookups(
         sortOrder: index + 1,
         createdAt: '',
         updatedAt: '',
+        lookupExcellenceMode,
+        lookupExcellenceLabels,
       };
     }
 
@@ -251,8 +281,29 @@ function mergeCategoryConfigsWithActiveLookups(
       lockedGender:
         category.genderScope.length === 1 ? category.genderScope[0] : null,
       excellenceCriterion: normalizeExcellenceCriteria(category.excellenceCriterion),
+      lookupExcellenceMode,
+      lookupExcellenceLabels,
     };
   });
+}
+
+function resolveLookupExcellenceMode(
+  category: ApplicantCategoryRow,
+  categories: readonly ApplicantCategoryRow[],
+  submissionTypes: readonly SubmissionTypeRow[],
+  excellenceRows: Parameters<typeof deriveExcellenceMode>[1],
+): ExcellenceMode | null {
+  return (
+    resolveCategoryGradingMode(category.code, {
+      categoryLookup: categories,
+      submissionTypeLookup: submissionTypes,
+    }) ??
+    deriveExcellenceMode(category.excellenceCriterion, excellenceRows)
+  );
+}
+
+function excellenceModeLabel(mode: ExcellenceMode): string {
+  return mode === 'TAGDIR' ? 'تقدير' : 'درجة';
 }
 
 function normalizeApplicantCategoryType(
