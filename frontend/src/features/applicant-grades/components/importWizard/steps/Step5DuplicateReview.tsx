@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { Button, Checkbox } from '@/shared/components';
 import { downloadBlob } from '@/shared/lib/download';
+import { cn } from '@/shared/lib/cn';
 import { useImportWizardStore } from '../../../store/importWizard.store';
 import { normaliseRows } from '../../../lib/normalise';
 import { useApplicantGradesPreflight, useGrades } from '../../../api/grades.queries';
@@ -229,59 +230,17 @@ export function Step5DuplicateReview(): JSX.Element {
         />
       )}
 
-      <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border-subtle bg-white md:grid-cols-4">
-        <Counter
-          icon={<Layers size={14} aria-hidden />}
-          label="صفوف مكررة داخل الملف"
-          value={audit.duplicateRowCount}
-          tone={audit.exceedsThreshold ? 'danger' : 'warning'}
-        />
-        <Counter
-          icon={<Activity size={14} aria-hidden />}
-          label="مطابقات سابقة بالرقم القومي"
-          value={duplicateMatches}
-          tone="warning"
-        />
-        <Counter
-          icon={<AlertTriangle size={14} aria-hidden />}
-          label="أرقام قومية غير صالحة"
-          value={invalid}
-          tone="danger"
-        />
-        <Counter
-          icon={<AlertTriangle size={14} aria-hidden />}
-          label="صفوف بحقول مطلوبة فارغة"
-          value={missing}
-          tone="danger"
-        />
-      </div>
-
-      <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border-subtle bg-white md:grid-cols-4">
-        <Counter
-          icon={<AlertTriangle size={14} aria-hidden />}
-          label="نوع لا يطابق الإعدادات"
-          value={genderMismatch}
-          tone="danger"
-        />
-        <Counter
-          icon={<AlertTriangle size={14} aria-hidden />}
-          label="سن خارج الإعدادات"
-          value={ageOutOfRange}
-          tone="danger"
-        />
-        <Counter
-          icon={<AlertTriangle size={14} aria-hidden />}
-          label="درجات تتجاوز الدرجة العظمى"
-          value={outOfRange}
-          tone="danger"
-        />
-        <Counter
-          icon={<AlertTriangle size={14} aria-hidden />}
-          label="قيم غير رقمية / غير مقروءة"
-          value={unreadable}
-          tone="danger"
-        />
-      </div>
+      <IssueOverview
+        duplicateRows={audit.duplicateRowCount}
+        duplicateMatches={duplicateMatches}
+        invalid={invalid}
+        missing={missing}
+        genderMismatch={genderMismatch}
+        ageOutOfRange={ageOutOfRange}
+        outOfRange={outOfRange}
+        unreadable={unreadable}
+        isHighDuplicateRatio={audit.exceedsThreshold}
+      />
 
       <div className="grid grid-cols-2 overflow-hidden rounded-md border border-border-subtle bg-ink-50 md:grid-cols-5">
         <Summary label="مستلمة" value={report.totals.received} />
@@ -303,7 +262,7 @@ export function Step5DuplicateReview(): JSX.Element {
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border-subtle bg-white px-3.5 py-2.5">
         <div className="flex items-center gap-2 text-xs text-ink-600">
           <ShieldCheck size={14} aria-hidden className="text-teal-600" />
-          <span>احفظ تقرير المراجعة قبل الحفظ.</span>
+          <span>تقرير المراجعة متاح للحفظ.</span>
         </div>
         <Button
           size="sm"
@@ -378,12 +337,10 @@ function ImportCountReconciliation({
           aria-hidden
           className={matches ? 'text-teal-600' : 'text-terra-600'}
         />
-        <span className="font-semibold text-ink-700">تأكيد الأرقام:</span>
+        <span className="font-semibold text-ink-700">تطابق الأرقام:</span>
         <span>
-          {ready.toLocaleString('en')} جاهزة + {pending.toLocaleString('en')} تحتاج قرار +{' '}
-          {rejected.toLocaleString('en')} مرفوضة + {skipped.toLocaleString('en')} ملغاة ={' '}
-          <span className="font-en font-semibold">{reconciled.toLocaleString('en')}</span>{' '}
-          من <span className="font-en font-semibold">{received.toLocaleString('en')}</span> صف.
+          <span className="font-en font-semibold">{reconciled.toLocaleString('en')}</span> من{' '}
+          <span className="font-en font-semibold">{received.toLocaleString('en')}</span> صف.
         </span>
       </div>
       {outOfRangeHardRejected > 0 && (
@@ -445,33 +402,63 @@ function LoudDuplicateGuard({
   return (
     <div
       role="alert"
-      className="flex flex-col gap-3 rounded-md border-2 border-terra-500 bg-terra-50 p-4 text-xs text-terra-700"
+      className="flex flex-col gap-3 rounded-md border border-terra-500 bg-terra-50 p-4 text-xs text-terra-700"
     >
       <div className="flex items-start gap-2.5">
-        <ShieldAlert size={18} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0" />
+        <ShieldAlert size={18} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0 text-terra-700" />
         <div className="flex flex-col gap-1.5">
-          <span className="text-sm font-bold">
-            تكرار مرتفع
-          </span>
+          <span className="text-sm font-bold">تكرار مرتفع يحتاج إقرارًا</span>
           <p className="m-0 leading-relaxed">
             <strong className="font-en">{audit.duplicateRowCount.toLocaleString('en')}</strong> صف
-            مكرر ({ratioPct})، والحد {thresholdPct}. راجع التوزيع وأكّد المتابعة.
+            مكرر ({ratioPct})، والحد {thresholdPct}.
           </p>
         </div>
       </div>
-      <div className="flex cursor-pointer items-start gap-3 rounded-md border-2 border-terra-500 bg-white p-3.5 shadow-[0_0_0_3px_var(--terra-50)]">
-        <Checkbox
-          id="loud-duplicate-ack"
-          checked={ack}
-          onCheckedChange={(value) => onToggleAck(value === true)}
-          aria-label="إقرار بتجاوز كثافة التكرار"
-          className="mt-0.5 [&_[role=checkbox]]:h-7 [&_[role=checkbox]]:w-7 [&_[role=checkbox]]:border-terra-700 [&_[role=checkbox]]:bg-terra-50 [&_[role=checkbox]]:shadow-sm [&_[role=checkbox][data-state=checked]]:bg-terra-700"
-        />
-        <label htmlFor="loud-duplicate-ack" className="flex flex-1 cursor-pointer flex-col gap-1 text-xs text-ink-700">
-          <span className="inline-flex w-fit items-center rounded-sm bg-terra-100 px-2 py-0.5 text-2xs font-bold text-terra-800">
-            مطلوب قبل المتابعة
+      <div
+        className={cn(
+          'flex cursor-pointer items-center gap-3 rounded-md border bg-white p-3.5 transition-[border-color,box-shadow,background-color] duration-fast ease-standard',
+          ack
+            ? 'border-teal-600 bg-teal-50/60 shadow-[0_0_0_3px_var(--teal-50)]'
+            : 'border-terra-500 shadow-[0_0_0_3px_var(--terra-50)] hover:border-terra-700',
+        )}
+        onClick={() => onToggleAck(!ack)}
+      >
+        <span
+          className={cn(
+            'grid h-11 w-11 shrink-0 place-items-center rounded-md border transition-colors duration-fast ease-standard',
+            ack
+              ? 'border-teal-300 bg-teal-100'
+              : 'border-terra-200 bg-terra-100',
+          )}
+        >
+          <Checkbox
+            id="loud-duplicate-ack"
+            checked={ack}
+            onClick={(event) => event.stopPropagation()}
+            onCheckedChange={(value) => onToggleAck(value === true)}
+            aria-label="إقرار بتجاوز كثافة التكرار"
+            className={cn(
+              '[&_[role=checkbox]]:h-7 [&_[role=checkbox]]:w-7 [&_[role=checkbox]]:rounded-sm [&_[role=checkbox]]:border-2 [&_[role=checkbox]]:shadow-sm',
+              ack
+                ? '[&_[role=checkbox]]:border-teal-800 [&_[role=checkbox]]:bg-teal-800'
+                : '[&_[role=checkbox]]:border-terra-800 [&_[role=checkbox]]:bg-white',
+            )}
+          />
+        </span>
+        <label
+          htmlFor="loud-duplicate-ack"
+          className="flex flex-1 cursor-pointer flex-col gap-1 text-xs text-ink-700"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <span
+            className={cn(
+              'inline-flex w-fit items-center rounded-sm px-2 py-0.5 text-2xs font-bold',
+              ack ? 'bg-teal-100 text-teal-800' : 'bg-terra-100 text-terra-800',
+            )}
+          >
+            {ack ? 'تم الإقرار' : 'مطلوب قبل المتابعة'}
           </span>
-          <span className="text-sm font-bold text-terra-800">
+          <span className={cn('text-sm font-bold', ack ? 'text-teal-800' : 'text-terra-800')}>
             راجعت التكرارات وأوافق على المتابعة.
           </span>
           <span className="text-2xs text-ink-500">
@@ -480,6 +467,121 @@ function LoudDuplicateGuard({
         </label>
       </div>
     </div>
+  );
+}
+
+function IssueOverview({
+  duplicateRows,
+  duplicateMatches,
+  invalid,
+  missing,
+  genderMismatch,
+  ageOutOfRange,
+  outOfRange,
+  unreadable,
+  isHighDuplicateRatio,
+}: {
+  duplicateRows: number;
+  duplicateMatches: number;
+  invalid: number;
+  missing: number;
+  genderMismatch: number;
+  ageOutOfRange: number;
+  outOfRange: number;
+  unreadable: number;
+  isHighDuplicateRatio: boolean;
+}): JSX.Element {
+  const groups = [
+    {
+      icon: <Layers size={14} aria-hidden />,
+      title: 'التكرار',
+      tone: isHighDuplicateRatio ? 'danger' : 'warning',
+      items: [
+        { label: 'داخل الملف', value: duplicateRows },
+        { label: 'مطابقات سابقة', value: duplicateMatches },
+      ],
+    },
+    {
+      icon: <AlertTriangle size={14} aria-hidden />,
+      title: 'بيانات ناقصة',
+      tone: 'danger',
+      items: [
+        { label: 'رقم قومي غير صالح', value: invalid },
+        { label: 'حقول فارغة', value: missing },
+        { label: 'قيم غير مقروءة', value: unreadable },
+      ],
+    },
+    {
+      icon: <Activity size={14} aria-hidden />,
+      title: 'مطابقة الإعدادات',
+      tone: 'danger',
+      items: [
+        { label: 'نوع غير مطابق', value: genderMismatch },
+        { label: 'سن خارج الإعدادات', value: ageOutOfRange },
+        { label: 'درجة متجاوزة', value: outOfRange },
+      ],
+    },
+  ] as const;
+
+  const visibleGroups = groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => item.value > 0),
+    }))
+    .filter((group) => group.items.length > 0);
+
+  if (visibleGroups.length === 0) {
+    return (
+      <div className="flex items-center gap-2 rounded-md border border-success bg-success-bg px-3.5 py-3 text-xs text-success">
+        <ShieldCheck size={14} aria-hidden />
+        لا توجد ملاحظات حرجة في المراجعة.
+      </div>
+    );
+  }
+
+  return (
+    <section className="rounded-md border border-border-subtle bg-white px-3.5 py-3">
+      <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-ink-700">
+        <AlertTriangle size={14} aria-hidden className="text-terra-600" />
+        ملاحظات المراجعة
+      </div>
+      <div className="grid gap-2 md:grid-cols-3">
+        {visibleGroups.map((group) => (
+          <div
+            key={group.title}
+            className="rounded-md border border-border-subtle bg-ink-50/50 px-3 py-2.5"
+          >
+            <div
+              className={cn(
+                'mb-2 flex items-center gap-1.5 text-2xs font-bold',
+                group.tone === 'warning' ? 'text-gold-700' : 'text-terra-700',
+              )}
+            >
+              {group.icon}
+              {group.title}
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {group.items.map((item) => (
+                <span
+                  key={item.label}
+                  className={cn(
+                    'inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-2xs',
+                    group.tone === 'warning'
+                      ? 'border-gold-200 bg-gold-50 text-gold-800'
+                      : 'border-terra-100 bg-terra-50 text-terra-800',
+                  )}
+                >
+                  <strong className="font-en text-xs tabular-nums">
+                    {item.value.toLocaleString('en')}
+                  </strong>
+                  {item.label}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -617,34 +719,6 @@ function PreflightProgress({
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function Counter({
-  icon,
-  label,
-  value,
-  tone,
-}: {
-  icon: JSX.Element;
-  label: string;
-  value: number;
-  tone: 'info' | 'warning' | 'danger';
-}): JSX.Element {
-  const cls =
-    tone === 'info'
-      ? 'text-teal-700 bg-teal-50'
-      : tone === 'warning'
-        ? 'text-gold-700 bg-gold-50'
-        : 'text-terra-700 bg-terra-50';
-  return (
-    <div className={`flex flex-col gap-1.5 border-s border-border-subtle px-4 py-3.5 first:border-s-0 ${cls}`}>
-      <span className="flex items-center gap-1.5 text-2xs font-semibold uppercase">
-        {icon}
-        {label}
-      </span>
-      <span className="font-en text-2xl font-bold">{value.toLocaleString('en')}</span>
     </div>
   );
 }
