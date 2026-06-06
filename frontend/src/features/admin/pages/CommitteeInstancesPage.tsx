@@ -537,7 +537,7 @@ function CommitteeRowsTable({
             <th className="min-w-40 px-4 py-2 text-start text-2xs font-medium uppercase tracking-wide text-ink-500">
               اسم الاختبار
             </th>
-            <th className="px-4 py-2 text-start text-2xs font-medium uppercase tracking-wide text-ink-500">
+            <th className="w-36 px-4 py-2 text-center text-2xs font-medium uppercase tracking-wide text-ink-500">
               تاريخ الاختبار
             </th>
             <th className="px-4 py-2 text-center text-2xs font-medium uppercase tracking-wide text-ink-500">
@@ -566,7 +566,7 @@ function CommitteeRowsTable({
               <td className="px-4 py-2 align-middle text-ink-900">
                 {row.examLabel || <span className="text-ink-400">—</span>}
               </td>
-              <td className="px-4 py-2 align-middle">
+              <td className="w-36 px-4 py-2 align-middle text-center">
                 <DateCell value={row.date} />
               </td>
               <td className="px-4 py-2 align-middle text-center">
@@ -772,7 +772,7 @@ interface DateCellProps {
 function DateCell({ value }: DateCellProps): JSX.Element {
   return (
     <span
-      className="inline-block min-w-[7rem] whitespace-nowrap font-numeric tnum text-2xs text-ink-700"
+      className="inline-flex min-w-[7rem] justify-center whitespace-nowrap font-numeric tnum text-2xs text-ink-700"
       title={fmtDate(value, 'full')}
     >
       {fmtDate(value, 'short')}
