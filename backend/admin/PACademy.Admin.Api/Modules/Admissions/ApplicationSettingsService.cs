@@ -702,32 +702,128 @@ public sealed class ApplicationSettingsService(IAdmissionsDbContext db)
     private static IReadOnlyList<string> StringArray(JsonNode? node)
     {
         if (node is null) return [];
-        return node.Deserialize<List<string>>(JsonOptions) ?? [];
+        try
+        {
+            return node.Deserialize<List<string>>(JsonOptions) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+        catch (InvalidOperationException)
+        {
+            return [];
+        }
     }
 
-    private static IReadOnlyList<string> StringArray(string json) =>
-        JsonSerializer.Deserialize<List<string>>(json, JsonOptions) ?? [];
+    private static IReadOnlyList<string> StringArray(string json)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<List<string>>(json, JsonOptions) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
 
     private static IReadOnlyList<int> IntArray(JsonNode? node)
     {
         if (node is null) return [];
-        return node.Deserialize<List<int>>(JsonOptions) ?? [];
+        try
+        {
+            return node.Deserialize<List<int>>(JsonOptions) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+        catch (InvalidOperationException)
+        {
+            return [];
+        }
     }
 
-    private static IReadOnlyList<int> IntArray(string json) =>
-        JsonSerializer.Deserialize<List<int>>(json, JsonOptions) ?? [];
+    private static IReadOnlyList<int> IntArray(string json)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<List<int>>(json, JsonOptions) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
 
-    private static string? StringProp(JsonObject? obj, string name) =>
-        obj is not null && obj.TryGetPropertyValue(name, out var node) ? node?.GetValue<string>() : null;
+    private static string? StringProp(JsonObject? obj, string name)
+    {
+        if (obj is null || !obj.TryGetPropertyValue(name, out var node) || node is null) return null;
+        try
+        {
+            return node.GetValue<string>();
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
 
-    private static bool? BoolProp(JsonObject obj, string name) =>
-        obj.TryGetPropertyValue(name, out var node) ? node?.GetValue<bool>() : null;
+    private static bool? BoolProp(JsonObject obj, string name)
+    {
+        if (!obj.TryGetPropertyValue(name, out var node) || node is null) return null;
+        try
+        {
+            return node.GetValue<bool>();
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
 
-    private static int? IntProp(JsonObject obj, string name) =>
-        obj.TryGetPropertyValue(name, out var node) && node is not null ? node.GetValue<int?>() : null;
+    private static int? IntProp(JsonObject obj, string name)
+    {
+        if (!obj.TryGetPropertyValue(name, out var node) || node is null) return null;
+        try
+        {
+            return node.GetValue<int?>();
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
 
-    private static decimal? DecimalProp(JsonObject obj, string name) =>
-        obj.TryGetPropertyValue(name, out var node) && node is not null ? node.GetValue<decimal?>() : null;
+    private static decimal? DecimalProp(JsonObject obj, string name)
+    {
+        if (!obj.TryGetPropertyValue(name, out var node) || node is null) return null;
+        try
+        {
+            return node.GetValue<decimal?>();
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
 
     private static DateOnly ParseDate(string? value) =>
         DateOnly.TryParse(value, out var parsed) ? parsed : throw new ConflictException("INVALID_DATE_RANGE", "تاريخ غير صالح");
