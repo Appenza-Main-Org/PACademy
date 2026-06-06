@@ -9,6 +9,8 @@ export const categoryKeys = {
     [...categoryKeys.all, 'public-list', cycleId ?? null] as const,
   byId: (cycleId?: string | null) =>
     [...categoryKeys.all, 'cycle', cycleId ?? null] as const,
+  applicationPeriod: (cycleId?: string | null) =>
+    [...categoryKeys.all, 'cycle-application-period', cycleId ?? null] as const,
   activeCycle: () => [...categoryKeys.all, 'active-cycle'] as const,
   activeCycles: () => [...categoryKeys.all, 'active-cycles'] as const,
   eligibleCategories: (nationalId?: string | null, cycleId?: string | null) =>
@@ -28,6 +30,16 @@ export function useCycleById(cycleId?: string | null) {
   return useQuery({
     queryKey: categoryKeys.byId(cycleId),
     queryFn: () => categoriesPublicService.getCycleById(cycleId ?? ''),
+    enabled: Boolean(cycleId),
+    ...noServerStateCacheOptions,
+  });
+}
+
+/** Application submission window configured for the selected applicant cycle. */
+export function useCycleApplicationPeriod(cycleId?: string | null) {
+  return useQuery({
+    queryKey: categoryKeys.applicationPeriod(cycleId),
+    queryFn: () => categoriesPublicService.getCycleApplicationPeriod(cycleId ?? ''),
     enabled: Boolean(cycleId),
     ...noServerStateCacheOptions,
   });

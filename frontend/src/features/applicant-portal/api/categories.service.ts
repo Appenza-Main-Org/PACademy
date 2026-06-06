@@ -7,6 +7,7 @@
  *   GET    /api/admin/categories                     → ApplicantCategory[] (nomination-only filtered out)
  *   GET    /api/cycles/active                         → AdmissionCycle (the single active cycle, or null)
  *   GET    /api/cycles/:id                            → AdmissionCycle (explicit applicant cycle context)
+ *   GET    /api/admin/app-settings/cycle-drafts/:id   → configured application period fallback
  *   POST   /api/applicant/eligibility                → EligibilityResult (body carries cycleId)
  *
  * The list endpoint computes each category's `isOpen` from the chosen
@@ -99,6 +100,18 @@ export interface ApplicantCategoryEligibility {
   failedReasons: string[];
 }
 
+export interface ApplicantCycleApplicationPeriod {
+  startDate: string;
+  endDate: string;
+}
+
+interface CycleWithDirectApplicationPeriod extends AdmissionCycle {
+  applicationStart?: string | null;
+  applicationEnd?: string | null;
+  applicationStartDate?: string | null;
+  applicationEndDate?: string | null;
+}
+
 function isCycleLive(cycle: AdmissionCycle): boolean {
   /* Applicant gate (2026-05-30): a cycle accepts applications only when it is
    * approved-and-published (اعتماد ونشر → status `'open'`/`'active'`/`'extended'`).
@@ -133,6 +146,101 @@ function normalizeActiveCycles(
       (a, b) =>
         new Date(a.closeDate).getTime() - new Date(b.closeDate).getTime(),
     );
+}
+
+function dateOnly(value: string | null | undefined): string | null {
+  const candidate = value?.slice(0, 10);
+  if (!candidate || !/^\d{4}-\d{2}-\d{2}$/.test(candidate)) return null;
+  const parsed = new Date(`${candidate}T00:00:00.000Z`);
+  return Number.isNaN(parsed.getTime()) ? null : candidate;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function mergeApplicationPeriods(
+  periods: readonly ApplicantCycleApplicationPeriod[],
+): ApplicantCycleApplicationPeriod | null {
+  if (periods.length === 0) return null;
+  return {
+    startDate: periods.reduce(
+      (min, period) => (period.startDate < min ? period.startDate : min),
+      periods[0]!.startDate,
+    ),
+    endDate: periods.reduce(
+      (max, period) => (period.endDate > max ? period.endDate : max),
+      periods[0]!.endDate,
+    ),
+  };
+}
+
+function periodFromUnknownHeader(value: unknown): ApplicantCycleApplicationPeriod | null {
+  if (!isRecord(value)) return null;
+  const startDate = typeof value.applicationStart === 'string'
+    ? dateOnly(value.applicationStart)
+    : typeof value.applicationStartDate === 'string'
+      ? dateOnly(value.applicationStartDate)
+      : null;
+  const endDate = typeof value.applicationEnd === 'string'
+    ? dateOnly(value.applicationEnd)
+    : typeof value.applicationEndDate === 'string'
+      ? dateOnly(value.applicationEndDate)
+      : null;
+  return startDate && endDate ? { startDate, endDate } : null;
+}
+
+function resolveCycleApplicationPeriodFromDraft(
+  draft: unknown,
+): ApplicantCycleApplicationPeriod | null {
+  if (!isRecord(draft)) return null;
+
+  const periods: ApplicantCycleApplicationPeriod[] = [];
+  if (isRecord(draft.headers)) {
+    for (const header of Object.values(draft.headers)) {
+      const period = periodFromUnknownHeader(header);
+      if (period) periods.push(period);
+    }
+  }
+
+  for (const key of ['approved', 'local'] as const) {
+    const rows = draft[key];
+    if (!Array.isArray(rows)) continue;
+    for (const row of rows) {
+      if (!isRecord(row)) continue;
+      const period = periodFromUnknownHeader(row.header) ?? periodFromUnknownHeader(row);
+      if (period) periods.push(period);
+    }
+  }
+
+  return mergeApplicationPeriods(periods);
+}
+
+export function resolveCycleApplicationPeriod(
+  cycle: AdmissionCycle | null | undefined,
+): ApplicantCycleApplicationPeriod | null {
+  if (!cycle) return null;
+
+  const direct = cycle as CycleWithDirectApplicationPeriod;
+  const directStart = dateOnly(direct.applicationStartDate ?? direct.applicationStart);
+  const directEnd = dateOnly(direct.applicationEndDate ?? direct.applicationEnd);
+  if (directStart && directEnd) return { startDate: directStart, endDate: directEnd };
+
+  const categoryPeriods = Object.values(cycle.openCategories ?? {})
+    .filter((config) => Boolean(config?.isOpen))
+    .map((config) => ({
+      startDate: dateOnly(config?.startDate),
+      endDate: dateOnly(config?.endDate),
+    }))
+    .filter((period): period is ApplicantCycleApplicationPeriod =>
+      Boolean(period.startDate && period.endDate),
+    );
+  const categoryPeriod = mergeApplicationPeriods(categoryPeriods);
+  if (categoryPeriod) return categoryPeriod;
+
+  const cycleStart = dateOnly(cycle.openDate);
+  const cycleEnd = dateOnly(cycle.closeDate);
+  return cycleStart && cycleEnd ? { startDate: cycleStart, endDate: cycleEnd } : null;
 }
 
 /** Resolve a single cycle: explicit id (if live) → MOCK.activeCycleId →
@@ -259,6 +367,26 @@ export const categoriesPublicService = {
     }
     await simulateLatency(80, 200);
     return resolveCycle(cycleId);
+  },
+
+  async getCycleApplicationPeriod(
+    cycleId: string,
+  ): Promise<ApplicantCycleApplicationPeriod | null> {
+    if (!cycleId) return null;
+    const cycle = await this.getCycleById(cycleId);
+
+    if (isBackendEnabled()) {
+      const draft = await adminApiClient
+        .get<unknown>(`/api/admin/app-settings/cycle-drafts/${encodeURIComponent(cycleId)}`, {
+          headers: { 'X-Cycle-Id': cycleId },
+          query: { cycleId },
+        })
+        .catch(() => null);
+      const draftPeriod = resolveCycleApplicationPeriodFromDraft(draft);
+      if (draftPeriod) return draftPeriod;
+    }
+
+    return resolveCycleApplicationPeriod(cycle);
   },
 
   /** First cycle open to applicants (kept for legacy single-cycle consumers). */
