@@ -6,7 +6,7 @@
  * chosen symbology (mock renderer is linear Code 128).
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Save, ScanBarcode, Settings2 } from 'lucide-react';
 import {
   Badge,
@@ -44,12 +44,12 @@ export function BarcodeConfigPage(): JSX.Element {
   const saveMut = useUpdateBarcodeConfigMutation();
   const [draft, setDraft] = useState<BarcodeConfig | null>(null);
 
-  /* Seed the editable draft once the saved config arrives. */
-  useEffect(() => {
-    if (data && !draft) {
-      setDraft({ format: { ...data.format }, content: data.content.map((f) => ({ ...f })), layout: { ...data.layout } });
-    }
-  }, [data, draft]);
+  /* Seed the editable draft from server state on first arrival. Adjusting
+   * state during render (with a guard) is the React-endorsed alternative to
+   * a syncing useEffect — no data fetching happens here. */
+  if (data && !draft) {
+    setDraft({ format: { ...data.format }, content: data.content.map((f) => ({ ...f })), layout: { ...data.layout } });
+  }
 
   const dirty = useMemo(
     () => Boolean(data && draft && JSON.stringify(data) !== JSON.stringify(draft)),
