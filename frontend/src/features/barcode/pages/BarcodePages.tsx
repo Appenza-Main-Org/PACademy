@@ -1,10 +1,11 @@
-import { useState, type ChangeEvent } from 'react';
+import { useMemo, useState, type ChangeEvent } from 'react';
 import { CalendarRange, Hash, IdCard, Printer, RefreshCw, ScanBarcode, Search, Sparkles, User } from 'lucide-react';
 import { PageHeader, Card, CardHeader, CardBody, Button, Badge, EmptyState, ErrorState, LoadingState, KhayameyaStripe, Code128Barcode, LogoMark, Select, toast } from '@/shared/components';
 import { MOCK } from '@/shared/mock-data';
 import { cn } from '@/shared/lib/cn';
 import { date as fmtDate, num, shortName, maskNationalId } from '@/shared/lib/format';
 import { nationalIdErrorMessage } from '@/shared/lib/national-id';
+import { hasPermission, useAuthStore } from '@/features/auth';
 import { useBarcodeGroupPrint, useBarcodeSearch, useGenerateBarcodeMutation, useReprintBarcodeMutation } from '../api/barcode.queries';
 import type { BarcodeSearchHit, BarcodeSearchMode } from '../api/barcode.service';
 import {
@@ -15,6 +16,8 @@ import {
   EMPTY_GROUP_SELECTION,
   type GroupSelection,
 } from '../lib/barcodeGroups';
+import { isApplicantInScope, scopeForRole, type OperatorScope } from '../lib/barcodeScope';
+import { BarcodeScopeBar } from '../components/BarcodeScopeBar';
 import type { Applicant, BarcodeRecord } from '@/shared/types/domain';
 
 /**
@@ -37,25 +40,58 @@ function buildPayload(applicant: Applicant, cardCode: string): string {
 /** Copy-count options for individual print (US-BC-002). */
 const COPY_COUNTS = [1, 2, 3, 4, 5, 6] as const;
 
+/** Derive the operator scope (default + lock + override entitlement) from
+ *  the authenticated user's role (US-BC-011 → US-BC-016). */
+function useOperatorScope(): {
+  scope: OperatorScope;
+  setScope: (next: OperatorScope) => void;
+  locked: boolean;
+  canOverride: boolean;
+} {
+  const role = useAuthStore((s) => s.user?.role) ?? 'super_admin';
+  const permissions = useAuthStore((s) => s.user?.permissions ?? []);
+  const seed = scopeForRole(role);
+  const [scope, setScope] = useState<OperatorScope>(() => ({
+    kind: seed.kind,
+    override: false,
+    ...(seed.kind === 'student-committee' ? { committee: BARCODE_COMMITTEE_OPTIONS[0]!.value } : {}),
+    ...(seed.kind === 'exam-committee' ? { examType: BARCODE_EXAM_TYPE_OPTIONS[0]!.value } : {}),
+  }));
+  return { scope, setScope, locked: seed.locked, canOverride: hasPermission(permissions, 'barcode:config') };
+}
+
 export function BarcodeGeneratePage(): JSX.Element {
+  const { scope, setScope, locked, canOverride } = useOperatorScope();
+  const inScope = useMemo(() => MOCK.applicants.filter((a) => isApplicantInScope(a, scope)), [scope]);
+
   const [applicantId, setApplicantId] = useState(MOCK.applicants[0]!.id);
   const [record, setRecord] = useState<BarcodeRecord | null>(null);
   /** How the current `record` was produced — drives the preview caption. */
   const [origin, setOrigin] = useState<'generated' | 'reprinted' | null>(null);
   const [copies, setCopies] = useState(1);
 
-  const applicant = MOCK.applicants.find((a) => a.id === applicantId);
+  /* Keep the selection inside the active scope. */
+  const effectiveId = inScope.some((a) => a.id === applicantId) ? applicantId : inScope[0]?.id ?? '';
+  const applicant = inScope.find((a) => a.id === effectiveId);
   const generateMut = useGenerateBarcodeMutation();
   const reprintMut = useReprintBarcodeMutation();
 
+  const handleScopeChange = (next: OperatorScope): void => {
+    setScope(next);
+    setRecord(null);
+    setOrigin(null);
+  };
+
   const handleGenerate = (): void => {
-    generateMut.mutate(applicantId, {
+    if (!effectiveId) return;
+    generateMut.mutate(effectiveId, {
       onSuccess: (r) => { setRecord(r); setOrigin('generated'); toast('تم توليد كارت تردد جديد', 'success'); },
     });
   };
 
   const handleReprint = (): void => {
-    reprintMut.mutate(applicantId, {
+    if (!effectiveId) return;
+    reprintMut.mutate(effectiveId, {
       onSuccess: (r) => { setRecord(r); setOrigin('reprinted'); toast('تم استرجاع الكارت القائم لإعادة الطباعة', 'success'); },
       onError: (e) => toast(e instanceof Error ? e.message : 'تعذّر استرجاع الكارت', 'danger'),
     });
@@ -72,6 +108,8 @@ export function BarcodeGeneratePage(): JSX.Element {
         subtitle="توليد باركود فريد لكل متقدم لاستخدامه في كل المراحل · يربط بين العيادات واللجان والامتحانات"
       />
 
+      <BarcodeScopeBar scope={scope} onChange={handleScopeChange} locked={locked} canOverride={canOverride} />
+
       <div className="grid gap-5 lg:grid-cols-[1fr_1.2fr]">
         <Card>
           <CardHeader
@@ -80,12 +118,16 @@ export function BarcodeGeneratePage(): JSX.Element {
             actions={<Badge tone="info" icon={<Sparkles size={11} strokeWidth={1.75} />}>توليد آلي</Badge>}
           />
           <CardBody>
+            {inScope.length === 0 ? (
+              <EmptyState variant="no-applicants-yet" title="لا يوجد متقدمون ضمن النطاق" description="لا يوجد متقدمون مؤهَّلون للطباعة ضمن نطاق التشغيل الحالي." />
+            ) : (
+            <>
             <div className="filters">
               <Select
                 aria-label="اختيار المتقدم"
-                value={applicantId}
+                value={effectiveId}
                 onChange={(e) => { setApplicantId(e.target.value); setRecord(null); setOrigin(null); }}
-                options={MOCK.applicants.slice(0, 30).map((a) => ({
+                options={inScope.slice(0, 30).map((a) => ({
                   value: a.id,
                   label: `${a.id} — ${shortName(a.name, 3)}`,
                 }))}
@@ -137,6 +179,8 @@ export function BarcodeGeneratePage(): JSX.Element {
                 لإلغاء الكود وإصدار كود جديد (فقد البطاقة) استخدم صفحة «بدل فاقد».
               </p>
             </div>
+            </>
+            )}
           </CardBody>
         </Card>
 
@@ -417,19 +461,27 @@ function BarcodeHitRow({ hit }: { hit: BarcodeSearchHit }): JSX.Element {
 const ALL_OPTION = { value: '', label: 'الكل' } as const;
 
 export function BarcodeBatchPage(): JSX.Element {
+  const { scope, setScope, locked, canOverride } = useOperatorScope();
   const [selection, setSelection] = useState<GroupSelection>(EMPTY_GROUP_SELECTION);
-  const { data: candidates, isFetching, isError, error, refetch } = useBarcodeGroupPrint(selection);
+  const { data, isFetching, isError, error, refetch } = useBarcodeGroupPrint(selection);
+
+  /* Bulk print is restricted to applicants inside the operator's scope. */
+  const candidates = useMemo(
+    () => (data ?? []).filter((c) => isApplicantInScope(c.applicant, scope)),
+    [data, scope],
+  );
 
   const setDim = (key: keyof GroupSelection) => (e: ChangeEvent<HTMLSelectElement>): void => {
     setSelection((prev) => ({ ...prev, [key]: e.target.value }));
   };
 
-  const count = candidates?.length ?? 0;
+  const count = candidates.length;
   const hasFilter = Object.values(selection).some(Boolean);
 
   return (
     <>
       <PageHeader title="دفعة كروت" subtitle="توليد كروت لمجموعة متقدمين دفعة واحدة بتصفية حسب الفئة أو نوع الاختبار أو اللجنة أو المؤهل" />
+      <BarcodeScopeBar scope={scope} onChange={setScope} locked={locked} canOverride={canOverride} />
       <Card>
         <CardBody>
           <div className="alert alert-info mb-4">
@@ -486,7 +538,7 @@ export function BarcodeBatchPage(): JSX.Element {
               <EmptyState variant="no-applicants-yet" title="لا يوجد متقدمون" description="عدّل التصفية لعرض كروت قابلة للطباعة." />
             ) : (
               <div className="grid grid-cols-auto" style={{ gap: 12 }}>
-                {candidates!.map(({ applicant, cardCode }) => (
+                {candidates.map(({ applicant, cardCode }) => (
                   <div key={applicant.id} className="barcode-display flex flex-col items-center gap-1">
                     <div className="text-xs text-tertiary mb-2">{shortName(applicant.name, 2)}</div>
                     <Code128Barcode value={buildPayload(applicant, cardCode)} height={44} moduleWidth={1} showText={false} />

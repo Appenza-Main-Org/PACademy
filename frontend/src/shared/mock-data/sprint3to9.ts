@@ -319,15 +319,27 @@ export const BIOMETRIC_VERIFICATIONS: BiometricVerification[] = (() => {
   return out.sort((a, b) => b.ts - a.ts);
 })();
 
+/** Stable 2-digit ASCII code for a (possibly Arabic) governorate name. The
+ *  code is encoded into a Code 128 symbol, so it must stay ASCII — never the
+ *  raw Arabic name. (Ref applicants carry no National ID to read 07–09 from.) */
+function asciiGovCode(governorate: string): string {
+  let h = 0;
+  for (let i = 0; i < governorate.length; i += 1) h = (h * 31 + governorate.charCodeAt(i)) >>> 0;
+  return String(h % 100).padStart(2, '0');
+}
+
 export const BARCODES: BarcodeRecord[] = (() => {
-  return MOCK_APPLICANTS_FOR_REFS.map((a, i) => ({
-    applicantId: a.id,
-    code: `26-${a.governorate.slice(0, 3).toUpperCase()}-${String(i + 1).padStart(8, '0')}`,
-    cycleId: 'CYC-2026-M',
-    governorateCode: a.governorate.slice(0, 3).toUpperCase(),
-    issuedAt: now - Math.floor(rng() * 30 * day),
-    void: rng() < 0.04,
-  }));
+  return MOCK_APPLICANTS_FOR_REFS.map((a, i) => {
+    const govCode = asciiGovCode(a.governorate);
+    return {
+      applicantId: a.id,
+      code: `26-${govCode}-${String(i + 1).padStart(8, '0')}`,
+      cycleId: 'CYC-2026-M',
+      governorateCode: govCode,
+      issuedAt: now - Math.floor(rng() * 30 * day),
+      void: rng() < 0.04,
+    };
+  });
 })();
 
 export const BARCODE_SCANS: BarcodeScan[] = (() => {
