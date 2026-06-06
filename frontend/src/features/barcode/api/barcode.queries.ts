@@ -7,6 +7,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { barcodeService } from './barcode.service';
 import type { BarcodeSearchMode } from './barcode.service';
+import type { GroupSelection } from '../lib/barcodeGroups';
 import type { BarcodeScan } from '@/shared/types/domain';
 
 /** Query-key factory for the barcode feature. */
@@ -14,7 +15,17 @@ export const barcodeKeys = {
   all: ['barcode'] as const,
   scans: (applicantId?: string) => ['barcode', 'scans', applicantId ?? 'all'] as const,
   search: (mode: BarcodeSearchMode, query: string) => ['barcode', 'search', mode, query] as const,
+  group: (selection: GroupSelection) =>
+    ['barcode', 'group', selection.category, selection.examType, selection.committee, selection.qualification] as const,
 };
+
+/** Live group/bulk-print candidate list for the current filter selection. */
+export function useBarcodeGroupPrint(selection: GroupSelection) {
+  return useQuery({
+    queryKey: barcodeKeys.group(selection),
+    queryFn: () => barcodeService.listGroupPrint(selection),
+  });
+}
 
 /** Run a barcode search once `submitted` is set (button-triggered, not
  *  keystroke-live). Passing `null` keeps the query idle. */
