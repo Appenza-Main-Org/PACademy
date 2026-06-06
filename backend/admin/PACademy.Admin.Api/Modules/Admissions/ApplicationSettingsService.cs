@@ -537,7 +537,7 @@ public sealed class ApplicationSettingsService(IAdmissionsDbContext db)
             ["implicitSpecId"] = singleAxis ? implicitSpec?.Id : null,
             ["specializationCount"] = realSpecs.Count,
             ["yearCount"] = years.Count(x => childIds.Contains(x.CategorySpecializationId)),
-            ["excellenceCriterion"] = StringProp(category, "excellenceCriterion")
+            ["excellenceCriterion"] = ToJsonArray(StringArray(category?["excellenceCriterion"]))
         };
     }
 
