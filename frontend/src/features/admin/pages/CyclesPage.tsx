@@ -18,7 +18,8 @@
  *                     so admins can prepare review cycles.
  */
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   CalendarRange,
@@ -51,7 +52,12 @@ import {
   useCycleSoftDelete,
   useCycleUpdateStatus,
 } from '../api/cycles.queries';
-import { resolveCycleApplicationPeriod } from '../api/cycles.service';
+import {
+  resolveCycleApplicationPeriod,
+  resolveCycleApplicationPeriodFromDraft,
+  type CycleApplicationPeriod,
+} from '../api/cycles.service';
+import { applicationSettingsService } from '../admission-setup/api/applicationSettings.service';
 import {
   canDeleteAdmissionCycle,
   cycleDeleteBlockedReason,
@@ -80,6 +86,8 @@ const LIST_STATUS_PRIORITY: Record<CycleListStatus, number> = {
   published: 0,
   review: 1,
 };
+
+const CYCLE_PERIODS_STALE_TIME_MS = 15_000;
 
 function cycleSortTime(cycle: AdmissionCycle): number {
   const stamp = cycle.updatedAt ?? cycle.createdAt ?? cycle.openDate;
@@ -136,6 +144,25 @@ export function CyclesPage(): JSX.Element {
     return rows;
   }, [data]);
 
+  const cycleIds = useMemo(() => sortedCycles.map((cycle) => cycle.id), [sortedCycles]);
+  const applicationPeriodsQuery = useQuery({
+    queryKey: ['admin', 'cycles', 'application-periods', cycleIds],
+    queryFn: () => fetchCycleApplicationPeriods(cycleIds),
+    enabled: cycleIds.length > 0,
+    staleTime: CYCLE_PERIODS_STALE_TIME_MS,
+    gcTime: 5 * 60_000,
+    retry: false,
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
+  });
+  const applicationPeriods = applicationPeriodsQuery.data ?? {};
+
+  const getApplicationPeriod = useCallback(
+    (cycle: AdmissionCycle): CycleApplicationPeriod =>
+      applicationPeriods[cycle.id] ?? resolveCycleApplicationPeriod(cycle),
+    [applicationPeriods],
+  );
+
   const listActions: ListActionsConfig<AdmissionCycle> = useMemo(
     () => ({
       entityKey: 'admin.cycles',
@@ -162,17 +189,17 @@ export function CyclesPage(): JSX.Element {
           {
             key: 'openDate',
             labelAr: 'تاريخ بداية التقديم',
-            format: (_v, row) => resolveCycleApplicationPeriod(row).startDate,
+            format: (_v, row) => getApplicationPeriod(row).startDate,
           },
           {
             key: 'closeDate',
             labelAr: 'تاريخ نهاية التقديم',
-            format: (_v, row) => resolveCycleApplicationPeriod(row).endDate,
+            format: (_v, row) => getApplicationPeriod(row).endDate,
           },
         ],
       },
     }),
-    [includeDeleted],
+    [getApplicationPeriod, includeDeleted],
   );
 
   const confirmStatusChange = (): void => {
@@ -265,22 +292,22 @@ export function CyclesPage(): JSX.Element {
       key: 'applicationStartDate',
       label: 'بداية التقديم',
       sortable: true,
-      getSortValue: (c) => resolveCycleApplicationPeriod(c).startDate,
+      getSortValue: (c) => getApplicationPeriod(c).startDate,
       numeric: true,
       width: '9rem',
       render: (c) => (
-        <CycleDateCell value={resolveCycleApplicationPeriod(c).startDate} />
+        <CycleDateCell value={getApplicationPeriod(c).startDate} />
       ),
     },
     {
       key: 'applicationEndDate',
       label: 'نهاية التقديم',
       sortable: true,
-      getSortValue: (c) => resolveCycleApplicationPeriod(c).endDate,
+      getSortValue: (c) => getApplicationPeriod(c).endDate,
       numeric: true,
       width: '9rem',
       render: (c) => (
-        <CycleDateCell value={resolveCycleApplicationPeriod(c).endDate} />
+        <CycleDateCell value={getApplicationPeriod(c).endDate} />
       ),
     },
     {
@@ -397,7 +424,7 @@ export function CyclesPage(): JSX.Element {
                     <p className="m-0 mt-2 font-ar text-sm text-ink-600">
                       فترة التقديم:{' '}
                       <span className="font-numeric tnum" dir="ltr">
-                        {formatApplicationPeriod(activeCycle)}
+                        {formatApplicationPeriod(getApplicationPeriod(activeCycle))}
                       </span>
                     </p>
                   </div>
@@ -489,8 +516,29 @@ export function CyclesPage(): JSX.Element {
   );
 }
 
-function formatApplicationPeriod(cycle: AdmissionCycle): string {
-  const period = resolveCycleApplicationPeriod(cycle);
+async function fetchCycleApplicationPeriods(
+  cycleIds: readonly string[],
+): Promise<Record<string, CycleApplicationPeriod>> {
+  const entries = await Promise.all(
+    cycleIds.map(async (cycleId) => {
+      try {
+        const draft = await applicationSettingsService.getCycleDraft(cycleId);
+        const period = resolveCycleApplicationPeriodFromDraft(draft);
+        return period ? ([cycleId, period] as const) : null;
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  return Object.fromEntries(
+    entries.filter((entry): entry is readonly [string, CycleApplicationPeriod] =>
+      entry !== null,
+    ),
+  );
+}
+
+function formatApplicationPeriod(period: CycleApplicationPeriod): string {
   return `${period.startDate || '—'} → ${period.endDate || '—'}`;
 }
 

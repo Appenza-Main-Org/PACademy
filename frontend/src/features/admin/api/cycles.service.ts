@@ -72,7 +72,17 @@ export interface CycleApplicationPeriod {
 
 export type CycleApplicationPeriodErrors = Partial<Record<keyof CycleApplicationPeriod, string>>;
 
+interface CycleWithDirectApplicationPeriod extends AdmissionCycle {
+  applicationStart?: string | null;
+  applicationEnd?: string | null;
+  applicationStartDate?: string | null;
+  applicationEndDate?: string | null;
+}
+
 export function resolveCycleApplicationPeriod(cycle: AdmissionCycle): CycleApplicationPeriod {
+  const directPeriod = resolveDirectCycleApplicationPeriod(cycle);
+  if (directPeriod) return directPeriod;
+
   const categoryPeriods = Object.values(cycle.openCategories ?? {})
     .filter((config): config is AdmissionCycleCategoryConfig => Boolean(config))
     .filter((config) => config.isOpen && Boolean(config.startDate) && Boolean(config.endDate))
@@ -101,6 +111,35 @@ export function resolveCycleApplicationPeriod(cycle: AdmissionCycle): CycleAppli
     startDate: dateOnly(cycle.openDate) ?? '',
     endDate: dateOnly(cycle.closeDate) ?? '',
   };
+}
+
+export function resolveCycleApplicationPeriodFromDraft(
+  draft: unknown,
+): CycleApplicationPeriod | null {
+  const periods: CycleApplicationPeriod[] = [];
+  if (!isRecord(draft)) return null;
+
+  const headers = draft.headers;
+  if (isRecord(headers)) {
+    for (const header of Object.values(headers)) {
+      const period = periodFromUnknownHeader(header);
+      if (period) periods.push(period);
+    }
+  }
+
+  for (const key of ['approved', 'local'] as const) {
+    const rows = draft[key];
+    if (!Array.isArray(rows)) continue;
+    for (const row of rows) {
+      if (!isRecord(row)) continue;
+      const period =
+        periodFromUnknownHeader(row.header) ??
+        periodFromUnknownHeader(row);
+      if (period) periods.push(period);
+    }
+  }
+
+  return mergeApplicationPeriods(periods);
 }
 
 export function validateCycleApplicationPeriod(
@@ -133,6 +172,46 @@ export function toCycleCloseIso(date: string): string {
 
 function dateOnly(value: string | null | undefined): string | null {
   return normalizeDateOnly(value?.slice(0, 10));
+}
+
+function resolveDirectCycleApplicationPeriod(cycle: AdmissionCycle): CycleApplicationPeriod | null {
+  const direct = cycle as CycleWithDirectApplicationPeriod;
+  const startDate = dateOnly(direct.applicationStartDate ?? direct.applicationStart);
+  const endDate = dateOnly(direct.applicationEndDate ?? direct.applicationEnd);
+  return startDate && endDate ? { startDate, endDate } : null;
+}
+
+function mergeApplicationPeriods(periods: readonly CycleApplicationPeriod[]): CycleApplicationPeriod | null {
+  if (periods.length === 0) return null;
+  return {
+    startDate: periods.reduce(
+      (min, period) => (period.startDate < min ? period.startDate : min),
+      periods[0]!.startDate,
+    ),
+    endDate: periods.reduce(
+      (max, period) => (period.endDate > max ? period.endDate : max),
+      periods[0]!.endDate,
+    ),
+  };
+}
+
+function periodFromUnknownHeader(value: unknown): CycleApplicationPeriod | null {
+  if (!isRecord(value)) return null;
+  const startDate = dateOnlyFromUnknown(
+    value.applicationStart ?? value.applicationStartDate,
+  );
+  const endDate = dateOnlyFromUnknown(
+    value.applicationEnd ?? value.applicationEndDate,
+  );
+  return startDate && endDate ? { startDate, endDate } : null;
+}
+
+function dateOnlyFromUnknown(value: unknown): string | null {
+  return typeof value === 'string' ? dateOnly(value) : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function normalizeDateOnly(value: string | null | undefined): string | null {
