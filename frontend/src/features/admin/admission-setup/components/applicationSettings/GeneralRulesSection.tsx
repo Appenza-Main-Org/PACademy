@@ -47,7 +47,7 @@ import {
   TooltipProvider,
 } from '@/shared/components';
 import type { RadixSelectOption, SearchSelectOption } from '@/shared/components';
-import { useLookup } from '@/features/lookups';
+import { useLookup, type ApplicantCategoryGenderScope } from '@/features/lookups';
 import { cn } from '@/shared/lib/cn';
 import { date as fmtDate, num } from '@/shared/lib/format';
 import { toEasternArabicNumerals } from '@/shared/lib/arabic';
@@ -78,10 +78,39 @@ import { OperatorScoreField } from './OperatorScoreField';
 
 /* ── Static option sets ───────────────────────────────────────────── */
 
-const GENDER_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
+interface GenderOption {
+  value: ApplicantCategoryGenderScope;
+  label: string;
+}
+
+const GENDER_OPTIONS: readonly GenderOption[] = [
   { value: 'male', label: 'ذكر' },
   { value: 'female', label: 'أنثى' },
 ];
+const ALL_GENDER_VALUES: readonly ApplicantCategoryGenderScope[] = ['male', 'female'];
+
+function genderOptionsForScope(
+  scope: readonly ApplicantCategoryGenderScope[],
+): readonly GenderOption[] {
+  const allowed = new Set(scope.length > 0 ? scope : ALL_GENDER_VALUES);
+  return GENDER_OPTIONS.filter((option) => allowed.has(option.value));
+}
+
+function filterGenderSelection(
+  values: readonly string[],
+  allowed: ReadonlySet<ApplicantCategoryGenderScope>,
+): ApplicantCategoryGenderScope[] {
+  return values.filter(
+    (value): value is ApplicantCategoryGenderScope =>
+      (value === 'male' || value === 'female') && allowed.has(value),
+  );
+}
+
+function sameStringSet(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false;
+  const set = new Set(a);
+  return b.every((value) => set.has(value));
+}
 
 const SPECIALIZED_OFFICERS_CATEGORY_CODE = 'specialized_officers';
 
@@ -144,6 +173,8 @@ interface GeneralRulesSectionProps {
    *  `specializationCodes`). When empty, all specializations of the
    *  picked faculties are used. */
   specializationCodes: readonly string[];
+  /** Gender scope from the Applicant Categories lookup. */
+  genderScope: readonly ApplicantCategoryGenderScope[];
   /** Resolved «معيار التمييز» — `TAGDIR` shows only الحد الأدنى/الأقصى
    *  للتقدير, `GRADES` shows only الحد الأدنى/الأقصى للدرجة (٪). `null`
    *  (no criterion picked yet) renders both pairs so admins can still
@@ -155,6 +186,7 @@ export function GeneralRulesSection({
   categoryCode,
   facultyCodes,
   specializationCodes,
+  genderScope,
   excellenceMode,
 }: GeneralRulesSectionProps): JSX.Element {
   const facultiesQuery = useLookup('faculties', applicationSettingsQueryOptions);
@@ -331,6 +363,7 @@ export function GeneralRulesSection({
 
   const formOptions: PerSpecFormOptions = {
     categoryCode,
+    genderScope,
     maritalOptions,
     gradeOptions,
     gradeRank,
@@ -1170,6 +1203,7 @@ function SearchBox({
 
 interface PerSpecFormOptions {
   categoryCode: string;
+  genderScope: readonly ApplicantCategoryGenderScope[];
   maritalOptions: ReadonlyArray<{ value: string; label: string }>;
   gradeOptions: ReadonlyArray<SearchSelectOption>;
   gradeRank: Map<string, number>;
@@ -1273,6 +1307,7 @@ function PerSpecForm({
 }: PerSpecFormProps): JSX.Element {
   const {
     categoryCode,
+    genderScope,
     gradeOptions,
     gradeRank,
     degreeOptions,
@@ -1281,6 +1316,15 @@ function PerSpecForm({
     excellenceMode,
   } = options;
   const defaultExcellenceMode = excellenceMode ?? 'GRADES';
+  const genderOptions = useMemo(
+    () => genderOptionsForScope(genderScope),
+    [genderScope],
+  );
+  const allowedGenders = useMemo(
+    () => new Set(genderOptions.map((option) => option.value)),
+    [genderOptions],
+  );
+  const lockedGender = genderOptions.length === 1 ? genderOptions[0] : null;
   const [draft, setDraft] = useState<GeneralRuleRowInput>(() =>
     emptyInputFor(defaultExcellenceMode),
   );
@@ -1394,6 +1438,13 @@ function PerSpecForm({
     lastDefaultModeRef.current = defaultExcellenceMode;
     setDraft(emptyInputFor(defaultExcellenceMode));
   }
+  const sanitizedDraftType = filterGenderSelection(draft.type, allowedGenders);
+  if (!sameStringSet(draft.type, sanitizedDraftType)) {
+    setDraft((current) => ({
+      ...current,
+      type: filterGenderSelection(current.type, allowedGenders),
+    }));
+  }
   const showGradePair = draft.excellenceMode === 'TAGDIR';
   const showScorePair = draft.excellenceMode === 'GRADES';
 
@@ -1456,6 +1507,7 @@ function PerSpecForm({
    *  for the inactive branch. */
   const normalizeForSubmit = (input: GeneralRuleRowInput): GeneralRuleRowInput => ({
     ...input,
+    type: filterGenderSelection(input.type, allowedGenders),
     grade: showGradePair ? input.grade : '',
     gradeMax: showGradePair ? input.gradeMax : '',
     scoreMin: showScorePair ? input.scoreMin : null,
@@ -1621,11 +1673,21 @@ function PerSpecForm({
               <MultiSelect
                 ariaLabel="النوع"
                 value={draft.type}
-                onChange={(next) => setDraft((d) => ({ ...d, type: next }))}
-                options={GENDER_OPTIONS}
+                onChange={(next) =>
+                  setDraft((d) => ({
+                    ...d,
+                    type: filterGenderSelection(next, allowedGenders),
+                  }))
+                }
+                options={genderOptions}
                 disabled={!canWrite}
-                placeholder="اختر النوع…"
+                placeholder={lockedGender ? lockedGender.label : 'اختر النوع…'}
               />
+              {lockedGender && (
+                <span className="font-ar text-2xs text-ink-400">
+                  مقفول حسب فئة المتقدمين
+                </span>
+              )}
             </FieldLabel>
 
             {showGradePair && (
