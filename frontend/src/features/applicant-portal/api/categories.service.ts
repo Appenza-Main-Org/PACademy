@@ -6,6 +6,7 @@
  * hosts are not serving; everything resolves on the admin API):
  *   GET    /api/admin/categories                     → ApplicantCategory[] (nomination-only filtered out)
  *   GET    /api/cycles/active                         → AdmissionCycle (the single active cycle, or null)
+ *   GET    /api/cycles/:id                            → AdmissionCycle (explicit applicant cycle context)
  *   POST   /api/applicant/eligibility                → EligibilityResult (body carries cycleId)
  *
  * The list endpoint computes each category's `isOpen` from the chosen
@@ -243,6 +244,21 @@ export const categoriesPublicService = {
     }
     await simulateLatency(80, 200);
     return getActiveCycles();
+  },
+
+  /** Explicit cycle context used by /applicant/start?cycle=... so applicant
+   *  copy (including fees) reflects the configured cycle rather than a
+   *  hardcoded/default active-cycle value. */
+  async getCycleById(cycleId: string): Promise<AdmissionCycle | null> {
+    if (!cycleId) return null;
+    if (isBackendEnabled()) {
+      const cycle = await adminApiClient
+        .get<AdmissionCycle | null>(`/api/cycles/${encodeURIComponent(cycleId)}`)
+        .catch(() => null);
+      return cycle && isCycleLive(cycle) ? cycle : null;
+    }
+    await simulateLatency(80, 200);
+    return resolveCycle(cycleId);
   },
 
   /** First cycle open to applicants (kept for legacy single-cycle consumers). */
