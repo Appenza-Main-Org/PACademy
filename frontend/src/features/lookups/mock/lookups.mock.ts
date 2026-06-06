@@ -496,7 +496,7 @@ const applicantCategories: ApplicantCategoryRow[] = [
       { kind: 'drug',          order: 6, passingCriteria: '' },
     ],
     procedures: [],
-    excellenceCriterion: ['EXC-02'],
+    excellenceCriterion: ['EXC-01'],
   },
   {
     code: 'specialized_officers',
@@ -540,7 +540,7 @@ const applicantCategories: ApplicantCategoryRow[] = [
       { kind: 'drug',          order: 6, passingCriteria: '' },
     ],
     procedures: [],
-    excellenceCriterion: ['EXC-02'],
+    excellenceCriterion: ['EXC-01'],
   },
 ];
 

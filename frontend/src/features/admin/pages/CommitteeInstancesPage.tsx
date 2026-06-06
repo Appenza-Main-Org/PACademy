@@ -70,8 +70,7 @@ interface InstanceRow extends CommitteeInstance {
    *  concrete committee — only the visible exam-name column is wired
    *  off this value. */
   committeeName: string;
-  /** Joined exam plan for the row's category, e.g.
-   *  «اختبار اللياقة · الكشف الطبي · المقابلة». Sourced from the
+  /** First exam in the row category's ordered plan. Sourced from the
    *  admission-setup «إدارة الاختبارات» wizard step. */
   examLabel: string;
 }
@@ -150,10 +149,10 @@ export function CommitteeInstancesPage(): JSX.Element {
 
   /* Exam plans drive the «اسم الاختبار» column. Each category in the
    * active cycle has an ordered exam plan authored at
-   * /admin/cycles/admission-setup/wizard/exams. We join the plan's
-   * exam names (in order) and show that string for every committee
-   * row under the matching category — committees themselves don't
-   * link to a specific exam in the domain model. */
+   * /admin/cycles/admission-setup/wizard/exams. We display the first
+   * exam name for every committee row under the matching category —
+   * committees themselves don't link to a specific exam in the domain
+   * model. */
   const academyExamsQuery = useAcademyExams();
   const cycleExamPlansQuery = useCycleExamPlans(activeCycleId);
 
@@ -201,15 +200,15 @@ export function CommitteeInstancesPage(): JSX.Element {
     return map;
   }, [academyExamsQuery.data]);
 
-  /** categoryKey → «اختبار اللياقة · الكشف الطبي · …» */
+  /** categoryKey → first exam name in the ordered plan */
   const examLabelByCategory = useMemo(() => {
     const map = new Map<string, string>();
     for (const plan of cycleExamPlansQuery.data ?? []) {
-      const names = [...plan.exams]
+      const firstExamName = [...plan.exams]
         .sort((a, b) => a.order - b.order)
         .map((entry) => examNameById.get(entry.examId))
-        .filter((label): label is string => Boolean(label && label.length > 0));
-      if (names.length > 0) map.set(plan.categoryId, names.join(' · '));
+        .find((label): label is string => Boolean(label && label.length > 0));
+      if (firstExamName) map.set(plan.categoryId, firstExamName);
     }
     return map;
   }, [cycleExamPlansQuery.data, examNameById]);
