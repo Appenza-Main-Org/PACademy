@@ -308,6 +308,8 @@ export function ApplicantGradesPage(): JSX.Element {
   const generalCount = summary?.general ?? 0;
   const azharCount = summary?.azhar ?? 0;
   const withAdjCount = summary?.withAdjustments ?? 0;
+  const generalSchoolCategoryLabel = schoolCategoryLabel.get('SCH-01') ?? 'الثانوية العامة';
+  const azharSchoolCategoryLabel = schoolCategoryLabel.get('SCH-03') ?? 'الثانوية الأزهرية';
 
   /* Branch + year filter options are derived from rows actually present
    * in the dataset. The year filter is back-padded with the last 10
@@ -963,14 +965,14 @@ export function ApplicantGradesPage(): JSX.Element {
               icon={<Layers size={16} strokeWidth={1.75} />}
             />
             <StatCard
-              label="ثانوية عامة"
+              label={generalSchoolCategoryLabel}
               value={generalCount}
               icon={<FileSpreadsheet size={16} strokeWidth={1.75} />}
               iconBg="var(--teal-50)"
               iconColor="var(--teal-700)"
             />
             <StatCard
-              label="ثانوية أزهرية"
+              label={azharSchoolCategoryLabel}
               value={azharCount}
               icon={<FileSpreadsheet size={16} strokeWidth={1.75} />}
               iconBg="var(--gold-50)"
