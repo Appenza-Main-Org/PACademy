@@ -1488,7 +1488,7 @@ function PerSpecForm({
         payload,
         rows,
         gradeRank,
-        editingRow?.header,
+        header,
       );
       if (overlap) {
         toast(overlapMessageFor(overlap, editingSpec), 'danger');
