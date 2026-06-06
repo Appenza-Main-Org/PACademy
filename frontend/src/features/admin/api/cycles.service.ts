@@ -58,8 +58,8 @@ export function validateCategoryConfig(
   if (end !== null && cycleStart !== null && cycleEnd !== null && (end < cycleStart || end > cycleEnd)) {
     issues.push('تاريخ النهاية يجب أن يكون داخل نطاق العام الدراسي');
   }
-  if (start !== null && end !== null && end < start) {
-    issues.push('تاريخ النهاية يجب أن يكون بعد تاريخ البداية');
+  if (start !== null && end !== null && end <= start) {
+    issues.push('يجب أن يكون تاريخ نهاية التقديم بعد تاريخ بداية التقديم.');
   }
 
   return issues;
@@ -116,8 +116,8 @@ export function validateCycleApplicationPeriod(
   if (!endDate) {
     errors.endDate = 'تاريخ نهاية التقديم مطلوب';
   }
-  if (startDate && endDate && endDate < startDate) {
-    errors.endDate = 'تاريخ نهاية التقديم يجب ألا يسبق تاريخ البداية';
+  if (startDate && endDate && endDate <= startDate) {
+    errors.endDate = 'يجب أن يكون تاريخ نهاية التقديم بعد تاريخ بداية التقديم.';
   }
 
   return errors;

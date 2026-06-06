@@ -80,7 +80,7 @@ export const applicationSettingsQueryOptions = {
 
 const CONFLICT_MESSAGES_AR: Record<AppSettingsConflict, string> = {
   DUPLICATE_YEAR: 'سنة التخرج موجودة بالفعل لنفس النوع في هذا التخصص',
-  INVALID_DATE_RANGE: 'تاريخ النهاية يجب أن يكون بعد تاريخ البداية',
+  INVALID_DATE_RANGE: 'يجب أن يكون تاريخ نهاية التقديم بعد تاريخ بداية التقديم.',
   OVERLAPPING_PERIOD: 'فترة التقديم تتداخل مع سنة أخرى لنفس النوع',
   AGE_NOT_POSITIVE: 'السن يجب أن يكون رقماً موجباً',
   AGE_RANGE_INVALID: 'السن الأدنى يجب أن يكون أقل من أو يساوي السن الأقصى',

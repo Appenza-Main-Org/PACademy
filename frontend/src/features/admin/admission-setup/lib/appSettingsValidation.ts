@@ -9,7 +9,7 @@
  *   - at least one gender must be selected
  *   - `maxAge`, when present, must be a positive integer
  *   - GRADES rows: `minPercentage` must be in [0, 100]
- *   - `applicationEndDate >= applicationStartDate`
+ *   - `applicationEndDate > applicationStartDate`
  *   - `ageReferenceDate <= applicationStartDate`
  *   - no two rows under the same specialization share a graduation year
  *     while having any overlapping gender (gender sets intersect)
@@ -121,7 +121,7 @@ export function validateDateRange(
   if (!start || !end || !ageReference) return 'INVALID_DATE_RANGE';
   const s = dayOnly(start);
   const e = dayOnly(end);
-  if (e < s) return 'INVALID_DATE_RANGE';
+  if (e <= s) return 'INVALID_DATE_RANGE';
   return null;
 }
 
