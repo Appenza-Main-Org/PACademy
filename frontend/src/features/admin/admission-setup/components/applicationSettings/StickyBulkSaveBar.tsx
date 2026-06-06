@@ -13,9 +13,10 @@
  */
 
 import { Save, Undo2 } from 'lucide-react';
-import { Button } from '@/shared/components';
+import { Button, toast } from '@/shared/components';
 import { useBulkSave } from '../../api/applicationSettings.queries';
 import type { BulkYearChange } from '../../api/applicationSettings.service';
+import { validateYearRow } from '../../lib/appSettingsValidation';
 import { useAdmissionSetupIsReadOnly } from '../AdmissionSetupShell';
 import {
   useAppSettingsDraftStore,
@@ -40,6 +41,24 @@ export function StickyBulkSaveBar(): JSX.Element | null {
   if (summary.total === 0 && !hasMismatch) return null;
 
   const handleSave = (): void => {
+    for (const slice of Object.values(byCs)) {
+      const live = slice.filter((draft) => draft.kind !== 'deleted').map((draft) => draft.row);
+      for (const draft of slice) {
+        if (draft.kind === 'deleted') continue;
+        const siblings = live.filter((row) => row.id !== draft.id);
+        const conflict = validateYearRow(draft.row, siblings, draft.id);
+        if (conflict) {
+          toast(
+            conflict === 'INVALID_DATE_RANGE'
+              ? 'يجب أن يكون تاريخ نهاية التقديم بعد تاريخ بداية التقديم.'
+              : 'يرجى تصحيح أخطاء شروط التقديم قبل الحفظ.',
+            'danger',
+          );
+          return;
+        }
+      }
+    }
+
     const payload: BulkYearChange[] = [];
     for (const [csId, slice] of Object.entries(byCs)) {
       for (const draft of slice) {

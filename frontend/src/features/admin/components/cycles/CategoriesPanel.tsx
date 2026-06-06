@@ -221,7 +221,7 @@ function CategoryRow({
               value={isoToDate(draft.endDate)}
               onChange={(d) => setDraft({ ...draft, endDate: dateToIso(d) })}
               disabled={readOnly}
-              min={draft.startDate ?? cycleMin}
+              min={nextDateOnly(draft.startDate) ?? cycleMin}
               max={cycleMax}
             />
           </div>
@@ -392,6 +392,15 @@ function dateToIso(value: Date | null): string | null {
   const mm = String(value.getUTCMonth() + 1).padStart(2, '0');
   const dd = String(value.getUTCDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function nextDateOnly(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  const day = value.slice(0, 10);
+  const d = new Date(`${day}T00:00:00.000Z`);
+  if (Number.isNaN(d.getTime())) return undefined;
+  d.setUTCDate(d.getUTCDate() + 1);
+  return dateToIso(d) ?? undefined;
 }
 
 function formatRange(open: string | undefined, close: string | undefined): string | null {

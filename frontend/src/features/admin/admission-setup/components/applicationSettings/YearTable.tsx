@@ -70,7 +70,7 @@ interface YearTableProps {
 const FIELD_MESSAGES_AR: Record<AppSettingsConflict, string> = {
   DUPLICATE_YEAR: 'مكررة',
   GRAD_YEAR_REQUIRED: 'اختر سنة تخرج واحدة على الأقل',
-  INVALID_DATE_RANGE: 'ترتيب التواريخ غير صحيح',
+  INVALID_DATE_RANGE: 'يجب أن يكون تاريخ نهاية التقديم بعد تاريخ بداية التقديم.',
   OVERLAPPING_PERIOD: 'تتداخل مع سنة أخرى',
   AGE_NOT_POSITIVE: 'السن > 0',
   AGE_RANGE_INVALID: 'السن الأدنى ≤ الأقصى',
@@ -559,7 +559,7 @@ function YearCard({
                   applicationEndDate: dateToIso(d) ?? row.applicationEndDate,
                 })
               }
-              min={row.applicationStartDate.slice(0, 10)}
+              min={nextDateOnly(row.applicationStartDate)}
             />
           </Field>
 
@@ -823,4 +823,13 @@ function dateToIso(value: Date | null): string | null {
   const mm = String(value.getUTCMonth() + 1).padStart(2, '0');
   const dd = String(value.getUTCDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function nextDateOnly(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  const day = value.slice(0, 10);
+  const d = new Date(`${day}T00:00:00.000Z`);
+  if (Number.isNaN(d.getTime())) return undefined;
+  d.setUTCDate(d.getUTCDate() + 1);
+  return dateToIso(d) ?? undefined;
 }
