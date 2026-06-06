@@ -10,6 +10,7 @@ using PACademy.Admin.Api.Modules.Lookups;
 using PACademy.Admin.Api.Controllers;
 using PACademy.Admin.Api.Infrastructure;
 using PACademy.Admin.Api.Modules.AdminRecords;
+using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Admin.Api.Modules.Exams;
 using PACademy.Admin.Api.Modules.Reports.Dtos;
 using PACademy.Admin.Api.Modules.Reports.Validators;
@@ -312,6 +313,32 @@ public sealed class ApiRegressionTests
         Assert.False(body.Deleted);
         Assert.Equal(1, body.ReferenceCount);
         Assert.Contains("تنبيه مرتبط بهذه الفئة", body.Reason);
+    }
+
+    [Fact]
+    public async Task ApplicationSettingsCategoryConfigsReturnExcellenceCriteriaArrays()
+    {
+        await using var db = CreateDb();
+        SeedLookup(db, "applicant-categories", "officers_general", "الضباط", new JsonObject
+        {
+            ["type"] = "university",
+            ["facultyCodes"] = new JsonArray("law"),
+            ["specializationCodes"] = new JsonArray(),
+            ["genderScope"] = new JsonArray("male", "female"),
+            ["excellenceCriterion"] = new JsonArray("EXC-01")
+        });
+        SeedLookup(db, "submission-types", "university", "جامعي", new JsonObject
+        {
+            ["metadata"] = new JsonObject { ["gradingMode"] = "GRADES" }
+        });
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var service = new ApplicationSettingsService(db);
+
+        var rows = await service.ListCategoryConfigsAsync(TestContext.Current.CancellationToken);
+
+        var row = Assert.Single(rows);
+        var criteria = Assert.IsType<JsonArray>(row["excellenceCriterion"]);
+        Assert.Equal("EXC-01", criteria[0]?.GetValue<string>());
     }
 
     [Fact]
