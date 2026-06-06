@@ -67,12 +67,15 @@ export const barcodeService = {
   async generate(applicantId: string): Promise<BarcodeRecord> {
     await simulateLatency();
     const a = MOCK.applicants.find((x) => x.id === applicantId);
-    const code = `26-${(a?.governorate ?? 'XXX').slice(0, 3).toUpperCase()}-${String(BARCODES_STATE.length + 1).padStart(8, '0')}`;
+    /* Codes are encoded into Code 128, so they must be ASCII — derive the
+     * governorate segment from the National ID digits (07–09). */
+    const govCode = (a?.nationalId ?? '').slice(7, 9) || '00';
+    const code = `26-${govCode}-${String(BARCODES_STATE.length + 1).padStart(8, '0')}`;
     const next: BarcodeRecord = {
       applicantId,
       code,
       cycleId: 'CYC-2026-M',
-      governorateCode: code.split('-')[1] ?? 'XXX',
+      governorateCode: govCode,
       issuedAt: Date.now(),
       void: false,
     };

@@ -68,8 +68,9 @@ export const BARCODE_QUALIFICATION_OPTIONS: readonly GroupOption[] = Array.from(
   new Set(CERTIFICATES.map((c) => c.type)),
 ).map((t) => ({ value: t, label: t }));
 
-/** FNV-1a 32-bit hash — stable, fast, no global LCG mutation. */
-function fnv1a(input: string): number {
+/** FNV-1a 32-bit hash — stable, fast, no global LCG mutation. Exported so
+ *  the scope layer can derive deterministic per-applicant schedules. */
+export function fnv1a(input: string): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < input.length; i += 1) {
     h ^= input.charCodeAt(i);
