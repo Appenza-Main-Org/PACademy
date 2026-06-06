@@ -40,6 +40,8 @@ const ADMIN_GRADES_API = '/api/admin/applicant-grades';
 const IMPORT_COMMIT_CHUNK_SIZE = 5000;
 const IMPORT_PREFLIGHT_CHUNK_SIZE = 5000;
 const IMPORT_PREFLIGHT_GROUP_SAMPLE_LIMIT = 1000;
+const GENERAL_SCHOOL_CATEGORY_CODES = new Set(['SCH-01']);
+const AZHAR_SCHOOL_CATEGORY_CODES = new Set(['SCH-03']);
 
 export type ApplicantGradesSortKey =
   | keyof GradeRow
@@ -319,9 +321,19 @@ export const gradesService = {
     pageSize: number;
     sort?: ApplicantGradesSort | null;
   }): Promise<PaginatedGradesResult> {
-    return apiClient.get<PaginatedGradesResult>(ADMIN_GRADES_API, {
+    const result = await apiClient.get<PaginatedGradesResult>(ADMIN_GRADES_API, {
       query: toGradesQuery(input),
     });
+    if (!needsSummaryRepair(result)) return result;
+
+    const { page: _page, pageSize: _pageSize, ...exportInput } = input;
+    const allRows = await apiClient.get<GradeRow[]>(`${ADMIN_GRADES_API}/export`, {
+      query: toGradesQuery(exportInput),
+    });
+    return {
+      ...result,
+      summary: buildSummary(allRows, result.total),
+    };
   },
 
   async exportAll(input: FilterInput & {
@@ -389,4 +401,65 @@ function toBackendImportCommitPayload(input: {
 
 export function hasGradeChange(r: GradeRow): boolean {
   return r.gradeChangedAt != null || r.log.length > 0;
+}
+
+function needsSummaryRepair(result: PaginatedGradesResult): boolean {
+  const summary = result.summary;
+  if (!summary) return result.total > 0;
+  if (summary.total !== result.total) return true;
+  if (summary.total === 0) return false;
+  if (summary.general + summary.azhar === 0) return true;
+  return result.rows.some((row) => {
+    const kind = classifyGradeKind(row);
+    return (kind === 'general' && summary.general === 0) || (kind === 'azhar' && summary.azhar === 0);
+  });
+}
+
+function buildSummary(rows: readonly GradeRow[], totalFallback: number): NonNullable<PaginatedGradesResult['summary']> {
+  let general = 0;
+  let azhar = 0;
+  let withAdjustments = 0;
+
+  for (const row of rows) {
+    const kind = classifyGradeKind(row);
+    if (kind === 'azhar') azhar += 1;
+    else if (kind === 'general') general += 1;
+    if (row.log.some((entry) => entry.isActive)) withAdjustments += 1;
+  }
+
+  return {
+    total: rows.length > 0 ? rows.length : totalFallback,
+    general,
+    azhar,
+    withAdjustments,
+  };
+}
+
+function classifyGradeKind(row: GradeRow): GradeRow['kind'] | null {
+  const rawKind = String((row as { kind?: unknown }).kind ?? '');
+  if (rawKind === 'general' || rawKind === 'azhar') return rawKind;
+
+  const schoolCategory = normaliseArabic(row.schoolCategoryCode ?? '');
+  if (AZHAR_SCHOOL_CATEGORY_CODES.has(row.schoolCategoryCode ?? '') || schoolCategory.includes('ازهر')) {
+    return 'azhar';
+  }
+  if (
+    GENERAL_SCHOOL_CATEGORY_CODES.has(row.schoolCategoryCode ?? '') ||
+    (schoolCategory.includes('ثانوي') && schoolCategory.includes('عام'))
+  ) {
+    return 'general';
+  }
+
+  return null;
+}
+
+function normaliseArabic(value: string): string {
+  return value
+    .replace(/[ً-ٰٟ]/g, '')
+    .replace(/[إأآا]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .replace(/[‎‏]/g, '')
+    .trim()
+    .toLowerCase();
 }
