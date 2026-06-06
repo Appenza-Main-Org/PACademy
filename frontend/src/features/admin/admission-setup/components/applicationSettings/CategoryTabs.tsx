@@ -38,6 +38,7 @@ import {
   normalizeExcellenceCriteria,
   resolveExcellenceCriteriaLabels,
   useLookup,
+  type ApplicantCategoryGenderScope,
   type ApplicantCategoryRow,
   type ApplicantCategoryType,
   type SubmissionTypeRow,
@@ -306,6 +307,12 @@ function excellenceModeLabel(mode: ExcellenceMode): string {
   return mode === 'TAGDIR' ? 'تقدير' : 'درجة';
 }
 
+function genderScopeForConfig(
+  config: CategoryConfigJoined,
+): readonly ApplicantCategoryGenderScope[] {
+  return config.lockedGender ? [config.lockedGender] : ['male', 'female'];
+}
+
 function normalizeApplicantCategoryType(
   value: unknown,
   category?: ApplicantCategoryRow,
@@ -335,6 +342,7 @@ function ConfigPanel({
       categoryCode={config.categoryCode}
       facultyCodes={config.categoryFacultyCodes}
       specializationCodes={config.categorySpecializationCodes}
+      genderScope={genderScopeForConfig(config)}
       excellenceMode={excellenceMode}
     />
   ) : (
