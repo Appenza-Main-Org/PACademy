@@ -5,6 +5,8 @@
  *   POST   /api/barcode/generate/:applicantId             → BarcodeRecord
  *   GET    /api/barcode/lookup?code=                      → applicant + record
  *   GET    /api/barcode/search?mode=&q=                   → BarcodeSearchHit[]
+ *   GET    /api/barcode/group?category=&examType=&committee=&qualification=
+ *                                                          → BarcodeGroupCandidate[]
  *   POST   /api/barcode/scan                              → BarcodeScan (logged)
  *   GET    /api/barcode/scans?applicantId=                → BarcodeScan[]
  *   POST   /api/barcode/reprint/:applicantId             → BarcodeRecord (SAME code)
@@ -14,6 +16,14 @@
 import { MOCK } from '@/shared/mock-data';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
 import { normalizeArabic } from '@/shared/lib/arabic';
+import {
+  batchCardCode,
+  categoryLabel,
+  examTypeLabel,
+  matchesGroupSelection,
+  resolveGroupValues,
+  type GroupSelection,
+} from '../lib/barcodeGroups';
 import type { Applicant, BarcodeRecord, BarcodeScan } from '@/shared/types/domain';
 
 const BARCODES_STATE: BarcodeRecord[] = [...MOCK.barcodes];
@@ -39,6 +49,19 @@ function activeRecordFor(applicantId: string): BarcodeRecord | null {
 
 /** Cap on name-search hits so the results panel stays responsive. */
 const NAME_SEARCH_LIMIT = 25;
+
+/** Cap on a single group-print batch so the preview stays printable. */
+const GROUP_PRINT_LIMIT = 60;
+
+/** One applicant queued for group/bulk card printing (US-BC-003). */
+export interface BarcodeGroupCandidate {
+  applicant: Applicant;
+  cardCode: string;
+  categoryLabel: string;
+  examTypeLabel: string;
+  committee: string;
+  qualification: string;
+}
 
 export const barcodeService = {
   async generate(applicantId: string): Promise<BarcodeRecord> {
@@ -99,6 +122,29 @@ export const barcodeService = {
       .filter((a) => normalizeArabic(a.name).includes(nq))
       .slice(0, NAME_SEARCH_LIMIT)
       .map((applicant) => ({ applicant, record: activeRecordFor(applicant.id) }));
+  },
+
+  /**
+   * Group/bulk-print candidates (US-BC-003). Filters the applicant pool by
+   * any combination of Category / Exam Type / Committee / Qualification
+   * (each an unset dimension = "all"), capped at {@link GROUP_PRINT_LIMIT}.
+   */
+  async listGroupPrint(selection: GroupSelection): Promise<BarcodeGroupCandidate[]> {
+    await simulateLatency();
+    return MOCK.applicants
+      .filter((a) => matchesGroupSelection(a, selection))
+      .slice(0, GROUP_PRINT_LIMIT)
+      .map((applicant) => {
+        const resolved = resolveGroupValues(applicant);
+        return {
+          applicant,
+          cardCode: batchCardCode(applicant),
+          categoryLabel: categoryLabel(resolved.category),
+          examTypeLabel: examTypeLabel(resolved.examType),
+          committee: resolved.committee,
+          qualification: resolved.qualification,
+        };
+      });
   },
 
   async scan(payload: { code: string; scannedBy: string; station: string; action: BarcodeScan['action'] }): Promise<{ scan: BarcodeScan; duplicate: boolean }> {

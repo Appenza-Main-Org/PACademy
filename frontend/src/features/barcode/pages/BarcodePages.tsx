@@ -1,12 +1,20 @@
-import { useState } from 'react';
+import { useState, type ChangeEvent } from 'react';
 import { CalendarRange, Hash, IdCard, Printer, RefreshCw, ScanBarcode, Search, Sparkles, User } from 'lucide-react';
 import { PageHeader, Card, CardHeader, CardBody, Button, Badge, EmptyState, ErrorState, LoadingState, KhayameyaStripe, Code128Barcode, LogoMark, Select, toast } from '@/shared/components';
 import { MOCK } from '@/shared/mock-data';
 import { cn } from '@/shared/lib/cn';
 import { date as fmtDate, num, shortName, maskNationalId } from '@/shared/lib/format';
 import { nationalIdErrorMessage } from '@/shared/lib/national-id';
-import { useBarcodeSearch, useGenerateBarcodeMutation, useReprintBarcodeMutation } from '../api/barcode.queries';
+import { useBarcodeGroupPrint, useBarcodeSearch, useGenerateBarcodeMutation, useReprintBarcodeMutation } from '../api/barcode.queries';
 import type { BarcodeSearchHit, BarcodeSearchMode } from '../api/barcode.service';
+import {
+  BARCODE_CATEGORY_OPTIONS,
+  BARCODE_COMMITTEE_OPTIONS,
+  BARCODE_EXAM_TYPE_OPTIONS,
+  BARCODE_QUALIFICATION_OPTIONS,
+  EMPTY_GROUP_SELECTION,
+  type GroupSelection,
+} from '../lib/barcodeGroups';
 import type { Applicant, BarcodeRecord } from '@/shared/types/domain';
 
 /**
@@ -405,35 +413,94 @@ function BarcodeHitRow({ hit }: { hit: BarcodeSearchHit }): JSX.Element {
   );
 }
 
+/** "All" sentinel for a group filter (empty value). */
+const ALL_OPTION = { value: '', label: 'الكل' } as const;
+
 export function BarcodeBatchPage(): JSX.Element {
+  const [selection, setSelection] = useState<GroupSelection>(EMPTY_GROUP_SELECTION);
+  const { data: candidates, isFetching, isError, error, refetch } = useBarcodeGroupPrint(selection);
+
+  const setDim = (key: keyof GroupSelection) => (e: ChangeEvent<HTMLSelectElement>): void => {
+    setSelection((prev) => ({ ...prev, [key]: e.target.value }));
+  };
+
+  const count = candidates?.length ?? 0;
+  const hasFilter = Object.values(selection).some(Boolean);
+
   return (
     <>
-      <PageHeader title="دفعة كروت" subtitle="توليد كروت لمجموعة متقدمين دفعة واحدة" />
+      <PageHeader title="دفعة كروت" subtitle="توليد كروت لمجموعة متقدمين دفعة واحدة بتصفية حسب الفئة أو نوع الاختبار أو اللجنة أو المؤهل" />
       <Card>
         <CardBody>
-          <div className="alert alert-info mb-5">
+          <div className="alert alert-info mb-4">
             <span className="alert-icon">ℹ️</span>
             <div className="alert-body">يمكن طباعة دفعة كاملة (40 كارت في الصفحة الواحدة) لتوزيعها على لجان الفحص.</div>
           </div>
-          <div className="grid grid-cols-auto" style={{ gap: 12 }}>
-            {MOCK.applicants.slice(0, 12).map((a) => {
-              const cardCode = `26-CAI-${a.id.replace('APP-', '').padStart(8, '0')}`;
-              return (
-                <div key={a.id} className="barcode-display flex flex-col items-center gap-1">
-                  <div className="text-xs text-tertiary mb-2">{shortName(a.name, 2)}</div>
-                  <Code128Barcode
-                    value={buildPayload(a, cardCode)}
-                    height={44}
-                    moduleWidth={1}
-                    showText={false}
-                  />
-                  <div className="barcode-num">{cardCode.replace(/(.{4})/g, '$1 ').trim()}</div>
-                </div>
-              );
-            })}
+
+          {/* Lookup-driven group filters */}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Select
+              label="الفئة"
+              value={selection.category}
+              onChange={setDim('category')}
+              options={[ALL_OPTION, ...BARCODE_CATEGORY_OPTIONS]}
+            />
+            <Select
+              label="نوع الاختبار"
+              value={selection.examType}
+              onChange={setDim('examType')}
+              options={[ALL_OPTION, ...BARCODE_EXAM_TYPE_OPTIONS]}
+            />
+            <Select
+              label="اللجنة"
+              value={selection.committee}
+              onChange={setDim('committee')}
+              options={[ALL_OPTION, ...BARCODE_COMMITTEE_OPTIONS]}
+            />
+            <Select
+              label="المؤهل"
+              value={selection.qualification}
+              onChange={setDim('qualification')}
+              options={[ALL_OPTION, ...BARCODE_QUALIFICATION_OPTIONS]}
+            />
           </div>
+
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <p className="text-2xs text-ink-500">
+              {isFetching ? 'جارٍ الحساب…' : `${num(count)} متقدم ضمن التصفية الحالية`}
+            </p>
+            {hasFilter && (
+              <Button variant="ghost" size="sm" onClick={() => setSelection(EMPTY_GROUP_SELECTION)}>
+                مسح التصفية
+              </Button>
+            )}
+          </div>
+
+          {/* Candidate grid */}
+          <div className="mt-4">
+            {isFetching ? (
+              <LoadingState variant="card-grid" />
+            ) : isError ? (
+              <ErrorState error={error} onRetry={() => refetch()} />
+            ) : count === 0 ? (
+              <EmptyState variant="no-applicants-yet" title="لا يوجد متقدمون" description="عدّل التصفية لعرض كروت قابلة للطباعة." />
+            ) : (
+              <div className="grid grid-cols-auto" style={{ gap: 12 }}>
+                {candidates!.map(({ applicant, cardCode }) => (
+                  <div key={applicant.id} className="barcode-display flex flex-col items-center gap-1">
+                    <div className="text-xs text-tertiary mb-2">{shortName(applicant.name, 2)}</div>
+                    <Code128Barcode value={buildPayload(applicant, cardCode)} height={44} moduleWidth={1} showText={false} />
+                    <div className="barcode-num">{cardCode.replace(/(.{4})/g, '$1 ').trim()}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="mt-4 flex justify-center">
-            <Button variant="primary" leadingIcon={<Printer size={16} />}>طباعة {num(12)} كارت</Button>
+            <Button variant="primary" leadingIcon={<Printer size={16} />} disabled={count === 0} onClick={() => window.print()}>
+              طباعة {num(count)} كارت
+            </Button>
           </div>
         </CardBody>
       </Card>
