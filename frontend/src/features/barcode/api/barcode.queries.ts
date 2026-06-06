@@ -6,13 +6,25 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { barcodeService } from './barcode.service';
+import type { BarcodeSearchMode } from './barcode.service';
 import type { BarcodeScan } from '@/shared/types/domain';
 
 /** Query-key factory for the barcode feature. */
 export const barcodeKeys = {
   all: ['barcode'] as const,
   scans: (applicantId?: string) => ['barcode', 'scans', applicantId ?? 'all'] as const,
+  search: (mode: BarcodeSearchMode, query: string) => ['barcode', 'search', mode, query] as const,
 };
+
+/** Run a barcode search once `submitted` is set (button-triggered, not
+ *  keystroke-live). Passing `null` keeps the query idle. */
+export function useBarcodeSearch(submitted: { mode: BarcodeSearchMode; query: string } | null) {
+  return useQuery({
+    queryKey: submitted ? barcodeKeys.search(submitted.mode, submitted.query) : ['barcode', 'search', 'idle'],
+    queryFn: () => barcodeService.search(submitted!.mode, submitted!.query),
+    enabled: submitted !== null,
+  });
+}
 
 /** List scan-log rows (optionally scoped to one applicant). */
 export function useBarcodeScans(applicantId?: string) {

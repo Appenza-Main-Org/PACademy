@@ -1,9 +1,13 @@
 import { useState } from 'react';
-import { CalendarRange, Hash, Printer, Search, Sparkles, User } from 'lucide-react';
-import { PageHeader, Card, CardHeader, CardBody, Button, Badge, EmptyState, KhayameyaStripe, Code128Barcode, LogoMark, Select } from '@/shared/components';
+import { CalendarRange, Hash, IdCard, Printer, ScanBarcode, Search, Sparkles, User } from 'lucide-react';
+import { PageHeader, Card, CardHeader, CardBody, Button, Badge, EmptyState, ErrorState, LoadingState, KhayameyaStripe, Code128Barcode, LogoMark, Select } from '@/shared/components';
 import { MOCK } from '@/shared/mock-data';
+import { cn } from '@/shared/lib/cn';
 import { date as fmtDate, num, shortName, maskNationalId } from '@/shared/lib/format';
+import { nationalIdErrorMessage } from '@/shared/lib/national-id';
 import { barcodeService } from '../api/barcode.service';
+import { useBarcodeSearch } from '../api/barcode.queries';
+import type { BarcodeSearchHit, BarcodeSearchMode } from '../api/barcode.service';
 import type { Applicant, BarcodeRecord } from '@/shared/types/domain';
 
 /**
@@ -176,38 +180,185 @@ function FieldRow({ label, value, mono }: { label: string; value: string; mono?:
   );
 }
 
-export function BarcodeLookupPage(): JSX.Element {
-  const [query, setQuery] = useState('');
-  const [target, setTarget] = useState<typeof MOCK.applicants[number] | null>(null);
+interface SearchModeMeta {
+  mode: BarcodeSearchMode;
+  label: string;
+  Icon: typeof Search;
+  placeholder: string;
+  /** Input writing direction — codes/NID are LTR, names RTL. */
+  dir: 'ltr' | 'rtl';
+}
 
-  const handleLookup = async (): Promise<void> => {
-    const r = await barcodeService.lookup(query);
-    setTarget(r.applicant);
+const SEARCH_MODES: readonly SearchModeMeta[] = [
+  { mode: 'barcode', label: 'كود الباركود', Icon: ScanBarcode, placeholder: '26-CAI-00001234', dir: 'ltr' },
+  { mode: 'national-id', label: 'الرقم القومي', Icon: IdCard, placeholder: '14 رقماً', dir: 'ltr' },
+  { mode: 'name', label: 'الاسم', Icon: User, placeholder: 'اكتب اسم المتقدم…', dir: 'rtl' },
+];
+
+export function BarcodeLookupPage(): JSX.Element {
+  const [mode, setMode] = useState<BarcodeSearchMode>('barcode');
+  const [query, setQuery] = useState('');
+  const [submitted, setSubmitted] = useState<{ mode: BarcodeSearchMode; query: string } | null>(null);
+
+  const meta = SEARCH_MODES.find((m) => m.mode === mode)!;
+  const { data: hits, isFetching, isError, error, refetch } = useBarcodeSearch(submitted);
+
+  /* National-ID mode blocks submit on an invalid Egyptian NID. */
+  const nidError = mode === 'national-id' && query.trim().length > 0 ? nationalIdErrorMessage(query.trim()) : undefined;
+  const canSubmit = query.trim().length > 0 && !nidError;
+
+  const handleSubmit = (): void => {
+    if (!canSubmit) return;
+    setSubmitted({ mode, query: query.trim() });
+  };
+
+  const switchMode = (next: BarcodeSearchMode): void => {
+    setMode(next);
+    setQuery('');
+    setSubmitted(null);
   };
 
   return (
     <>
-      <PageHeader title="استعلام بالباركود" subtitle="أدخل كود الكارت للوصول السريع لملف المتقدم" />
+      <PageHeader title="استعلام واسترجاع" subtitle="ابحث عن كارت التردد بالكود أو الرقم القومي أو اسم المتقدم" />
       <Card>
         <CardBody>
-          <div className="filters">
-            <div className="search flex-1">
-              <input className="input" placeholder="أدخل كود الباركود…" value={query} onChange={(e) => setQuery(e.target.value)} />
-              <Search size={18} />
-            </div>
-            <Button variant="primary" onClick={handleLookup}>استعلام</Button>
+          {/* Mode toggle */}
+          <div role="radiogroup" aria-label="طريقة البحث" className="mb-4 grid grid-cols-3 gap-2">
+            {SEARCH_MODES.map(({ mode: m, label, Icon }) => {
+              const selected = mode === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => switchMode(m)}
+                  className={cn(
+                    'flex items-center justify-center gap-2 rounded-md border px-3 py-2.5 text-sm font-medium transition-colors duration-fast ease-standard',
+                    'focus-visible:shadow-focus-teal focus-visible:outline-none',
+                    selected
+                      ? 'text-white'
+                      : 'border-border-default text-ink-700 hover:border-border-strong hover:bg-ink-50',
+                  )}
+                  style={selected ? { background: 'var(--accent-600)', borderColor: 'var(--accent-600)' } : undefined}
+                >
+                  <Icon size={16} strokeWidth={1.75} />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
           </div>
-          {target && (
-            <div className="mt-4 grid grid-2">
-              <div className="detail-row"><span className="detail-label">الاسم</span><span className="detail-value">{target.name}</span></div>
-              <div className="detail-row"><span className="detail-label">كود التقدم</span><span className="detail-value mono">{target.id}</span></div>
-              <div className="detail-row"><span className="detail-label">المحافظة</span><span className="detail-value">{target.governorate}</span></div>
-              <div className="detail-row"><span className="detail-label">المرحلة</span><span className="detail-value"><Badge tone="info">{target.stageLabel}</Badge></span></div>
+
+          {/* Query input + submit */}
+          <form
+            className="flex flex-col gap-1 sm:flex-row sm:items-start"
+            onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
+          >
+            <div className="flex-1">
+              <div className="search">
+                <input
+                  className="input"
+                  dir={meta.dir}
+                  inputMode={mode === 'name' ? 'text' : 'numeric'}
+                  placeholder={meta.placeholder}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  aria-label={`بحث بـ ${meta.label}`}
+                  aria-invalid={Boolean(nidError)}
+                />
+                <Search size={18} />
+              </div>
+              {nidError && <p className="mt-1 text-2xs text-terra-600">{nidError}</p>}
             </div>
-          )}
+            <Button type="submit" variant="primary" disabled={!canSubmit} isLoading={isFetching}>
+              استعلام
+            </Button>
+          </form>
+
+          {/* Results */}
+          <div className="mt-5">
+            {!submitted ? (
+              <EmptyState variant="no-results-search" title="ابدأ البحث" description="اختر طريقة البحث وأدخل القيمة ثم اضغط «استعلام»." />
+            ) : isFetching ? (
+              <LoadingState variant="list" />
+            ) : isError ? (
+              <ErrorState error={error} onRetry={() => refetch()} />
+            ) : !hits || hits.length === 0 ? (
+              <EmptyState variant="no-results-search" title="لا توجد نتائج" description="تأكد من القيمة المُدخلة وحاول مرة أخرى." />
+            ) : hits.length === 1 ? (
+              <BarcodeHitCard hit={hits[0]!} />
+            ) : (
+              <div className="flex flex-col gap-2">
+                <p className="text-2xs text-ink-500">{num(hits.length)} نتيجة — اختر متقدماً لعرض كارته.</p>
+                {hits.map((h) => <BarcodeHitRow key={h.applicant.id} hit={h} />)}
+              </div>
+            )}
+          </div>
         </CardBody>
       </Card>
     </>
+  );
+}
+
+/** Status badge for a card record (issued / replaced-void / not-yet-issued). */
+function CardStatusBadge({ record }: { record: BarcodeRecord | null }): JSX.Element {
+  if (!record) return <Badge tone="neutral">لم يُصدر كارت بعد</Badge>;
+  if (record.void) return <Badge tone="danger">ملغى{record.voidReason ? ` · ${record.voidReason}` : ''}</Badge>;
+  return <Badge tone="success">سارٍ</Badge>;
+}
+
+/** Full single-result panel: applicant details + card preview. */
+function BarcodeHitCard({ hit }: { hit: BarcodeSearchHit }): JSX.Element {
+  const { applicant, record } = hit;
+  return (
+    <div className="grid gap-4 rounded-lg border border-border-subtle bg-ink-50 p-4 lg:grid-cols-[1.4fr_1fr]">
+      <div className="grid grid-cols-2 gap-3 text-2xs">
+        <FieldRow label="الاسم بالكامل" value={applicant.name} />
+        <FieldRow label="رقم الطلب" value={applicant.id} mono />
+        <FieldRow label="الرقم القومي" value={maskNationalId(applicant.nationalId)} mono />
+        <FieldRow label="المحافظة" value={applicant.governorate} />
+        <FieldRow label="اللجنة" value={`اللجنة ${applicant.committee}`} />
+        <FieldRow label="المرحلة" value={applicant.stageLabel} />
+        <div className="col-span-2 flex items-center gap-2 pt-1">
+          <span className="text-ink-500">حالة الكارت</span>
+          <CardStatusBadge record={record} />
+        </div>
+      </div>
+      <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-border-subtle bg-white p-3 text-center">
+        {record ? (
+          <>
+            <Code128Barcode value={buildPayload(applicant, record.code)} height={52} moduleWidth={1.3} showText={false} />
+            <p className="font-mono text-xs text-ink-700" dir="ltr">{record.code.replace(/(.{4})/g, '$1 ').trim()}</p>
+            <p className="inline-flex items-center gap-1 text-2xs text-ink-500">
+              <CalendarRange size={11} strokeWidth={1.75} />
+              صادر {fmtDate(record.issuedAt, 'short')}
+            </p>
+          </>
+        ) : (
+          <EmptyState variant="generic" title="لا يوجد كارت لهذا المتقدم" />
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Compact one-line hit used when a name search returns many matches. */
+function BarcodeHitRow({ hit }: { hit: BarcodeSearchHit }): JSX.Element {
+  const { applicant, record } = hit;
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-md border border-border-subtle bg-surface-card px-3 py-2.5">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium text-ink-900">{shortName(applicant.name, 4)}</p>
+        <p className="text-2xs text-ink-500">
+          <span className="font-mono" dir="ltr">{applicant.id}</span> · {applicant.governorate} · لجنة {applicant.committee}
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        {record && <span className="hidden font-mono text-2xs text-ink-500 sm:inline" dir="ltr">{record.code}</span>}
+        <CardStatusBadge record={record} />
+      </div>
+    </div>
   );
 }
 
