@@ -65,44 +65,19 @@ import {
 
 interface InstanceRow extends CommitteeInstance {
   categoryLabelAr: string;
-  /** Underlying committee definition name. Kept on the row so delete
-   *  dialogs, aria-labels, and the «حجوزات» list keep showing the
-   *  concrete committee — only the visible exam-name column is wired
-   *  off this value. */
+  /** Underlying committee definition name. */
   committeeName: string;
   /** First exam in the row category's ordered plan. Sourced from the
    *  admission-setup «إدارة الاختبارات» wizard step. */
   examLabel: string;
 }
 
-/** Aggregate view-row: one entry per (categoryKey × date) collapsing
- *  every underlying CommitteeInstance for that category-day. The add
- *  form's mental model is «pick a category» — fan-out to physical
- *  committees is internal — so the management page mirrors that:
- *  one visible row per category. Capacity and reservations cascade
- *  through `instances` on edit/delete. */
-interface AggregatedRow {
-  id: string;
-  date: string;
-  categoryKey: string;
-  categoryLabelAr: string;
-  examLabel: string;
-  committeeCount: number;
-  /** Uniform per-committee capacity, or null when underlying instances
-   *  disagree (rare; only happens if some committees were edited from
-   *  the wizard surface individually). */
-  perCommitteeCapacity: number | null;
-  totalReserved: number;
-  reservedRefreshedAt: string;
-  instances: InstanceRow[];
-}
-
 interface DayGroup {
   date: string;
-  rows: AggregatedRow[];
+  rows: InstanceRow[];
   /** Underlying committee-instance count, surfaced in the day header
    *  badge so admins still see «X لجنة» reflecting physical committees,
-   *  not the aggregated category count. */
+   *  not the day-section count. */
   instanceCount: number;
 }
 
@@ -110,17 +85,6 @@ function normalizeNonNegativeInteger(value: unknown, fallback = 0): number {
   const parsed = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(parsed) || parsed < 0) return fallback;
   return Math.floor(parsed);
-}
-
-/** Reserved is hard-capped at capacity for display purposes — the
- *  invariant the user requested: «المحجوز can't exceed سعة اللجنة».
- *  Capacity = 0 falls back to the raw value (defensive: an unset
- *  capacity shouldn't blank the count). */
-function effectiveReserved(row: { reserved: unknown; capacity: unknown }): number {
-  const reserved = normalizeNonNegativeInteger(row.reserved);
-  const capacity = normalizeNonNegativeInteger(row.capacity);
-  if (capacity <= 0) return reserved;
-  return Math.min(reserved, capacity);
 }
 
 /** Today, normalised to local midnight, as a yyyy-mm-dd ISO string.
@@ -235,13 +199,10 @@ export function CommitteeInstancesPage(): JSX.Element {
     examLabelByCategory,
   ]);
 
-  /* Group rows by date, then aggregate underlying committee instances
-   * by category so each category appears once per day. The add form's
-   * unit-of-work is «category × date», fanning out to physical
-   * committees internally — this page mirrors that mental model.
-   * Every day the wizard authored is rendered — past, present, future —
-   * so admins can audit completed exam days and keep parity with what
-   * they see in the admission-setup wizard. */
+  /* Group rows by date while preserving one visible table row per physical
+   * committee. Every day the wizard authored is rendered — past, present,
+   * future — so admins can audit completed exam days and keep parity with
+   * what they see in the admission-setup wizard. */
   const dayGroups = useMemo<DayGroup[]>(() => {
     const arabicCmp = (a: string, b: string): number =>
       a.localeCompare(b, 'ar', { numeric: true });
@@ -254,43 +215,14 @@ export function CommitteeInstancesPage(): JSX.Element {
     return Array.from(bucket.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, rs]) => {
-        const byCategory = new Map<string, InstanceRow[]>();
-        for (const r of rs) {
-          const list = byCategory.get(r.categoryKey);
-          if (list) list.push(r);
-          else byCategory.set(r.categoryKey, [r]);
-        }
-        const aggregated: AggregatedRow[] = Array.from(byCategory.entries()).map(
-          ([categoryKey, instances]) => {
-            const capacities = instances.map((i) => i.capacity);
-            const uniform = capacities.every((c) => c === capacities[0]);
-            const totalReserved = instances.reduce(
-              (sum, i) => sum + effectiveReserved(i),
-              0,
-            );
-            const latestRefresh = instances.reduce(
-              (acc, i) =>
-                acc === '' || i.reservedRefreshedAt > acc ? i.reservedRefreshedAt : acc,
-              '',
-            );
-            return {
-              id: `${date}|${categoryKey}`,
-              date,
-              categoryKey,
-              categoryLabelAr: instances[0].categoryLabelAr,
-              examLabel: instances[0].examLabel,
-              committeeCount: instances.length,
-              perCommitteeCapacity: uniform ? capacities[0] : null,
-              totalReserved,
-              reservedRefreshedAt: latestRefresh,
-              instances,
-            };
-          },
-        );
-        aggregated.sort((a, b) => arabicCmp(a.categoryLabelAr, b.categoryLabelAr));
+        const sortedRows = [...rs].sort((a, b) => {
+          const category = arabicCmp(a.categoryLabelAr, b.categoryLabelAr);
+          if (category !== 0) return category;
+          return arabicCmp(a.committeeName, b.committeeName);
+        });
         return {
           date,
-          rows: aggregated,
+          rows: sortedRows,
           instanceCount: rs.length,
         };
       });
@@ -450,7 +382,7 @@ function DayActions({
 }: DayActionsProps): JSX.Element {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const dayPassed = isPastDay(group.date);
-  const hasBookings = group.rows.some((r) => r.totalReserved > 0);
+  const hasBookings = group.rows.some((r) => r.reserved > 0);
   const deleteBlockedMessage = dayPassed
     ? 'لا يمكن حذف يوم اختبار سابق.'
     : hasBookings
@@ -504,7 +436,7 @@ function DeleteDayDialog({
   group,
 }: DeleteDayDialogProps): JSX.Element {
   const removeDayMut = useRemoveCommitteeInstanceDayMutation();
-  const reservedRows = group.rows.filter((r) => r.totalReserved > 0);
+  const reservedRows = group.rows.filter((r) => r.reserved > 0);
   const hasReservations = reservedRows.length > 0;
   const dayPassed = isPastDay(group.date);
 
@@ -544,8 +476,8 @@ function DeleteDayDialog({
         <ul className="mt-3 max-h-48 overflow-auto rounded-md border border-terra-200 bg-terra-50 p-2 text-2xs text-terra-700">
           {reservedRows.map((r) => (
             <li key={r.id} className="flex items-center justify-between gap-2 py-0.5">
-              <span className="truncate">{r.categoryLabelAr}</span>
-              <span className="font-numeric tnum">{num(r.totalReserved)} محجوز</span>
+              <span className="truncate">{r.committeeName}</span>
+              <span className="font-numeric tnum">{num(r.reserved)} محجوز</span>
             </li>
           ))}
         </ul>
@@ -580,13 +512,12 @@ function CycleHeaderBlock({ cycle }: CycleHeaderBlockProps): JSX.Element {
   );
 }
 
-/* ── Per-day aggregated rows ─────────────────────────────────────── *
- * One row per (categoryKey × date). The «عدد اللجان» column surfaces
- * how many physical committees underlie the row; capacity/reserved/
- * delete actions cascade through `row.instances`.                       */
+/* ── Per-day committee rows ──────────────────────────────────────── *
+ * One row per physical CommitteeInstance, with dedicated cells for
+ * committee name, related exam name, and scheduled exam date.            */
 
 interface CommitteeRowsTableProps {
-  rows: AggregatedRow[];
+  rows: InstanceRow[];
 }
 
 function CommitteeRowsTable({
@@ -601,13 +532,13 @@ function CommitteeRowsTable({
               الفئة
             </th>
             <th className="px-4 py-2 text-start text-2xs font-medium uppercase tracking-wide text-ink-500">
-              تاريخ الاختبار
+              اللجنة
             </th>
-            <th className="px-4 py-2 text-start text-2xs font-medium uppercase tracking-wide text-ink-500">
+            <th className="min-w-40 px-4 py-2 text-start text-2xs font-medium uppercase tracking-wide text-ink-500">
               اسم الاختبار
             </th>
-            <th className="px-4 py-2 text-center text-2xs font-medium uppercase tracking-wide text-ink-500">
-              عدد اللجان
+            <th className="px-4 py-2 text-start text-2xs font-medium uppercase tracking-wide text-ink-500">
+              تاريخ الاختبار
             </th>
             <th className="px-4 py-2 text-center text-2xs font-medium uppercase tracking-wide text-ink-500">
               سعة اللجنة
@@ -629,20 +560,20 @@ function CommitteeRowsTable({
               <td className="px-4 py-2 align-middle text-ink-900">
                 {row.categoryLabelAr}
               </td>
-              <td className="px-4 py-2 align-middle">
-                <DateCell value={row.date} />
+              <td className="px-4 py-2 align-middle text-ink-900">
+                {row.committeeName}
               </td>
               <td className="px-4 py-2 align-middle text-ink-900">
                 {row.examLabel || <span className="text-ink-400">—</span>}
               </td>
-              <td className="px-4 py-2 align-middle text-center font-numeric tnum text-ink-900">
-                {num(row.committeeCount)}
+              <td className="px-4 py-2 align-middle">
+                <DateCell value={row.date} />
               </td>
               <td className="px-4 py-2 align-middle text-center">
                 <CapacityCell row={row} />
               </td>
               <td className="px-4 py-2 align-middle text-center font-numeric tnum text-ink-900">
-                {num(row.totalReserved)}
+                {num(row.reserved)}
               </td>
               <td className="px-4 py-2 align-middle text-center">
                 <LastUpdatedCell value={row.reservedRefreshedAt} />
@@ -661,12 +592,11 @@ function CommitteeRowsTable({
 }
 
 /* ── Per-row (category-day) actions ──────────────────────────────── *
- * Delete cascades through every underlying CommitteeInstance for the
- * (categoryKey × date). Blocking conditions check the aggregate
- * `totalReserved` and the shared `date`.                                  */
+ * Delete removes the single CommitteeInstance backing the visible row.
+ * Blocking conditions check the row's reservation count and date.          */
 
 interface CommitteeRowActionsProps {
-  row: AggregatedRow;
+  row: InstanceRow;
 }
 
 function CommitteeRowActions({
@@ -674,7 +604,7 @@ function CommitteeRowActions({
 }: CommitteeRowActionsProps): JSX.Element {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const dayPassed = isPastDay(row.date);
-  const hasBookings = row.totalReserved > 0;
+  const hasBookings = row.reserved > 0;
   const deleteBlockedMessage = dayPassed
     ? 'لا يمكن حذف موعد في يوم سابق.'
     : hasBookings
@@ -713,7 +643,7 @@ function CommitteeRowActions({
 interface DeleteCommitteeDialogProps {
   open: boolean;
   onOpenChange: (next: boolean) => void;
-  row: AggregatedRow;
+  row: InstanceRow;
 }
 
 function DeleteCommitteeDialog({
@@ -722,20 +652,13 @@ function DeleteCommitteeDialog({
   row,
 }: DeleteCommitteeDialogProps): JSX.Element {
   const removeMut = useRemoveCommitteeInstanceMutation();
-  const blocked = row.totalReserved > 0 || isPastDay(row.date);
+  const blocked = row.reserved > 0 || isPastDay(row.date);
 
-  /* Cascade through every underlying instance for the aggregated
-   * (categoryKey × date) — N parallel removes; surfaces the first
-   * failure if any, then leaves the cache to refresh from the
-   * mutation's onSuccess. */
   const handleDelete = async (): Promise<void> => {
     if (blocked) return;
     try {
-      await Promise.all(row.instances.map((i) => removeMut.mutateAsync(i.id)));
-      toast(
-        `تم حذف ${num(row.instances.length)} موعد لجنة لفئة ${row.categoryLabelAr}`,
-        'success',
-      );
+      await removeMut.mutateAsync(row.id);
+      toast(`تم حذف موعد ${row.committeeName}`, 'success');
       onOpenChange(false);
     } catch (err) {
       toast((err as Error).message, 'danger');
@@ -746,13 +669,13 @@ function DeleteCommitteeDialog({
     <AlertDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={`حذف مواعيد ${row.categoryLabelAr}`}
+      title={`حذف موعد ${row.committeeName}`}
       description={
         isPastDay(row.date)
-          ? 'لا يمكن حذف مواعيد في يوم سابق.'
-          : row.totalReserved > 0
-            ? `لا يمكن حذف هذه المواعيد لأن بها حجوزات قائمة للمتقدمين (${num(row.totalReserved)} حجز).`
-            : `سيتم حذف ${num(row.committeeCount)} موعد لجنة لفئة ${row.categoryLabelAr} بتاريخ ${fmtDate(row.date, 'full')}. لا يمكن التراجع.`
+          ? 'لا يمكن حذف موعد في يوم سابق.'
+          : row.reserved > 0
+            ? `لا يمكن حذف هذا الموعد لأن به حجوزات قائمة للمتقدمين (${num(row.reserved)} حجز).`
+            : `سيتم حذف موعد ${row.committeeName} بتاريخ ${fmtDate(row.date, 'full')}. لا يمكن التراجع.`
       }
       actionLabel="حذف"
       tone="danger"
@@ -766,27 +689,19 @@ function DeleteCommitteeDialog({
 }
 
 /* ── سعة اللجنة inline-edit cell ──────────────────────────────────── *
- * The aggregated row's capacity is the per-committee value — same value
- * the add form takes. Committing fans the new value out to every
- * underlying CommitteeInstance in parallel. When underlying capacities
- * disagree (`perCommitteeCapacity === null`), the field is replaced by
- * a «متفاوتة» label; admins fix that via the admission-setup wizard's
- * per-committee editor. The service enforces the [1, 999] envelope and
- * silently clamps `reserved` down if the new capacity is below the
- * current reservation count (committeeInstance.service.ts).               */
+ * The service enforces the [1, 999] envelope and silently clamps
+ * `reserved` down if the new capacity is below the current reservation
+ * count (committeeInstance.service.ts).                                   */
 
 interface CapacityCellProps {
-  row: AggregatedRow;
+  row: InstanceRow;
 }
 
 function CapacityCell({ row }: CapacityCellProps): JSX.Element {
   const updateMut = useUpdateCommitteeInstanceMutation();
-  const initial = row.perCommitteeCapacity;
-  const [value, setValue] = useState<string>(() =>
-    initial === null ? '' : String(initial),
-  );
+  const initial = row.capacity;
+  const [value, setValue] = useState<string>(() => String(initial));
   const dayPassed = isPastDay(row.date);
-  const nonUniform = initial === null;
 
   /* External value can shift (refresh-reserved, mutation invalidation).
    * Re-sync whenever the row's persisted capacity changes — unless the
@@ -796,45 +711,32 @@ function CapacityCell({ row }: CapacityCellProps): JSX.Element {
     const ownerDoc = typeof document !== 'undefined' ? document : null;
     const inputEl = ownerDoc?.activeElement as HTMLInputElement | null;
     if (inputEl?.dataset.capacityCellId === row.id) return;
-    setValue(initial === null ? '' : String(initial));
+    setValue(String(initial));
   }, [initial, row.id]);
 
   const commit = (): void => {
-    if (dayPassed || nonUniform) {
-      setValue(initial === null ? '' : String(initial));
+    if (dayPassed) {
+      setValue(String(initial));
       if (dayPassed) toast('لا يمكن تعديل سعة يوم سابق', 'warning');
       return;
     }
     const parsed = Number(value);
     if (!Number.isInteger(parsed) || parsed < 1 || parsed > 999) {
       toast('السعة يجب أن تكون عدداً صحيحاً بين 1 و 999', 'danger');
-      setValue(initial === null ? '' : String(initial));
+      setValue(String(initial));
       return;
     }
     if (parsed === initial) return;
-    /* Fan the new capacity out to every underlying instance. Promise.all
-     * so the cache invalidation fires once all writes settle; first
-     * failure surfaces. */
-    void Promise.all(
-      row.instances.map((i) =>
-        updateMut.mutateAsync({ id: i.id, patch: { capacity: parsed } }),
-      ),
-    ).catch((err: unknown) => {
-      toast((err as Error).message, 'danger');
-      setValue(initial === null ? '' : String(initial));
-    });
-  };
-
-  if (nonUniform) {
-    return (
-      <span
-        className="inline-block font-numeric tnum text-2xs text-ink-500"
-        title="السعة متفاوتة بين اللجان — حرّرها من معالج إعداد التقديم"
-      >
-        متفاوتة
-      </span>
+    updateMut.mutate(
+      { id: row.id, patch: { capacity: parsed } },
+      {
+        onError: (err) => {
+          toast((err as Error).message, 'danger');
+          setValue(String(initial));
+        },
+      },
     );
-  }
+  };
 
   return (
     <input
@@ -844,7 +746,7 @@ function CapacityCell({ row }: CapacityCellProps): JSX.Element {
       max={999}
       value={value}
       data-capacity-cell-id={row.id}
-      aria-label={`سعة لجان ${row.categoryLabelAr} في ${row.date}`}
+      aria-label={`سعة لجنة ${row.committeeName} في ${row.date}`}
       disabled={updateMut.isPending || dayPassed}
       title={dayPassed ? 'لا يمكن تعديل يوم سابق' : undefined}
       onChange={(e) => setValue(e.target.value)}
@@ -854,7 +756,7 @@ function CapacityCell({ row }: CapacityCellProps): JSX.Element {
           e.preventDefault();
           (e.currentTarget as HTMLInputElement).blur();
         } else if (e.key === 'Escape') {
-          setValue(initial === null ? '' : String(initial));
+          setValue(String(initial));
           (e.currentTarget as HTMLInputElement).blur();
         }
       }}
