@@ -56,10 +56,15 @@ import {
 import {
   useActiveCycles,
   useCategories,
+  useCycleApplicationPeriod,
   useCycleById,
   useEligibleCategories,
 } from '../api/categories.queries';
-import type { ApplicantCategoryEligibility } from '../api/categories.service';
+import {
+  resolveCycleApplicationPeriod,
+  type ApplicantCategoryEligibility,
+  type ApplicantCycleApplicationPeriod,
+} from '../api/categories.service';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
 import { applicantPortalService } from '../api/applicantPortal.service';
@@ -146,6 +151,8 @@ export function CategorySelectionPage(): JSX.Element {
     );
   }, [cycleByIdQuery.data, cycles, cycleParam, storedCycleId]);
   const effectiveCycleId = selectedCycle?.id ?? cycleParam ?? null;
+  const applicationPeriodQuery = useCycleApplicationPeriod(effectiveCycleId);
+  const applicationPeriod = applicationPeriodQuery.data ?? resolveCycleApplicationPeriod(selectedCycle);
 
   useEffect(() => {
     if (!selectedCycle) return;
@@ -428,6 +435,7 @@ export function CategorySelectionPage(): JSX.Element {
         <InlineSection icon={<ShieldCheck size={16} strokeWidth={1.75} />} title="شروط الإلتحاق">
           <EligibilityDrawerBody
             cycle={selectedCycle}
+            applicationPeriod={applicationPeriod}
             categories={visibleInfoCategories}
           />
         </InlineSection>
@@ -975,9 +983,11 @@ function IdentityDrawerBody(): JSX.Element {
 
 function EligibilityDrawerBody({
   cycle,
+  applicationPeriod,
   categories,
 }: {
   cycle: AdmissionCycle | null;
+  applicationPeriod: ApplicantCycleApplicationPeriod | null;
   categories: readonly ApplicantCategory[];
 }): JSX.Element {
   return (
@@ -986,7 +996,7 @@ function EligibilityDrawerBody({
         <div className="inline-flex w-fit max-w-full flex-wrap items-center gap-2 rounded-md border border-border-default bg-ink-50 px-4 py-3 text-sm text-ink-700">
           <CalendarRange size={16} strokeWidth={1.75} className="shrink-0 text-teal-700" aria-hidden />
           الدورة الحالية: <span className="font-medium">{cycle.nameAr}</span> · فترة التقدم تنتهي في{' '}
-          {fmtDate(cycle.closeDate, 'short')}
+          {fmtDate(applicationPeriod?.endDate ?? cycle.closeDate, 'short')}
         </div>
       )}
       {categories.length === 0 ? (
