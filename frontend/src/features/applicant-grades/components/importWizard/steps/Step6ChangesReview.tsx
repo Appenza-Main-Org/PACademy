@@ -279,7 +279,7 @@ export function Step6ChangesReview(): JSX.Element {
     [integrityRows],
   );
   /* The dedicated NID validation report aggregates every detected
-   * national-id issue (format / governorate / sequence / gender / checksum
+   * national-id issue (format / governorate / sequence / gender
    * / intra-file duplicate / system duplicate) into a single panel so
    * admins can review the full per-row breakdown without hunting
    * across the page. INVALID_NID rows are pulled out of HardInvalidSection

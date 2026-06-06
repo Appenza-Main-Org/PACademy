@@ -13,7 +13,7 @@ const EG_PHONE_REGEX = /^01[0125][0-9]{8}$/;
 
 /** Zod field that validates an Egyptian National ID through the full
  *  analyser (length + numeric + century + birth date + governorate +
- *  sequence + gender digit + checksum). Each failure surfaces a
+ *  sequence + gender digit). Each failure surfaces a
  *  specific Arabic message instead of a generic «14 رقماً» error. */
 const nationalIdField = z.string().superRefine((value, ctx) => {
   const message = nationalIdErrorMessage(value);
