@@ -24,16 +24,14 @@ interface ApplicantPortalState {
   nationalId: string | null;
   selectedCategoryKey: string | null;
   selectedCycleId: string | null;
-  /** Faculty picked on /applicant/start for the `specialized_officers`
-   *  category — the applicant picks الكلية first, then chooses a
-   *  specialization scoped to that faculty. Stored as the human-readable
-   *  Arabic name (matches the lookups `name` field). Null when the picker
-   *  hasn't been used. */
+  /** Faculty picked on /applicant/start for categories with configured
+   *  academic programs (e.g. `law_bachelor`, `specialized_officers`) — the
+   *  applicant picks الكلية first, then chooses a specialization scoped to
+   *  that faculty. Stored as the human-readable Arabic name (matches the
+   *  lookups `name` field). Null when the picker hasn't been used. */
   selectedFaculty: string | null;
-  /** Sub-specialization picked on /applicant/start when the category is
-   *  `specialized_officers` — the applicant chooses which specialization
-   *  to apply for before entering the wizard. Null for all other
-   *  categories (or before the picker has been used). */
+  /** Sub-specialization picked on /applicant/start when the category has
+   *  configured academic programs. Null when the picker has not been used. */
   selectedSpecialization: string | null;
 
   /** Snapshot of the MOI identity-verification response captured on

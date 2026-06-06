@@ -111,6 +111,7 @@ export function CategorySelectionPage(): JSX.Element {
    * selection. Applicant picks الكلية first, then chooses a specialization
    * scoped to that faculty. Sourced from the lookups module. */
   const [specializationPickerOpen, setSpecializationPickerOpen] = useState(false);
+  const [pickerCategoryKey, setPickerCategoryKey] = useState<string | null>(null);
   const [pickedFacultyCode, setPickedFacultyCode] = useState<string | null>(null);
   const [pickedSpecializationCode, setPickedSpecializationCode] = useState<string | null>(null);
   /* Source-of-truth for the identity strip: prefer the MOI snapshot
@@ -157,18 +158,30 @@ export function CategorySelectionPage(): JSX.Element {
   );
   const applicantCategoriesQuery = useApplicantCategories();
 
-  const specializedOfficersEligibility = useMemo(
+  const pickerCategoryEligibility = useMemo(
     () =>
-      eligibilityCategoriesQuery.data?.categories.find(
-        (category) => category.categoryId === 'specialized_officers',
-      ) ?? null,
-    [eligibilityCategoriesQuery.data],
+      pickerCategoryKey
+        ? eligibilityCategoriesQuery.data?.categories.find(
+            (category) => category.categoryId === pickerCategoryKey,
+          ) ?? null
+        : null,
+    [eligibilityCategoriesQuery.data, pickerCategoryKey],
   );
-  /* When the backend/MOI eligibility response includes the specialized
-   * officers category, its academicPrograms are already filtered by age,
-   * gender, cycle, and configured rules. In that path we do not fetch the
-   * full lookup catalogue for the applicant picker. */
-  const shouldLoadLookupPickerCatalog = !applicantNationalId && specializedOfficersEligibility === null;
+  const pickerCategoryLabel = useMemo(() => {
+    if (!pickerCategoryKey) return 'الفئة المختارة';
+    return (
+      pickerCategoryEligibility?.categoryName ??
+      categoriesQuery.data?.find((category) => category.key === pickerCategoryKey)?.labelAr ??
+      pickerCategoryKey
+    );
+  }, [categoriesQuery.data, pickerCategoryEligibility, pickerCategoryKey]);
+  /* When the backend/MOI eligibility response includes academic programs for
+   * the picked category, those programs are already filtered by age, gender,
+   * cycle, and configured rules. In that path we do not fetch the full lookup
+   * catalogue for the applicant picker. */
+  const shouldLoadLookupPickerCatalog =
+    specializationPickerOpen &&
+    (!applicantNationalId || pickerCategoryEligibility === null);
   const facultiesQuery = useLookup('faculties', { enabled: shouldLoadLookupPickerCatalog });
   const specializationsQuery = useLookup('specializations', { enabled: shouldLoadLookupPickerCatalog });
 
@@ -230,10 +243,10 @@ export function CategorySelectionPage(): JSX.Element {
    */
   const allowedSpecializedPickerOptions = useMemo(
     () =>
-      specializedOfficersEligibility
-        ? toSpecializedProgramPickerOptions(specializedOfficersEligibility.academicPrograms)
+      pickerCategoryEligibility
+        ? toSpecializedProgramPickerOptions(pickerCategoryEligibility.academicPrograms)
         : null,
-    [specializedOfficersEligibility],
+    [pickerCategoryEligibility],
   );
   const allFaculties: readonly FacultyRow[] =
     allowedSpecializedPickerOptions?.faculties ?? facultiesQuery.data ?? [];
@@ -284,15 +297,18 @@ export function CategorySelectionPage(): JSX.Element {
 
   const onPickCategory = (categoryKey: string, enabled: boolean): void => {
     if (!enabled) return;
-    /* For الضباط المتخصصون the applicant must pick a sub-specialization
-     * BEFORE entering the wizard (client direction 2026-05-19). Set the
-     * category key now so the picker title contextually matches, then
-     * open the picker — confirmation will navigate. */
-    if (categoryKey === 'specialized_officers') {
+    const categoryEligibility = eligibilityCategoriesQuery.data?.categories.find(
+      (category) => category.categoryId === categoryKey,
+    );
+    /* Categories with configured academic programs (e.g. ليسانس حقوق and
+     * الضباط المتخصصون) require the applicant to choose the exact الكلية /
+     * التخصص before entering the wizard. */
+    if (categoryEligibility && categoryEligibility.academicPrograms.length > 0) {
       setSelectedCategoryKey(categoryKey);
       saveCommitteeForCategory(categoryKey);
       setPickedFacultyCode(null);
       setPickedSpecializationCode(null);
+      setPickerCategoryKey(categoryKey);
       setSpecializationPickerOpen(true);
       return;
     }
@@ -320,6 +336,7 @@ export function CategorySelectionPage(): JSX.Element {
   };
 
   const confirmSpecialization = (): void => {
+    if (!pickerCategoryKey) return;
     if (!pickedFacultyCode || !pickedSpecializationCode) return;
     const faculty = facultyByCode.get(pickedFacultyCode);
     const specialization = specializationByCode.get(pickedSpecializationCode);
@@ -331,7 +348,7 @@ export function CategorySelectionPage(): JSX.Element {
      * eligibility step for not_found-in-MOI users, otherwise navigate
      * to the eligibility-check page first. */
     if (!identity || !effectiveCycleId) {
-      persistCategoryStart('specialized_officers', {
+      persistCategoryStart(pickerCategoryKey, {
         selectedFaculty: faculty.name,
         selectedSpecialization: specialization.name,
       });
@@ -340,7 +357,7 @@ export function CategorySelectionPage(): JSX.Element {
     }
     /* Eligibility already resolved on /applicant/start — go straight to
      * the data-entry profile instead of the standalone check page. */
-    persistCategoryStart('specialized_officers', {
+    persistCategoryStart(pickerCategoryKey, {
       selectedFaculty: faculty.name,
       selectedSpecialization: specialization.name,
     });
@@ -443,7 +460,10 @@ export function CategorySelectionPage(): JSX.Element {
             above all render inline. */}
         <Modal
           open={specializationPickerOpen}
-          onClose={() => setSpecializationPickerOpen(false)}
+          onClose={() => {
+            setSpecializationPickerOpen(false);
+            setPickerCategoryKey(null);
+          }}
           title="اختر الكلية والتخصص"
           size="lg"
         >
@@ -453,6 +473,7 @@ export function CategorySelectionPage(): JSX.Element {
               specializations={allSpecializations}
               pickedFacultyCode={pickedFacultyCode}
               pickedSpecializationCode={pickedSpecializationCode}
+              categoryLabel={pickerCategoryLabel}
               onPickFaculty={(code) => {
                 setPickedFacultyCode(code);
                 /* Drop any previously-picked specialization when faculty
@@ -469,7 +490,10 @@ export function CategorySelectionPage(): JSX.Element {
           <Modal.Footer>
             <Button
               variant="secondary"
-              onClick={() => setSpecializationPickerOpen(false)}
+              onClick={() => {
+                setSpecializationPickerOpen(false);
+                setPickerCategoryKey(null);
+              }}
             >
               إلغاء
             </Button>
@@ -492,6 +516,7 @@ function SpecializationPickerBody({
   specializations,
   pickedFacultyCode,
   pickedSpecializationCode,
+  categoryLabel,
   onPickFaculty,
   onPickSpecialization,
   loading,
@@ -500,6 +525,7 @@ function SpecializationPickerBody({
   specializations: readonly SpecializationRow[];
   pickedFacultyCode: string | null;
   pickedSpecializationCode: string | null;
+  categoryLabel: string;
   onPickFaculty: (code: string) => void;
   onPickSpecialization: (code: string) => void;
   loading: boolean;
@@ -516,7 +542,7 @@ function SpecializationPickerBody({
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm leading-relaxed text-ink-700">
-        اختر الكلية أولاً ثم التخصص الذي ستتقدم به لقسم الضباط المتخصصون.
+        اختر الكلية أولاً ثم التخصص الذي ستتقدم به لفئة {categoryLabel}.
       </p>
       <div className="grid gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-2">

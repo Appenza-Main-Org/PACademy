@@ -231,8 +231,8 @@ export function Stage345ApplicantDataPage(): JSX.Element {
   }, [auditKey, gateLoading, lastAuditKey, selectedCategoryKey, nid, selectedCycleId, gradesMatched]);
 
   const showBachelor = selectedCategoryKey !== 'officers_general';
-  const isSpecializedOfficers = selectedCategoryKey === 'specialized_officers';
   const isLawBachelor = selectedCategoryKey === 'law_bachelor';
+  const hasPreselectedAcademicProgram = Boolean(selectedFaculty || selectedSpecialization);
   const selectedCategoryEligibility = useMemo(
     () =>
       selectedCategoryKey
@@ -718,15 +718,15 @@ export function Stage345ApplicantDataPage(): JSX.Element {
     }));
   }, [nid, setValue]);
 
-  /* For specialized-officers applicants the التخصص + الكلية are picked
-   * on /applicant/start (sourced from the lookups module). Mirror them
-   * into the form so the submit payload still carries the values even
-   * though their inputs are read-only. */
+  /* Some categories (e.g. ليسانس حقوق and الضباط المتخصصون) pick الكلية +
+   * التخصص on /applicant/start from cycle-scoped eligibility programs. Mirror
+   * those values into the form so submit carries them while the inputs render
+   * read-only. */
   useEffect(() => {
-    if (!isSpecializedOfficers) return;
+    if (!hasPreselectedAcademicProgram) return;
     if (selectedSpecialization) setValue('bachelorSpecialization', selectedSpecialization);
     if (selectedFaculty) setValue('bachelorFaculty', selectedFaculty);
-  }, [isSpecializedOfficers, selectedFaculty, selectedSpecialization, setValue]);
+  }, [hasPreselectedAcademicProgram, selectedFaculty, selectedSpecialization, setValue]);
 
   /* Sync the matched grade row into the form state so submission carries
    * the values even though the inputs are read-only. */
@@ -834,10 +834,10 @@ export function Stage345ApplicantDataPage(): JSX.Element {
             title="بيانات المؤهل الجامعي "
           />
           <div className="mb-4 grid gap-3 md:grid-cols-3">
-            {isSpecializedOfficers && selectedFaculty && (
+            {selectedFaculty && (
               <ReadOnlyRow label="الكلية" value={selectedFaculty} />
             )}
-            {isSpecializedOfficers && selectedSpecialization && (
+            {selectedSpecialization && (
               <ReadOnlyRow label="التخصص" value={selectedSpecialization} />
             )}
             <Field label="المؤهل / الدرجة العلمية" required>
@@ -878,11 +878,11 @@ export function Stage345ApplicantDataPage(): JSX.Element {
                   )}
                 />
               </Field>
-              {/* For specialized-officers الكلية + التخصص are shown in the
-                  read-only strip above (picked on /applicant/start); other
-                  categories pick الكلية from the cycle-scoped admission
-                  programs, then التخصص narrows to that faculty's options. */}
-              {!isSpecializedOfficers && (
+              {/* Categories that picked الكلية + التخصص on /applicant/start show
+                  the values in the read-only strip above. Other categories pick
+                  الكلية from cycle-scoped admission programs, then التخصص narrows
+                  to that faculty's options. */}
+              {!hasPreselectedAcademicProgram && (
                 <Field label="الكلية" error={errors.bachelorFaculty?.message}>
                   <Controller
                     control={control}
@@ -899,10 +899,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
                   />
                 </Field>
               )}
-              {/* ليسانس حقوق applicants don't pick a sub-specialization,
-                  المجموعة / الشعبة / النسبة المئوية — RFP scope is narrowed
-                  to faculty + سنة + التقدير only. */}
-              {!isSpecializedOfficers && !isLawBachelor && (
+              {!hasPreselectedAcademicProgram && (
                 <Field label="التخصص" error={errors.bachelorSpecialization?.message}>
                   <Controller
                     control={control}
