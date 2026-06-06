@@ -209,13 +209,16 @@ export function ApplicantPortalLayout(): JSX.Element {
       {/* Slim public-style header — applicant doesn't get the staff sidebar/chrome */}
       <header className="sticky top-0 flex h-16 items-center justify-between gap-4 border-b border-border-subtle bg-surface-card px-6"
         style={{ zIndex: 'var(--z-sticky)' as unknown as number }}>
-        <a href={ROUTES.landing} className="flex items-center gap-3 rounded-md px-1 py-1 -mx-1 hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none">
+        <Link
+          to={ROUTES.applicant}
+          className="flex items-center gap-3 rounded-md px-1 py-1 -mx-1 hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
+        >
           <LogoMark size={36} ariaLabel="شعار أكاديمية الشرطة" />
           <span className="hidden flex-col leading-tight md:flex">
             <span className="font-ar-display text-sm font-bold text-ink-900">منظومة القبول</span>
             <span className="text-2xs text-ink-500">رحلة التقديم</span>
           </span>
-        </a>
+        </Link>
         <div className="flex items-center gap-2">
           {selectedCategory && (
             <span className="hidden items-center md:inline-flex">

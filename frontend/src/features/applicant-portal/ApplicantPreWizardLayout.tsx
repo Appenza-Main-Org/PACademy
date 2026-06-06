@@ -44,7 +44,7 @@ export function ApplicantPreWizardLayout(): JSX.Element {
         style={{ zIndex: 'var(--z-sticky)' as unknown as number }}
       >
         <Link
-          to={ROUTES.landing}
+          to={ROUTES.applicant}
           className="flex items-center gap-3 rounded-md px-1 py-1 -mx-1 transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
         >
           <LogoMark size={36} ariaLabel="شعار أكاديمية الشرطة" className="rounded-full shadow-xs" />

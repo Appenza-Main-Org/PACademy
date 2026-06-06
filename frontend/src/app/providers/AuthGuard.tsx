@@ -44,6 +44,11 @@ export function AuthGuard({ children, app, perm }: AuthGuardProps): JSX.Element 
     return <Navigate to={loginPath} replace state={{ from }} />;
   }
 
+  if (user.role === 'applicant' && app !== 'applicant') {
+    toast('بوابة المتقدمين منفصلة عن تطبيقات الإدارة', 'danger');
+    return <Navigate to={ROUTES.applicant} replace />;
+  }
+
   const hasUniversalAccess = user.role === 'super_admin' || hasPermission(user.permissions, '*');
   if (app && !hasUniversalAccess && !canAccessApp(user.apps, app)) {
     toast('ليس لديك صلاحية الوصول لهذا التطبيق', 'danger');
