@@ -56,6 +56,7 @@ import {
 import {
   useActiveCycles,
   useCategories,
+  useCycleById,
   useEligibleCategories,
 } from '../api/categories.queries';
 import type { ApplicantCategoryEligibility } from '../api/categories.service';
@@ -92,7 +93,17 @@ const QUALIFICATION_LABEL: Record<CategoryCondition['requiredQualification'], st
   any: 'أي مؤهل معتمد',
 };
 
-const APPLICATION_FEE_LABEL = 'مقابل تقديم الخدمة إلكترونياً: ٢٥٠ جنيه';
+const DEFAULT_APPLICATION_FEE = 250;
+const APPLICATION_FEE_FORMATTER = new Intl.NumberFormat('ar-EG', {
+  maximumFractionDigits: 0,
+});
+
+function formatApplicationFee(value: number | null | undefined): string {
+  const fee = typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : DEFAULT_APPLICATION_FEE;
+  return `${APPLICATION_FEE_FORMATTER.format(fee)} جنيه`;
+}
 
 export function CategorySelectionPage(): JSX.Element {
   const navigate = useNavigate();
@@ -122,17 +133,18 @@ export function CategorySelectionPage(): JSX.Element {
 
   const cycles = cyclesQuery.data ?? [];
   const cycleParam = params.get('cycle');
+  const cycleByIdQuery = useCycleById(cycleParam);
 
   const selectedCycle = useMemo<AdmissionCycle | null>(() => {
-    if (!cycles.length) return null;
     const tryFind = (id: string | null): AdmissionCycle | null =>
       id ? cycles.find((c) => c.id === id) ?? null : null;
     return (
       tryFind(cycleParam) ??
+      cycleByIdQuery.data ??
       tryFind(storedCycleId) ??
       (cycles.length === 1 ? cycles[0]! : null)
     );
-  }, [cycles, cycleParam, storedCycleId]);
+  }, [cycleByIdQuery.data, cycles, cycleParam, storedCycleId]);
   const effectiveCycleId = selectedCycle?.id ?? cycleParam ?? null;
 
   useEffect(() => {
@@ -261,7 +273,9 @@ export function CategorySelectionPage(): JSX.Element {
     [allSpecializations],
   );
 
-  if (cyclesQuery.isLoading) return <LoadingState variant="page" />;
+  if (cyclesQuery.isLoading || (cycleParam && cycleByIdQuery.isLoading)) {
+    return <LoadingState variant="page" />;
+  }
   if (cyclesQuery.error) {
     return (
       <ErrorState
@@ -276,6 +290,8 @@ export function CategorySelectionPage(): JSX.Element {
    * intentionally removed. */
 
   const cycleYear = selectedCycle?.year ?? new Date().getFullYear();
+  const applicationFeeText = formatApplicationFee(selectedCycle?.fees?.applicationFee);
+  const applicationFeeLabel = `مقابل تقديم الخدمة إلكترونياً: ${applicationFeeText}`;
 
   const saveCommitteeForCategory = (categoryKey: string): void => {
     const cat = eligibilityCategoriesQuery.data?.categories.find((c) => c.categoryId === categoryKey);
@@ -423,9 +439,9 @@ export function CategorySelectionPage(): JSX.Element {
         <InlineSection
           icon={<ClipboardList size={16} strokeWidth={1.75} />}
           title="إرشادات التقدم"
-          headerExtra={<span className="text-2xs text-ink-500">{APPLICATION_FEE_LABEL}</span>}
+          headerExtra={<span className="text-2xs text-ink-500">{applicationFeeLabel}</span>}
         >
-          <InstructionsDrawerBody />
+          <InstructionsDrawerBody applicationFeeText={applicationFeeText} />
         </InlineSection>
 
         <Card variant="elevated" className="overflow-hidden p-0">
@@ -1087,7 +1103,11 @@ function SpecializationsDrawerBody({
   );
 }
 
-function InstructionsDrawerBody(): JSX.Element {
+function InstructionsDrawerBody({
+  applicationFeeText,
+}: {
+  applicationFeeText: string;
+}): JSX.Element {
   return (
     <div className="flex flex-col gap-4 text-ink-800">
       <div className="grid gap-3 lg:grid-cols-3">
@@ -1107,7 +1127,7 @@ function InstructionsDrawerBody(): JSX.Element {
           icon={<FileText size={16} strokeWidth={1.75} />}
           title="مقابل الخدمة"
         >
-          {APPLICATION_FEE_LABEL.replace('مقابل تقديم الخدمة إلكترونياً: ', '')}، يُسدَّد مرة واحدة خلال الدورة الحالية.
+          {applicationFeeText}، يُسدَّد مرة واحدة خلال الدورة الحالية.
         </InstructionNote>
       </div>
       <p className="flex items-start gap-2 rounded-md border border-dashed border-gold-300 bg-gold-50 px-4 py-3 text-sm leading-relaxed text-gold-700">

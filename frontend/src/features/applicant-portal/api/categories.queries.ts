@@ -7,6 +7,8 @@ export const categoryKeys = {
   all: ['categories'] as const,
   list: (cycleId?: string) =>
     [...categoryKeys.all, 'public-list', cycleId ?? null] as const,
+  byId: (cycleId?: string | null) =>
+    [...categoryKeys.all, 'cycle', cycleId ?? null] as const,
   activeCycle: () => [...categoryKeys.all, 'active-cycle'] as const,
   activeCycles: () => [...categoryKeys.all, 'active-cycles'] as const,
   eligibleCategories: (nationalId?: string | null, cycleId?: string | null) =>
@@ -17,6 +19,16 @@ export function useCategories(cycleId?: string) {
   return useQuery({
     queryKey: categoryKeys.list(cycleId),
     queryFn: () => categoriesPublicService.list(cycleId),
+    ...noServerStateCacheOptions,
+  });
+}
+
+/** Explicit applicant cycle context from /applicant/start?cycle=... */
+export function useCycleById(cycleId?: string | null) {
+  return useQuery({
+    queryKey: categoryKeys.byId(cycleId),
+    queryFn: () => categoriesPublicService.getCycleById(cycleId ?? ''),
+    enabled: Boolean(cycleId),
     ...noServerStateCacheOptions,
   });
 }
