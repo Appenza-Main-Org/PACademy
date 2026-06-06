@@ -18,7 +18,7 @@ namespace PACademy.Applicant.Api.Controllers;
 ///   PATCH /applicant/draft/:applicantId            → ApplicantDraft (merge)
 ///   POST /applicant/stage/:applicantId/:stage      → { valid, errors? }
 ///   POST /applicant/verify                          → { confirmed }
-///   POST /applicant/payment/intent                  → { intentId, refNumber, fawryCode }
+///   POST /applicant/payment/intent                  → { intentId, refNumber, fawryCode, amount }
 ///   POST /applicant/payment/confirm                 → { confirmed, paidAt }
 ///   GET  /applicant/payment/verify/:refNumber      → { status, receipt }
 ///   GET  /applicant/exam-slots                     → ExamSlot[]
@@ -211,8 +211,10 @@ public sealed class ApplicantPortalController(
         if (applicantId is null) return Unauthorized();
 
         var method = body["method"]?.GetValue<string>() ?? "fawry-code";
-        var (intentId, refNumber, fawryCode) = await portal.CreatePaymentIntentAsync(applicantId, method, ct);
-        return Ok(new { intentId, refNumber, fawryCode });
+        var amount = body["amount"]?.GetValue<decimal>() ?? 250m;
+        var (intentId, refNumber, fawryCode, storedAmount) =
+            await portal.CreatePaymentIntentAsync(applicantId, method, amount, ct);
+        return Ok(new { intentId, refNumber, fawryCode, amount = storedAmount });
     }
 
     [HttpPost("payment/initiate")]
@@ -223,8 +225,9 @@ public sealed class ApplicantPortalController(
 
         var method = body["method"]?.GetValue<string>() ?? "fawry-code";
         var amount = body["amount"]?.GetValue<decimal>() ?? 1500m;
-        var (intentId, refNumber, fawryCode) = await portal.CreatePaymentIntentAsync(applicantId, method, ct);
-        return Ok(new { redirectUrl = (string?)null, fawryCode, refNumber });
+        var (_, refNumber, fawryCode, storedAmount) =
+            await portal.CreatePaymentIntentAsync(applicantId, method, amount, ct);
+        return Ok(new { redirectUrl = (string?)null, fawryCode, refNumber, amount = storedAmount });
     }
 
     [HttpPost("payment/confirm")]

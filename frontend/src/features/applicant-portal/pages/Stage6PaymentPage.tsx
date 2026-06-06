@@ -13,21 +13,21 @@
  * /applicant/profile/family.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, Copy, CreditCard, Loader2, RefreshCw, Receipt } from 'lucide-react';
-import { Button, Card, Modal, toast } from '@/shared/components';
+import { Button, Card, ErrorState, LoadingState, Modal, toast } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import {
   useConfirmPaymentMutation,
   useCreatePaymentIntent,
+  usePaymentConfig,
 } from '../api/applicantPortal.queries';
 import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
 import { cn } from '@/shared/lib/cn';
 
 const APPLICANT_ID = MOI_APPLICANT_SESSION.applicantId;
-const FEE_EGP = 250;
 /** Demo-friendly TTL — short enough for the countdown to tick visibly
  *  and for the expiry → "إنشاء كود جديد" path to be demonstrable. */
 const DEMO_FAWRY_TTL_MS = 3 * 60 * 1000;
@@ -35,14 +35,18 @@ const DEMO_FAWRY_TTL_MS = 3 * 60 * 1000;
 export function Stage6PaymentPage(): JSX.Element {
   const navigate = useNavigate();
   const setPayment = useApplicantPortalStore((s) => s.setPayment);
+  const paymentConfig = usePaymentConfig();
   const createIntent = useCreatePaymentIntent();
+  const { mutateAsync: createPaymentIntent, isPending: isCreatingPaymentIntent } = createIntent;
   const confirmMut = useConfirmPaymentMutation(APPLICANT_ID);
+  const feeEgp = paymentConfig.data?.applicationFee;
 
   const [intentId, setIntentId] = useState<string | null>(null);
   const [refNumber, setRefNumber] = useState<string | null>(null);
   const [fawryCode, setFawryCode] = useState<string | null>(null);
   const [alertOpen, setAlertOpen] = useState(false);
   const [issued, setIssued] = useState(false);
+  const hasRequestedIntent = useRef(false);
   /* Multi-step payment simulation modal. */
   const [payStep, setPayStep] = useState<'idle' | 'redirecting' | 'processing' | 'success'>(
     'idle',
@@ -64,9 +68,9 @@ export function Stage6PaymentPage(): JSX.Element {
    * one (client direction 2026-05-19: each visit should generate a new
    * code so the demo can show the regenerate flow). */
   useEffect(() => {
-    if (issued) return;
-    void createIntent
-      .mutateAsync({ method: 'fawry-code' })
+    if (issued || hasRequestedIntent.current || feeEgp == null) return;
+    hasRequestedIntent.current = true;
+    void createPaymentIntent({ method: 'fawry-code', amount: feeEgp })
       .then((r) => {
         setIntentId(r.intentId);
         setRefNumber(r.refNumber);
@@ -80,14 +84,17 @@ export function Stage6PaymentPage(): JSX.Element {
         setIssued(true);
         setAlertOpen(true);
         setExpiresAt(Date.now() + DEMO_FAWRY_TTL_MS);
+      })
+      .catch(() => {
+        hasRequestedIntent.current = false;
+        toast('تعذر إصدار كود فوري', 'danger');
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [createPaymentIntent, feeEgp, issued, setPayment]);
 
   /** Regenerate a fresh code after expiry. */
   const onRegenerate = (): void => {
-    void createIntent
-      .mutateAsync({ method: 'fawry-code' })
+    if (feeEgp == null) return;
+    void createPaymentIntent({ method: 'fawry-code', amount: feeEgp })
       .then((r) => {
         setIntentId(r.intentId);
         setRefNumber(r.refNumber);
@@ -140,6 +147,27 @@ export function Stage6PaymentPage(): JSX.Element {
     }, 1200);
   };
 
+  if (paymentConfig.isLoading) {
+    return (
+      <Card>
+        <LoadingState mode="spinner" label="جارٍ تحميل الرسوم..." />
+      </Card>
+    );
+  }
+
+  if (paymentConfig.isError || feeEgp == null) {
+    return (
+      <Card>
+        <ErrorState
+          error={paymentConfig.error}
+          title="تعذر تحميل الرسوم"
+          description="تعذر تحميل رسوم التقديم من إعدادات الدورة النشطة."
+          onRetry={() => void paymentConfig.refetch()}
+        />
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <header className="mb-4 flex items-start justify-between gap-3">
@@ -148,7 +176,7 @@ export function Stage6PaymentPage(): JSX.Element {
           <p className="mt-1 text-sm text-ink-500">
             مقابل تقديم الخدمة إلكترونياً:{' '}
             <span className="font-numeric tnum font-bold text-ink-900" dir="ltr">
-              {FEE_EGP} جنيه
+              {feeEgp} جنيه
             </span>
             {' '}— سدِّد كود فوري قبل انتهاء صلاحيته.
           </p>
@@ -158,11 +186,11 @@ export function Stage6PaymentPage(): JSX.Element {
       <FawryCodePanel
         fawryCode={fawryCode ?? ''}
         refNumber={refNumber ?? ''}
-        loading={createIntent.isPending && !fawryCode}
+        loading={isCreatingPaymentIntent && !fawryCode}
         remainingMs={remainingMs}
         expired={expired}
         onRegenerate={onRegenerate}
-        regenerating={createIntent.isPending}
+        regenerating={isCreatingPaymentIntent}
         onPay={onPay}
         paying={confirmMut.isPending}
       />
@@ -400,4 +428,3 @@ function CopyCodeButton({
     </button>
   );
 }
-

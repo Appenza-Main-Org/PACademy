@@ -11,6 +11,7 @@
  *   POST /applicant/verify-certificate             → { match, mismatchedFields }
  *   POST /applicant/payment/confirm-identity       → { confirmed }   (AF-2 pre-payment re-verification)
  *   POST /applicant/verify                          → { confirmed }  (MOI-aligned re-verify after profile)
+ *   GET  /api/cycles/active                         → active cycle fee config for applicant payment
  *   POST /applicant/payment/intent                  → { intentId, refNumber, fawryCode? }
  *   POST /applicant/payment/confirm                 → { confirmed, paidAt }
  *   POST /applicant/payment/initiate               → { redirectUrl|fawryCode, refNumber }
@@ -35,7 +36,13 @@
 import { MOCK } from '@/shared/mock-data';
 import { adminApiClient, applicantApiClient, isBackendEnabled } from '@/shared/lib/api-client';
 import { simulateLatency } from '@/shared/lib/mock-helpers';
-import type { ApplicantDraft, ExamSlot, PaymentTransaction } from '@/shared/types/domain';
+import type {
+  AdmissionCycle,
+  ApplicantDraft,
+  ExamSlot,
+  FawryConfig,
+  PaymentTransaction,
+} from '@/shared/types/domain';
 import { useAuthStore } from '@/features/auth';
 import type { FollowUpExam, FollowUpExamPlan } from '../lib/follow-up-exam-plan';
 import { normalizeApplicationInstructions } from '../lib/application-lock';
@@ -58,8 +65,11 @@ let DRAFT: ApplicantDraft = { ...MOCK.sampleApplicantDraft };
 const SLOTS: ExamSlot[] = MOCK.examSlots.map((s) => ({ ...s }));
 let TXN_COUNTER = 1;
 const PAYMENTS: PaymentTransaction[] = [];
+const PAYMENT_INTENT_AMOUNTS = new Map<string, number>();
 let ACQUAINTANCE_DOC: VothiqaTaarufDocument | null = null;
 let ACQUAINTANCE_DOC_CLOSED = false;
+
+const DEFAULT_APPLICATION_FEE = 250;
 
 interface TestLookupRow {
   code: string;
@@ -96,6 +106,12 @@ export interface ExamDateSettings {
   /** Booking-window in days before each exam date during which the applicant
    *  may select that slot. Slots farther out are hidden until the window opens. */
   examSlotSelectionWindowDays: number | null;
+}
+
+export interface ApplicantPaymentConfig {
+  cycleId: string | null;
+  applicationFee: number;
+  fawryConfig?: FawryConfig;
 }
 
 export interface PublishedDeclarationDocument {
@@ -161,6 +177,23 @@ function normalizePositiveInteger(value: unknown): number | null {
   if (typeof value !== 'number' || !Number.isFinite(value)) return null;
   const n = Math.trunc(value);
   return n >= 1 ? n : null;
+}
+
+function normalizeActiveCycle(value: AdmissionCycle | AdmissionCycle[] | null): AdmissionCycle | null {
+  const rows = Array.isArray(value) ? value : value ? [value] : [];
+  return (
+    rows.find((cycle) => cycle.status === 'active' || cycle.status === 'open' || cycle.status === 'extended') ??
+    null
+  );
+}
+
+function cycleToPaymentConfig(cycle: AdmissionCycle | null): ApplicantPaymentConfig {
+  const config: ApplicantPaymentConfig = {
+    cycleId: cycle?.id ?? null,
+    applicationFee: cycle?.fees?.applicationFee ?? DEFAULT_APPLICATION_FEE,
+  };
+  if (cycle?.fees?.fawryConfig) config.fawryConfig = cycle.fees.fawryConfig;
+  return config;
 }
 
 function lookupRowToFollowUpExam(row: TestLookupRow): FollowUpExam {
@@ -583,8 +616,21 @@ export const applicantPortalService = {
     return result;
   },
 
+  async getPaymentConfig(): Promise<ApplicantPaymentConfig> {
+    if (isBackendEnabled()) {
+      const active = await adminApiClient.get<AdmissionCycle | AdmissionCycle[] | null>('/api/cycles/active');
+      return cycleToPaymentConfig(normalizeActiveCycle(active));
+    }
+    await simulateLatency(80, 200);
+    const active = MOCK.cycles.find(
+      (cycle) => cycle.status === 'active' || cycle.status === 'open' || cycle.status === 'extended',
+    ) ?? null;
+    return cycleToPaymentConfig(active);
+  },
+
   async createPaymentIntent(_input: {
     method: 'fawry-code';
+    amount: number;
   }): Promise<{ intentId: string; refNumber: string; fawryCode: string }> {
     if (isBackendEnabled()) {
       return applicantApiClient.post('/applicant/payment/intent', _input);
@@ -594,6 +640,7 @@ export const applicantPortalService = {
     const refNumber = deterministicPaymentReference(DRAFT.applicantId);
     const intentId = `INT-${refNumber}`;
     const fawryCode = String(Math.floor(Math.random() * 90_000_000) + 10_000_000);
+    PAYMENT_INTENT_AMOUNTS.set(intentId, _input.amount);
     return { intentId, refNumber, fawryCode };
   },
 
@@ -608,7 +655,7 @@ export const applicantPortalService = {
       payment: {
         method: 'fawry-code',
         refNumber: _input.intentId.replace(/^INT-/, ''),
-        amount: 250,
+        amount: PAYMENT_INTENT_AMOUNTS.get(_input.intentId) ?? DEFAULT_APPLICATION_FEE,
         paidAt,
       },
       furthestStage: Math.max(DRAFT.furthestStage, 6),
