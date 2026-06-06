@@ -41,6 +41,13 @@ export function useGenerateBarcodeMutation() {
   });
 }
 
+/** Reprint an applicant's existing card (same code — US-BC-007). */
+export function useReprintBarcodeMutation() {
+  return useMutation({
+    mutationFn: (applicantId: string) => barcodeService.reprint(applicantId),
+  });
+}
+
 /** Record a barcode scan at a station. */
 export function useScanBarcodeMutation() {
   const qc = useQueryClient();

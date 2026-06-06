@@ -7,6 +7,7 @@
  *   GET    /api/barcode/search?mode=&q=                   → BarcodeSearchHit[]
  *   POST   /api/barcode/scan                              → BarcodeScan (logged)
  *   GET    /api/barcode/scans?applicantId=                → BarcodeScan[]
+ *   POST   /api/barcode/reprint/:applicantId             → BarcodeRecord (SAME code)
  *   POST   /api/barcode/replace/:applicantId              → BarcodeRecord (old voided)
  */
 
@@ -120,6 +121,21 @@ export const barcodeService = {
   async listScans(applicantId?: string): Promise<BarcodeScan[]> {
     await simulateLatency();
     return applicantId ? SCANS_STATE.filter((s) => s.applicantId === applicantId) : [...SCANS_STATE];
+  },
+
+  /**
+   * Reprint (US-BC-007) — reissue the applicant's EXISTING active card with
+   * the SAME code. Use when a printout is lost/damaged but the identity is
+   * unchanged. Unlike {@link replace}, the code is NOT regenerated and the
+   * old record is NOT voided. Throws when no active card exists.
+   */
+  async reprint(applicantId: string): Promise<BarcodeRecord> {
+    await simulateLatency();
+    const record = activeRecordFor(applicantId);
+    if (!record || record.void) {
+      throw new Error('لا يوجد كارت سارٍ لإعادة طباعته — استخدم «توليد كارت التردد» أو «إصدار بدل فاقد».');
+    }
+    return record;
   },
 
   async replace(applicantId: string, reason: string): Promise<BarcodeRecord> {
