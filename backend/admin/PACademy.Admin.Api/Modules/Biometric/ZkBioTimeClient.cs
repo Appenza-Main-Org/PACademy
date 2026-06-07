@@ -177,7 +177,7 @@ public sealed class ZkBioTimeClient(HttpClient http, IConfiguration config, IMem
     {
         if (node is null) return 0;
         try { return node.GetValue<int>(); }
-        catch { return int.TryParse(node.ToString(), out var n) ? n : 0; }
+        catch (InvalidOperationException) { return int.TryParse(node.ToString(), out var n) ? n : 0; }
     }
 }
 
