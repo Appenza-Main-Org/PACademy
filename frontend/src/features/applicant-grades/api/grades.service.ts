@@ -123,7 +123,12 @@ function toGradesQuery(
       input.schoolCategoryCode && input.schoolCategoryCode !== 'all'
         ? input.schoolCategoryCode
         : undefined,
+    schoolCategoryCodes:
+      input.columnFilters?.schoolCategoryCodes && input.columnFilters.schoolCategoryCodes.length > 0
+        ? input.columnFilters.schoolCategoryCodes
+        : undefined,
     changedOnly: input.changedOnly ? true : undefined,
+    changed: input.changedOnly ? true : undefined,
     nid: input.columnFilters?.nid,
     seatingNumber: input.columnFilters?.seatingNumber,
     name: input.columnFilters?.name,
@@ -133,8 +138,7 @@ function toGradesQuery(
     pctMax: input.columnFilters?.pctMax ?? undefined,
     effMin: input.columnFilters?.effMin ?? undefined,
     effMax: input.columnFilters?.effMax ?? undefined,
-    schoolCategoryCodes: input.columnFilters?.schoolCategoryCodes,
-    school: input.columnFilters?.school,
+    schoolName: input.columnFilters?.school,
     graduationYearMin: input.columnFilters?.graduationYearMin ?? undefined,
     graduationYearMax: input.columnFilters?.graduationYearMax ?? undefined,
   };

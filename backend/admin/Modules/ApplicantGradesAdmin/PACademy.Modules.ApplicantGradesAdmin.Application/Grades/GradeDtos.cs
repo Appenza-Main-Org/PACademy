@@ -49,7 +49,20 @@ public sealed record GradeListFilters(
     string? Branch,
     int? GraduationYear,
     string? SchoolCategoryCode,
-    bool? ChangedOnly);
+    bool? ChangedOnly,
+    string? Nid = null,
+    string? SeatingNumber = null,
+    string? Name = null,
+    string? SchoolName = null,
+    IReadOnlyList<string>? SchoolCategoryCodes = null,
+    decimal? TotalMin = null,
+    decimal? TotalMax = null,
+    decimal? PctMin = null,
+    decimal? PctMax = null,
+    decimal? EffMin = null,
+    decimal? EffMax = null,
+    int? GraduationYearMin = null,
+    int? GraduationYearMax = null);
 
 public sealed record ImportedGradeRow(
     int Seat,
