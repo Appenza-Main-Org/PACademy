@@ -216,6 +216,7 @@ type CategoryConfigWithLookupMode = CategoryConfigJoined & {
   lookupExcellenceMode: ExcellenceMode | null;
   allowedExcellenceModes: readonly ExcellenceMode[];
   lookupExcellenceLabels: readonly string[];
+  lookupGenderScope: readonly ApplicantCategoryGenderScope[];
 };
 
 function mergeCategoryConfigsWithActiveLookups(
@@ -239,6 +240,8 @@ function mergeCategoryConfigsWithActiveLookups(
     const lookupExcellenceLabels = allowedExcellenceModes.length > 0
       ? allowedExcellenceModes.map(excellenceModeLabel)
       : resolveExcellenceCriteriaLabels(category.excellenceCriterion, excellenceRows);
+    const lookupGenderScope = normalizeApplicantCategoryGenderScope(category);
+    const lockedGender = lookupGenderScope.length === 1 ? lookupGenderScope[0] : null;
 
     if (!config) {
       return {
@@ -249,8 +252,7 @@ function mergeCategoryConfigsWithActiveLookups(
         categoryType: category.type,
         categoryFacultyCodes: category.facultyCodes,
         categorySpecializationCodes: category.specializationCodes,
-        lockedGender:
-          category.genderScope.length === 1 ? category.genderScope[0] : null,
+        lockedGender,
         singleAxis: false,
         implicitSpecId: null,
         specializationCount: category.specializationCodes.length,
@@ -263,6 +265,7 @@ function mergeCategoryConfigsWithActiveLookups(
         lookupExcellenceMode,
         allowedExcellenceModes,
         lookupExcellenceLabels,
+        lookupGenderScope,
       };
     }
 
@@ -272,12 +275,12 @@ function mergeCategoryConfigsWithActiveLookups(
       categoryType: normalizeApplicantCategoryType(config.categoryType, category),
       categoryFacultyCodes: category.facultyCodes,
       categorySpecializationCodes: category.specializationCodes,
-      lockedGender:
-        category.genderScope.length === 1 ? category.genderScope[0] : null,
+      lockedGender,
       excellenceCriterion: normalizeExcellenceCriteria(category.excellenceCriterion),
       lookupExcellenceMode,
       allowedExcellenceModes,
       lookupExcellenceLabels,
+      lookupGenderScope,
     };
   });
 }
@@ -287,9 +290,64 @@ function excellenceModeLabel(mode: ExcellenceMode): string {
 }
 
 function genderScopeForConfig(
-  config: CategoryConfigJoined,
+  config: CategoryConfigWithLookupMode,
 ): readonly ApplicantCategoryGenderScope[] {
+  if (config.lookupGenderScope.length > 0) return config.lookupGenderScope;
   return config.lockedGender ? [config.lockedGender] : ['male', 'female'];
+}
+
+function normalizeApplicantCategoryGenderScope(
+  category: ApplicantCategoryRow,
+): readonly ApplicantCategoryGenderScope[] {
+  const row = category as ApplicantCategoryRow & {
+    genderScope?: unknown;
+    conditions?: { gender?: unknown };
+  };
+  const fromScope = normalizeGenderValues(row.genderScope);
+  if (fromScope.length > 0) return fromScope;
+
+  const fromConditions = normalizeGenderValues(row.conditions?.gender);
+  return fromConditions.length > 0 ? fromConditions : ['male', 'female'];
+}
+
+function normalizeGenderValues(value: unknown): ApplicantCategoryGenderScope[] {
+  if (Array.isArray(value)) {
+    return uniqueGenderValues(value.flatMap((item) => normalizeGenderValues(item)));
+  }
+  if (typeof value !== 'string') return [];
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'male' || normalized === 'ذكر' || normalized === 'ذكور') {
+    return ['male'];
+  }
+  if (
+    normalized === 'female' ||
+    normalized === 'أنثى' ||
+    normalized === 'انثى' ||
+    normalized === 'إناث' ||
+    normalized === 'اناث'
+  ) {
+    return ['female'];
+  }
+  if (
+    normalized === 'any' ||
+    normalized === 'all' ||
+    normalized === 'both' ||
+    normalized === 'الكل'
+  ) {
+    return ['male', 'female'];
+  }
+  return [];
+}
+
+function uniqueGenderValues(
+  values: readonly ApplicantCategoryGenderScope[],
+): ApplicantCategoryGenderScope[] {
+  const result: ApplicantCategoryGenderScope[] = [];
+  for (const value of values) {
+    if (!result.includes(value)) result.push(value);
+  }
+  return result;
 }
 
 function normalizeApplicantCategoryType(
@@ -305,7 +363,7 @@ function normalizeApplicantCategoryType(
 }
 
 interface ConfigPanelProps {
-  config: CategoryConfigJoined;
+  config: CategoryConfigWithLookupMode;
   /** Resolved single «معيار التمييز» discriminator. `null` means the
    *  category allows multiple modes or has not been configured yet. */
   excellenceMode: ExcellenceMode | null;
