@@ -91,6 +91,17 @@ export function validateAgeReferenceVsApplication(
   return null;
 }
 
+export function validateApplicationDateRange(
+  start: string,
+  end: string,
+): AppSettingsConflict | null {
+  if (!start || !end) return null;
+  const s = dayOnly(start);
+  const e = dayOnly(end);
+  if (e <= s) return 'INVALID_DATE_RANGE';
+  return null;
+}
+
 /**
  * Verifies the row's `gradeKind` matches the parent category's
  * `gradingMode` (resolved upstream). The service layer enforces this
@@ -119,10 +130,7 @@ export function validateDateRange(
   ageReference: string,
 ): AppSettingsConflict | null {
   if (!start || !end || !ageReference) return 'INVALID_DATE_RANGE';
-  const s = dayOnly(start);
-  const e = dayOnly(end);
-  if (e <= s) return 'INVALID_DATE_RANGE';
-  return null;
+  return validateApplicationDateRange(start, end);
 }
 
 export function validateGraduationYears(

@@ -73,6 +73,7 @@ import {
   type OverlapPair,
   type OverlapReason,
 } from '../../lib/ruleOverlapValidation';
+import { validateApplicationDateRange } from '../../lib/appSettingsValidation';
 import { ExcellenceModeToggle } from './ExcellenceModeToggle';
 import { OperatorScoreField } from './OperatorScoreField';
 
@@ -122,6 +123,7 @@ function sameStringSet(a: readonly string[], b: readonly string[]): boolean {
 }
 
 const SPECIALIZED_OFFICERS_CATEGORY_CODE = 'specialized_officers';
+const INVALID_DATE_RANGE_MESSAGE = 'يجب أن يكون تاريخ نهاية التقديم بعد تاريخ بداية التقديم.';
 
 const EMPTY_INPUT: GeneralRuleRowInput = {
   excellenceMode: 'GRADES',
@@ -213,6 +215,14 @@ export function GeneralRulesSection({
   const localCount = useAdmissionSetupWizardStore(
     (s) => s.local.filter((r) => r.categoryCode === categoryCode).length,
   );
+  const header = useAdmissionSetupWizardStore(
+    (s) => s.headers[categoryCode] ?? s.getHeader(categoryCode),
+  );
+  const headerDateError =
+    validateApplicationDateRange(header.applicationStart, header.applicationEnd) ===
+    'INVALID_DATE_RANGE'
+      ? INVALID_DATE_RANGE_MESSAGE
+      : null;
 
   /* Per-faculty + per-specialization "has authored rows" sets (across
    * local ⊕ approved) so the accordion headers can highlight which
@@ -343,6 +353,10 @@ export function GeneralRulesSection({
 
   const handleApprove = (): void => {
     if (!canWrite) return;
+    if (headerDateError) {
+      toast(headerDateError, 'danger');
+      return;
+    }
     const moved = approve(categoryCode);
     if (moved === 0) {
       toast('لا توجد شروط جاهزة للاعتماد', 'info');
@@ -441,7 +455,7 @@ export function GeneralRulesSection({
           variant="primary"
           size="md"
           onClick={handleApprove}
-          disabled={!canWrite || localCount === 0}
+          disabled={!canWrite || localCount === 0 || Boolean(headerDateError)}
         >
           اعتماد الفئة
         </Button>
@@ -467,6 +481,11 @@ function TopFields({
     (s) => s.headers[categoryCode] ?? s.getHeader(categoryCode),
   );
   const setHeaderField = useAdmissionSetupWizardStore((s) => s.setHeaderField);
+  const dateError =
+    validateApplicationDateRange(header.applicationStart, header.applicationEnd) ===
+    'INVALID_DATE_RANGE'
+      ? INVALID_DATE_RANGE_MESSAGE
+      : null;
 
   return (
     <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,3fr)_minmax(260px,2fr)]">
@@ -482,13 +501,14 @@ function TopFields({
               placeholder="اختر اليوم…"
             />
           </FieldLabel>
-          <FieldLabel label="نهاية التقديم" required>
+          <FieldLabel label="نهاية التقديم" required error={dateError}>
             <DatePicker
               value={isoToDate(header.applicationEnd)}
               onChange={(d) =>
                 setHeaderField(categoryCode, 'applicationEnd', dateToIso(d))
               }
               disabled={!canWrite}
+              min={nextDateOnly(header.applicationStart)}
               placeholder="اختر اليوم…"
             />
           </FieldLabel>
@@ -620,10 +640,19 @@ function dateToIso(d: Date | null): string {
   return `${y}-${m}-${day}`;
 }
 
+function nextDateOnly(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  const date = new Date(`${value.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return undefined;
+  date.setDate(date.getDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
 interface FieldLabelProps {
   label: string;
   children: React.ReactNode;
   required?: boolean;
+  error?: string | null;
 }
 
 interface FieldGroupProps {
@@ -646,6 +675,7 @@ function FieldLabel({
   label,
   children,
   required = false,
+  error,
 }: FieldLabelProps): JSX.Element {
   return (
     <div className="flex min-w-0 flex-col gap-1">
@@ -658,6 +688,11 @@ function FieldLabel({
         )}
       </span>
       {children}
+      {error && (
+        <p className="m-0 font-ar text-2xs leading-5 text-terra-700">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -1359,9 +1394,15 @@ function PerSpecForm({
   const isHeaderComplete =
     header.applicationStart !== '' &&
     header.applicationEnd !== '' &&
+    validateApplicationDateRange(header.applicationStart, header.applicationEnd) === null &&
     header.ageReferenceDate !== '' &&
     header.maritalStatus.length > 0 &&
     header.maxAge !== null;
+  const headerDateError =
+    validateApplicationDateRange(header.applicationStart, header.applicationEnd) ===
+    'INVALID_DATE_RANGE'
+      ? INVALID_DATE_RANGE_MESSAGE
+      : null;
 
   const addUniversityRow = useAdmissionSetupWizardStore(
     (s) => s.addUniversityRow,
@@ -1571,7 +1612,12 @@ function PerSpecForm({
   };
 
   const handleSubmit = (): void => {
-    if (!canWrite || !canSubmit) return;
+    if (!canWrite) return;
+    if (headerDateError) {
+      toast(headerDateError, 'danger');
+      return;
+    }
+    if (!canSubmit) return;
     const payload = normalizeForSubmit(draft);
     if (isEditing && editingId !== null) {
       const editingSpec: SpecKey = editingRow
