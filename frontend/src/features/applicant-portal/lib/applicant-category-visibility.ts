@@ -85,10 +85,11 @@ function allowsApplicantGender(
 /**
  * Returns the applicant-start category keys that may be rendered.
  *
- * When the eligibility endpoint confirms an imported secondary-grade row and
- * at least one eligible pre-university category exists, university-stage
- * categories are hidden to prevent secondary applicants from selecting the
- * wrong application track.
+ * When the eligibility endpoint confirms an imported secondary-grade row,
+ * the rendered list is locked to pre-university categories. Failed
+ * pre-university verdicts are deliberately kept in the list so the applicant
+ * sees an explicit "غير مؤهل" status for that category instead of being
+ * silently routed to an unrelated application track.
  */
 export function deriveVisibleEligibleCategoryKeys({
   eligibility,
@@ -110,23 +111,26 @@ export function deriveVisibleEligibleCategoryKeys({
       : [];
   }
 
-  const eligibleKeys = eligibility
-    .filter((category) => (
-      category.eligible &&
-      allowsApplicantGender(metadataByKey.get(category.categoryId), applicantGender)
-    ))
-    .map((category) => category.categoryId);
+  const genderAllowedVerdicts = eligibility.filter((category) =>
+    allowsApplicantGender(metadataByKey.get(category.categoryId), applicantGender),
+  );
 
   if (!hasImportedSecondaryGrade) {
-    return eligibleKeys;
+    return genderAllowedVerdicts
+      .filter((category) => category.eligible)
+      .map((category) => category.categoryId);
   }
 
   const verdictByKey = new Map(eligibility.map((category) => [category.categoryId, category]));
-  const secondaryKeys = eligibleKeys.filter((key) =>
-    isPreUniversityCategory(key, metadataByKey.get(key), verdictByKey.get(key)),
-  );
-
-  return secondaryKeys.length > 0 ? secondaryKeys : eligibleKeys;
+  return genderAllowedVerdicts
+    .filter((category) =>
+      isPreUniversityCategory(
+        category.categoryId,
+        metadataByKey.get(category.categoryId),
+        verdictByKey.get(category.categoryId),
+      ),
+    )
+    .map((category) => category.categoryId);
 }
 
 export function filterApplicantCategoriesByVisibleKeys<T extends ApplicantCategoryMetadata>(

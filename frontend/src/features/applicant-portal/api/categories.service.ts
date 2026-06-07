@@ -520,7 +520,7 @@ export const categoriesPublicService = {
     if (isBackendEnabled()) {
       return adminApiClient.get<ApplicantEligibleCategoriesResponse>(
         `/api/applicants/${encodeURIComponent(nationalId)}/eligible-categories`,
-        { query: { cycleId } },
+        { query: { cycleId, includeIneligible: true } },
       );
     }
 
