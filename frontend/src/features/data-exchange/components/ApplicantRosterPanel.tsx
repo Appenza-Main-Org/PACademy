@@ -124,9 +124,6 @@ export function ApplicantRosterPanel({
           <h3 className="flex items-center gap-2 text-sm font-semibold text-ink-900">
             <UsersRound size={18} /> اختيار المتقدمين للتصدير
           </h3>
-          <p className="max-w-3xl text-xs leading-6 text-ink-600">
-            الافتراضي هو كل المتقدمين المحجوزين. استخدم البحث والصفحات لتضييق القائمة دون تحميل آلاف الصفوف أمامك.
-          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone={selectedNationalIds.length === roster.length ? 'success' : 'accent'}>
