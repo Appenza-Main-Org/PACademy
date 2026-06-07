@@ -1405,8 +1405,11 @@ function DeclarationReviewPanel({
   isLoading: boolean;
   hasError: boolean;
 }): JSX.Element {
-  const isText = declaration?.mode === 'text' && Boolean(declaration.bodyAr?.trim());
-  const isPdf = declaration?.mode === 'pdf' && Boolean(declaration.document?.fileUrl);
+  const bodyAr = declaration?.bodyAr?.trim() ?? '';
+  const document = declaration?.document ?? null;
+  const hasText = bodyAr.length > 0;
+  const hasPdf = Boolean(document?.fileUrl);
+  const modeLabel = hasText && hasPdf ? 'نص + PDF' : hasText ? 'نص' : hasPdf ? 'PDF' : null;
 
   return (
     <div className="mb-4 rounded-md border border-border-subtle bg-ink-50 p-4">
@@ -1415,8 +1418,8 @@ function DeclarationReviewPanel({
         <h3 className="font-ar-display text-md font-bold text-ink-900">
           شروط الإلتحاق والإقرار الإلكتروني
         </h3>
-        {declaration && (
-          <Badge tone="neutral">{declaration.mode === 'text' ? 'نص' : 'PDF'}</Badge>
+        {modeLabel && (
+          <Badge tone="neutral">{modeLabel}</Badge>
         )}
       </header>
 
@@ -1426,24 +1429,29 @@ function DeclarationReviewPanel({
         <p className="text-sm leading-relaxed text-ink-700">
           تعذر تحميل الإقرار المعتمد حالياً. يمكنك المتابعة وسيتم التحقق من الإقرار عند مراجعة الطلب.
         </p>
-      ) : isText ? (
-        <div className="max-h-56 overflow-auto whitespace-pre-wrap rounded-md border border-border-subtle bg-surface-card p-3 text-sm leading-relaxed text-ink-900">
-          {declaration.bodyAr}
-        </div>
-      ) : isPdf ? (
-        <div className="flex flex-col gap-2 rounded-md border border-border-subtle bg-surface-card p-3 text-sm text-ink-800">
-          <p>
-            الإقرار المعتمد لهذه الدورة محفوظ كمستند PDF. افتح المستند وراجعه قبل تأكيد الموافقة.
-          </p>
-          <a
-            href={declaration.document!.fileUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1 self-start rounded-md px-2 py-1 text-2xs font-medium text-teal-700 hover:bg-teal-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
-          >
-            <ExternalLink size={12} strokeWidth={1.75} />
-            فتح الإقرار
-          </a>
+      ) : hasText || hasPdf ? (
+        <div className="flex flex-col gap-3">
+          {hasText && (
+            <div className="max-h-56 overflow-auto whitespace-pre-wrap rounded-md border border-border-subtle bg-surface-card p-3 text-sm leading-relaxed text-ink-900">
+              {bodyAr}
+            </div>
+          )}
+          {hasPdf && document && (
+            <div className="flex flex-col gap-2 rounded-md border border-border-subtle bg-surface-card p-3 text-sm text-ink-800">
+              <p>
+                الإقرار المعتمد لهذه الدورة محفوظ أيضاً كمستند PDF. افتح المستند وراجعه قبل تأكيد الموافقة.
+              </p>
+              <a
+                href={document.fileUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 self-start rounded-md px-2 py-1 text-2xs font-medium text-teal-700 hover:bg-teal-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
+              >
+                <ExternalLink size={12} strokeWidth={1.75} />
+                فتح الإقرار
+              </a>
+            </div>
+          )}
         </div>
       ) : (
         <p className="text-sm leading-relaxed text-ink-700">

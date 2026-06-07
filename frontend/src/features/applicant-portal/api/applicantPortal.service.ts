@@ -123,6 +123,7 @@ export interface PublishedDeclarationDocument {
 export interface PublishedDeclaration {
   id: string;
   cycleId: string;
+  /** Last edited/preferred admin tab. Text and PDF content may both be published. */
   mode: 'text' | 'pdf';
   bodyAr?: string;
   document?: PublishedDeclarationDocument | null;
