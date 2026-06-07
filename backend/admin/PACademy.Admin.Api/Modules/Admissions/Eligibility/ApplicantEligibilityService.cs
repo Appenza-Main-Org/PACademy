@@ -1,8 +1,10 @@
+using System.Globalization;
 using System.Text.Json.Nodes;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.OperationalRecords;
+using PACademy.Admin.Api.Modules.Settings;
 using PACademy.Admin.Api.Persistence;
 using PACademy.Shared.Contracts;
 
@@ -31,7 +33,8 @@ public sealed class ApplicantEligibilityService(
         var categoryLookups = snapshot.CategoryLookups;
         var committeeLookups = snapshot.CommitteeLookups;
         var lookups = snapshot.Lookups;
-        var examSlotsByCommitteeKey = await LoadCommitteeExamSlotsAsync(activeCycle.Id, ct);
+        var examDateSettings = await LoadExamDateSettingsAsync(ct);
+        var examSlotsByCommitteeKey = await LoadCommitteeExamSlotsAsync(activeCycle.Id, examDateSettings, ct);
 
         var grade = await LoadGradeAsync(nid.NationalId, ct);
         var firstReferenceDate = years.Select(x => (DateOnly?)x.AgeReferenceDate).OrderBy(x => x).FirstOrDefault()
@@ -334,8 +337,20 @@ public sealed class ApplicantEligibilityService(
                 string.Equals(AdminRecordJson.StringProp(x, "nid") ?? AdminRecordJson.StringProp(x, "nationalId"), nationalId, StringComparison.Ordinal));
     }
 
+    private async Task<ExamDateAvailabilitySettings> LoadExamDateSettingsAsync(CancellationToken ct)
+    {
+        var settings = await db.GeneralSettings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == GeneralSettingsEntity.SingletonId, ct);
+        var defaults = settings ?? new GeneralSettingsEntity { Id = GeneralSettingsEntity.SingletonId };
+        return new ExamDateAvailabilitySettings(
+            Math.Max(1, defaults.ExamDaysPerApplicant),
+            Math.Max(0, defaults.ExamSlotSelectionWindowDays));
+    }
+
     private async Task<IReadOnlyDictionary<string, IReadOnlyList<EligibleCommitteeExamSlot>>> LoadCommitteeExamSlotsAsync(
         string cycleId,
+        ExamDateAvailabilitySettings settings,
         CancellationToken ct)
     {
         var rows = records is not null
@@ -352,12 +367,48 @@ public sealed class ApplicantEligibilityService(
                 StringComparer.OrdinalIgnoreCase)
             .ToDictionary(
                 x => x.Key,
-                x => (IReadOnlyList<EligibleCommitteeExamSlot>)x
+                x => (IReadOnlyList<EligibleCommitteeExamSlot>)ApplyExamDateSettings(
+                    x
                     .OrderBy(slot => slot.Result.Date, StringComparer.Ordinal)
                     .ThenBy(slot => slot.Result.Id, StringComparer.Ordinal)
                     .Select(slot => slot.Result)
                     .ToArray(),
+                    settings),
                 StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static IReadOnlyList<EligibleCommitteeExamSlot> ApplyExamDateSettings(
+        IReadOnlyList<EligibleCommitteeExamSlot> slots,
+        ExamDateAvailabilitySettings settings)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        var openThrough = today.AddDays(settings.SelectionWindowDays);
+        var allowedDates = slots
+            .Select(slot => TryParseExamDate(slot.Date, out var date) ? date : (DateOnly?)null)
+            .Where(date => date is not null && date >= today && date <= openThrough)
+            .Select(date => date!.Value)
+            .Distinct()
+            .OrderBy(date => date)
+            .Take(settings.ExamDaysPerApplicant)
+            .ToHashSet();
+
+        if (allowedDates.Count == 0) return [];
+
+        return slots
+            .Where(slot => TryParseExamDate(slot.Date, out var date) && allowedDates.Contains(date))
+            .ToArray();
+    }
+
+    private static bool TryParseExamDate(string value, out DateOnly date)
+    {
+        var trimmed = value.Trim();
+        var dateOnly = trimmed.Length >= 10 ? trimmed[..10] : trimmed;
+        return DateOnly.TryParseExact(
+            dateOnly,
+            "yyyy-MM-dd",
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out date);
     }
 
     private async Task<IReadOnlyList<DraftEligibilityRule>> LoadCycleDraftRulesAsync(
@@ -997,6 +1048,10 @@ public sealed class ApplicantEligibilityService(
         string CategoryKey,
         string DefinitionCode,
         EligibleCommitteeExamSlot Result);
+
+    private sealed record ExamDateAvailabilitySettings(
+        int ExamDaysPerApplicant,
+        int SelectionWindowDays);
 
     private sealed record ActiveEligibilitySnapshot(
         AdmissionCycleEntity ActiveCycle,
