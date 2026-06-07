@@ -7,17 +7,13 @@
 import { useMemo, useState } from 'react';
 import {
   AlertTriangle,
-  ArrowDownUp,
   CalendarClock,
   Check,
   ChevronDown,
-  Clock3,
   Database,
   Download,
-  FileCheck2,
   FileSpreadsheet,
   History,
-  ListFilter,
   Settings2,
   ShieldCheck,
   Upload,
@@ -85,88 +81,70 @@ function toIsoOrNull(dateStr: string): string | null {
   return new Date(ms).toISOString();
 }
 
-const LAYOUT_OPTIONS: Array<{ value: ExportLayout; label: string; description: string }> = [
+const LAYOUT_OPTIONS: Array<{ value: ExportLayout; label: string }> = [
   {
     value: 'single-workbook',
     label: 'مصنّف واحد',
-    description: 'كل النطاقات داخل ملف Excel واحد بأسماء أوراق ثابتة.',
   },
   {
     value: 'file-per-type',
     label: 'ملف لكل نطاق',
-    description: 'ملف منفصل لكل نطاق لتسليمات الجهات المختلفة.',
   },
 ];
 
-const FILTER_OPTIONS: Array<{ value: FilterKind; label: string; description: string }> = [
+const FILTER_OPTIONS: Array<{ value: FilterKind; label: string }> = [
   {
     value: 'all',
     label: 'كل السجلات',
-    description: 'تصدير نسخة كاملة من جميع صفوف النطاقات المختارة.',
   },
   {
     value: 'modifiedSinceCreation',
     label: 'السجلات المُعدَّلة فقط',
-    description: 'الصفوف التي طرأ عليها تعديل بعد إنشائها فقط.',
   },
   {
     value: 'sinceLastExport',
     label: 'المُستجدّ منذ آخر تصدير',
-    description: 'الصفوف المُضافة أو المُعدَّلة بعد آخر عملية تصدير.',
   },
   {
     value: 'changedAfter',
     label: 'اعتبارًا من تاريخ مُحدَّد',
-    description: 'الصفوف المُعدَّلة منذ تاريخ تختاره يدويًا.',
   },
 ];
 
-const EXPORT_PRESETS: Array<{
-  value: ExportPreset;
-  label: string;
-  description: string;
-  domains: ExchangeDomain[];
-}> = [
+const EXPORT_PRESETS: Array<{ value: ExportPreset; label: string; domains: ExchangeDomain[] }> = [
   {
     value: 'all',
     label: 'كل النطاقات',
-    description: 'مصنف كامل لتسليم شامل أو أرشفة دورة.',
     domains: [...EXCHANGE_DOMAINS],
   },
   {
     value: 'applicants',
     label: 'ملف المتقدمين',
-    description: 'بيانات المتقدمين مع الأقارب ووثائق التعارف.',
     domains: ['Applicants', 'Relatives', 'AcquaintanceDocs'],
   },
   {
     value: 'operations',
     label: 'الاختبارات واللجان',
-    description: 'الجداول والنتائج واللجان المرتبطة بالتشغيل.',
     domains: ['Exams', 'ExamSchedules', 'ExamResults', 'Committees'],
   },
   {
     value: 'configuration',
     label: 'الإعدادات والأكواد',
-    description: 'شروط القبول والقوائم المرجعية التي يحتاجها الطرف الآخر.',
     domains: ['AdmissionConditions', 'SystemCodes'],
   },
 ];
 
-const DOMAIN_GROUPS: Array<{ label: string; description: string; domains: ExchangeDomain[] }> = [
+const DOMAIN_GROUPS: Array<{ label: string; domains: ExchangeDomain[] }> = [
   {
     label: 'بيانات المتقدم',
-    description: 'الملف الشخصي والروابط القانونية حول المتقدم.',
     domains: ['Applicants', 'Relatives', 'AcquaintanceDocs'],
   },
   {
     label: 'التشغيل والاختبارات',
-    description: 'ما يحتاجه الطرف المستقبِل لتشغيل الاختبارات ومطابقة النتائج.',
     domains: ['Exams', 'ExamSchedules', 'ExamResults', 'Committees'],
   },
   {
     label: 'الإعدادات المرجعية',
-    description: 'قواعد القبول وأكواد النظام المشتركة بين الشبكات.',
     domains: ['AdmissionConditions', 'SystemCodes'],
   },
 ];
@@ -220,11 +198,6 @@ export function DataExchangePage(): JSX.Element {
     const start = (safeHistoryPage - 1) * historyPageSize;
     return historyRows.slice(start, start + historyPageSize);
   }, [historyPageSize, historyRows, safeHistoryPage]);
-  const invalidCount = preview?.counts.invalid ?? 0;
-  const conflictCount = preview?.counts.conflict ?? 0;
-  const actionablePreviewCount = preview
-    ? (preview.counts.new ?? 0) + (preview.counts.changed ?? 0)
-    : 0;
   const isApplicantsSelected = selected.has('Applicants');
   const roster = rosterQuery.data ?? [];
   const selectedPreset = useMemo(() => {
@@ -420,70 +393,38 @@ export function DataExchangePage(): JSX.Element {
     <div className="space-y-6">
       <PageHeader
         title="استيراد وتصدير البيانات"
-        subtitle="نقطة تشغيل واحدة لتصدير واستيراد بيانات المنظومة عبر Excel مع كشف التغييرات وحماية مفاتيح السجلات."
+        subtitle="تصدير واستيراد Excel مع معاينة ومراجعة قبل التطبيق."
         actions={<Badge tone="accent" icon={<ShieldCheck size={14} />}>مسار مُراقب</Badge>}
       />
 
-      <section
-        aria-label="ملخص استيراد وتصدير البيانات"
-        className="rounded-lg border border-border-subtle bg-surface-card p-5 shadow-xs"
-      >
-        <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge tone="info" icon={<ArrowDownUp size={14} />}>تبادل Excel</Badge>
-              <Badge tone="neutral" icon={<Database size={14} />}>
-                {selectedDomains.length} من {EXCHANGE_DOMAINS.length} نطاقات مفعّلة
-              </Badge>
-              {preview && (
-                <Badge tone={invalidCount > 0 || conflictCount > 0 ? 'warning' : 'success'} icon={<FileCheck2 size={14} />}>
-                  {actionablePreviewCount} صف قابل للتطبيق
-                </Badge>
-              )}
-            </div>
-            <p className="max-w-3xl text-sm leading-7 text-ink-600">
-              صُمم المركز ليجمع تبادل بيانات الإنترنت والشبكة الداخلية في مسار واضح: اختر النطاقات، صدّر
-              النسخة المعتمدة، ثم عاين ملف الاستيراد قبل تطبيق أي تغيير على السجلات.
-            </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <StatusTile
-              icon={<FileSpreadsheet size={18} />}
-              label="صيغة التصدير"
-              value={layout === 'single-workbook' ? 'مصنّف واحد' : 'ملف لكل نطاق'}
-            />
-            <StatusTile
-              icon={<ListFilter size={18} />}
-              label="فلتر البيانات"
-              value={FILTER_OPTIONS.find((option) => option.value === filterKind)?.label ?? 'الكل'}
-            />
-            <StatusTile
-              icon={<Clock3 size={18} />}
-              label="آخر عملية"
-              value={latestHistory ? latestHistory.details : 'لا توجد عمليات بعد'}
-            />
-            <StatusTile
-              icon={<History size={18} />}
-              label="السجل"
-              value={`${historyRows.length} عملية محفوظة`}
-            />
-          </div>
-        </div>
-      </section>
-
       <Tabs value={activeTab} onValueChange={(next) => setActiveTab(next as ExchangeTab)} activationMode="manual">
-        <Tabs.List aria-label="مهام استيراد وتصدير البيانات">
-          <Tabs.Tab value="export" badge={selectedDomains.length}>
+        <Tabs.List
+          aria-label="مهام استيراد وتصدير البيانات"
+          className="grid gap-2 rounded-lg border border-border-default bg-surface-card p-2 shadow-xs sm:grid-cols-3"
+        >
+          <Tabs.Tab
+            value="export"
+            className="mb-0 justify-center rounded-md border border-transparent px-5 py-3 text-sm data-[state=active]:border-[var(--accent-500)] data-[state=active]:bg-[var(--accent-50)] data-[state=active]:shadow-xs"
+            badge={selectedDomains.length}
+          >
             <span className="inline-flex items-center gap-2">
               <Download size={16} /> تصدير
             </span>
           </Tabs.Tab>
-          <Tabs.Tab value="import" badge={parsedSheets.length > 0 ? parsedSheets.length : undefined}>
+          <Tabs.Tab
+            value="import"
+            className="mb-0 justify-center rounded-md border border-transparent px-5 py-3 text-sm data-[state=active]:border-[var(--accent-500)] data-[state=active]:bg-[var(--accent-50)] data-[state=active]:shadow-xs"
+            badge={parsedSheets.length > 0 ? parsedSheets.length : undefined}
+          >
             <span className="inline-flex items-center gap-2">
               <Upload size={16} /> استيراد
             </span>
           </Tabs.Tab>
-          <Tabs.Tab value="history" badge={historyRows.length > 0 ? historyRows.length : undefined}>
+          <Tabs.Tab
+            value="history"
+            className="mb-0 justify-center rounded-md border border-transparent px-5 py-3 text-sm data-[state=active]:border-[var(--accent-500)] data-[state=active]:bg-[var(--accent-50)] data-[state=active]:shadow-xs"
+            badge={historyRows.length > 0 ? historyRows.length : undefined}
+          >
             <span className="inline-flex items-center gap-2">
               <History size={16} /> السجل
             </span>
@@ -503,7 +444,7 @@ export function DataExchangePage(): JSX.Element {
                     <Download size={18} /> تصدير البيانات
                   </span>
                 }
-                subtitle="اختر حزمة جاهزة أولاً، ثم عدّل الأوراق المطلوبة فقط عند الحاجة."
+                subtitle="اختر الحزمة ثم صدّر."
                 actions={<Badge tone="neutral">{selectedDomains.length} نطاق</Badge>}
               />
               <CardBody className="space-y-5">
@@ -516,7 +457,6 @@ export function DataExchangePage(): JSX.Element {
                         name="dx-preset"
                         checked={selectedPreset === preset.value}
                         label={preset.label}
-                        description={preset.description}
                         onChange={() => applyPreset(preset.value)}
                       />
                     ))}
@@ -539,7 +479,6 @@ export function DataExchangePage(): JSX.Element {
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div>
                               <h3 className="text-sm font-semibold text-ink-900">{group.label}</h3>
-                              <p className="text-xs leading-5 text-ink-500">{group.description}</p>
                             </div>
                             <Button
                               variant="ghost"
@@ -575,7 +514,6 @@ export function DataExchangePage(): JSX.Element {
                           name="dx-layout"
                           checked={layout === option.value}
                           label={option.label}
-                          description={option.description}
                           onChange={() => setLayout(option.value)}
                         />
                       ))}
@@ -591,7 +529,6 @@ export function DataExchangePage(): JSX.Element {
                           name="dx-filter"
                           checked={filterKind === option.value}
                           label={option.label}
-                          description={option.description}
                           onChange={() => setFilterKind(option.value)}
                         />
                       ))}
@@ -620,11 +557,6 @@ export function DataExchangePage(): JSX.Element {
                       <p className="font-semibold">
                         تصدير المتقدمين مقصور على من حجز موعد الاختبار الأول.
                       </p>
-                      <p className="text-gold-700/90">
-                        المتقدمون في حالة مسودة أو غير المكتمل ملفّهم أو الذين لم يحجزوا الموعد بعد
-                        لا يظهرون في ملف التصدير. تُستأنف صلاحية التصدير تلقائيًا بعد حجز الموعد
-                        واعتماد الجدول.
-                      </p>
                     </div>
                   </div>
                 )}
@@ -640,10 +572,7 @@ export function DataExchangePage(): JSX.Element {
                   </SectionErrorBoundary>
                 )}
 
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-subtle bg-ink-50 px-4 py-3">
-                  <p className="text-xs leading-6 text-ink-500">
-                    سيتم إنشاء ملف يتضمن حقول التتبع: الإصدار، آخر تعديل، مصدر النظام، وبصمة الصف.
-                  </p>
+                <div className="flex justify-end rounded-lg border border-border-subtle bg-ink-50 px-4 py-3">
                   <Button variant="primary" isLoading={exportMutation.isPending} onClick={() => void handleExport()}>
                     <FileSpreadsheet size={16} className="me-1" />
                     تصدير إلى Excel
@@ -662,7 +591,7 @@ export function DataExchangePage(): JSX.Element {
                   <Upload size={18} /> استيراد البيانات
                 </span>
               }
-              subtitle="المعاينة إلزامية قبل التطبيق حتى تظهر الصفوف الجديدة والمعدّلة والتعارضات بوضوح."
+              subtitle="ارفع الملف، راجع المعاينة، ثم طبّق."
               actions={
                 parsedSheets.length > 0 ? (
                   <Badge tone="info">{parsedSheets.length} أوراق مقروءة</Badge>
@@ -735,7 +664,7 @@ export function DataExchangePage(): JSX.Element {
                   <History size={18} /> سجل الاستيراد والتصدير
                 </span>
               }
-              subtitle="افتحه عند المراجعة أو تتبع آخر تسليمات Excel، ولا يزاحم مسار التصدير والاستيراد اليومي."
+              subtitle="آخر عمليات Excel."
               actions={latestHistory ? <Badge tone="neutral">آخر عملية: {latestHistory.actorName}</Badge> : undefined}
             />
             <CardBody className="space-y-4">
@@ -916,26 +845,6 @@ function HistoryStat({
   );
 }
 
-function StatusTile({
-  icon,
-  label,
-  value,
-}: {
-  icon: JSX.Element;
-  label: string;
-  value: string;
-}): JSX.Element {
-  return (
-    <div className="min-w-0 rounded-lg border border-border-subtle bg-ink-50 px-3 py-3">
-      <div className="mb-2 flex items-center gap-2 text-ink-500">
-        {icon}
-        <span className="text-2xs font-semibold">{label}</span>
-      </div>
-      <p className="truncate text-sm font-semibold text-ink-900">{value}</p>
-    </div>
-  );
-}
-
 function ChoiceCard({
   name,
   checked,
@@ -946,7 +855,7 @@ function ChoiceCard({
   name: string;
   checked: boolean;
   label: string;
-  description: string;
+  description?: string;
   onChange: () => void;
 }): JSX.Element {
   return (
@@ -979,7 +888,7 @@ function ChoiceCard({
       </span>
       <span className="min-w-0">
         <span className="block text-sm font-semibold text-ink-900">{label}</span>
-        <span className="mt-1 block text-xs leading-5 text-ink-500">{description}</span>
+        {description ? <span className="mt-1 block text-xs leading-5 text-ink-500">{description}</span> : null}
       </span>
     </label>
   );
