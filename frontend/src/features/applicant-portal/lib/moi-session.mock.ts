@@ -294,6 +294,7 @@ export const SUBMITTED_APPLICANT_PROFILE = {
   bachelorSpecialization: 'سياسات أمنية',
   bachelorFaculty: 'الحقوق',
   bachelorUniversity: 'القاهرة',
+  bachelorGrade: 'جيد جداً',
   bachelorPercentage: 87.45,
   bachelorYear: 2025,
   /* Thanaweya */

@@ -112,6 +112,7 @@ import {
 } from '../lib/graduation-year-validation';
 
 const APPLICANT_ID = MOI_APPLICANT_SESSION.applicantId;
+const REQUIRED_MESSAGE = 'مطلوب';
 
 const COUNTRY_OPTIONS: readonly SearchSelectOption[] = [
   { value: 'مصر', label: 'مصر' },
@@ -141,6 +142,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
   const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
   const selectedFaculty = useApplicantPortalStore((s) => s.selectedFaculty);
   const selectedSpecialization = useApplicantPortalStore((s) => s.selectedSpecialization);
+  const setProfileComplete = useApplicantPortalStore((s) => s.setProfileComplete);
 
   /* The MOI snapshot is captured at login and persisted in the portal
    * store. For the "not found in MOI" path it's intentionally null —
@@ -276,11 +278,15 @@ export function Stage345ApplicantDataPage(): JSX.Element {
      *  'expat' (وافدين) / 'foreign_certificate' (شهادات أجنبية). */
     officerApplicantType: '' as '' | 'expat' | 'foreign_certificate',
   });
+  const [manualErrors, setManualErrors] = useState<
+    Partial<Record<keyof typeof manualPersonal | 'birthGovernorate' | 'qualificationLevel', string>>
+  >({});
   const setManual = <K extends keyof typeof manualPersonal>(
     key: K,
     value: (typeof manualPersonal)[K],
   ): void => {
     setManualPersonal((prev) => ({ ...prev, [key]: value }));
+    setManualErrors((prev) => ({ ...prev, [key]: undefined }));
   };
 
   /* قسم الضباط (قسم عام) requires the applicant to be غير متزوج (single).
@@ -508,10 +514,6 @@ export function Stage345ApplicantDataPage(): JSX.Element {
   const watchedFaculty = useWatch({ control, name: 'bachelorFaculty' });
   const watchedSpecialization = useWatch({ control, name: 'bachelorSpecialization' });
   const watchedAddressGovernorate = useWatch({ control, name: 'addressGovernorate' });
-  const watchedDeclaration = useWatch({ control, name: 'declaration' });
-  const watchedSchoolName = useWatch({ control, name: 'schoolNameAr' });
-  const watchedSchoolAddress = useWatch({ control, name: 'schoolAddress' });
-  const watchedAddressDistrict = useWatch({ control, name: 'addressDistrict' });
   const watchedThanawiType = useWatch({ control, name: 'thanawiType' });
   const watchedThanawiGradDate = useWatch({ control, name: 'thanawiGradDate' });
   const watchedBachelorYear = useWatch({ control, name: 'bachelorYear' });
@@ -528,18 +530,25 @@ export function Stage345ApplicantDataPage(): JSX.Element {
     );
   }, [facultyByName, watchedFaculty, selectedCategoryEligibility]);
 
-  const rawBirthGovernorate =
-    (isMoiVerified && session.birthGovernorate) ? session.birthGovernorate : manualPersonal.birthGovernorate;
-  const birthGovernorateRow = useMemo(
+  const moiBirthGovernorateRow = useMemo(
     () =>
       resolveBirthGovernorateRow(
         governoratesQuery.data ?? [],
-        rawBirthGovernorate,
+        session.birthGovernorate,
         isMoiVerified ? session.nationalId : null,
       ),
-    [governoratesQuery.data, isMoiVerified, rawBirthGovernorate, session.nationalId],
+    [governoratesQuery.data, isMoiVerified, session.birthGovernorate, session.nationalId],
   );
-  const birthGovernorateValue = birthGovernorateRow?.name ?? rawBirthGovernorate;
+  const manualBirthGovernorateRow = useMemo(
+    () => resolveGovernorateRow(governoratesQuery.data ?? [], manualPersonal.birthGovernorate),
+    [governoratesQuery.data, manualPersonal.birthGovernorate],
+  );
+  const shouldUseManualBirthGovernorate = !isMoiVerified || !moiBirthGovernorateRow;
+  const birthGovernorateRow = shouldUseManualBirthGovernorate
+    ? manualBirthGovernorateRow
+    : moiBirthGovernorateRow;
+  const birthGovernorateValue = birthGovernorateRow?.name ?? '';
+  const resolvedBirthGovernorate = birthGovernorateRow?.name ?? manualPersonal.birthGovernorate;
   const addressGovernorateRow = useMemo(
     () => resolveGovernorateRow(governoratesQuery.data ?? [], watchedAddressGovernorate),
     [governoratesQuery.data, watchedAddressGovernorate],
@@ -692,6 +701,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
     setValue('bachelorSpecialization', p.bachelorSpecialization);
     setValue('bachelorFaculty', p.bachelorFaculty);
     setValue('bachelorUniversity', p.bachelorUniversity);
+    setValue('bachelorGrade', p.bachelorGrade);
     setValue('bachelorPercentage', p.bachelorPercentage);
     setValue('bachelorYear', p.bachelorYear);
     setValue('thanawiCountry', p.thanawiCountry);
@@ -756,6 +766,91 @@ export function Stage345ApplicantDataPage(): JSX.Element {
   }, [matchedGradeRow, matchedSchoolExtras, setValue]);
 
   const onSubmit = async (values: Stage345Values): Promise<void> => {
+    const formValidationErrors: Partial<Record<keyof Stage345Values, string>> = {};
+    const localValidationErrors: Partial<
+      Record<keyof typeof manualPersonal | 'birthGovernorate' | 'qualificationLevel', string>
+    > = {};
+    const requireFormField = (field: keyof Stage345Values, value: unknown): void => {
+      if (isMissingRequiredValue(value)) formValidationErrors[field] = REQUIRED_MESSAGE;
+    };
+    const requireLocalField = (
+      field: keyof typeof manualPersonal | 'birthGovernorate' | 'qualificationLevel',
+      value: unknown,
+    ): void => {
+      if (isMissingRequiredValue(value)) localValidationErrors[field] = REQUIRED_MESSAGE;
+    };
+
+    if (!isMoiVerified) {
+      requireLocalField('fullName', manualPersonal.fullName);
+      if (selectedCategoryKey !== 'officers_general') {
+        requireLocalField('gender', manualPersonal.gender);
+      }
+      requireLocalField('dateOfBirthAr', manualPersonal.dateOfBirthAr);
+      requireLocalField('mobile', manualPersonal.mobile);
+      requireLocalField('email', manualPersonal.email);
+      if (selectedCategoryKey === 'officers_general') {
+        requireLocalField('officerApplicantType', manualPersonal.officerApplicantType);
+      }
+    }
+    requireLocalField('maritalStatus', manualPersonal.maritalStatus);
+    if (!birthGovernorateValue) {
+      requireLocalField('birthGovernorate', manualPersonal.birthGovernorate);
+    }
+
+    if (showBachelor) {
+      requireLocalField('qualificationLevel', qualificationLevel);
+      if (showUniversityQualificationFields) {
+        requireFormField('bachelorUniversity', values.bachelorUniversity);
+        if (!hasPreselectedAcademicProgram) {
+          requireFormField('bachelorFaculty', values.bachelorFaculty);
+          requireFormField('bachelorSpecialization', values.bachelorSpecialization);
+        }
+        if (!isLawBachelor) {
+          requireFormField('bachelorMajor', values.bachelorMajor);
+          requireFormField('bachelorBranch', values.bachelorBranch);
+          requireFormField('bachelorPercentage', values.bachelorPercentage);
+        }
+        requireFormField('bachelorYear', values.bachelorYear);
+        requireFormField('bachelorGrade', values.bachelorGrade);
+      }
+    }
+    if (showPostgrad) {
+      requireFormField('postgradYear', values.postgradYear);
+      requireFormField('postgradGrade', values.postgradGrade);
+    }
+    if (qualificationLevel === 'doctorate') {
+      requireFormField('doctorateYear', values.doctorateYear);
+      requireFormField('doctorateGrade', values.doctorateGrade);
+    }
+
+    requireFormField('thanawiCountry', values.thanawiCountry);
+    requireFormField('thanawiType', values.thanawiType);
+    requireFormField('schoolNameAr', values.schoolNameAr);
+    requireFormField('schoolAddress', values.schoolAddress);
+    requireFormField('thanawiGradDate', values.thanawiGradDate);
+    if (!externalImport) requireFormField('thanawiGrade', values.thanawiGrade);
+    requireFormField('thanawiTotal', values.thanawiTotal);
+    requireFormField('thanawiPercentage', values.thanawiPercentage);
+    requireFormField('birthDistrict', values.birthDistrict);
+    requireFormField('birthAddressDetail', values.birthAddressDetail);
+    requireFormField('addressGovernorate', values.addressGovernorate);
+    requireFormField('addressDistrict', values.addressDistrict);
+    requireFormField('currentAddressDetail', values.currentAddressDetail);
+    requireFormField('declaration', values.declaration);
+
+    for (const [field, message] of Object.entries(formValidationErrors)) {
+      setError(field as keyof Stage345Values, { type: 'required', message });
+    }
+    setManualErrors(localValidationErrors);
+    if (
+      Object.keys(formValidationErrors).length > 0 ||
+      Object.keys(localValidationErrors).length > 0
+    ) {
+      setProfileComplete(false);
+      toast('استكمل البيانات الشخصية والدراسية المطلوبة قبل الانتقال إلى السداد.', 'danger');
+      return;
+    }
+
     /* Cycle-configured graduation-year guard. Mirror of the disabled-state
      * on the submit button so Enter-key submissions can't bypass the check
      * — surfaces a toast (the inline error is already on the offending
@@ -777,7 +872,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
           dateOfBirthAr: session.dateOfBirthAr,
           gender: session.gender,
           religion: session.religion,
-          birthGovernorate: session.birthGovernorate,
+          birthGovernorate: resolvedBirthGovernorate,
           birthDistrict: session.birthDistrict,
           mobile: session.mobile,
           email: session.email,
@@ -817,6 +912,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
       manualPersonal: manualPersonal,
       qualificationLevel,
     });
+    setProfileComplete(true);
     toast('تم حفظ بيانات الطالب', 'success');
     /* Summary step was removed from the wizard — go straight to payment. */
     navigate(ROUTES.applicantPayment);
@@ -840,14 +936,15 @@ export function Stage345ApplicantDataPage(): JSX.Element {
             {selectedSpecialization && (
               <ReadOnlyRow label="التخصص" value={selectedSpecialization} />
             )}
-            <Field label="المؤهل / الدرجة العلمية" required>
+            <Field label="المؤهل / الدرجة العلمية" required error={manualErrors.qualificationLevel}>
               <Select
                 value={qualificationLevel}
-                onChange={(e) =>
+                onChange={(e) => {
+                  setManualErrors((prev) => ({ ...prev, qualificationLevel: undefined }));
                   setQualificationLevel(
                     e.target.value as '' | AcademicDegreeValue,
-                  )
-                }
+                  );
+                }}
                 options={[
                   { value: '', label: '— اختر —' },
                   ...academicDegreeOptions,
@@ -863,7 +960,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
             <div className="grid gap-3 md:grid-cols-3">
               {/* Field order (client direction 2026-05-19):
                   الجامعة → الكلية → التخصص (scoped to الكلية) → rest. */}
-              <Field label="الجامعة" error={errors.bachelorUniversity?.message}>
+              <Field label="الجامعة" required error={errors.bachelorUniversity?.message}>
                 <Controller
                   control={control}
                   name="bachelorUniversity"
@@ -883,7 +980,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
                   الكلية from cycle-scoped admission programs, then التخصص narrows
                   to that faculty's options. */}
               {!hasPreselectedAcademicProgram && (
-                <Field label="الكلية" error={errors.bachelorFaculty?.message}>
+                <Field label="الكلية" required error={errors.bachelorFaculty?.message}>
                   <Controller
                     control={control}
                     name="bachelorFaculty"
@@ -900,7 +997,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
                 </Field>
               )}
               {!hasPreselectedAcademicProgram && (
-                <Field label="التخصص" error={errors.bachelorSpecialization?.message}>
+                <Field label="التخصص" required error={errors.bachelorSpecialization?.message}>
                   <Controller
                     control={control}
                     name="bachelorSpecialization"
@@ -920,14 +1017,25 @@ export function Stage345ApplicantDataPage(): JSX.Element {
                 </Field>
               )}
               {!isLawBachelor && (
-                <Input label="المجموعة" {...register('bachelorMajor')} error={errors.bachelorMajor?.message} />
-              )}
-              {!isLawBachelor && (
-                <Input label="الشعبة" {...register('bachelorBranch')} error={errors.bachelorBranch?.message} />
+                <Input
+                  label="المجموعة"
+                  required
+                  {...register('bachelorMajor')}
+                  error={errors.bachelorMajor?.message}
+                />
               )}
               {!isLawBachelor && (
                 <Input
-                  label="النسبة المئوية"
+                  label="الشعبة"
+                  required
+                  {...register('bachelorBranch')}
+                  error={errors.bachelorBranch?.message}
+                />
+              )}
+              {!isLawBachelor && (
+                <Input
+                  label="النسبة المئوية للجامعة"
+                  required
                   type="number"
                   min={0}
                   max={100}
@@ -939,6 +1047,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               )}
               <Input
                 label="سنة التخرج"
+                required
                 type="number"
                 min={1990}
                 max={2099}
@@ -948,7 +1057,8 @@ export function Stage345ApplicantDataPage(): JSX.Element {
                 helper={helperForYear('bachelorYear')}
               />
               <Select
-                label="التقدير العام"
+                label="تقدير الجامعة"
+                required
                 {...register('bachelorGrade')}
                 options={universityGradeSelectOptions}
                 error={errors.bachelorGrade?.message as string | undefined}
@@ -971,6 +1081,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
           <div className="grid gap-3 md:grid-cols-3">
             <Input
               label="سنة الحصول على الشهادة"
+              required
               type="number"
               min={1990}
               max={2099}
@@ -981,6 +1092,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
             />
             <Select
               label="التقدير"
+              required
               {...register('postgradGrade')}
               options={universityGradeSelectOptions}
               error={errors.postgradGrade?.message as string | undefined}
@@ -1001,6 +1113,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
           <div className="grid gap-3 md:grid-cols-3">
             <Input
               label="سنة الحصول على الشهادة"
+              required
               type="number"
               min={1990}
               max={2099}
@@ -1011,6 +1124,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
             />
             <Select
               label="التقدير"
+              required
               {...register('doctorateGrade')}
               options={universityGradeSelectOptions}
               error={errors.doctorateGrade?.message as string | undefined}
@@ -1070,6 +1184,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               required
               value={manualPersonal.fullName}
               onChange={(e) => setManual('fullName', e.target.value)}
+              error={manualErrors.fullName}
             />
           )}
           <Input
@@ -1080,7 +1195,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
           {isMoiVerified ? (
             <ReadOnlyRow label="النوع" value={session.gender === 'male' ? 'ذكر' : 'أنثى'} />
           ) : selectedCategoryKey !== 'officers_general' ? (
-            <Field label="النوع" required>
+            <Field label="النوع" required error={manualErrors.gender}>
               <Select
                 value={manualPersonal.gender}
                 onChange={(e) => setManual('gender', e.target.value as 'male' | 'female' | '')}
@@ -1109,6 +1224,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               required
               value={manualPersonal.dateOfBirthAr}
               onChange={(e) => setManual('dateOfBirthAr', e.target.value)}
+              error={manualErrors.dateOfBirthAr}
             />
           )}
           <ReadOnlyRow label="الرقم القومي" value={session.nationalId} ltr mono />
@@ -1124,7 +1240,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               maritalBlocked
                 ? 'لا يمكنك التقدم لقسم الضباط (قسم عام) في حالة الزواج — يُشترط أن يكون المتقدم غير متزوج.'
                 : manualPersonal.maritalStatus === ''
-                  ? 'مطلوب'
+                  ? (manualErrors.maritalStatus ?? REQUIRED_MESSAGE)
                   : undefined
             }
           >
@@ -1143,7 +1259,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
             />
           </Field>
           {!isMoiVerified && selectedCategoryKey === 'officers_general' && (
-            <Field label="فئة المدرسة" required>
+            <Field label="فئة المدرسة" required error={manualErrors.officerApplicantType}>
               <Select
                 value={manualPersonal.officerApplicantType}
                 onChange={(e) =>
@@ -1170,10 +1286,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
         />
         <div className="grid gap-3 md:grid-cols-2">
           {/* ── Birth block ── محافظة + قسم + العنوان التفصيلي للميلاد */}
-          {/* محل الميلاد — dropdown. For MOI-verified applicants the
-              value is pre-filled and disabled; for not_found the
-              applicant picks from GOV_OPTIONS. */}
-          <Field label="محل الميلاد" required>
+          <Field label="محل الميلاد" required error={manualErrors.birthGovernorate}>
             <SearchSelect
               ariaLabel="محل الميلاد"
               placeholder="اختر المحافظة"
@@ -1183,7 +1296,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
                 setManual('birthGovernorate', v ?? '');
                 setValue('birthDistrict', '');
               }}
-              disabled={isMoiVerified && !!birthGovernorateRow}
+              disabled={!shouldUseManualBirthGovernorate}
             />
           </Field>
           <Field label="القسم / مركز الميلاد" required error={errors.birthDistrict?.message}>
@@ -1286,6 +1399,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               required
               value={manualPersonal.mobile}
               onChange={(e) => setManual('mobile', e.target.value)}
+              error={manualErrors.mobile}
             />
           )}
           <Input
@@ -1311,6 +1425,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               required
               value={manualPersonal.email}
               onChange={(e) => setManual('email', e.target.value)}
+              error={manualErrors.email}
             />
           )}
           <Input
@@ -1375,13 +1490,8 @@ export function Stage345ApplicantDataPage(): JSX.Element {
             size="lg"
             isLoading={isSubmitting}
             disabled={
-              !watchedDeclaration ||
-              !watchedSchoolName?.trim() ||
-              !watchedSchoolAddress?.trim() ||
-              !watchedAddressGovernorate ||
-              !watchedAddressDistrict ||
+              isSubmitting ||
               !selectedCategoryKey ||
-              (showBachelor && !qualificationLevel) ||
               maritalBlocked ||
               graduationYearBlocked
             }
@@ -1395,6 +1505,12 @@ export function Stage345ApplicantDataPage(): JSX.Element {
 }
 
 /* ─── helpers ─────────────────────────────────────────────────────── */
+
+function isMissingRequiredValue(value: unknown): boolean {
+  if (typeof value === 'string') return value.trim().length === 0;
+  if (typeof value === 'boolean') return value !== true;
+  return value === null || value === undefined || value === '';
+}
 
 function DeclarationReviewPanel({
   declaration,
@@ -1572,8 +1688,8 @@ function ExternalGradesPanel({ row }: { row: GradeRow }): JSX.Element {
         {row.graduationYear !== null && (
           <ReadOnlyRow label="سنة التخرج" value={String(row.graduationYear)} ltr />
         )}
-        <ReadOnlyRow label="المجموع" value={`${row.total} / ${row.importMax}`} ltr />
-        <ReadOnlyRow label="النسبة المئوية" value={`${percent}%`} ltr />
+        <ReadOnlyRow label="مجموع الثانوية العامة" value={`${row.total} / ${row.importMax}`} ltr />
+        <ReadOnlyRow label="النسبة المئوية للثانوية العامة" value={`${percent}%`} ltr />
       </dl>
     </div>
   );
@@ -1728,18 +1844,20 @@ function ManualThanawiFields({
           label="تاريخ الحصول على الشهادة"
           type="date"
           dir="ltr"
+          required
           {...register('thanawiGradDate')}
           error={errors.thanawiGradDate?.message}
           helper={gradDateHelper}
         />
         <Select
           label="التقدير"
+          required
           {...register('thanawiGrade')}
           options={GRADE_RATING_OPTIONS as unknown as { value: string; label: string }[]}
           error={errors.thanawiGrade?.message as string | undefined}
         />
         <Input
-          label="المجموع"
+          label="مجموع الثانوية العامة"
           type="number"
           required
           dir="ltr"
@@ -1747,7 +1865,7 @@ function ManualThanawiFields({
           error={errors.thanawiTotal?.message}
         />
         <Input
-          label="النسبة المئوية"
+          label="النسبة المئوية للثانوية العامة"
           type="number"
           min={0}
           max={100}

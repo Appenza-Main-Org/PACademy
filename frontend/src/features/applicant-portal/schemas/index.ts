@@ -82,7 +82,7 @@ export const stage345Schema = z
 
     /* Thanaweya — optional graduation date (auto-filled from grades
      * import when available, manual otherwise). */
-    thanawiGradDate: z.string().optional().or(z.literal('')),
+    thanawiGradDate: z.string().min(1, 'مطلوب'),
     /* التقدير — qualitative grade rating for thanaweya (manual path). */
     thanawiGrade: z.string().optional().or(z.literal('')),
     /* التقدير العام — qualitative grade rating for the bachelor degree. */
@@ -106,18 +106,18 @@ export const stage345Schema = z
     doctorateGrade: z.string().optional().or(z.literal('')),
 
     /* Birth-place picker (separate from MOI's birthGovernorate). */
-    birthDistrict: z.string().optional().or(z.literal('')),
+    birthDistrict: z.string().min(1, 'مطلوب'),
     /* Detailed birth-place address — paired with birthGovernorate +
      *  birthDistrict above. Added 2026-05-21 to split the address block
      *  into separate birth/residence detail fields. */
-    birthAddressDetail: z.string().optional().or(z.literal('')),
+    birthAddressDetail: z.string().min(1, 'مطلوب'),
 
     /* Address + contact. Mobile + email come from MOI and are not editable.
      * `fax` was retired from the UI; kept here as optional so legacy
      * persisted drafts don't fail validation.
      * `currentAddressDetail` is the detailed residence address (paired
      * with addressGovernorate + addressDistrict below). */
-    currentAddressDetail: z.string().optional().or(z.literal('')),
+    currentAddressDetail: z.string().min(1, 'مطلوب'),
     addressGovernorate: z.string().min(1, 'مطلوب'),
     addressDistrict: z.string().min(1, 'مطلوب'),
     homePhone: z.string().optional().or(z.literal('')),

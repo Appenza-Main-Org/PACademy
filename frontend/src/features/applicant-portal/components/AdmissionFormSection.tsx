@@ -90,6 +90,18 @@ export function AdmissionFormSection({
     readProfileString(submittedProfile, 'bachelorYear') ||
     (v?.bachelorYear != null && v?.bachelorYear !== '' ? String(v.bachelorYear) : '');
   const bachelorGradeText = readProfileString(submittedProfile, 'bachelorGrade') || v?.bachelorGrade || '';
+  const thanawiTotalText = formatScoreField(
+    readProfileString(submittedProfile, 'thanawiTotal') ||
+      (v?.thanawiTotal != null ? String(v.thanawiTotal) : ''),
+  );
+  const thanawiPercentageText = formatPercentField(
+    readProfileString(submittedProfile, 'thanawiPercentage') ||
+      (v?.thanawiPercentage != null ? String(v.thanawiPercentage) : ''),
+  );
+  const bachelorPercentageText = formatPercentField(
+    readProfileString(submittedProfile, 'bachelorPercentage') ||
+      (v?.bachelorPercentage != null && v.bachelorPercentage !== '' ? String(v.bachelorPercentage) : ''),
+  );
   /* The PDF reads «المؤهل» as the bachelor degree title (دبلوم/ليسانس/بكالوريوس/…)
    * not the level code. Fall back to a sensible textual description if
    * the profile only carries the level. */
@@ -177,7 +189,10 @@ export function AdmissionFormSection({
         <Field label="تاريخ الحصول على المؤهل" value={bachelorYearText} />
         <Field label="الكلية" value={facultyText} />
         <Field label="الجامعة" value={universityText} />
-        <Field label="التقدير" value={bachelorGradeText} />
+        <Field label="تقدير الجامعة" value={bachelorGradeText} />
+        <Field label="مجموع الثانوية العامة" value={thanawiTotalText} />
+        <Field label="النسبة المئوية للثانوية العامة" value={thanawiPercentageText} />
+        <Field label="النسبة المئوية للجامعة" value={bachelorPercentageText} />
         <Field label="الحالة الإجتماعية" value={marital} />
         <Field label="تاريخ ومحل الميلاد" value={birthLine} />
         <Field label="الجنسية" value={nationality} />
@@ -422,6 +437,16 @@ function readProfileString(
   if (typeof value === 'string') return value;
   if (typeof value === 'number') return String(value);
   return '';
+}
+
+function formatScoreField(value: string): string {
+  const trimmed = value.trim();
+  return trimmed ? `${trimmed} / 410` : '';
+}
+
+function formatPercentField(value: string): string {
+  const trimmed = value.trim();
+  return trimmed ? `${trimmed}%` : '';
 }
 
 function toArabicNumeral(n: number): string {

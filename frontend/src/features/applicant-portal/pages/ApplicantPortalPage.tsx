@@ -3,7 +3,7 @@
  *
  * The index of `/applicant`. Renders the application as a read-only
  * summary with the top-bar action cluster (الدفع / تعديل الطلب / عرض
- * إرشادات التقدم) and a yellow modification-deadline banner. Primary CTA
+ * إرشادات التقدم). Primary CTA
  * adapts based on draft state:
  *   - unpaid                → 'الدفع' → /applicant/payment
  *   - paid, parents unset   → 'إدراج بيانات الوالدين' → /applicant/profile/family
@@ -19,7 +19,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  AlertTriangle,
   ArrowLeft,
   CalendarCheck,
   CreditCard,
@@ -33,10 +32,9 @@ import {
 } from 'lucide-react';
 import { Badge, Button, Card, Drawer, IconStamp } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
-import { date as fmtDate } from '@/shared/lib/format';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import { useApplicationInstructions, useDraft } from '../api/applicantPortal.queries';
-import { useActiveCycle, useCategories } from '../api/categories.queries';
+import { useCategories } from '../api/categories.queries';
 import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
 import { deterministicFileNumber } from '../lib/deterministic-codes';
 import {
@@ -81,17 +79,10 @@ export function ApplicantPortalPage(): JSX.Element {
    * The draft is undefined until fetched, so every field is optional. */
   const profile = draft?.profile;
   const categoriesQuery = useCategories();
-  const activeCycle = useActiveCycle();
   const [showInstructions, setShowInstructions] = useState(false);
   const fileNumber = paid ? deterministicFileNumber(APPLICANT_ID) : null;
   const committeeNumber = paid ? 'اللجنة الثانية' : null;
   const category = (categoriesQuery.data ?? []).find((c) => c.key === selectedCategoryKey);
-  /* PDF p.5 calls out a separate "modification deadline" — we don't have a
-   * dedicated cycle field for that yet, so we surface the cycle's
-   * closeDate as the latest moment edits are accepted. Backend-integration
-   * day will introduce `AdmissionCycle.modificationDeadline` and we'll
-   * switch to that. */
-  const modificationDeadline = activeCycle.data?.closeDate;
 
   const primaryCta = (() => {
     if (appointmentLocked && firstExamDate) {
@@ -218,20 +209,6 @@ export function ApplicantPortalPage(): JSX.Element {
         </div>
       </Card>
 
-      {/* ── Yellow modification-deadline banner ─────────────── */}
-      {modificationDeadline && (
-        <div
-          role="note"
-          className="flex items-start gap-3 rounded-md border border-gold-300 bg-gold-50 px-4 py-3 text-2xs text-gold-800"
-        >
-          <AlertTriangle size={16} strokeWidth={1.75} className="mt-0.5 shrink-0" aria-hidden />
-          <p className="leading-relaxed">
-            برجاء الإنتباه: آخر موعد لتعديل البيانات وتحصيل رسوم مقابل الخدمة يوم:{' '}
-            <span className="font-bold">{fmtDate(modificationDeadline, 'short')}</span>
-          </p>
-        </div>
-      )}
-
       {/* ── بيانات الطالب ──────────────────────────────────── */}
       <Card>
         <header className="mb-3 flex items-center gap-2">
@@ -291,14 +268,15 @@ export function ApplicantPortalPage(): JSX.Element {
           ...(profile.thanawiCountry        ? [{ label: 'دولة المدرسة',                   value: profile.thanawiCountry }]                               : []),
           ...(profile.thanawiGradDate       ? [{ label: 'تاريخ الحصول على الثانوية',       value: profile.thanawiGradDate, ltr: true }]                  : []),
           ...(profile.thanawiType           ? [{ label: 'الشعبة',                         value: profile.thanawiType }]                                  : []),
-          ...(profile.thanawiTotal   != null ? [{ label: 'المجموع',                        value: `${profile.thanawiTotal} / 410`, ltr: true }]           : []),
-          ...(profile.thanawiPercentage != null ? [{ label: 'النسبة المئوية',             value: `${profile.thanawiPercentage}%`, ltr: true }]            : []),
+          ...(profile.thanawiTotal   != null ? [{ label: 'مجموع الثانوية العامة',           value: `${profile.thanawiTotal} / 410`, ltr: true }]           : []),
+          ...(profile.thanawiPercentage != null ? [{ label: 'النسبة المئوية للثانوية العامة', value: `${profile.thanawiPercentage}%`, ltr: true }]          : []),
           ...(profile.bachelorFaculty       ? [{ label: 'الكلية',                         value: profile.bachelorFaculty }]                              : []),
           ...(profile.bachelorUniversity    ? [{ label: 'الجامعة',                        value: `جامعة ${profile.bachelorUniversity}` }]                : []),
           ...(profile.bachelorMajor         ? [{ label: 'المجموعة',                       value: profile.bachelorMajor }]                                : []),
           ...(profile.bachelorBranch        ? [{ label: 'الشعبة (المؤهل العالي)',          value: profile.bachelorBranch }]                               : []),
           ...(profile.bachelorSpecialization ? [{ label: 'التخصص',                        value: profile.bachelorSpecialization }]                       : []),
-          ...(profile.bachelorPercentage != null ? [{ label: 'النسبة المئوية للمؤهل',    value: `${profile.bachelorPercentage}%`, ltr: true }]           : []),
+          ...(typeof profile.bachelorGrade === 'string' && profile.bachelorGrade ? [{ label: 'تقدير الجامعة',                  value: profile.bachelorGrade }] : []),
+          ...(profile.bachelorPercentage != null ? [{ label: 'النسبة المئوية للجامعة',     value: `${profile.bachelorPercentage}%`, ltr: true }]           : []),
           ...(profile.bachelorYear   != null ? [{ label: 'سنة التخرج',                    value: String(profile.bachelorYear), ltr: true }]              : []),
         ];
         if (studyRows.length === 0) return null;
