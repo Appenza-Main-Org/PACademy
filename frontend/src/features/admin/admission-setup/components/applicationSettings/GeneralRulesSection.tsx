@@ -184,11 +184,12 @@ interface GeneralRulesSectionProps {
   specializationCodes: readonly string[];
   /** Gender scope from the Applicant Categories lookup. */
   genderScope: readonly ApplicantCategoryGenderScope[];
-  /** Resolved «معيار التمييز» — `TAGDIR` shows only الحد الأدنى/الأقصى
-   *  للتقدير, `GRADES` shows only الحد الأدنى/الأقصى للدرجة (٪). `null`
-   *  (no criterion picked yet) renders both pairs so admins can still
-   *  fill the row in. */
+  /** Resolved single «معيار التمييز» when the category lookup allows
+   *  exactly one mode. `null` means multiple or no modes are configured. */
   excellenceMode: ExcellenceMode | null;
+  /** Modes allowed by Applicant Categories lookup. One entry locks the
+   *  form to that criterion; two entries keep the selector available. */
+  allowedExcellenceModes: readonly ExcellenceMode[];
 }
 
 export function GeneralRulesSection({
@@ -197,6 +198,7 @@ export function GeneralRulesSection({
   specializationCodes,
   genderScope,
   excellenceMode,
+  allowedExcellenceModes,
 }: GeneralRulesSectionProps): JSX.Element {
   const facultiesQuery = useLookup('faculties', applicationSettingsQueryOptions);
   const specializationsQuery = useLookup('specializations', applicationSettingsQueryOptions);
@@ -380,6 +382,7 @@ export function GeneralRulesSection({
     committeeOptions,
     graduationYearOptions,
     excellenceMode,
+    allowedExcellenceModes,
   };
   const scopedSpecCount = [...specsByFaculty.values()].reduce(
     (count, specs) => count + specs.length,
@@ -1219,9 +1222,10 @@ interface PerSpecFormOptions {
   degreeOptions: ReadonlyArray<SearchSelectOption>;
   committeeOptions: ReadonlyArray<SearchSelectOption>;
   graduationYearOptions: ReadonlyArray<SearchSelectOption>;
-  /** Discriminates which bound pair the form surfaces — see
-   *  `GeneralRulesSectionProps.excellenceMode`. */
+  /** Single default criterion, when the lookup only allows one. */
   excellenceMode: ExcellenceMode | null;
+  /** Allowed criteria from Applicant Categories lookup. */
+  allowedExcellenceModes: readonly ExcellenceMode[];
 }
 
 interface PerSpecFormProps {
@@ -1323,8 +1327,13 @@ function PerSpecForm({
     committeeOptions,
     graduationYearOptions,
     excellenceMode,
+    allowedExcellenceModes,
   } = options;
-  const defaultExcellenceMode = excellenceMode ?? 'GRADES';
+  const defaultExcellenceMode = excellenceMode ?? allowedExcellenceModes[0] ?? 'GRADES';
+  const allowedModeSet = useMemo(
+    () => new Set(allowedExcellenceModes),
+    [allowedExcellenceModes],
+  );
   const genderOptions = useMemo(
     () => genderOptionsForScope(genderScope),
     [genderScope],
@@ -1457,6 +1466,13 @@ function PerSpecForm({
   const lastDefaultModeRef = useRef<ExcellenceMode>(defaultExcellenceMode);
   if (!isEditing && lastDefaultModeRef.current !== defaultExcellenceMode) {
     lastDefaultModeRef.current = defaultExcellenceMode;
+    setDraft(emptyScopedInput());
+  }
+  if (
+    !isEditing &&
+    allowedExcellenceModes.length > 0 &&
+    !allowedModeSet.has(draft.excellenceMode)
+  ) {
     setDraft(emptyScopedInput());
   }
   const sanitizedDraftType = normalizeGenderSelectionForScope(
@@ -1685,6 +1701,7 @@ function PerSpecForm({
             </div>
             <ExcellenceModeToggle
               value={draft.excellenceMode}
+              allowedModes={allowedExcellenceModes}
               disabled={!canWrite}
               onChange={(next) =>
                 setDraft((d) => ({

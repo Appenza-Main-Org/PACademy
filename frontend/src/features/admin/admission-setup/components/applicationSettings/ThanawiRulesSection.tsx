@@ -107,15 +107,18 @@ const MAX_OPERATOR_SYMBOL: Record<MaxScoreOperator, string> = {
 
 interface ThanawiRulesSectionProps {
   categoryCode: string;
-  /** Resolved «معيار التمييز» — `TAGDIR` shows only الحد الأدنى/الأقصى
-   *  للتقدير, `GRADES` shows only الحد الأدنى/الأقصى للدرجة (٪). `null`
-   *  (criterion not picked) renders both pairs. */
+  /** Resolved single «معيار التمييز» when the category lookup allows
+   *  exactly one mode. `null` means multiple or no modes are configured. */
   excellenceMode: ExcellenceMode | null;
+  /** Modes allowed by Applicant Categories lookup. One entry locks the
+   *  form to that criterion; two entries keep the selector available. */
+  allowedExcellenceModes: readonly ExcellenceMode[];
 }
 
 export function ThanawiRulesSection({
   categoryCode,
   excellenceMode,
+  allowedExcellenceModes,
 }: ThanawiRulesSectionProps): JSX.Element {
   const maritalQuery = useLookup('marital-statuses', applicationSettingsQueryOptions);
   const examRoundsQuery = useLookup('exam-rounds', applicationSettingsQueryOptions);
@@ -267,6 +270,7 @@ export function ThanawiRulesSection({
           gradeOptions={gradeOptions}
           gradeRank={gradeRank}
           excellenceMode={excellenceMode}
+          allowedExcellenceModes={allowedExcellenceModes}
           canWrite={canWrite}
         />
       </div>
@@ -509,6 +513,7 @@ interface ThanawiFormProps {
   gradeOptions: ReadonlyArray<SearchSelectOption>;
   gradeRank: Map<string, number>;
   excellenceMode: ExcellenceMode | null;
+  allowedExcellenceModes: readonly ExcellenceMode[];
   canWrite: boolean;
 }
 
@@ -541,9 +546,14 @@ function ThanawiForm({
   gradeOptions,
   gradeRank,
   excellenceMode,
+  allowedExcellenceModes,
   canWrite,
 }: ThanawiFormProps): JSX.Element {
-  const defaultExcellenceMode = excellenceMode ?? 'GRADES';
+  const defaultExcellenceMode = excellenceMode ?? allowedExcellenceModes[0] ?? 'GRADES';
+  const allowedModeSet = useMemo(
+    () => new Set(allowedExcellenceModes),
+    [allowedExcellenceModes],
+  );
   const [draft, setDraft] = useState<ThanawiRuleRowInput>(() =>
     emptyInputFor(defaultExcellenceMode),
   );
@@ -628,6 +638,13 @@ function ThanawiForm({
   const lastDefaultModeRef = useRef<ExcellenceMode>(defaultExcellenceMode);
   if (!isEditing && lastDefaultModeRef.current !== defaultExcellenceMode) {
     lastDefaultModeRef.current = defaultExcellenceMode;
+    setDraft(emptyInputFor(defaultExcellenceMode));
+  }
+  if (
+    !isEditing &&
+    allowedExcellenceModes.length > 0 &&
+    !allowedModeSet.has(draft.excellenceMode)
+  ) {
     setDraft(emptyInputFor(defaultExcellenceMode));
   }
   const showGradePair = draft.excellenceMode === 'TAGDIR';
@@ -787,6 +804,7 @@ function ThanawiForm({
             </div>
             <ExcellenceModeToggle
               value={draft.excellenceMode}
+              allowedModes={allowedExcellenceModes}
               disabled={!canWrite}
               onChange={(next) =>
                 setDraft((d) => ({

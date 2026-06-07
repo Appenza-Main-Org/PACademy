@@ -4,6 +4,8 @@
  * Prop contract:
  *   value: selected criterion branch (`GRADES` = درجة, `TAGDIR` = تقدير)
  *   onChange: receives the next selected branch
+ *   allowedModes: optional list from Applicant Categories lookup; when a
+ *     category allows one criterion, only that button is rendered
  *
  * Usage:
  *   <ExcellenceModeToggle value={draft.excellenceMode} onChange={setMode} />
@@ -16,6 +18,7 @@ interface ExcellenceModeToggleProps {
   value: ExcellenceMode;
   onChange: (next: ExcellenceMode) => void;
   disabled?: boolean;
+  allowedModes?: readonly ExcellenceMode[];
 }
 
 const OPTIONS: ReadonlyArray<{ value: ExcellenceMode; label: string }> = [
@@ -27,14 +30,22 @@ export function ExcellenceModeToggle({
   value,
   onChange,
   disabled = false,
+  allowedModes,
 }: ExcellenceModeToggleProps): JSX.Element {
+  const allowed = new Set(
+    allowedModes && allowedModes.length > 0
+      ? allowedModes
+      : OPTIONS.map((option) => option.value),
+  );
+  const options = OPTIONS.filter((option) => allowed.has(option.value));
+
   return (
     <div
       role="radiogroup"
       aria-label="معيار التمييز"
       className="inline-flex rounded-md border border-border-default bg-surface-card p-0.5"
     >
-      {OPTIONS.map((option) => {
+      {options.map((option) => {
         const selected = option.value === value;
         return (
           <button
