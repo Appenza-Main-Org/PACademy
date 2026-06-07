@@ -116,7 +116,7 @@ export function ApplicantReconciliationTable({
     <Card>
       <CardHeader
         title={<span className="flex items-center gap-2"><Check size={18} /> مراجعة بيانات المتقدمين</span>}
-        subtitle="تغييرات حقل-بحقل قبل التطبيق. اختر ما تريد اعتماده فقط؛ المرفوض لا يُكتب."
+        subtitle="راجع النتائج قبل الاعتماد."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -137,7 +137,7 @@ export function ApplicantReconciliationTable({
         }
       />
       <CardBody className="space-y-3">
-        <div className="grid gap-3 sm:grid-cols-4">
+        <div className="grid gap-2 sm:grid-cols-4">
           <ReconcileCounter label="مطابق" value={preview.counts.matched ?? 0} tone="info" />
           <ReconcileCounter label="غير مطابق" value={preview.counts.unmatched ?? 0} tone="warning" />
           <ReconcileCounter label="به تغييرات" value={preview.counts.withDiff ?? 0} tone="warning" />
@@ -162,9 +162,9 @@ export function ApplicantReconciliationTable({
           </div>
         )}
 
-        <div className="space-y-2">
+        <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface-card">
           {actionableMatched.length === 0 ? (
-            <div className="rounded-md border border-dashed border-border-subtle bg-ink-50 px-3 py-6 text-center text-xs text-ink-500">
+            <div className="px-3 py-6 text-center text-xs text-ink-500">
               لا توجد تغييرات أو نتائج للمعاينة في الصفوف المطابقة.
             </div>
           ) : (
@@ -210,8 +210,8 @@ function ReconcileCounter({
   tone: BadgeTone;
 }): JSX.Element {
   return (
-    <div className="rounded-lg border border-border-subtle bg-ink-50 px-3 py-3">
-      <p className="mb-1 text-2xs text-ink-500">{label}</p>
+    <div className="flex items-center justify-between rounded-md border border-border-subtle bg-ink-50 px-3 py-2">
+      <p className="text-2xs font-semibold text-ink-500">{label}</p>
       <Badge tone={tone}>{value}</Badge>
     </div>
   );
@@ -226,12 +226,13 @@ function ApplicantDiffRow({
   decision: ReconciliationDecisionState | undefined;
   onPatch: (patch: Partial<ReconciliationDecisionState>) => void;
 }): JSX.Element {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const accepted = decision?.acceptedFields ?? new Set<string>();
   const applyWriteback = decision?.applyWriteback ?? false;
   const writeback = row.writeback;
   const hasBlockingWritebackError =
     writeback?.errors.includes('RESULT_VALUE_UNKNOWN') ?? false;
+  const outcomeMeta = getOutcomeMeta(writeback?.outcome ?? null);
 
   function toggleField(field: string): void {
     const next = new Set(accepted);
@@ -247,24 +248,31 @@ function ApplicantDiffRow({
   }
 
   return (
-    <div className="rounded-lg border border-border-subtle bg-surface-card">
-      <button
-        type="button"
-        onClick={() => setExpanded((p) => !p)}
-        className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-start transition-colors hover:bg-ink-50"
-        aria-expanded={expanded}
-      >
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-semibold text-ink-900">{row.fullName ?? '—'}</span>
-          <span dir="ltr" className="font-mono text-2xs text-ink-500">{row.nationalId}</span>
-          {row.fieldDiffs.length > 0 && (
-            <Badge tone="warning">{row.fieldDiffs.length} تغيير</Badge>
-          )}
-          {writeback?.outcome && (
-            <Badge tone={writeback.outcome === 'passed' ? 'success' : 'danger'}>
-              {writeback.outcome === 'passed' ? 'ناجح' : writeback.outcome === 'failed' ? 'راسب' : writeback.outcome}
-            </Badge>
-          )}
+    <article className="border-b border-border-subtle last:border-b-0">
+      <div className="grid gap-3 px-3 py-3 lg:grid-cols-[minmax(16rem,1.1fr)_minmax(24rem,1.5fr)_auto] lg:items-center">
+        <button
+          type="button"
+          onClick={() => setExpanded((p) => !p)}
+          className="flex min-w-0 items-center gap-3 rounded-md text-start transition-colors hover:bg-ink-50 focus-visible:shadow-focus-teal focus-visible:outline-none"
+          aria-expanded={expanded}
+        >
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-ink-50 text-ink-600">
+            {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold text-ink-900">{row.fullName ?? '—'}</span>
+            <span dir="ltr" className="mt-0.5 block font-mono text-2xs text-ink-500">{row.nationalId}</span>
+          </span>
+        </button>
+
+        <div className="grid gap-2 sm:grid-cols-3">
+          <SummaryField label="النتيجة" value={writeback?.resultRaw ?? '—'} badge={outcomeMeta ? <Badge tone={outcomeMeta.tone}>{outcomeMeta.label}</Badge> : null} />
+          <SummaryField label="الاختبار" value={writeback?.testCode ?? '—'} dir="ltr" />
+          <SummaryField label="الموعد التالي" value={writeback?.nextExamDate ?? '—'} dir="ltr" />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+          {row.fieldDiffs.length > 0 && <Badge tone="warning">{row.fieldDiffs.length} تغيير</Badge>}
           {writeback?.errors.map((code) => {
             const meta = ERROR_CODE_LABELS[code];
             return meta ? (
@@ -274,12 +282,32 @@ function ApplicantDiffRow({
               </Badge>
             ) : null;
           })}
+          {writeback?.outcome && (
+            <label
+              className={[
+                'inline-flex h-9 items-center gap-2 rounded-md border px-3 text-2xs font-semibold transition-colors',
+                hasBlockingWritebackError
+                  ? 'cursor-not-allowed border-terra-300 bg-terra-50 text-terra-700 opacity-70'
+                  : applyWriteback
+                    ? 'cursor-pointer border-[var(--accent-500)] bg-[var(--accent-50)] text-ink-900'
+                    : 'cursor-pointer border-border-default bg-surface-card text-ink-700 hover:bg-ink-50',
+              ].join(' ')}
+            >
+              <input
+                type="checkbox"
+                checked={applyWriteback}
+                disabled={hasBlockingWritebackError}
+                onChange={(event) => onPatch({ applyWriteback: event.target.checked })}
+                className="accent-teal-500"
+              />
+              اعتماد
+            </label>
+          )}
         </div>
-        {expanded ? <ChevronUp size={16} className="text-ink-500" /> : <ChevronDown size={16} className="text-ink-500" />}
-      </button>
+      </div>
 
       {expanded && (
-        <div className="border-t border-border-subtle px-3 py-3 space-y-3">
+        <div className="space-y-3 border-t border-border-subtle bg-ink-50 px-3 py-3">
           {row.fieldDiffs.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -343,42 +371,45 @@ function ApplicantDiffRow({
             </div>
           )}
 
-          {writeback?.outcome && (
-            <label
-              className={[
-                'flex items-start gap-3 rounded-md border px-3 py-2.5 transition-colors',
-                hasBlockingWritebackError
-                  ? 'border-terra-300 bg-terra-50 opacity-70 cursor-not-allowed'
-                  : applyWriteback
-                    ? 'border-[var(--accent-500)] bg-[var(--accent-50)] cursor-pointer'
-                    : 'border-border-subtle bg-ink-50 cursor-pointer hover:bg-ink-100',
-              ].join(' ')}
-            >
-              <input
-                type="checkbox"
-                checked={applyWriteback}
-                disabled={hasBlockingWritebackError}
-                onChange={(event) => onPatch({ applyWriteback: event.target.checked })}
-                className="mt-0.5 accent-teal-500"
-              />
-              <div className="min-w-0 flex-1 space-y-1 text-2xs">
-                <p className="font-semibold text-ink-800">
-                  اعتماد النتيجة + الموعد التالي
-                </p>
-                <div className="grid gap-1 sm:grid-cols-3 text-ink-600">
-                  <span>النتيجة: <span className="font-semibold text-ink-900">{writeback.resultRaw}</span></span>
-                  {writeback.testCode && (
-                    <span>الاختبار: <span className="font-mono text-ink-700" dir="ltr">{writeback.testCode}</span></span>
-                  )}
-                  {writeback.nextExamDate && (
-                    <span>التالي: <span className="font-mono text-ink-700" dir="ltr">{writeback.nextExamDate}</span></span>
-                  )}
-                </div>
-              </div>
-            </label>
+          {row.fieldDiffs.length === 0 && (
+            <p className="rounded-md border border-border-subtle bg-surface-card px-3 py-2 text-2xs text-ink-500">
+              لا توجد تعديلات حقول، هذا الصف يحتوي على نتيجة اختبار فقط.
+            </p>
           )}
         </div>
       )}
+    </article>
+  );
+}
+
+function SummaryField({
+  label,
+  value,
+  badge,
+  dir,
+}: {
+  label: string;
+  value: string;
+  badge?: JSX.Element | null;
+  dir?: 'ltr' | 'rtl';
+}): JSX.Element {
+  return (
+    <div className="min-w-0 rounded-md border border-border-subtle bg-ink-50 px-3 py-2">
+      <p className="mb-1 text-[10px] font-semibold text-ink-400">{label}</p>
+      <div className="flex min-h-5 items-center gap-2">
+        <span dir={dir} className="truncate font-mono text-2xs font-semibold text-ink-800">
+          {value}
+        </span>
+        {badge}
+      </div>
     </div>
   );
+}
+
+function getOutcomeMeta(outcome: string | null): { label: string; tone: BadgeTone } | null {
+  if (!outcome) return null;
+  if (outcome === 'passed') return { label: 'ناجح', tone: 'success' };
+  if (outcome === 'failed') return { label: 'راسب', tone: 'danger' };
+  if (outcome === 'in-progress') return { label: 'مؤجل', tone: 'warning' };
+  return { label: outcome, tone: 'neutral' };
 }
