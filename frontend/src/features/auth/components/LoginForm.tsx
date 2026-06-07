@@ -45,6 +45,15 @@ function landingRoute(landing: RoleTileLanding, user: AuthUser): string {
   }
 }
 
+function routeMatchesLanding(route: string, landing: RoleTileLanding): boolean {
+  if (landing === 'barcode') return route === ROUTES.barcode.overview || route.startsWith(`${ROUTES.barcode.overview}/`);
+  if (landing === 'biometric') return route === ROUTES.biometric.overview || route.startsWith(`${ROUTES.biometric.overview}/`);
+  if (landing === 'exams') {
+    return route === ROUTES.questionBank.overview || route.startsWith(`${ROUTES.questionBank.overview}/`);
+  }
+  return false;
+}
+
 const loginSchema = z.object({
   username: z
     .string()
@@ -100,10 +109,10 @@ export function LoginForm(): JSX.Element {
     }, {
       onSuccess: (user) => {
         toast('تم تسجيل الدخول بنجاح', 'success');
-        /* If the user was bounced here from a protected URL, send them back.
-         * AuthGuard will re-deny if their role lacks access and route them
-         * to their default landing — so we don't need to pre-check here. */
-        if (redirectTo) {
+        /* A stale protected-route return can outlive the previous session in
+         * browser history. Only honor it when it matches the app tile the user
+         * explicitly picked on this submit. */
+        if (redirectTo && routeMatchesLanding(redirectTo, selectedTile.landing)) {
           navigate(redirectTo, { replace: true });
           return;
         }
