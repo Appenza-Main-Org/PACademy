@@ -22,7 +22,6 @@ import { useCallback, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  CalendarRange,
   Pencil,
   Plus,
   RotateCcw,
@@ -81,12 +80,6 @@ const CYCLE_DEP_LABELS: Record<string, string> = {
   examPlans: 'خطة اختبار',
 };
 
-/* Published rows bubble to the top because they are the active cycle. */
-const LIST_STATUS_PRIORITY: Record<CycleListStatus, number> = {
-  published: 0,
-  review: 1,
-};
-
 const CYCLE_PERIODS_STALE_TIME_MS = 15_000;
 
 function cycleSortTime(cycle: AdmissionCycle): number {
@@ -133,10 +126,6 @@ export function CyclesPage(): JSX.Element {
   const sortedCycles = useMemo(() => {
     const rows = [...(data ?? [])];
     rows.sort((a, b) => {
-      const byStatus =
-        LIST_STATUS_PRIORITY[toListStatus(a.status)] -
-        LIST_STATUS_PRIORITY[toListStatus(b.status)];
-      if (byStatus !== 0) return byStatus;
       const byUpdated = cycleSortTime(b) - cycleSortTime(a);
       if (byUpdated !== 0) return byUpdated;
       return a.nameAr.localeCompare(b.nameAr, 'ar');
@@ -336,12 +325,12 @@ export function CyclesPage(): JSX.Element {
         }
         const setupSlot = (
           <Button
-            variant="primary"
+            variant={toListStatus(c.status) === 'published' ? 'secondary' : 'primary'}
             size="sm"
             leadingIcon={<Settings2 size={12} strokeWidth={1.75} />}
             onClick={() => openSetupWizard(c.id)}
           >
-            إعداد التقديم
+            {toListStatus(c.status) === 'published' ? 'عرض الإعداد' : 'إعداد التقديم'}
           </Button>
         );
 
@@ -402,61 +391,32 @@ export function CyclesPage(): JSX.Element {
         />
 
         <section className="mb-4">
-          {activeCycle ? (
-            <Card variant="elevated" className="overflow-hidden p-0">
-              <div className="flex flex-wrap items-center justify-between gap-4 p-5">
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="inline-flex size-12 shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-700">
-                    <CalendarRange size={22} strokeWidth={1.75} />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge tone={LIST_STATUS_TONE[toListStatus(activeCycle.status)]}>
-                        {LIST_STATUS_LABEL[toListStatus(activeCycle.status)]}
-                      </Badge>
-                    </div>
-                    <p className="m-0 mt-3 font-ar text-xs font-medium text-ink-500">
-                      الدورة المعتمدة والمنشورة الآن
-                    </p>
-                    <h2 className="m-0 mt-1 font-ar-display text-2xl font-bold leading-9 text-ink-900">
-                      {activeCycle.nameAr}
-                    </h2>
-                    <p className="m-0 mt-2 font-ar text-sm text-ink-600">
-                      فترة التقديم:{' '}
-                      <span className="font-numeric tnum" dir="ltr">
-                        {formatApplicationPeriod(getApplicationPeriod(activeCycle))}
-                      </span>
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  variant="primary"
-                  leadingIcon={<Settings2 size={14} strokeWidth={1.75} />}
-                  onClick={() => openSetupWizard(activeCycle.id)}
-                >
-                  إعداد التقديم
-                </Button>
+          <Card variant="elevated" className="flex min-h-[8rem] flex-wrap items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                {activeCycle ? (
+                  <Badge tone={LIST_STATUS_TONE[toListStatus(activeCycle.status)]}>
+                    الدورة المنشورة: {activeCycle.nameAr}
+                  </Badge>
+                ) : (
+                  <Badge tone="warning">لا توجد دورة في اعتماد ونشر</Badge>
+                )}
               </div>
-            </Card>
-          ) : (
-            <Card variant="elevated" className="flex min-h-[12rem] items-center justify-between gap-4">
-              <div>
-                <h2 className="m-0 font-ar-display text-xl font-bold text-ink-900">
-                  لا توجد دورة نشطة
-                </h2>
-                <p className="m-0 mt-2 font-ar text-sm text-ink-500">
-                  يمكن إعداد التقديم من أي دورة قيد المراجعة. تظهر الدورة للمتقدمين فقط بعد الاعتماد والنشر.
-                </p>
-              </div>
-              <Button
-                variant="primary"
-                leadingIcon={<Plus size={14} strokeWidth={1.75} />}
-                onClick={() => navigate(ROUTES.admin.cycleNew)}
-              >
-                إضافة دورة
-              </Button>
-            </Card>
-          )}
+              <h2 className="m-0 mt-3 font-ar-display text-xl font-bold text-ink-900">
+                إعداد التقديم متاح للدورات في إدراج ومراجعة
+              </h2>
+              <p className="m-0 mt-2 font-ar text-sm text-ink-500">
+                استخدم زر إعداد التقديم في صف الدورة. بعد اعتماد ونشر الدورة تصبح إعداداتها للعرض فقط، ولا تبقى أكثر من دورة واحدة في اعتماد ونشر.
+              </p>
+            </div>
+            <Button
+              variant="primary"
+              leadingIcon={<Plus size={14} strokeWidth={1.75} />}
+              onClick={() => navigate(ROUTES.admin.cycleNew)}
+            >
+              إضافة دورة
+            </Button>
+          </Card>
         </section>
 
         <Card className="p-0">
@@ -536,10 +496,6 @@ async function fetchCycleApplicationPeriods(
       entry !== null,
     ),
   );
-}
-
-function formatApplicationPeriod(period: CycleApplicationPeriod): string {
-  return `${period.startDate || '—'} → ${period.endDate || '—'}`;
 }
 
 function CycleDateCell({ value }: { value: string }): JSX.Element {

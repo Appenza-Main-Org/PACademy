@@ -19,7 +19,7 @@ import {
 import { ROUTES } from '@/config/routes';
 import { hasPermission, useAuthStore } from '@/features/auth';
 import {
-  useCycleActivate,
+  useCycleSwapActive,
   useCycleTransition,
 } from '@/features/admin/api/cycles.queries';
 import { useAdmissionSetupCycle } from '../hooks/useAdmissionSetupCycle';
@@ -42,7 +42,7 @@ export function WizardReviewPage({ statusInputs }: WizardReviewPageProps): JSX.E
   const { cycle } = cycleCtx;
   const user = useAuthStore((s) => s.user);
   const canWrite = Boolean(user && hasPermission(user.permissions, 'admission-setup:write'));
-  const activateMut = useCycleActivate();
+  const activateMut = useCycleSwapActive();
   const transitionMut = useCycleTransition();
 
   if (!cycle) {
