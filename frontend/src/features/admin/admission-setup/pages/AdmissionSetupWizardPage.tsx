@@ -27,7 +27,7 @@
  * breadcrumb/header — the wizard owns all chrome at this level.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
 import {
@@ -122,6 +122,7 @@ export function AdmissionSetupWizardPage(): JSX.Element {
     useState<ExamPlanStepDraftState | null>(null);
   const [isSavingExamStep, setIsSavingExamStep] = useState(false);
   const [isApplicationSettingsHydrated, setIsApplicationSettingsHydrated] = useState(false);
+  const hydratedCycleRef = useRef<string | null>(null);
 
   /* Sorted once; ADMISSION_SETUP_STEPS already arrives in order but the
    * sort is cheap and guards against config drift. */
@@ -184,13 +185,21 @@ export function AdmissionSetupWizardPage(): JSX.Element {
 
   useEffect(() => {
     if (!cycleId) {
+      hydratedCycleRef.current = null;
+      setIsApplicationSettingsHydrated(true);
+      return;
+    }
+    if (hydratedCycleRef.current === cycleId) {
       setIsApplicationSettingsHydrated(true);
       return;
     }
     let cancelled = false;
     setIsApplicationSettingsHydrated(false);
     void hydrateApplicationSettingsCycleDraft(cycleId).finally(() => {
-      if (!cancelled) setIsApplicationSettingsHydrated(true);
+      if (!cancelled) {
+        hydratedCycleRef.current = cycleId;
+        setIsApplicationSettingsHydrated(true);
+      }
     });
     return () => {
       cancelled = true;

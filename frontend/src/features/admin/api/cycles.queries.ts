@@ -94,10 +94,11 @@ export function useCycle(id: string | null) {
   });
 }
 
-export function useActiveCycle() {
+export function useActiveCycle(enabled = true) {
   return useQuery({
     queryKey: cyclesKeys.active(),
     queryFn: () => cyclesService.getActive(),
+    enabled,
     ...cycleQueryOptions,
   });
 }
