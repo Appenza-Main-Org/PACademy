@@ -13,7 +13,7 @@
  * /applicant/profile/family.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Copy, CreditCard, Loader2, RefreshCw, Receipt } from 'lucide-react';
 import { Button, Card, ErrorState, LoadingState, Modal, toast } from '@/shared/components';
@@ -24,7 +24,7 @@ import {
   useCreatePaymentIntent,
   usePaymentConfig,
 } from '../api/applicantPortal.queries';
-import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
+import { MOI_APPLICANT_SESSION, mockMoiLookup } from '../lib/moi-session.mock';
 import { loadProfileSnapshot } from '../lib/profileData';
 import { validateProfileBeforePayment } from '../lib/profileValidation';
 import { cn } from '@/shared/lib/cn';
@@ -43,6 +43,7 @@ export function Stage6PaymentPage(): JSX.Element {
   const selectedFaculty = useApplicantPortalStore((s) => s.selectedFaculty);
   const selectedSpecialization = useApplicantPortalStore((s) => s.selectedSpecialization);
   const moiSession = useApplicantPortalStore((s) => s.moiSession);
+  const nationalId = useApplicantPortalStore((s) => s.nationalId);
   const paymentConfig = usePaymentConfig();
   const createIntent = useCreatePaymentIntent();
   const { mutateAsync: createPaymentIntent, isPending: isCreatingPaymentIntent } = createIntent;
@@ -63,9 +64,14 @@ export function Stage6PaymentPage(): JSX.Element {
    *  until the applicant clicks "إنشاء كود جديد". */
   const [expiresAt, setExpiresAt] = useState<number>(() => Date.now() + DEMO_FAWRY_TTL_MS);
   const [now, setNow] = useState<number>(() => Date.now());
+  const effectiveMoiSession = useMemo(() => {
+    if (moiSession) return moiSession;
+    if (!nationalId) return null;
+    const lookup = mockMoiLookup(nationalId);
+    return lookup.kind === 'eligible' || lookup.kind === 'ineligible' ? lookup.session : null;
+  }, [moiSession, nationalId]);
   const profileValidation = validateProfileBeforePayment(loadProfileSnapshot(), {
-    isMoiVerified: moiSession !== null,
-    moiSession,
+    moiSession: effectiveMoiSession,
     selectedCategoryKey,
     selectedFaculty,
     selectedSpecialization,
