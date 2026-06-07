@@ -170,15 +170,17 @@ export function ApplicantReconciliationTable({
               لا توجد تغييرات أو نتائج للمعاينة في الصفوف المطابقة.
             </div>
           ) : (
-            actionableMatched.map((row) => (
-              <ApplicantDiffRow
-                key={row.nationalId}
-                row={row}
-                decision={decisions.get(row.nationalId)}
-                testNameByCode={testNameByCode}
-                onPatch={(patch) => patchDecision(row.nationalId, patch)}
-              />
-            ))
+            <div className="max-h-[60vh] overflow-y-auto overscroll-contain">
+              {actionableMatched.map((row) => (
+                <ApplicantDiffRow
+                  key={row.nationalId}
+                  row={row}
+                  decision={decisions.get(row.nationalId)}
+                  testNameByCode={testNameByCode}
+                  onPatch={(patch) => patchDecision(row.nationalId, patch)}
+                />
+              ))}
+            </div>
           )}
         </div>
 
