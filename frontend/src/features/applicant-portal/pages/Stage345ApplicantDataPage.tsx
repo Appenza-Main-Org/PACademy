@@ -469,8 +469,6 @@ export function Stage345ApplicantDataPage(): JSX.Element {
   } = useForm<Stage345Values>({
     resolver: zodResolver(stage345Schema),
     defaultValues: {
-      bachelorMajor: '',
-      bachelorBranch: '',
       bachelorSpecialization: '',
       bachelorFaculty: '',
       bachelorUniversity: '',
@@ -696,8 +694,6 @@ export function Stage345ApplicantDataPage(): JSX.Element {
   useEffect(() => {
     if (nid !== SUBMITTED_APPLICANT_NID) return;
     const p = SUBMITTED_APPLICANT_PROFILE;
-    setValue('bachelorMajor', p.bachelorMajor);
-    setValue('bachelorBranch', p.bachelorBranch);
     setValue('bachelorSpecialization', p.bachelorSpecialization);
     setValue('bachelorFaculty', p.bachelorFaculty);
     setValue('bachelorUniversity', p.bachelorUniversity);
@@ -806,8 +802,6 @@ export function Stage345ApplicantDataPage(): JSX.Element {
           requireFormField('bachelorSpecialization', values.bachelorSpecialization);
         }
         if (!isLawBachelor) {
-          requireFormField('bachelorMajor', values.bachelorMajor);
-          requireFormField('bachelorBranch', values.bachelorBranch);
           requireFormField('bachelorPercentage', values.bachelorPercentage);
         }
         requireFormField('bachelorYear', values.bachelorYear);
@@ -1015,22 +1009,6 @@ export function Stage345ApplicantDataPage(): JSX.Element {
                     )}
                   />
                 </Field>
-              )}
-              {!isLawBachelor && (
-                <Input
-                  label="المجموعة"
-                  required
-                  {...register('bachelorMajor')}
-                  error={errors.bachelorMajor?.message}
-                />
-              )}
-              {!isLawBachelor && (
-                <Input
-                  label="الشعبة"
-                  required
-                  {...register('bachelorBranch')}
-                  error={errors.bachelorBranch?.message}
-                />
               )}
               {!isLawBachelor && (
                 <Input

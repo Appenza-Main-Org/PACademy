@@ -272,8 +272,6 @@ export function ApplicantPortalPage(): JSX.Element {
           ...(profile.thanawiPercentage != null ? [{ label: 'النسبة المئوية للثانوية العامة', value: `${profile.thanawiPercentage}%`, ltr: true }]          : []),
           ...(profile.bachelorFaculty       ? [{ label: 'الكلية',                         value: profile.bachelorFaculty }]                              : []),
           ...(profile.bachelorUniversity    ? [{ label: 'الجامعة',                        value: `جامعة ${profile.bachelorUniversity}` }]                : []),
-          ...(profile.bachelorMajor         ? [{ label: 'المجموعة',                       value: profile.bachelorMajor }]                                : []),
-          ...(profile.bachelorBranch        ? [{ label: 'الشعبة (المؤهل العالي)',          value: profile.bachelorBranch }]                               : []),
           ...(profile.bachelorSpecialization ? [{ label: 'التخصص',                        value: profile.bachelorSpecialization }]                       : []),
           ...(typeof profile.bachelorGrade === 'string' && profile.bachelorGrade ? [{ label: 'تقدير الجامعة',                  value: profile.bachelorGrade }] : []),
           ...(profile.bachelorPercentage != null ? [{ label: 'النسبة المئوية للجامعة',     value: `${profile.bachelorPercentage}%`, ltr: true }]           : []),

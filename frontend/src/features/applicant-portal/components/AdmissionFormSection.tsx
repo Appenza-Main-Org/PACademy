@@ -103,15 +103,14 @@ export function AdmissionFormSection({
   /* The PDF reads «المؤهل» as the bachelor degree title (دبلوم/ليسانس/بكالوريوس/…)
    * not the level code. Fall back to a sensible textual description if
    * the profile only carries the level. */
-  const bachelorMajorText = readProfileString(submittedProfile, 'bachelorMajor') || v?.bachelorMajor || '';
   const qualificationLevel =
     readProfileString(submittedProfile, 'qualificationLevel') || profile?.qualificationLevel || '';
-  const qualificationText = bachelorMajorText ||
-    (qualificationLevel === 'master'
+  const qualificationText =
+    qualificationLevel === 'master'
       ? 'ماجستير'
       : qualificationLevel === 'doctorate'
         ? 'دكتوراه'
-        : 'بكالوريوس');
+        : 'بكالوريوس';
 
   const addressLine = [
     readProfileString(submittedProfile, 'currentAddressDetail') || v?.currentAddressDetail,

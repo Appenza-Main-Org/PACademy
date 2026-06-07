@@ -61,8 +61,6 @@ export type Stage6Values = z.infer<typeof stage6Schema>;
 export const stage345Schema = z
   .object({
     /* Bachelor block — required only when category !== officers_general. */
-    bachelorMajor: z.string().optional().or(z.literal('')),
-    bachelorBranch: z.string().optional().or(z.literal('')),
     bachelorSpecialization: z.string().optional().or(z.literal('')),
     bachelorFaculty: z.string().optional().or(z.literal('')),
     bachelorUniversity: z.string().optional().or(z.literal('')),

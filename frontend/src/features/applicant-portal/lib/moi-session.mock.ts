@@ -289,8 +289,6 @@ export const SUBMITTED_APPLICANT_PROFILE = {
   shuhra: 'يوسف عمر',
   maritalStatus: 'single' as const,
   /* Bachelor */
-  bachelorMajor: 'علوم سياسية',
-  bachelorBranch: 'دراسات استراتيجية',
   bachelorSpecialization: 'سياسات أمنية',
   bachelorFaculty: 'الحقوق',
   bachelorUniversity: 'القاهرة',

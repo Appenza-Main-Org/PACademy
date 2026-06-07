@@ -111,8 +111,6 @@ function validateUniversityFields(
     addIfBlank(messages, 'الكلية', context.selectedFaculty ?? values.bachelorFaculty);
     addIfBlank(messages, 'التخصص', context.selectedSpecialization ?? values.bachelorSpecialization);
     if (context.selectedCategoryKey !== 'law_bachelor') {
-      addIfBlank(messages, 'المجموعة', values.bachelorMajor);
-      addIfBlank(messages, 'الشعبة', values.bachelorBranch);
       addIfMissingNumber(messages, 'النسبة المئوية للجامعة', values.bachelorPercentage);
     }
     addIfMissingNumber(messages, 'سنة التخرج', values.bachelorYear);
