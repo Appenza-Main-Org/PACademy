@@ -20,8 +20,8 @@
  */
 
 import { useEffect, useMemo, type ReactNode } from 'react';
-import { Check, CheckCircle2, ShieldAlert, X } from 'lucide-react';
-import { Badge, Button, Card, CardBody } from '@/shared/components';
+import { Check, CheckCircle2, ListChecks, ShieldAlert, X } from 'lucide-react';
+import { Accordion, Badge, Button, Card, CardBody } from '@/shared/components';
 import { useImportWizardStore } from '../../../store/importWizard.store';
 import type {
   ExistingDiffDecision,
@@ -308,6 +308,22 @@ export function Step6ChangesReview(): JSX.Element {
       : outOfRangeRows.length > 0 && rejectedOutOfRangeCount === outOfRangeRows.length
         ? 'reject'
         : null;
+  const rejectedReviewRows = useMemo(
+    () =>
+      integrityRows.filter((row) => {
+        if (isInformationalAuditCode(row.code)) return false;
+        if (row.code === 'GRADE_OUT_OF_RANGE') {
+          return outOfRangeDecisions[row.sourceRowIndex] === 'reject';
+        }
+        return true;
+      }),
+    [integrityRows, outOfRangeDecisions],
+  );
+  const actionRequiredCount =
+    uploadDuplicates.length + outOfRangeRows.length + diffs.length;
+  const actionAccordionDefault = actionRequiredCount > 0 ? ['action-required'] : [];
+  const rejectedAccordionDefault =
+    actionRequiredCount === 0 && rejectedReviewRows.length > 0 ? ['rejected-records'] : [];
 
   function acceptAllOutOfRangeRows(): void {
     const next = { ...outOfRangeDecisions };
@@ -375,93 +391,145 @@ export function Step6ChangesReview(): JSX.Element {
       {alreadyImported.length > 0 && (
         <AlreadyImportedBanner count={alreadyImported.length} />
       )}
-      {nidValidationReportRows.length > 0 && (
-        <NidValidationReport rows={nidValidationReportRows} />
-      )}
-      {hardInvalidRows.length > 0 && <HardInvalidSection rows={hardInvalidRows} />}
-      {uploadDuplicates.length > 0 && (
-        <UploadDuplicatesSection
-          duplicates={uploadDuplicates}
-          decisions={uploadDuplicateDecisions}
-          undecidedCount={undecidedUploadDuplicates}
-          bulkMode={uploadBulkMode}
-          onSetDecision={setUploadDuplicateDecision}
-          onAcceptAll={acceptAllUploadDuplicates}
-          onRejectAll={rejectAllUploadDuplicates}
-        />
-      )}
+      {actionRequiredCount > 0 && (
+        <ReviewDisclosure
+          value="action-required"
+          defaultValue={actionAccordionDefault}
+          tone="warning"
+          title="سجلات تحتاج إجراء من المسؤول"
+          subtitle="افتح القسم لمعالجة التكرارات أو الدرجات المتجاوزة أو تغييرات السجلات الحالية."
+          count={actionRequiredCount}
+        >
+          <ActionRequiredTable
+            uploadDuplicateCount={uploadDuplicates.length}
+            uploadDuplicatePending={undecidedUploadDuplicates}
+            outOfRangeCount={outOfRangeRows.length}
+            outOfRangePending={pendingOutOfRangeRowCount}
+            diffCount={diffs.length}
+            diffPending={pendingCount}
+          />
 
-      {outOfRangeRows.length > 0 && (
-        <OutOfRangeSection
-          rows={outOfRangeRows}
-          decisions={outOfRangeDecisions}
-          pendingCount={pendingOutOfRangeRowCount}
-          bulkMode={outOfRangeBulkMode}
-          onSetDecision={setOutOfRangeDecision}
-          onAcceptAll={acceptAllOutOfRangeRows}
-          onRejectAll={rejectAllOutOfRangeRows}
-        />
-      )}
-
-      {diffs.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <header className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border-subtle bg-ink-50/40 px-3.5 py-2.5">
-            <div className="flex items-center gap-2 text-xs text-ink-700">
-              <ShieldAlert
-                size={14}
-                strokeWidth={1.75}
-                className="text-gold-700"
-                aria-hidden
-              />
-              <span>
-                <span className="font-numeric font-bold text-ink-900">
-                  {diffs.length.toLocaleString('en')}
-                </span>{' '}
-                سجلات موجودة قد تتأثر —
-                <span className="me-1 ms-1 text-2xs text-teal-700">
-                  مقبول:{' '}
-                  <span className="font-numeric font-bold">
-                    {acceptedCount.toLocaleString('en')}
-                  </span>
-                </span>
-                <span className="text-2xs text-terra-700">
-                  مرفوض:{' '}
-                  <span className="font-numeric font-bold">
-                    {rejectedCount.toLocaleString('en')}
-                  </span>
-                </span>
-                <span className="me-1 ms-1 text-2xs text-ink-500">
-                  قيد القرار:{' '}
-                  <span className="font-numeric font-bold">
-                    {pendingCount.toLocaleString('en')}
-                  </span>
-                </span>
-          </span>
-            </div>
-            <BulkDecisionToggle
-              mode={diffBulkMode}
-              acceptLabel="قبول الكل"
-              rejectLabel="رفض الكل"
-              onAccept={acceptAllDiffs}
-              onReject={rejectAllDiffs}
-              disabled={diffs.length === 0}
-            />
-          </header>
-
-          <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
-            {diffs.map((d) => (
-              <li key={d.nationalId}>
-                <DiffCard
-                  diff={d}
-                  decision={existingDiffDecisions[d.nationalId] ?? 'pending'}
-                  onDecide={(decision) =>
-                    setExistingDiffDecision(d.nationalId, decision)
+          <Accordion type="multiple" className="mt-3 rounded-md border border-border-subtle bg-white">
+            {uploadDuplicates.length > 0 && (
+              <Accordion.Item value="upload-duplicates">
+                <Accordion.HeaderRow
+                  trigger={<DetailTrigger title="تكرارات داخل الملف" count={uploadDuplicates.length} />}
+                  actions={
+                    <BulkDecisionToggle
+                      mode={uploadBulkMode}
+                      acceptLabel="قبول الكل"
+                      rejectLabel="رفض الكل"
+                      onAccept={acceptAllUploadDuplicates}
+                      onReject={rejectAllUploadDuplicates}
+                    />
                   }
                 />
-              </li>
-            ))}
-          </ul>
-        </section>
+                <Accordion.Content>
+                  <UploadDuplicatesSection
+                    duplicates={uploadDuplicates}
+                    decisions={uploadDuplicateDecisions}
+                    undecidedCount={undecidedUploadDuplicates}
+                    bulkMode={uploadBulkMode}
+                    onSetDecision={setUploadDuplicateDecision}
+                    onAcceptAll={acceptAllUploadDuplicates}
+                    onRejectAll={rejectAllUploadDuplicates}
+                  />
+                </Accordion.Content>
+              </Accordion.Item>
+            )}
+            {outOfRangeRows.length > 0 && (
+              <Accordion.Item value="out-of-range">
+                <Accordion.HeaderRow
+                  trigger={<DetailTrigger title="درجات خارج النطاق" count={outOfRangeRows.length} />}
+                  actions={
+                    <BulkDecisionToggle
+                      mode={outOfRangeBulkMode}
+                      acceptLabel="قبول الكل"
+                      rejectLabel="رفض الكل"
+                      onAccept={acceptAllOutOfRangeRows}
+                      onReject={rejectAllOutOfRangeRows}
+                    />
+                  }
+                />
+                <Accordion.Content>
+                  <OutOfRangeSection
+                    rows={outOfRangeRows}
+                    decisions={outOfRangeDecisions}
+                    pendingCount={pendingOutOfRangeRowCount}
+                    bulkMode={outOfRangeBulkMode}
+                    onSetDecision={setOutOfRangeDecision}
+                    onAcceptAll={acceptAllOutOfRangeRows}
+                    onRejectAll={rejectAllOutOfRangeRows}
+                  />
+                </Accordion.Content>
+              </Accordion.Item>
+            )}
+            {diffs.length > 0 && (
+              <Accordion.Item value="existing-diffs">
+                <Accordion.HeaderRow
+                  trigger={<DetailTrigger title="تغييرات على سجلات موجودة" count={diffs.length} />}
+                  actions={
+                    <BulkDecisionToggle
+                      mode={diffBulkMode}
+                      acceptLabel="قبول الكل"
+                      rejectLabel="رفض الكل"
+                      onAccept={acceptAllDiffs}
+                      onReject={rejectAllDiffs}
+                      disabled={diffs.length === 0}
+                    />
+                  }
+                />
+                <Accordion.Content>
+                  <ExistingDiffsSection
+                    diffs={diffs}
+                    acceptedCount={acceptedCount}
+                    rejectedCount={rejectedCount}
+                    pendingCount={pendingCount}
+                    decisions={existingDiffDecisions}
+                    onSetDecision={setExistingDiffDecision}
+                  />
+                </Accordion.Content>
+              </Accordion.Item>
+            )}
+          </Accordion>
+        </ReviewDisclosure>
+      )}
+
+      {rejectedReviewRows.length > 0 && (
+        <ReviewDisclosure
+          value="rejected-records"
+          defaultValue={rejectedAccordionDefault}
+          tone="danger"
+          title="السجلات المرفوضة"
+          subtitle="هذه الصفوف لن تُكتب قبل تصحيح الملف أو تغيير القرار."
+          count={rejectedReviewRows.length}
+        >
+          <RejectedRecordsTable rows={rejectedReviewRows} />
+          {(nidValidationReportRows.length > 0 || hardInvalidRows.length > 0) && (
+            <Accordion type="multiple" className="mt-3 rounded-md border border-border-subtle bg-white">
+              {nidValidationReportRows.length > 0 && (
+                <Accordion.Item value="nid-details">
+                  <Accordion.Trigger>
+                    <DetailTrigger title="تفاصيل الرقم القومي" count={nidValidationReportRows.length} />
+                  </Accordion.Trigger>
+                  <Accordion.Content>
+                    <NidValidationReport rows={nidValidationReportRows} />
+                  </Accordion.Content>
+                </Accordion.Item>
+              )}
+              {hardInvalidRows.length > 0 && (
+                <Accordion.Item value="hard-invalid">
+                  <Accordion.Trigger>
+                    <DetailTrigger title="تفاصيل البيانات الناقصة" count={hardInvalidRows.length} />
+                  </Accordion.Trigger>
+                  <Accordion.Content>
+                    <HardInvalidSection rows={hardInvalidRows} />
+                  </Accordion.Content>
+                </Accordion.Item>
+              )}
+            </Accordion>
+          )}
+        </ReviewDisclosure>
       )}
     </div>
   );
@@ -528,6 +596,276 @@ function DecisionStat({
     <div className={`border-e border-border-subtle px-3 py-2.5 last:border-e-0 ${toneClass}`}>
       <div className="text-2xs">{label}</div>
       <div className="mt-1 font-numeric text-xl font-bold">{value.toLocaleString('en')}</div>
+    </div>
+  );
+}
+
+interface ReviewDisclosureProps {
+  value: string;
+  defaultValue: string[];
+  tone: 'warning' | 'danger';
+  title: string;
+  subtitle: string;
+  count: number;
+  children: ReactNode;
+}
+
+function ReviewDisclosure({
+  value,
+  defaultValue,
+  tone,
+  title,
+  subtitle,
+  count,
+  children,
+}: ReviewDisclosureProps): JSX.Element {
+  const toneClass =
+    tone === 'danger'
+      ? 'border-terra-200 bg-terra-50 text-terra-700'
+      : 'border-gold-200 bg-gold-50 text-gold-700';
+  return (
+    <Accordion
+      type="multiple"
+      defaultValue={defaultValue}
+      className="overflow-hidden rounded-md border border-border-subtle bg-white"
+    >
+      <Accordion.Item value={value}>
+        <Accordion.Trigger className={toneClass} contentClassName="min-w-0">
+          <span className="flex min-w-0 items-center gap-2">
+            <ListChecks size={15} strokeWidth={1.75} aria-hidden className="shrink-0" />
+            <span className="flex min-w-0 flex-col gap-0.5">
+              <span className="flex items-center gap-2 text-sm font-bold text-ink-900">
+                {title}
+                <Badge tone={tone} className="shrink-0">
+                  <span className="font-en tabular-nums">{count.toLocaleString('en')}</span>
+                </Badge>
+              </span>
+              <span className="truncate text-2xs font-normal text-ink-600">{subtitle}</span>
+            </span>
+          </span>
+        </Accordion.Trigger>
+        <Accordion.Content className="bg-white">
+          {children}
+        </Accordion.Content>
+      </Accordion.Item>
+    </Accordion>
+  );
+}
+
+function DetailTrigger({
+  title,
+  count,
+}: {
+  title: string;
+  count: number;
+}): JSX.Element {
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <span className="truncate text-sm font-semibold text-ink-900">{title}</span>
+      <Badge tone="neutral">
+        <span className="font-en tabular-nums">{count.toLocaleString('en')}</span>
+      </Badge>
+    </span>
+  );
+}
+
+function ActionRequiredTable({
+  uploadDuplicateCount,
+  uploadDuplicatePending,
+  outOfRangeCount,
+  outOfRangePending,
+  diffCount,
+  diffPending,
+}: {
+  uploadDuplicateCount: number;
+  uploadDuplicatePending: number;
+  outOfRangeCount: number;
+  outOfRangePending: number;
+  diffCount: number;
+  diffPending: number;
+}): JSX.Element {
+  const rows = [
+    {
+      label: 'تكرارات داخل الملف',
+      count: uploadDuplicateCount,
+      pending: uploadDuplicatePending,
+      action: 'اختيار الصف المعتمد أو رفض الطالب',
+    },
+    {
+      label: 'درجات خارج النطاق',
+      count: outOfRangeCount,
+      pending: outOfRangePending,
+      action: 'قبول التجاوز أو رفض الصف',
+    },
+    {
+      label: 'تغييرات على سجلات موجودة',
+      count: diffCount,
+      pending: diffPending,
+      action: 'قبول التغييرات أو ترك السجل الحالي',
+    },
+  ].filter((row) => row.count > 0);
+
+  return (
+    <div className="overflow-hidden rounded-md border border-border-subtle">
+      <table className="w-full border-collapse text-xs">
+        <caption className="sr-only">سجلات تحتاج إجراء من المسؤول</caption>
+        <thead className="bg-ink-50/70 text-2xs uppercase text-ink-500">
+          <tr>
+            <th scope="col" className="border-b border-border-subtle px-3 py-2 text-start font-semibold">
+              نوع الإجراء
+            </th>
+            <th scope="col" className="border-b border-border-subtle px-3 py-2 text-end font-semibold">
+              العدد
+            </th>
+            <th scope="col" className="border-b border-border-subtle px-3 py-2 text-end font-semibold">
+              قيد القرار
+            </th>
+            <th scope="col" className="border-b border-border-subtle px-3 py-2 text-start font-semibold">
+              المطلوب
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.label} className="border-t border-border-subtle first:border-t-0">
+              <th scope="row" className="px-3 py-2 text-start font-semibold text-ink-900">
+                {row.label}
+              </th>
+              <td className="px-3 py-2 text-end font-en font-bold tabular-nums text-ink-900">
+                {row.count.toLocaleString('en')}
+              </td>
+              <td className="px-3 py-2 text-end">
+                <Badge tone={row.pending > 0 ? 'warning' : 'success'}>
+                  <span className="font-en tabular-nums">{row.pending.toLocaleString('en')}</span>
+                </Badge>
+              </td>
+              <td className="px-3 py-2 text-ink-600">{row.action}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ExistingDiffsSection({
+  diffs,
+  acceptedCount,
+  rejectedCount,
+  pendingCount,
+  decisions,
+  onSetDecision,
+}: {
+  diffs: ExistingDiff[];
+  acceptedCount: number;
+  rejectedCount: number;
+  pendingCount: number;
+  decisions: Record<string, ExistingDiffDecision>;
+  onSetDecision: (nationalId: string, decision: ExistingDiffDecision) => void;
+}): JSX.Element {
+  return (
+    <section className="flex flex-col gap-3">
+      <header className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border-subtle bg-ink-50/40 px-3.5 py-2.5">
+        <div className="flex items-center gap-2 text-xs text-ink-700">
+          <ShieldAlert size={14} strokeWidth={1.75} className="text-gold-700" aria-hidden />
+          <span>
+            <span className="font-numeric font-bold text-ink-900">
+              {diffs.length.toLocaleString('en')}
+            </span>{' '}
+            سجلات موجودة قد تتأثر.
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5 text-2xs">
+          <Badge tone="success">
+            مقبول <span className="font-en tabular-nums">{acceptedCount.toLocaleString('en')}</span>
+          </Badge>
+          <Badge tone="danger">
+            مرفوض <span className="font-en tabular-nums">{rejectedCount.toLocaleString('en')}</span>
+          </Badge>
+          <Badge tone="neutral">
+            قيد القرار <span className="font-en tabular-nums">{pendingCount.toLocaleString('en')}</span>
+          </Badge>
+        </div>
+      </header>
+
+      <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
+        {diffs.map((diff) => (
+          <li key={diff.nationalId}>
+            <DiffCard
+              diff={diff}
+              decision={decisions[diff.nationalId] ?? 'pending'}
+              onDecide={(decision) => onSetDecision(diff.nationalId, decision)}
+            />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function RejectedRecordsTable({
+  rows,
+}: {
+  rows: IntegrityAuditRow[];
+}): JSX.Element {
+  return (
+    <div className="overflow-hidden rounded-md border border-border-subtle">
+      <table className="w-full border-collapse text-xs">
+        <caption className="sr-only">السجلات المرفوضة في ملف الاستيراد</caption>
+        <thead className="bg-ink-50/70 text-2xs uppercase text-ink-500">
+          <tr>
+            <th scope="col" className="border-b border-border-subtle px-3 py-2 text-start font-semibold">
+              صف #
+            </th>
+            <th scope="col" className="border-b border-border-subtle px-3 py-2 text-start font-semibold">
+              الرقم القومي
+            </th>
+            <th scope="col" className="border-b border-border-subtle px-3 py-2 text-start font-semibold">
+              بيانات الطالب
+            </th>
+            <th scope="col" className="border-b border-border-subtle px-3 py-2 text-start font-semibold">
+              سبب الرفض
+            </th>
+            <th scope="col" className="border-b border-border-subtle px-3 py-2 text-start font-semibold">
+              التفاصيل
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => (
+            <tr
+              key={`${row.sourceRowIndex}-${row.code}-${row.nidIssueCode ?? ''}-${index}`}
+              className="border-t border-border-subtle align-top first:border-t-0"
+            >
+              <td className="px-3 py-2">
+                <span className="rounded-pill bg-ink-100 px-2 py-0.5 font-en text-2xs font-semibold text-ink-700">
+                  #{row.sourceRowIndex}
+                </span>
+              </td>
+              <td className="px-3 py-2">
+                <span dir="ltr" className="font-mono text-2xs text-ink-700">
+                  {row.nationalId ?? '—'}
+                </span>
+              </td>
+              <td className="px-3 py-2">
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-medium text-ink-900">{row.nameAr ?? '—'}</span>
+                  <span className="text-2xs text-ink-500">
+                    المجموع:{' '}
+                    <span className="font-en tabular-nums">{row.totalGrade ?? '—'}</span>
+                  </span>
+                </div>
+              </td>
+              <td className="px-3 py-2">
+                <Badge tone="danger">{row.labelAr}</Badge>
+              </td>
+              <td className="max-w-[460px] px-3 py-2 leading-relaxed text-ink-700">
+                {row.detail}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
