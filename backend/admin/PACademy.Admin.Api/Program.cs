@@ -7,6 +7,7 @@ using PACademy.Admin.Api.Modules.Exams;
 using PACademy.Admin.Api.Modules.Identity;
 using PACademy.Admin.Api.Modules.Identity.Moi;
 using PACademy.Admin.Api.Modules.Lookups;
+using PACademy.Admin.Api.Modules.Payments;
 using PACademy.Admin.Api.Modules.Reports;
 using PACademy.Admin.Api.Modules.Settings;
 using PACademy.Admin.Api.Persistence;
@@ -73,6 +74,7 @@ builder.Services.AddBiometricModule(builder.Configuration);
 builder.Services.AddReportsModule(builder.Configuration);
 builder.Services.AddSettingsModule(builder.Configuration);
 builder.Services.AddDataExchangeAdminModule(builder.Configuration);
+builder.Services.AddScoped<PaymentsLedgerService>();
 
 /* ── External legacy modules (separate DbContexts + migrations) ─── */
 builder.Services.AddLookupsAdminModule(builder.Configuration);
