@@ -65,6 +65,8 @@ import {
 } from '@/shared/lib/national-id';
 
 const MEMBERSHIP_PROFESSIONS = new Set(['police_officer', 'army_officer']);
+const FEMALE_ONLY_PROFESSIONS = new Set([HOUSEWIFE_PROFESSION]);
+type FamilyMemberGender = 'male' | 'female';
 
 const QUALIFICATION_OPTIONS = [
   { value: '', label: '— اختر —' },
@@ -396,6 +398,7 @@ export function Stage7FamilyPage(): JSX.Element {
           <MemberFormCard
             form={father}
             title="بيانات الأب"
+            gender="male"
             requireNationalId
             childDob={applicantDob}
             onChange={setFather}
@@ -425,6 +428,7 @@ export function Stage7FamilyPage(): JSX.Element {
             singular="زوجة الأب"
             members={fatherWives}
             savedFlags={savedFatherWives}
+            gender="female"
             childDob={applicantDob}
             onAdd={() => {
               setFatherWives((xs) => [...xs, EMPTY_MEMBER]);
@@ -450,6 +454,7 @@ export function Stage7FamilyPage(): JSX.Element {
           <MemberFormCard
             form={mother}
             title="بيانات الأم"
+            gender="female"
             requireNationalId
             isProfessionDetailOptional={(values) => values.profession === HOUSEWIFE_PROFESSION}
             childDob={applicantDob}
@@ -480,6 +485,7 @@ export function Stage7FamilyPage(): JSX.Element {
             singular="زوج الأم"
             members={motherHusbands}
             savedFlags={savedMotherHusbands}
+            gender="male"
             childDob={applicantDob}
             onAdd={() => {
               setMotherHusbands((xs) => [...xs, EMPTY_MEMBER]);
@@ -612,6 +618,7 @@ function MemberFormCard({
   onChange,
   onSave,
   headerExtras,
+  gender,
   requireNationalId = false,
   isProfessionDetailOptional,
   childDob,
@@ -624,6 +631,7 @@ function MemberFormCard({
    *  الأم cards to host their "متزوج بأخرى" / "متزوجة بغير الأب"
    *  toggles). */
   headerExtras?: React.ReactNode;
+  gender?: FamilyMemberGender;
   /** When true, the "تعذر وجود الرقم القومي" escape hatch is removed —
    *  the applicant must enter a 14-digit NID. Used for الأب + الأم per
    *  client direction 2026-05-21 (parents' NIDs are mandatory). */
@@ -642,6 +650,12 @@ function MemberFormCard({
   const { register, handleSubmit, control, watch, setValue, formState: { errors } } = form_;
   const profession = watch('profession');
   const professionDetailOptional = isProfessionDetailOptional?.(watch()) ?? false;
+  const professionOptions = useMemo(
+    () => PROFESSION_OPTIONS.filter(
+      (option) => gender !== 'male' || !FEMALE_ONLY_PROFESSIONS.has(option.value),
+    ),
+    [gender],
+  );
   const birthGov = watch('birthGovernorate');
   const residenceGov = watch('residenceGovernorate');
   const nidUnavailableReason = watch('nidUnavailableReason');
@@ -708,6 +722,11 @@ function MemberFormCard({
     setValue('birthGovernorate', '');
     setValue('birthDistrict', '');
   }, [birthLocalityRequired, setValue]);
+  useEffect(() => {
+    if (gender !== 'male' || !FEMALE_ONLY_PROFESSIONS.has(profession)) return;
+    setValue('profession', '');
+    setValue('professionDetail', '');
+  }, [gender, profession, setValue]);
   useEffect(() => {
     if (!residenceGovMounted.current) { residenceGovMounted.current = true; return; }
     setValue('residenceDistrict', '');
@@ -877,7 +896,7 @@ function MemberFormCard({
           label="المهنة"
           required
           {...register('profession', { required: 'مطلوب' })}
-          options={[...PROFESSION_OPTIONS]}
+          options={[...professionOptions]}
           error={errors.profession?.message}
         />
         {showSeniority && (
@@ -994,6 +1013,7 @@ function MultiMemberPanel({
   singular,
   members,
   savedFlags,
+  gender,
   childDob,
   onAdd,
   onChange,
@@ -1004,6 +1024,7 @@ function MultiMemberPanel({
   singular: string;
   members: readonly FamilyMemberForm[];
   savedFlags: readonly boolean[];
+  gender: FamilyMemberGender;
   /** Forwarded to each MemberFormCard so stepmother/stepfather entries
    *  enforce the 15-year-older-than-applicant rule. */
   childDob?: string;
@@ -1052,6 +1073,7 @@ function MultiMemberPanel({
           <MemberFormCard
             form={m}
             title={`${singular} رقم ${i + 1}${savedFlags[i] ? ' — محفوظ' : ''}`}
+            gender={gender}
             childDob={childDob}
             onChange={(next) => onChange(i, next)}
             onSave={(values) => onSave(i, values)}
@@ -1080,6 +1102,7 @@ function DynamicRelativePanel({
   onSave: (i: number, values: FamilyMemberForm) => void;
 }): JSX.Element {
   const label = RELATIVE_LABEL[kind];
+  const gender = genderByRelativeKind(kind);
   return (
     <div className="flex flex-col gap-3">
       <Card>
@@ -1109,6 +1132,7 @@ function DynamicRelativePanel({
           <MemberFormCard
             form={m}
             title={`${label.singular} رقم ${i + 1}${savedFlags[i] ? ' (محفوظ)' : ''}`}
+            gender={gender}
             onChange={(next) => onChange(i, next)}
             onSave={(values) => onSave(i, values)}
           />
@@ -1116,6 +1140,12 @@ function DynamicRelativePanel({
       ))}
     </div>
   );
+}
+
+function genderByRelativeKind(kind: RelativeKind): FamilyMemberGender {
+  return kind === 'brothers' || kind === 'paternal_uncles' || kind === 'maternal_uncles'
+    ? 'male'
+    : 'female';
 }
 
 /* ─── Guardian form (ولي الأمر) ────────────────────────────────────── */
@@ -1398,6 +1428,7 @@ function GrandparentsPanel({
       <MemberFormCard
         form={value.paternalGrandfather}
         title={`الجد لأب${savedFlags.paternalGrandfather ? ' — محفوظ' : ''}`}
+        gender="male"
         childDob={fatherDob}
         onChange={(next) => updateOne('paternalGrandfather', next)}
         onSave={(values) => onSaveOne('paternalGrandfather', values)}
@@ -1405,6 +1436,7 @@ function GrandparentsPanel({
       <MemberFormCard
         form={value.paternalGrandmother}
         title={`الجدة لأب${savedFlags.paternalGrandmother ? ' — محفوظ' : ''}`}
+        gender="female"
         childDob={fatherDob}
         onChange={(next) => updateOne('paternalGrandmother', next)}
         onSave={(values) => onSaveOne('paternalGrandmother', values)}
@@ -1412,6 +1444,7 @@ function GrandparentsPanel({
       <MemberFormCard
         form={value.maternalGrandfather}
         title={`الجد لأم${savedFlags.maternalGrandfather ? ' — محفوظ' : ''}`}
+        gender="male"
         childDob={motherDob}
         onChange={(next) => updateOne('maternalGrandfather', next)}
         onSave={(values) => onSaveOne('maternalGrandfather', values)}
@@ -1419,6 +1452,7 @@ function GrandparentsPanel({
       <MemberFormCard
         form={value.maternalGrandmother}
         title={`الجدة لأم${savedFlags.maternalGrandmother ? ' — محفوظ' : ''}`}
+        gender="female"
         childDob={motherDob}
         onChange={(next) => updateOne('maternalGrandmother', next)}
         onSave={(values) => onSaveOne('maternalGrandmother', values)}
