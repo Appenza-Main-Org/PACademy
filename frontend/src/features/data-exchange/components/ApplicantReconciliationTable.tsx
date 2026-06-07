@@ -30,6 +30,7 @@ export interface ReconciliationDecisionState {
 interface ApplicantReconciliationTableProps {
   preview: ApplicantReconciliationPreview;
   decisions: ReadonlyMap<string, ReconciliationDecisionState>;
+  testNameByCode: ReadonlyMap<string, string>;
   onDecisionsChange: (next: Map<string, ReconciliationDecisionState>) => void;
   committing: boolean;
   onCommit: () => void;
@@ -64,6 +65,7 @@ const ERROR_CODE_LABELS: Record<string, { tone: BadgeTone; label: string }> = {
 export function ApplicantReconciliationTable({
   preview,
   decisions,
+  testNameByCode,
   onDecisionsChange,
   committing,
   onCommit,
@@ -173,6 +175,7 @@ export function ApplicantReconciliationTable({
                 key={row.nationalId}
                 row={row}
                 decision={decisions.get(row.nationalId)}
+                testNameByCode={testNameByCode}
                 onPatch={(patch) => patchDecision(row.nationalId, patch)}
               />
             ))
@@ -220,10 +223,12 @@ function ReconcileCounter({
 function ApplicantDiffRow({
   row,
   decision,
+  testNameByCode,
   onPatch,
 }: {
   row: ApplicantReconciliationRow;
   decision: ReconciliationDecisionState | undefined;
+  testNameByCode: ReadonlyMap<string, string>;
   onPatch: (patch: Partial<ReconciliationDecisionState>) => void;
 }): JSX.Element {
   const [expanded, setExpanded] = useState(false);
@@ -233,6 +238,7 @@ function ApplicantDiffRow({
   const hasBlockingWritebackError =
     writeback?.errors.includes('RESULT_VALUE_UNKNOWN') ?? false;
   const outcomeMeta = getOutcomeMeta(writeback?.outcome ?? null);
+  const testDisplay = getTestDisplay(writeback?.testCode ?? null, testNameByCode);
 
   function toggleField(field: string): void {
     const next = new Set(accepted);
@@ -267,7 +273,12 @@ function ApplicantDiffRow({
 
         <div className="grid gap-2 sm:grid-cols-3">
           <SummaryField label="النتيجة" value={writeback?.resultRaw ?? '—'} badge={outcomeMeta ? <Badge tone={outcomeMeta.tone}>{outcomeMeta.label}</Badge> : null} />
-          <SummaryField label="الاختبار" value={writeback?.testCode ?? '—'} dir="ltr" />
+          <SummaryField
+            label="الاختبار"
+            value={testDisplay.label}
+            title={testDisplay.title}
+            isMonospace={false}
+          />
           <SummaryField label="الموعد التالي" value={writeback?.nextExamDate ?? '—'} dir="ltr" />
         </div>
 
@@ -387,23 +398,45 @@ function SummaryField({
   value,
   badge,
   dir,
+  title,
+  isMonospace = true,
 }: {
   label: string;
   value: string;
   badge?: JSX.Element | null;
   dir?: 'ltr' | 'rtl';
+  title?: string;
+  isMonospace?: boolean;
 }): JSX.Element {
   return (
     <div className="min-w-0 rounded-md border border-border-subtle bg-ink-50 px-3 py-2">
       <p className="mb-1 text-[10px] font-semibold text-ink-400">{label}</p>
       <div className="flex min-h-5 items-center gap-2">
-        <span dir={dir} className="truncate font-mono text-2xs font-semibold text-ink-800">
+        <span
+          dir={dir}
+          title={title}
+          className={[
+            'truncate text-2xs font-semibold text-ink-800',
+            isMonospace ? 'font-mono' : '',
+          ].join(' ')}
+        >
           {value}
         </span>
         {badge}
       </div>
     </div>
   );
+}
+
+function getTestDisplay(
+  testCode: string | null,
+  testNameByCode: ReadonlyMap<string, string>,
+): { label: string; title?: string } {
+  if (!testCode) return { label: '—' };
+  return {
+    label: testNameByCode.get(testCode) ?? testCode,
+    title: testCode,
+  };
 }
 
 function getOutcomeMeta(outcome: string | null): { label: string; tone: BadgeTone } | null {

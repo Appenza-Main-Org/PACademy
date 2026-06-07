@@ -34,6 +34,7 @@ import {
 import type { DataTableColumn } from '@/shared/components/DataTable';
 import type { UploadFile } from '@/shared/components/FileUpload';
 import { useAuthStore } from '@/features/auth';
+import { useLookup } from '@/features/lookups';
 import { emitAudit } from '@/shared/lib/audit';
 import {
   type ApplicantReconciliationPreview,
@@ -164,6 +165,7 @@ export function DataExchangePage(): JSX.Element {
   const [selectedNationalIds, setSelectedNationalIds] = useState<string[]>([]);
   const exportMutation = useExportMutation();
   const rosterQuery = useBookedApplicantsRoster();
+  const testsQuery = useLookup('tests');
 
   /* ── Import state ──────────────────────────────────────────────────── */
   const [files, setFiles] = useState<UploadFile[]>([]);
@@ -179,6 +181,10 @@ export function DataExchangePage(): JSX.Element {
   const historyQuery = useDataExchangeHistory();
   const selectedDomains = EXCHANGE_DOMAINS.filter((domain) => selected.has(domain));
   const historyRows = historyQuery.data ?? [];
+  const testNameByCode = useMemo(
+    () => new Map((testsQuery.data ?? []).map((test) => [test.code, test.name])),
+    [testsQuery.data],
+  );
   const latestHistory = historyRows[0];
   const historySummary = useMemo(() => {
     return historyRows.reduce(
@@ -648,6 +654,7 @@ export function DataExchangePage(): JSX.Element {
               <ApplicantReconciliationTable
                 preview={applicantsPreview}
                 decisions={reconcileDecisions}
+                testNameByCode={testNameByCode}
                 onDecisionsChange={setReconcileDecisions}
                 committing={reconcileCommitMutation.isPending}
                 onCommit={() => void handleReconcileCommit()}
