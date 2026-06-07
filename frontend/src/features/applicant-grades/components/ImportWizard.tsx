@@ -131,11 +131,11 @@ export function ImportWizard({ open, onClose, onComplete }: Props): JSX.Element 
 
   const title =
     step === 'setup'
-      ? 'استيراد درجات المتقدمين'
+      ? 'رفع درجات الثانوية'
       : step === 'review'
         ? 'مراجعة التكرار'
         : step === 'error'
-          ? 'استيراد درجات المتقدمين'
+          ? 'رفع درجات الثانوية'
           : 'اكتمل الاستيراد';
 
   const subtitle =
