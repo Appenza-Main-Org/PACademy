@@ -13,6 +13,7 @@ using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Admin.Api.Modules.Exams;
 using PACademy.Admin.Api.Modules.OperationalRecords;
+using PACademy.Admin.Api.Modules.Payments;
 using PACademy.Admin.Api.Modules.Reports.Dtos;
 using PACademy.Admin.Api.Modules.Reports.Validators;
 using PACademy.Admin.Api.Modules.Settings;
@@ -534,6 +535,61 @@ public sealed class ApiRegressionTests
         var rows = Assert.IsAssignableFrom<IReadOnlyList<JsonObject>>(ok.Value);
         Assert.Equal(1, Assert.Single(rows, x => x["id"]?.GetValue<string>() == "CI-FIRST-DAY")["reserved"]?.GetValue<int>());
         Assert.Equal(0, Assert.Single(rows, x => x["id"]?.GetValue<string>() == "CI-SECOND-DAY")["reserved"]?.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task PaymentsListIncludesSuccessfulPortalPayments()
+    {
+        await using var db = CreateDb();
+        var now = DateTimeOffset.UtcNow;
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        await records.UpsertAsync(
+            "applicants",
+            "APP-PAY-1",
+            new JsonObject
+            {
+                ["id"] = "APP-PAY-1",
+                ["applicantId"] = "APP-PAY-1",
+                ["name"] = "أحمد محمود",
+                ["nationalId"] = "29901011234567",
+                ["cycleId"] = "CYC-2026"
+            },
+            TestContext.Current.CancellationToken);
+        db.ApplicantPortalRecords.Add(new ApplicantPortalRecordEntity
+        {
+            Type = "payment",
+            RecordId = "FW-123456",
+            ApplicantId = "APP-PAY-1",
+            PayloadJson = new JsonObject
+            {
+                ["refNumber"] = "FW-123456",
+                ["applicantId"] = "APP-PAY-1",
+                ["amount"] = 1500,
+                ["status"] = "success",
+                ["paidAt"] = now.ToUnixTimeMilliseconds()
+            }.ToJsonString(AdminRecordJson.Options),
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var service = new PaymentsLedgerService(records, db);
+        var controller = new PaymentsController(service);
+
+        var response = await controller.List(
+            status: "paid",
+            search: "29901011234567",
+            cycleId: "CYC-2026",
+            TestContext.Current.CancellationToken);
+
+        var ok = Assert.IsType<OkObjectResult>(response.Result);
+        var rows = Assert.IsAssignableFrom<IReadOnlyList<JsonObject>>(ok.Value);
+        var row = Assert.Single(rows);
+        Assert.Equal("أحمد محمود", row["applicantName"]?.GetValue<string>());
+        Assert.Equal("29901011234567", row["nationalId"]?.GetValue<string>());
+        Assert.Equal("FW-123456", row["fawryReference"]?.GetValue<string>());
+        Assert.Equal("paid", row["status"]?.GetValue<string>());
+        Assert.Equal(1500, row["amount"]?.GetValue<double>());
+        Assert.False(string.IsNullOrWhiteSpace(row["lastSyncAt"]?.GetValue<string>()));
     }
 
     private static void AssertRequireBearerAuth(MemberInfo? target)
