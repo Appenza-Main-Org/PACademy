@@ -2,6 +2,7 @@ import type { MoiApplicantSession } from './moi-session.mock';
 import type { ProfileSnapshot } from './profileData';
 
 export interface ProfileValidationContext {
+  isMoiVerified: boolean;
   moiSession: MoiApplicantSession | null;
   selectedCategoryKey: string | null;
   selectedFaculty: string | null;
@@ -59,7 +60,7 @@ function validatePersonalFields(
   context: ProfileValidationContext,
 ): void {
   const { values, manualPersonal } = snapshot;
-  if (context.moiSession) {
+  if (context.isMoiVerified) {
     addIfBlank(messages, 'الإسم رباعي', context.moiSession?.fullName);
     addIfBlank(messages, 'الرقم القومي', context.moiSession?.nationalId);
     addIfBlank(messages, 'تاريخ الميلاد', context.moiSession?.dateOfBirthAr);
