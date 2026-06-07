@@ -728,64 +728,70 @@ public sealed class OperationalRecordsService(
                        [created_at], [updated_at]
                 FROM (
                     SELECT
-                        draft.[payload_json],
-                        CONVERT(nvarchar(64), applicant.[id]) AS [table_id],
-                        NULL AS [admin_record_id],
-                        applicant.[national_id],
-                        applicant.[phone_number],
-                        applicant.[full_name],
-                        applicant.[email],
-                        applicant.[gender],
-                        applicant.[religion],
-                        applicant.[date_of_birth],
-                        applicant.[birth_governorate],
-                        applicant.[birth_district],
-                        COALESCE(
-                            JSON_VALUE(draft.[payload_json], '$.profile.certificateName'),
-                            JSON_VALUE(draft.[payload_json], '$.profile.education.certificateName'),
-                            JSON_VALUE(draft.[payload_json], '$.profile.qualificationLevel')
-                        ) AS [certificate_type],
-                        N'applicant-portal' AS [source],
-                        applicant.[created_at],
-                        draft.[updated_at]
-                    FROM {ApplicantsIdentityTableName} applicant
-                    INNER JOIN {AdminDbContext.QualifiedTableName("applicant_portal_records")} draft
-                        ON draft.[type] = N'draft'
-                       AND draft.[applicant_id] = CONVERT(nvarchar(64), applicant.[id])
-                    WHERE COALESCE(TRY_CONVERT(int, JSON_VALUE(draft.[payload_json], '$.furthestStage')), 0) >= 1
+                        [payload_json], [table_id], [admin_record_id], [national_id], [phone_number], [full_name], [email], [gender],
+                        [religion], [date_of_birth], [birth_governorate], [birth_district], [certificate_type], [source],
+                        [created_at], [updated_at],
+                        ROW_NUMBER() OVER (
+                            PARTITION BY COALESCE([national_id], [table_id], [admin_record_id])
+                            ORDER BY [updated_at] DESC, [row_priority] DESC
+                        ) AS [rn]
+                    FROM (
+                        SELECT
+                            0 AS [row_priority],
+                            draft.[payload_json],
+                            CONVERT(nvarchar(64), applicant.[id]) AS [table_id],
+                            NULL AS [admin_record_id],
+                            applicant.[national_id],
+                            applicant.[phone_number],
+                            applicant.[full_name],
+                            applicant.[email],
+                            applicant.[gender],
+                            applicant.[religion],
+                            applicant.[date_of_birth],
+                            applicant.[birth_governorate],
+                            applicant.[birth_district],
+                            COALESCE(
+                                JSON_VALUE(draft.[payload_json], '$.profile.certificateName'),
+                                JSON_VALUE(draft.[payload_json], '$.profile.education.certificateName'),
+                                JSON_VALUE(draft.[payload_json], '$.profile.qualificationLevel')
+                            ) AS [certificate_type],
+                            N'applicant-portal' AS [source],
+                            applicant.[created_at],
+                            draft.[updated_at]
+                        FROM {ApplicantsIdentityTableName} applicant
+                        INNER JOIN {AdminDbContext.QualifiedTableName("applicant_portal_records")} draft
+                            ON draft.[type] = N'draft'
+                           AND draft.[applicant_id] = CONVERT(nvarchar(64), applicant.[id])
+                        WHERE COALESCE(TRY_CONVERT(int, JSON_VALUE(draft.[payload_json], '$.furthestStage')), 0) >= 1
 
-                    UNION ALL
+                        UNION ALL
 
-                    SELECT
-                        document.[payload_json],
-                        COALESCE(CONVERT(nvarchar(64), applicant.[id]), document.[id]) AS [table_id],
-                        document.[id] AS [admin_record_id],
-                        COALESCE(applicant.[national_id], JSON_VALUE(document.[payload_json], '$.nationalId')) AS [national_id],
-                        COALESCE(applicant.[phone_number], JSON_VALUE(document.[payload_json], '$.phoneNumber'), JSON_VALUE(document.[payload_json], '$.contact.mobilePhone')) AS [phone_number],
-                        COALESCE(applicant.[full_name], JSON_VALUE(document.[payload_json], '$.name')) AS [full_name],
-                        COALESCE(applicant.[email], JSON_VALUE(document.[payload_json], '$.email'), JSON_VALUE(document.[payload_json], '$.contact.email')) AS [email],
-                        COALESCE(applicant.[gender], JSON_VALUE(document.[payload_json], '$.gender')) AS [gender],
-                        COALESCE(applicant.[religion], JSON_VALUE(document.[payload_json], '$.religion')) AS [religion],
-                        COALESCE(applicant.[date_of_birth], TRY_CONVERT(date, JSON_VALUE(document.[payload_json], '$.birthDate')), TRY_CONVERT(date, JSON_VALUE(document.[payload_json], '$.dateOfBirth'))) AS [date_of_birth],
-                        COALESCE(applicant.[birth_governorate], JSON_VALUE(document.[payload_json], '$.birthGovernorate'), JSON_VALUE(document.[payload_json], '$.currentAddress.governorate'), JSON_VALUE(document.[payload_json], '$.governorate')) AS [birth_governorate],
-                        COALESCE(applicant.[birth_district], JSON_VALUE(document.[payload_json], '$.birthDistrict'), JSON_VALUE(document.[payload_json], '$.currentAddress.city'), JSON_VALUE(document.[payload_json], '$.city')) AS [birth_district],
-                        COALESCE(JSON_VALUE(document.[payload_json], '$.certType'), JSON_VALUE(document.[payload_json], '$.education.certificateName')) AS [certificate_type],
-                        COALESCE(applicant.[source], JSON_VALUE(document.[payload_json], '$.source'), N'api') AS [source],
-                        COALESCE(applicant.[created_at], document.[created_at]) AS [created_at],
-                        document.[updated_at]
-                    FROM {AdminDbContext.QualifiedTableName("applicant_management_records")} document
-                    LEFT JOIN {ApplicantsIdentityTableName} applicant
-                        ON applicant.[national_id] = JSON_VALUE(document.[payload_json], '$.nationalId')
-                        OR CONVERT(nvarchar(64), applicant.[id]) = document.[id]
-                    WHERE document.[module] = N'applicants'
-                      AND NOT EXISTS (
-                          SELECT 1
-                          FROM {AdminDbContext.QualifiedTableName("applicant_portal_records")} draft
-                          WHERE draft.[type] = N'draft'
-                            AND draft.[applicant_id] = CONVERT(nvarchar(64), applicant.[id])
-                            AND COALESCE(TRY_CONVERT(int, JSON_VALUE(draft.[payload_json], '$.furthestStage')), 0) >= 1
-                      )
+                        SELECT
+                            1 AS [row_priority],
+                            document.[payload_json],
+                            COALESCE(CONVERT(nvarchar(64), applicant.[id]), document.[id]) AS [table_id],
+                            document.[id] AS [admin_record_id],
+                            COALESCE(applicant.[national_id], JSON_VALUE(document.[payload_json], '$.nationalId')) AS [national_id],
+                            COALESCE(applicant.[phone_number], JSON_VALUE(document.[payload_json], '$.phoneNumber'), JSON_VALUE(document.[payload_json], '$.contact.mobilePhone')) AS [phone_number],
+                            COALESCE(applicant.[full_name], JSON_VALUE(document.[payload_json], '$.name')) AS [full_name],
+                            COALESCE(applicant.[email], JSON_VALUE(document.[payload_json], '$.email'), JSON_VALUE(document.[payload_json], '$.contact.email')) AS [email],
+                            COALESCE(applicant.[gender], JSON_VALUE(document.[payload_json], '$.gender')) AS [gender],
+                            COALESCE(applicant.[religion], JSON_VALUE(document.[payload_json], '$.religion')) AS [religion],
+                            COALESCE(applicant.[date_of_birth], TRY_CONVERT(date, JSON_VALUE(document.[payload_json], '$.birthDate')), TRY_CONVERT(date, JSON_VALUE(document.[payload_json], '$.dateOfBirth'))) AS [date_of_birth],
+                            COALESCE(applicant.[birth_governorate], JSON_VALUE(document.[payload_json], '$.birthGovernorate'), JSON_VALUE(document.[payload_json], '$.currentAddress.governorate'), JSON_VALUE(document.[payload_json], '$.governorate')) AS [birth_governorate],
+                            COALESCE(applicant.[birth_district], JSON_VALUE(document.[payload_json], '$.birthDistrict'), JSON_VALUE(document.[payload_json], '$.currentAddress.city'), JSON_VALUE(document.[payload_json], '$.city')) AS [birth_district],
+                            COALESCE(JSON_VALUE(document.[payload_json], '$.certType'), JSON_VALUE(document.[payload_json], '$.education.certificateName')) AS [certificate_type],
+                            COALESCE(applicant.[source], JSON_VALUE(document.[payload_json], '$.source'), N'api') AS [source],
+                            COALESCE(applicant.[created_at], document.[created_at]) AS [created_at],
+                            document.[updated_at]
+                        FROM {AdminDbContext.QualifiedTableName("applicant_management_records")} document
+                        LEFT JOIN {ApplicantsIdentityTableName} applicant
+                            ON applicant.[national_id] = JSON_VALUE(document.[payload_json], '$.nationalId')
+                            OR CONVERT(nvarchar(64), applicant.[id]) = document.[id]
+                        WHERE document.[module] = N'applicants'
+                    ) candidates
                 ) rows
+                WHERE [rn] = 1
                 ORDER BY [national_id]
                 """,
                 ct),
@@ -888,7 +894,7 @@ public sealed class OperationalRecordsService(
                     WHERE document.[module] = N'applicants'
                 ) rows
                 WHERE [admin_record_id] = @id OR [national_id] = @id OR [table_id] = @id
-                ORDER BY [row_priority], [updated_at] DESC
+                ORDER BY [updated_at] DESC, [row_priority] DESC
                 """,
                 ct,
                 command => AddParameter(command, "@id", id)),

@@ -141,9 +141,10 @@ public sealed class ApplicantsController(OperationalRecordsService records, Appl
     {
         var current = await records.GetAsync("applicants", id, ct) ?? [];
         foreach (var item in body) current[item.Key] = item.Value?.DeepClone();
+        current["id"] ??= id;
         var validation = ValidateApplicant(current);
         if (validation.Count > 0) return ValidationProblem(validation);
-        return Ok(await records.UpsertAsync("applicants", id, body, ct));
+        return Ok(await records.UpsertAsync("applicants", id, current, ct));
     }
 
     [HttpGet("api/applicants/{id}/follow-up")]
