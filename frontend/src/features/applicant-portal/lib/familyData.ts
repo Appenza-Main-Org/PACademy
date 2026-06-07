@@ -315,6 +315,7 @@ function hasRequiredMotherDetails(member: FamilyMemberForm): boolean {
   );
 }
 
+
 function allRequiredMemberDetailsPresent(s: FamilyDataSnapshot): boolean {
   const requiredMembers: FamilyMemberForm[] = [
     s.father,

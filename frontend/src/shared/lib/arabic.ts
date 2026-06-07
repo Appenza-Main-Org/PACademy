@@ -41,6 +41,20 @@ export function normalizeArabic(s: string): string {
   return s
     .replace(/[ً-ٰٟ]/g, '')
     .replace(/[إأآ]/g, 'ا')
+    .replace(/ؤ/g, 'و')
+    .replace(/ئ/g, 'ي')
+    .replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .toLowerCase()
+    .trim();
+}
+
+export function normalizeArabicForSearch(s: string): string {
+  if (!s) return '';
+  return s
+    .replace(/[ً-ٰٟ]/g, '')
+    .replace(/[إأآ]/g, 'ا')
+    .replace(/[ؤئء]/g, '')
     .replace(/ى/g, 'ي')
     .replace(/ة/g, 'ه')
     .toLowerCase()

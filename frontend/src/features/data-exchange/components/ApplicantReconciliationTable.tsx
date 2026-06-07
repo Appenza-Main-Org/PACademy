@@ -1,14 +1,10 @@
 /**
- * ApplicantReconciliationTable — per-applicant field-level diff display.
+ * ApplicantReconciliationTable — per-applicant field-level diff review.
  *
- * Renders the Applicants reconciliation preview as expandable rows: each
- * matched applicant exposes a sub-table of `{field, before, after}` diffs
- * with per-field checkboxes the admin uses to accept or reject changes.
- * Result + next-exam writeback (if present) sits in its own band with a
- * single «اعتماد النتيجة» toggle.
- *
- * Selection state is hoisted to the parent — this component is presentation
- * + checkbox plumbing only. Commit happens via the parent's mutation hook.
+ * Renders the Applicants reconciliation preview as expandable, read-only
+ * rows. Approval is a single bulk action — no per-row or per-field selection.
+ * «اعتماد المطابق الصالح فقط» commits every displayed valid record at once;
+ * «رفض الكل» dismisses the review without writing anything.
  */
 
 import { useMemo, useState } from 'react';
@@ -16,24 +12,17 @@ import { AlertTriangle, Check, ChevronDown, ChevronUp, UserX } from 'lucide-reac
 import { Badge, Button, Card, CardBody, CardHeader } from '@/shared/components';
 import type { BadgeTone } from '@/shared/components/Badge';
 import type {
+  ApplicantReconciliationDecision,
   ApplicantReconciliationPreview,
   ApplicantReconciliationRow,
 } from '../types';
 
-/** Per-applicant decision: which fields the admin accepted + whether to
- *  apply the result/next-exam writeback. Keyed by national ID. */
-export interface ReconciliationDecisionState {
-  acceptedFields: ReadonlySet<string>;
-  applyWriteback: boolean;
-}
-
 interface ApplicantReconciliationTableProps {
   preview: ApplicantReconciliationPreview;
-  decisions: ReadonlyMap<string, ReconciliationDecisionState>;
   testNameByCode: ReadonlyMap<string, string>;
-  onDecisionsChange: (next: Map<string, ReconciliationDecisionState>) => void;
   committing: boolean;
-  onCommit: () => void;
+  onApproveValid: (decisions: ApplicantReconciliationDecision[]) => void;
+  onReject: () => void;
 }
 
 const FIELD_LABELS_AR: Record<string, string> = {
@@ -62,13 +51,39 @@ const ERROR_CODE_LABELS: Record<string, { tone: BadgeTone; label: string }> = {
   WRITEBACK_NEXT_EXAM_MISSING: { tone: 'warning', label: 'موعد الاختبار التالي مفقود' },
 };
 
+function hasBlockedWriteback(row: ApplicantReconciliationRow): boolean {
+  return row.writeback?.errors.includes('RESULT_VALUE_UNKNOWN') ?? false;
+}
+
+function willApplyWriteback(row: ApplicantReconciliationRow): boolean {
+  const wb = row.writeback;
+  return (
+    wb?.outcome != null
+    && !wb.errors.includes('RESULT_VALUE_UNKNOWN')
+    && !wb.errors.includes('WRITEBACK_NEXT_EXAM_MISSING')
+  );
+}
+
+function buildValidDecisions(
+  rows: readonly ApplicantReconciliationRow[],
+): ApplicantReconciliationDecision[] {
+  const decisions: ApplicantReconciliationDecision[] = [];
+  for (const row of rows) {
+    if (hasBlockedWriteback(row)) continue;
+    const acceptedFields = row.fieldDiffs.map((d) => d.field);
+    const applyWriteback = willApplyWriteback(row);
+    if (acceptedFields.length === 0 && !applyWriteback) continue;
+    decisions.push({ nationalId: row.nationalId, acceptedFields, applyWriteback });
+  }
+  return decisions;
+}
+
 export function ApplicantReconciliationTable({
   preview,
-  decisions,
   testNameByCode,
-  onDecisionsChange,
   committing,
-  onCommit,
+  onApproveValid,
+  onReject,
 }: ApplicantReconciliationTableProps): JSX.Element {
   const matched = useMemo(() => preview.rows.filter((r) => !r.unmatched), [preview.rows]);
   const unmatched = useMemo(() => preview.rows.filter((r) => r.unmatched), [preview.rows]);
@@ -77,66 +92,18 @@ export function ApplicantReconciliationTable({
     [matched],
   );
 
-  const acceptedRowCount = useMemo(
-    () =>
-      Array.from(decisions.values()).filter(
-        (d) => d.acceptedFields.size > 0 || d.applyWriteback,
-      ).length,
-    [decisions],
+  const validDecisions = useMemo(
+    () => buildValidDecisions(actionableMatched),
+    [actionableMatched],
   );
-
-  function patchDecision(nid: string, patch: Partial<ReconciliationDecisionState>): void {
-    const next = new Map(decisions);
-    const current = next.get(nid) ?? { acceptedFields: new Set<string>(), applyWriteback: false };
-    next.set(nid, {
-      acceptedFields: patch.acceptedFields ?? current.acceptedFields,
-      applyWriteback: patch.applyWriteback ?? current.applyWriteback,
-    });
-    onDecisionsChange(next);
-  }
-
-  function acceptAllValid(): void {
-    const next = new Map<string, ReconciliationDecisionState>();
-    for (const row of actionableMatched) {
-      if (row.writeback?.errors.includes('RESULT_VALUE_UNKNOWN')) continue;
-      next.set(row.nationalId, {
-        acceptedFields: new Set(row.fieldDiffs.map((d) => d.field)),
-        applyWriteback:
-          row.writeback?.outcome != null
-          && !row.writeback.errors.includes('RESULT_VALUE_UNKNOWN')
-          && !row.writeback.errors.includes('WRITEBACK_NEXT_EXAM_MISSING'),
-      });
-    }
-    onDecisionsChange(next);
-  }
-
-  function rejectAll(): void {
-    onDecisionsChange(new Map());
-  }
+  const validCount = validDecisions.length;
+  const skippedCount = actionableMatched.length - validCount;
 
   return (
     <Card>
       <CardHeader
         title={<span className="flex items-center gap-2"><Check size={18} /> مراجعة بيانات المتقدمين</span>}
-        subtitle="راجع النتائج قبل الاعتماد."
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={acceptAllValid}
-              className="rounded-md border border-[var(--accent-500)] bg-[var(--accent-50)] px-3 py-1.5 text-2xs font-semibold text-ink-900 transition-colors hover:bg-[var(--accent-100)]"
-            >
-              اعتماد المطابق الصالح فقط
-            </button>
-            <button
-              type="button"
-              onClick={rejectAll}
-              className="rounded-md border border-border-default bg-surface-card px-3 py-1.5 text-2xs font-semibold text-ink-700 transition-colors hover:bg-ink-50"
-            >
-              رفض الكل
-            </button>
-          </div>
-        }
+        subtitle="راجع النتائج، ثم اعتمد كل السجلات الصالحة دفعة واحدة."
       />
       <CardBody className="space-y-3">
         <div className="grid gap-2 sm:grid-cols-4">
@@ -152,8 +119,8 @@ export function ApplicantReconciliationTable({
               <UserX size={14} /> {unmatched.length} متقدمين غير مطابقين — لن يُكتب لهم شيء.
             </p>
             <ul className="space-y-0.5 ps-5 text-2xs" dir="ltr">
-              {unmatched.slice(0, 8).map((r) => (
-                <li key={r.nationalId || Math.random()} className="font-mono">
+              {unmatched.slice(0, 8).map((r, i) => (
+                <li key={r.nationalId || i} className="font-mono">
                   {r.nationalId || '—'} {r.fullName ? `· ${r.fullName}` : ''}
                 </li>
               ))}
@@ -175,9 +142,7 @@ export function ApplicantReconciliationTable({
                 <ApplicantDiffRow
                   key={row.nationalId}
                   row={row}
-                  decision={decisions.get(row.nationalId)}
                   testNameByCode={testNameByCode}
-                  onPatch={(patch) => patchDecision(row.nationalId, patch)}
                 />
               ))}
             </div>
@@ -187,17 +152,24 @@ export function ApplicantReconciliationTable({
         {actionableMatched.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-subtle bg-ink-50 px-4 py-3">
             <p className="text-xs leading-6 text-ink-500">
-              <span className="font-semibold text-ink-700">{acceptedRowCount}</span> متقدم محدد للاعتماد —
-              التغييرات المرفوضة لن تُكتب.
+              <span className="font-semibold text-ink-700">{validCount}</span> متقدم صالح للاعتماد دفعة واحدة
+              {skippedCount > 0 && (
+                <span className="text-terra-600"> — {skippedCount} صف مُتعذِّر لن يُكتب.</span>
+              )}
             </p>
-            <Button
-              variant="primary"
-              isLoading={committing}
-              disabled={acceptedRowCount === 0}
-              onClick={onCommit}
-            >
-              اعتماد التغييرات المحددة
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="ghost" disabled={committing} onClick={onReject}>
+                رفض الكل
+              </Button>
+              <Button
+                variant="primary"
+                isLoading={committing}
+                disabled={validCount === 0}
+                onClick={() => onApproveValid(validDecisions)}
+              >
+                اعتماد المطابق الصالح فقط
+              </Button>
+            </div>
           </div>
         )}
       </CardBody>
@@ -224,36 +196,16 @@ function ReconcileCounter({
 
 function ApplicantDiffRow({
   row,
-  decision,
   testNameByCode,
-  onPatch,
 }: {
   row: ApplicantReconciliationRow;
-  decision: ReconciliationDecisionState | undefined;
   testNameByCode: ReadonlyMap<string, string>;
-  onPatch: (patch: Partial<ReconciliationDecisionState>) => void;
 }): JSX.Element {
   const [expanded, setExpanded] = useState(false);
-  const accepted = decision?.acceptedFields ?? new Set<string>();
-  const applyWriteback = decision?.applyWriteback ?? false;
   const writeback = row.writeback;
-  const hasBlockingWritebackError =
-    writeback?.errors.includes('RESULT_VALUE_UNKNOWN') ?? false;
   const outcomeMeta = getOutcomeMeta(writeback?.outcome ?? null);
   const testDisplay = getTestDisplay(writeback?.testCode ?? null, testNameByCode);
-
-  function toggleField(field: string): void {
-    const next = new Set(accepted);
-    if (next.has(field)) next.delete(field);
-    else next.add(field);
-    onPatch({ acceptedFields: next });
-  }
-
-  function toggleAll(allOn: boolean): void {
-    onPatch({
-      acceptedFields: allOn ? new Set(row.fieldDiffs.map((d) => d.field)) : new Set(),
-    });
-  }
+  const writebackApplies = willApplyWriteback(row);
 
   return (
     <article className="border-b border-border-subtle last:border-b-0">
@@ -275,12 +227,7 @@ function ApplicantDiffRow({
 
         <div className="grid gap-2 sm:grid-cols-3">
           <SummaryField label="النتيجة" value={writeback?.resultRaw ?? '—'} badge={outcomeMeta ? <Badge tone={outcomeMeta.tone}>{outcomeMeta.label}</Badge> : null} />
-          <SummaryField
-            label="الاختبار"
-            value={testDisplay.label}
-            title={testDisplay.title}
-            isMonospace={false}
-          />
+          <SummaryField label="الاختبار" value={testDisplay.label} title={testDisplay.title} isMonospace={false} />
           <SummaryField label="الموعد التالي" value={writeback?.nextExamDate ?? '—'} dir="ltr" />
         </div>
 
@@ -295,74 +242,32 @@ function ApplicantDiffRow({
               </Badge>
             ) : null;
           })}
-          {writeback?.outcome && (
-            <label
-              className={[
-                'inline-flex h-9 items-center gap-2 rounded-md border px-3 text-2xs font-semibold transition-colors',
-                hasBlockingWritebackError
-                  ? 'cursor-not-allowed border-terra-300 bg-terra-50 text-terra-700 opacity-70'
-                  : applyWriteback
-                    ? 'cursor-pointer border-[var(--accent-500)] bg-[var(--accent-50)] text-ink-900'
-                    : 'cursor-pointer border-border-default bg-surface-card text-ink-700 hover:bg-ink-50',
-              ].join(' ')}
-            >
-              <input
-                type="checkbox"
-                checked={applyWriteback}
-                disabled={hasBlockingWritebackError}
-                onChange={(event) => onPatch({ applyWriteback: event.target.checked })}
-                className="accent-teal-500"
-              />
-              اعتماد
-            </label>
+          {writebackApplies && (
+            <Badge tone="success">
+              <Check size={11} className="me-1 inline-block" />
+              تُعتمد النتيجة
+            </Badge>
+          )}
+          {hasBlockedWriteback(row) && (
+            <Badge tone="danger">
+              <AlertTriangle size={11} className="me-1 inline-block" />
+              نتيجة مُتعذِّرة
+            </Badge>
           )}
         </div>
       </div>
 
       {expanded && (
         <div className="space-y-3 border-t border-border-subtle bg-ink-50 px-3 py-3">
-          {row.fieldDiffs.length > 0 && (
+          {row.fieldDiffs.length > 0 ? (
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="text-2xs font-semibold text-ink-700">الحقول المُعدَّلة</p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => toggleAll(true)}
-                    className="text-2xs font-semibold text-[var(--accent-700)] hover:underline"
-                  >
-                    اعتماد الكل
-                  </button>
-                  <span className="text-ink-300">·</span>
-                  <button
-                    type="button"
-                    onClick={() => toggleAll(false)}
-                    className="text-2xs font-semibold text-ink-600 hover:underline"
-                  >
-                    إلغاء الكل
-                  </button>
-                </div>
-              </div>
+              <p className="text-2xs font-semibold text-ink-700">الحقول المُعدَّلة</p>
               <ul className="space-y-1.5">
                 {row.fieldDiffs.map((diff) => (
                   <li
                     key={diff.field}
-                    className={[
-                      'flex items-start gap-3 rounded-md border px-2.5 py-2 transition-colors',
-                      accepted.has(diff.field)
-                        ? 'border-[var(--accent-500)] bg-[var(--accent-50)]'
-                        : 'border-border-subtle bg-ink-50',
-                    ].join(' ')}
+                    className="flex items-start gap-3 rounded-md border border-border-subtle bg-surface-card px-2.5 py-2"
                   >
-                    <label className="mt-0.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={accepted.has(diff.field)}
-                        onChange={() => toggleField(diff.field)}
-                        className="accent-teal-500"
-                        aria-label={`اعتماد تغيير ${FIELD_LABELS_AR[diff.field] ?? diff.field}`}
-                      />
-                    </label>
                     <div className="min-w-0 flex-1">
                       <p className="text-2xs font-semibold text-ink-800">
                         {FIELD_LABELS_AR[diff.field] ?? diff.field}
@@ -374,7 +279,7 @@ function ApplicantDiffRow({
                         </div>
                         <div>
                           <span className="text-ink-400">بعد: </span>
-                          <span className="text-ink-900 font-semibold">{diff.after || '—'}</span>
+                          <span className="font-semibold text-ink-900">{diff.after || '—'}</span>
                         </div>
                       </div>
                     </div>
@@ -382,9 +287,7 @@ function ApplicantDiffRow({
                 ))}
               </ul>
             </div>
-          )}
-
-          {row.fieldDiffs.length === 0 && (
+          ) : (
             <p className="rounded-md border border-border-subtle bg-surface-card px-3 py-2 text-2xs text-ink-500">
               لا توجد تعديلات حقول، هذا الصف يحتوي على نتيجة اختبار فقط.
             </p>
@@ -417,10 +320,7 @@ function SummaryField({
         <span
           dir={dir}
           title={title}
-          className={[
-            'truncate text-2xs font-semibold text-ink-800',
-            isMonospace ? 'font-mono' : '',
-          ].join(' ')}
+          className={['truncate text-2xs font-semibold text-ink-800', isMonospace ? 'font-mono' : ''].join(' ')}
         >
           {value}
         </span>
@@ -435,10 +335,7 @@ function getTestDisplay(
   testNameByCode: ReadonlyMap<string, string>,
 ): { label: string; title?: string } {
   if (!testCode) return { label: '—' };
-  return {
-    label: testNameByCode.get(testCode) ?? testCode,
-    title: testCode,
-  };
+  return { label: testNameByCode.get(testCode) ?? testCode, title: testCode };
 }
 
 function getOutcomeMeta(outcome: string | null): { label: string; tone: BadgeTone } | null {

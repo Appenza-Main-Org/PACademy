@@ -10,6 +10,7 @@
 
 import type { ReactNode } from 'react';
 import type { ZodSchema } from 'zod';
+import type { XlsxWorkbookSheet } from '@/shared/lib/xlsx';
 import type { AuditModule } from '@/shared/types/domain';
 
 export type ExportFormat = 'csv' | 'xlsx';
@@ -41,8 +42,12 @@ export interface ExportConfig<TRow> {
   defaultScope?: 'filtered' | 'all';
   /** Async supplier for "تصدير الكل" — defaults to the current `rows`. */
   allSupplier?: () => Promise<readonly TRow[]> | readonly TRow[];
+  /** Async supplier for "النتائج المُصفّاة" when the table is server-paginated. */
+  filteredSupplier?: () => Promise<readonly TRow[]> | readonly TRow[];
   /** Optional export-only filter. Does not affect the table rows shown on screen. */
   rowFilter?: (row: TRow) => boolean;
+  /** Optional XLSX workbook builder. CSV keeps using `columns`; XLSX can emit tabs. */
+  xlsxSheets?: (rows: readonly TRow[]) => Promise<readonly XlsxWorkbookSheet[]> | readonly XlsxWorkbookSheet[];
 }
 
 export interface ImportPreviewRow<TIn = unknown> {

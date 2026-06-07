@@ -11,7 +11,7 @@
 import { downloadBlob } from '@/shared/lib/download';
 import { emitAudit } from '@/shared/lib/audit';
 import { serializeCsv } from '@/shared/lib/csv';
-import { buildXlsxBlob } from '@/shared/lib/xlsx';
+import { buildXlsxBlob, buildXlsxWorkbookBlob } from '@/shared/lib/xlsx';
 import type { AuditModule } from '@/shared/types/domain';
 import type { ExportConfig, ExportFormat } from './list-actions.types';
 
@@ -97,7 +97,10 @@ export async function runExport<TRow>(args: RunExportArgs<TRow>): Promise<void> 
     });
     downloadBlob(blob, filename);
   } else {
-    const blob = buildXlsxBlob(headers, body);
+    const workbookSheets = config.xlsxSheets ? await config.xlsxSheets(rows) : null;
+    const blob = workbookSheets && workbookSheets.length > 0
+      ? buildXlsxWorkbookBlob(workbookSheets)
+      : buildXlsxBlob(headers, body);
     downloadBlob(blob, filename);
   }
   emitAudit({

@@ -37,6 +37,7 @@ import { useAuthStore } from '@/features/auth';
 import { useLookup } from '@/features/lookups';
 import { emitAudit } from '@/shared/lib/audit';
 import {
+  type ApplicantReconciliationDecision,
   type ApplicantReconciliationPreview,
   type DataExchangeHistoryEntry,
   type ExchangeDomain,
@@ -61,7 +62,6 @@ import {
 import { buildPerTypeBlobs, buildWorkbookBlob, downloadBlob, parseWorkbook } from '../lib/workbook';
 import {
   ApplicantReconciliationTable,
-  type ReconciliationDecisionState,
 } from '../components/ApplicantReconciliationTable';
 import { ApplicantRosterPanel } from '../components/ApplicantRosterPanel';
 import { DataExchangePreview } from '../components/DataExchangePreview';
@@ -172,7 +172,6 @@ export function DataExchangePage(): JSX.Element {
   const [parsedSheets, setParsedSheets] = useState<ImportSheetInput[]>([]);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [applicantsPreview, setApplicantsPreview] = useState<ApplicantReconciliationPreview | null>(null);
-  const [reconcileDecisions, setReconcileDecisions] = useState<Map<string, ReconciliationDecisionState>>(new Map());
   const previewMutation = usePreviewMutation();
   const applyMutation = useApplyMutation();
   const reconcilePreviewMutation = useApplicantsReconciliationPreviewMutation();
@@ -305,7 +304,6 @@ export function DataExchangePage(): JSX.Element {
     try {
       const { sheets, unknownSheets } = await parseWorkbook(target.file);
       setParsedSheets(sheets);
-      setReconcileDecisions(new Map());
       if (unknownSheets.length > 0) {
         toast(`أوراق غير معروفة سيتم تجاهلها: ${unknownSheets.join('، ')}`, 'warning');
       }
@@ -335,19 +333,10 @@ export function DataExchangePage(): JSX.Element {
     }
   }
 
-  async function handleReconcileCommit(): Promise<void> {
-    if (!applicantsPreview) return;
+  async function handleReconcileCommit(decisions: ApplicantReconciliationDecision[]): Promise<void> {
     const sheet = parsedSheets.find((s) => s.sheetName === SHEET_NAMES.Applicants);
-    if (!sheet) return;
-    const decisions = Array.from(reconcileDecisions.entries())
-      .filter(([, d]) => d.acceptedFields.size > 0 || d.applyWriteback)
-      .map(([nid, d]) => ({
-        nationalId: nid,
-        acceptedFields: Array.from(d.acceptedFields),
-        applyWriteback: d.applyWriteback,
-      }));
-    if (decisions.length === 0) {
-      toast('اختر تغييرًا واحدًا على الأقل للاعتماد.', 'warning');
+    if (!sheet) {
+      toast('تعذّر العثور على ورقة المتقدمين في الملف المرفوع.', 'danger');
       return;
     }
     try {
@@ -365,13 +354,15 @@ export function DataExchangePage(): JSX.Element {
         `تم الاعتماد: ${result.successCount} متقدم · ${result.fieldsWrittenCount} حقل · ${result.writebacksAppliedCount} نتيجة.`,
         result.failedCount > 0 ? 'warning' : 'success',
       );
-      // Re-preview against the now-updated store so the diff reflects reality.
       const refreshed = await reconcilePreviewMutation.mutateAsync(sheet);
       setApplicantsPreview(refreshed);
-      setReconcileDecisions(new Map());
     } catch {
       toast('تعذّر اعتماد المراجعة.', 'danger');
     }
+  }
+
+  function handleReconcileReject(): void {
+    setApplicantsPreview(null);
   }
 
   async function handleApply(args: { mode: ImportApplyMode; skipConflicts: boolean; forceUpdate: boolean }): Promise<void> {
@@ -653,11 +644,10 @@ export function DataExchangePage(): JSX.Element {
             <SectionErrorBoundary title="تعذّر عرض مراجعة بيانات المتقدمين">
               <ApplicantReconciliationTable
                 preview={applicantsPreview}
-                decisions={reconcileDecisions}
                 testNameByCode={testNameByCode}
-                onDecisionsChange={setReconcileDecisions}
                 committing={reconcileCommitMutation.isPending}
-                onCommit={() => void handleReconcileCommit()}
+                onApproveValid={(decisions) => void handleReconcileCommit(decisions)}
+                onReject={handleReconcileReject}
               />
             </SectionErrorBoundary>
           )}

@@ -34,7 +34,8 @@ export function ExportMenu<TRow>({
   const [busy, setBusy] = useState<ExportFormat | null>(null);
   const [progress, setProgress] = useState<{ count: number; total: number } | null>(null);
   const id = useId();
-  const disabled = rows.length === 0;
+  const canLoadRows = Boolean(config.allSupplier || config.filteredSupplier);
+  const disabled = rows.length === 0 && !canLoadRows;
 
   /* Reset progress when the menu re-opens. */
   useEffect(() => {
@@ -46,6 +47,10 @@ export function ExportMenu<TRow>({
     setBusy(format);
     try {
       let source: readonly TRow[] = rows;
+      if (scope === 'filtered' && config.filteredSupplier) {
+        const supplied = await config.filteredSupplier();
+        source = supplied;
+      }
       if (scope === 'all' && config.allSupplier) {
         const supplied = await config.allSupplier();
         source = supplied;

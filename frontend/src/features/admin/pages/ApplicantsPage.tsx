@@ -19,13 +19,15 @@ import { useApplicants, useApplicantStatusOptions } from '@/features/applicants/
 import { useActiveCycle } from '@/features/admin/api/cycles.queries';
 import { useLookup } from '@/features/lookups';
 import { ApplicantRowActions } from '@/features/admin/components/applicants/ApplicantRowActions';
+import { buildApplicantsWorkbookSheets, fetchApplicantsForExport } from '@/features/admin/lib/applicants-export';
 import { ROUTES } from '@/config/routes';
 import { date as fmtDate, shortName, maskNationalId } from '@/shared/lib/format';
 import type { Applicant, ApplicantStatus } from '@/shared/types/domain';
 
 const PAGE_SIZE = 15;
 const FILTER_TRIGGER_CLASS = 'h-[44px] rounded-lg text-sm';
-const FILTER_CONTAINER_CLASS = 'min-w-0';
+const FILTER_CONTAINER_CLASS = 'min-w-[11rem]';
+const FILTER_LABEL_CLASS = 'mb-1 block text-xs font-medium text-ink-700';
 
 const CERT_TYPE_OPTIONS: readonly SearchSelectOption[] = [
   { value: 'ثانوية عامة', label: 'ثانوية عامة' },
@@ -43,6 +45,7 @@ const RELIGION_OPTIONS = [
 ] as const;
 
 const SOURCE_OPTIONS = [
+  { value: 'applicant-portal', label: 'بوابة المتقدمين' },
   { value: 'api', label: 'إدخال إداري' },
   { value: 'admin_records', label: 'ترحيل سابق' },
 ] as const;
@@ -59,13 +62,18 @@ function genderLabel(value: Applicant['gender'] | string | undefined): string {
 }
 
 function sourceLabel(value: string | undefined): string {
+  if (value === 'applicant-portal') return 'بوابة المتقدمين';
   if (value === 'api') return 'إدخال إداري';
   if (value === 'admin_records') return 'ترحيل سابق';
   return displayValue(value);
 }
 
-function isCompletedApplicant(row: Applicant): boolean {
-  return row.stage >= 8;
+function residenceGovernorate(applicant: Applicant): string {
+  return applicant.currentAddress?.governorate ?? applicant.governorate;
+}
+
+function residenceCity(applicant: Applicant): string {
+  return applicant.currentAddress?.city ?? applicant.city;
 }
 
 export function ApplicantsPage(): JSX.Element {
@@ -185,20 +193,38 @@ export function ApplicantsPage(): JSX.Element {
         ),
       },
       {
-        key: 'location',
-        label: 'الميلاد / العنوان',
-        width: '18%',
+        key: 'birthGovernorate',
+        label: 'محافظة الميلاد',
+        width: '12%',
         hideOn: 'md',
         sortable: true,
-        getSortValue: (a) => a.governorate,
+        getSortValue: (a) => a.birthGovernorate ?? '',
         filter: {
           kind: 'text',
-          getValue: (a) => `${a.birthGovernorate ?? ''} ${a.birthDistrict ?? ''} ${a.governorate} ${a.city}`,
+          getValue: (a) => `${a.birthGovernorate ?? ''} ${a.birthDistrict ?? ''}`,
         },
         render: (a) => (
           <div className="min-w-0 space-y-1 text-start">
-            <span className="block truncate text-sm text-ink-900">{displayValue(a.birthGovernorate)} · {displayValue(a.birthDistrict)}</span>
-            <span className="block truncate text-2xs text-ink-500">{a.governorate} · {a.city}</span>
+            <span className="block truncate text-sm text-ink-900">{displayValue(a.birthGovernorate)}</span>
+            <span className="block truncate text-2xs text-ink-500">{displayValue(a.birthDistrict)}</span>
+          </div>
+        ),
+      },
+      {
+        key: 'residenceGovernorate',
+        label: 'محافظة الإقامة',
+        width: '12%',
+        hideOn: 'md',
+        sortable: true,
+        getSortValue: (a) => residenceGovernorate(a),
+        filter: {
+          kind: 'text',
+          getValue: (a) => `${residenceGovernorate(a)} ${residenceCity(a)}`,
+        },
+        render: (a) => (
+          <div className="min-w-0 space-y-1 text-start">
+            <span className="block truncate text-sm text-ink-900">{displayValue(residenceGovernorate(a))}</span>
+            <span className="block truncate text-2xs text-ink-500">{displayValue(residenceCity(a))}</span>
           </div>
         ),
       },
@@ -264,7 +290,20 @@ export function ApplicantsPage(): JSX.Element {
         enabled: true,
         formats: ['csv', 'xlsx'],
         filenamePrefix: 'متقدمين-',
-        rowFilter: isCompletedApplicant,
+        defaultScope: 'all',
+        allSupplier: () => fetchApplicantsForExport(),
+        filteredSupplier: () =>
+          fetchApplicantsForExport({
+            search,
+            status,
+            governorate,
+            birthGovernorate,
+            certType,
+            gender,
+            religion,
+            source,
+          }),
+        xlsxSheets: buildApplicantsWorkbookSheets,
         columns: [
           { key: 'id', labelAr: 'كود التقدم' },
           { key: 'applicantTableId', labelAr: 'معرف جدول المتقدمين' },
@@ -282,7 +321,7 @@ export function ApplicantsPage(): JSX.Element {
           { key: 'birthDistrict', labelAr: 'قسم الميلاد' },
           { key: 'phoneNumber', labelAr: 'رقم الهاتف' },
           { key: 'email', labelAr: 'البريد الإلكتروني' },
-          { key: 'governorate', labelAr: 'المحافظة' },
+          { key: 'governorate', labelAr: 'محافظة الإقامة' },
           { key: 'certType', labelAr: 'نوع الشهادة' },
           { key: 'source', labelAr: 'مصدر السجل' },
           { key: 'certPercent', labelAr: 'النسبة المئوية' },
@@ -320,7 +359,18 @@ export function ApplicantsPage(): JSX.Element {
         ),
       },
     }),
-    [activeCycleQuery.data?.id, statusByValue],
+    [
+      activeCycleQuery.data?.id,
+      birthGovernorate,
+      certType,
+      gender,
+      governorate,
+      religion,
+      search,
+      source,
+      status,
+      statusByValue,
+    ],
   );
 
   return (
@@ -341,12 +391,23 @@ export function ApplicantsPage(): JSX.Element {
 
       <Card>
         <div className="card-body">
-          <div className="grid items-end gap-3 md:grid-cols-2 lg:grid-cols-4 2xl:grid-cols-8">
-            <div className="search min-w-0 md:col-span-2 lg:col-span-2 2xl:col-span-2">
-              <input className="input" type="search" placeholder="بحث بالاسم / الرقم القومي / كود التقدم" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
-              <Search size={18} />
+          <div className="grid items-end gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            <div className="min-w-[18rem] md:col-span-2">
+              <label htmlFor="applicants-search" className={FILTER_LABEL_CLASS}>بحث</label>
+              <div className="search min-w-0">
+                <input
+                  id="applicants-search"
+                  className="input"
+                  type="search"
+                  placeholder="بحث بالاسم / الرقم القومي / كود التقدم"
+                  value={search}
+                  onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                />
+                <Search size={18} />
+              </div>
             </div>
             <Select
+              label="الحالة"
               aria-label="تصفية حسب الحالة"
               value={status}
               onChange={(e) => { setStatus(e.target.value as ApplicantStatus | 'all'); setPage(1); }}
@@ -360,6 +421,7 @@ export function ApplicantsPage(): JSX.Element {
               containerClassName={FILTER_CONTAINER_CLASS}
             />
             <Select
+              label="النوع"
               aria-label="تصفية حسب النوع"
               value={gender}
               onChange={(e) => { setGender(e.target.value as 'male' | 'female' | 'all'); setPage(1); }}
@@ -371,6 +433,7 @@ export function ApplicantsPage(): JSX.Element {
               containerClassName={FILTER_CONTAINER_CLASS}
             />
             <Select
+              label="الديانة"
               aria-label="تصفية حسب الديانة"
               value={religion}
               onChange={(e) => { setReligion(e.target.value); setPage(1); }}
@@ -382,6 +445,7 @@ export function ApplicantsPage(): JSX.Element {
               containerClassName={FILTER_CONTAINER_CLASS}
             />
             <div className={FILTER_CONTAINER_CLASS}>
+              <span className={FILTER_LABEL_CLASS}>محافظة الإقامة</span>
               <SearchSelect
                 value={governorate === 'all' ? null : governorate}
                 onChange={(next) => {
@@ -389,12 +453,13 @@ export function ApplicantsPage(): JSX.Element {
                   setPage(1);
                 }}
                 options={governorateOptions}
-                ariaLabel="تصفية حسب المحافظة"
-                placeholder="كل المحافظات"
+                ariaLabel="تصفية حسب محافظة الإقامة"
+                placeholder="كل محافظات الإقامة"
                 className={FILTER_TRIGGER_CLASS}
               />
             </div>
             <div className={FILTER_CONTAINER_CLASS}>
+              <span className={FILTER_LABEL_CLASS}>محافظة الميلاد</span>
               <SearchSelect
                 value={birthGovernorate === 'all' ? null : birthGovernorate}
                 onChange={(next) => {
@@ -408,6 +473,7 @@ export function ApplicantsPage(): JSX.Element {
               />
             </div>
             <div className={FILTER_CONTAINER_CLASS}>
+              <span className={FILTER_LABEL_CLASS}>الشهادة</span>
               <SearchSelect
                 value={certType === 'all' ? null : certType}
                 onChange={(next) => {
@@ -421,6 +487,7 @@ export function ApplicantsPage(): JSX.Element {
               />
             </div>
             <Select
+              label="مصدر السجل"
               aria-label="تصفية حسب مصدر السجل"
               value={source}
               onChange={(e) => { setSource(e.target.value); setPage(1); }}

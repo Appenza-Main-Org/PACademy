@@ -40,6 +40,7 @@ import type {
   WorkflowTransitionEvent,
 } from '@/shared/types/domain';
 import type { Pagination } from '@/shared/types/api';
+import { normalizeArabic, normalizeArabicForSearch } from '@/shared/lib/arabic';
 import { parseNationalId } from '@/shared/lib/national-id';
 import type { ApplicantInput } from '../schemas';
 
@@ -61,6 +62,8 @@ export interface ApplicantStatusOption {
   label: string;
   color: AuditColor;
 }
+
+const CLIENT_FILTER_PAGE_SIZE = 10_000;
 
 export class ApplicantTransitionError extends Error {
   public readonly code: 422 | 409;
@@ -262,6 +265,8 @@ function normalizeFamily(value: unknown): Applicant['family'] {
 
 function normalizeApplicant(applicant: Applicant): Applicant {
   const name = usableText(applicant.name) ?? joinedFullName(applicant) ?? applicant.name;
+  const birthGovernorate = usableText(applicant.birthGovernorate)
+    ?? governorateFromNationalId(applicant.nationalId);
   const governorate = usableText(applicant.governorate)
     ?? usableText(applicant.currentAddress?.governorate)
     ?? governorateFromNationalId(applicant.nationalId)
@@ -283,6 +288,7 @@ function normalizeApplicant(applicant: Applicant): Applicant {
   return {
     ...applicant,
     name,
+    birthGovernorate,
     governorate,
     city,
     certType,
@@ -311,6 +317,113 @@ function normalizeApplicantPage(page: Pagination<Applicant>): Pagination<Applica
     ...page,
     data: page.data.map(normalizeApplicant),
   };
+}
+
+function compactApplicantFilters(filters: ApplicantFilters): ApplicantFilters {
+  const out: ApplicantFilters = {};
+  if (filters.page !== undefined) out.page = filters.page;
+  if (filters.pageSize !== undefined) out.pageSize = filters.pageSize;
+
+  const search = filters.search?.trim();
+  if (search) out.search = search;
+  if (filters.status && filters.status !== 'all') out.status = filters.status;
+  if (filters.governorate && filters.governorate !== 'all') out.governorate = filters.governorate;
+  if (filters.birthGovernorate && filters.birthGovernorate !== 'all') out.birthGovernorate = filters.birthGovernorate;
+  if (filters.certType && filters.certType !== 'all') out.certType = filters.certType;
+  if (filters.gender && filters.gender !== 'all') out.gender = filters.gender;
+  if (filters.religion && filters.religion !== 'all') out.religion = filters.religion;
+  if (filters.source && filters.source !== 'all') out.source = filters.source;
+  return out;
+}
+
+function hasApplicantFilter(filters: ApplicantFilters): boolean {
+  return Boolean(
+    filters.search
+      || filters.status
+      || filters.governorate
+      || filters.birthGovernorate
+      || filters.certType
+      || filters.gender
+      || filters.religion
+      || filters.source,
+  );
+}
+
+function normalizedIncludes(value: string | number | null | undefined, needle: string): boolean {
+  const haystack = String(value ?? '');
+  return normalizeArabic(haystack).includes(normalizeArabic(needle))
+    || normalizeArabicForSearch(haystack).includes(normalizeArabicForSearch(needle));
+}
+
+function normalizedEquals(value: string | number | null | undefined, expected: string): boolean {
+  return normalizeArabic(String(value ?? '')) === normalizeArabic(expected);
+}
+
+function applicantSearchHaystack(applicant: Applicant): string {
+  return [
+    applicant.name,
+    joinedFullName(applicant),
+    applicant.nationalId,
+    applicant.id,
+    applicant.adminRecordId,
+    applicant.applicantTableId,
+    applicant.phoneNumber,
+    applicant.contact?.mobilePhone,
+    applicant.email,
+    applicant.contact?.email,
+  ]
+    .filter((value): value is string => typeof value === 'string' && value.trim() !== '')
+    .join(' ');
+}
+
+function residenceGovernorate(applicant: Applicant): string {
+  return applicant.currentAddress?.governorate ?? applicant.governorate;
+}
+
+function matchesApplicantFilters(applicant: Applicant, filters: ApplicantFilters): boolean {
+  const search = filters.search?.trim();
+  if (search && !normalizedIncludes(applicantSearchHaystack(applicant), search)) return false;
+  if (filters.status && applicant.status !== filters.status) return false;
+  if (filters.governorate && !normalizedEquals(residenceGovernorate(applicant), filters.governorate)) return false;
+  if (filters.birthGovernorate && !normalizedEquals(applicant.birthGovernorate, filters.birthGovernorate)) return false;
+  if (filters.certType && !normalizedEquals(applicant.certType, filters.certType)) return false;
+  if (filters.gender && applicant.gender !== filters.gender) return false;
+  if (filters.religion && !normalizedEquals(applicant.religion, filters.religion)) return false;
+  if (filters.source && applicant.source !== filters.source) return false;
+  return true;
+}
+
+function paginateApplicants(
+  applicants: readonly Applicant[],
+  page = 1,
+  pageSize = 20,
+): Pagination<Applicant> {
+  const total = applicants.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const start = (safePage - 1) * pageSize;
+  return {
+    data: applicants.slice(start, start + pageSize),
+    total,
+    page: safePage,
+    pageSize,
+    totalPages,
+  };
+}
+
+async function listAllApplicantsForClientFilter(): Promise<Applicant[]> {
+  const firstPage = await apiClient.get<Pagination<Applicant>>('/api/applicants', {
+    query: { page: 1, pageSize: CLIENT_FILTER_PAGE_SIZE },
+  });
+  const normalizedFirstPage = normalizeApplicantPage(firstPage);
+  const rows = [...normalizedFirstPage.data];
+  for (let page = 2; page <= normalizedFirstPage.totalPages; page += 1) {
+    const nextPage = await apiClient.get<Pagination<Applicant>>('/api/applicants', {
+      query: { page, pageSize: CLIENT_FILTER_PAGE_SIZE },
+    });
+    rows.push(...normalizeApplicantPage(nextPage).data);
+  }
+  return rows;
 }
 
 function normalizeDistribution(rows: Array<{ label: string; value: number }>): Array<{ label: string; value: number }> {
@@ -372,7 +485,17 @@ export function diffApplicants(
 
 export const applicantService = {
   async list(filters: ApplicantFilters = {}): Promise<Pagination<Applicant>> {
-    const page = await apiClient.get<Pagination<Applicant>>('/api/applicants', { query: filters });
+    const cleaned = compactApplicantFilters(filters);
+    if (hasApplicantFilter(cleaned)) {
+      const rows = await listAllApplicantsForClientFilter();
+      return paginateApplicants(
+        rows.filter((applicant) => matchesApplicantFilters(applicant, cleaned)),
+        cleaned.page,
+        cleaned.pageSize,
+      );
+    }
+
+    const page = await apiClient.get<Pagination<Applicant>>('/api/applicants', { query: cleaned });
     return normalizeApplicantPage(page);
   },
 

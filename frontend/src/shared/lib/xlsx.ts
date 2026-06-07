@@ -12,23 +12,66 @@
 import * as XLSX from 'xlsx';
 import type { ParseResult } from './csv';
 
+export interface XlsxWorkbookSheet {
+  name: string;
+  headers: readonly string[];
+  rows: ReadonlyArray<readonly unknown[]>;
+}
+
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+const INVALID_SHEET_NAME_CHARS = /[:\\/?*[\]]/g;
+
+function safeSheetName(name: string, fallback: string, used: Set<string>): string {
+  const base = name.replace(INVALID_SHEET_NAME_CHARS, ' ').trim().slice(0, 31) || fallback;
+  let next = base;
+  let i = 2;
+  while (used.has(next)) {
+    const suffix = ` ${i}`;
+    next = `${base.slice(0, Math.max(1, 31 - suffix.length))}${suffix}`;
+    i += 1;
+  }
+  used.add(next);
+  return next;
+}
+
+function sheetFromRows(headers: readonly string[], rows: ReadonlyArray<readonly unknown[]>): XLSX.WorkSheet {
+  const aoa: unknown[][] = [headers as unknown[]];
+  for (const row of rows) {
+    aoa.push(row as unknown[]);
+  }
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = headers.map((header, index) => {
+    const maxCellLength = rows.reduce((max, row) => {
+      const value = row[index];
+      return Math.max(max, String(value ?? '').length);
+    }, String(header).length);
+    return { wch: Math.min(Math.max(maxCellLength + 2, 12), 48) };
+  });
+  return ws;
+}
+
 /**
  * Convert a header row + value rows into a binary Blob containing a single
  * sheet named "بيانات". Cell formatting is left to defaults; Excel infers
  * numbers / dates from cell contents.
  */
 export function buildXlsxBlob(headers: readonly string[], rows: ReadonlyArray<readonly unknown[]>): Blob {
-  const aoa: unknown[][] = [headers as unknown[]];
-  for (const row of rows) {
-    aoa.push(row as unknown[]);
-  }
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  return buildXlsxWorkbookBlob([{ name: 'بيانات', headers, rows }]);
+}
+
+/**
+ * Convert multiple named sheets into one XLSX workbook. Sheet names are
+ * sanitized for Excel compatibility and kept stable for import templates.
+ */
+export function buildXlsxWorkbookBlob(sheets: readonly XlsxWorkbookSheet[]): Blob {
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'بيانات');
+  const usedNames = new Set<string>();
+  for (const [index, sheet] of sheets.entries()) {
+    const ws = sheetFromRows(sheet.headers, sheet.rows);
+    XLSX.utils.book_append_sheet(wb, ws, safeSheetName(sheet.name, `Sheet ${index + 1}`, usedNames));
+  }
   const bin = XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
-  return new Blob([bin], {
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  });
+  return new Blob([bin], { type: XLSX_MIME });
 }
 
 /**
