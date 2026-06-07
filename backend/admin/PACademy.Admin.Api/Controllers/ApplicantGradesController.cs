@@ -26,46 +26,18 @@ public sealed class ApplicantGradesController(
 {
     [HttpGet]
     public async Task<IActionResult> List(
-        [FromQuery] int? page,
-        [FromQuery(Name = "size")] int? size,
-        [FromQuery] int? pageSize,
-        [FromQuery(Name = "q")] string? q,
-        [FromQuery(Name = "search")] string? search,
-        [FromQuery] string? sort,
-        [FromQuery] string? sortKey,
-        [FromQuery] string? sortDirection,
-        [FromQuery] string? gender,
-        [FromQuery] string? branch,
-        [FromQuery(Name = "year")] int? year,
-        [FromQuery] int? graduationYear,
-        [FromQuery(Name = "school")] string? school,
-        [FromQuery] string? schoolCategoryCode,
-        [FromQuery(Name = "changed")] bool? changed,
-        [FromQuery] bool? changedOnly,
+        [FromQuery] ApplicantGradesListQuery query,
         CancellationToken ct)
     {
-        var computedSort = !string.IsNullOrWhiteSpace(sort)
-            ? sort
-            : !string.IsNullOrWhiteSpace(sortKey)
-                ? $"{sortKey}:{(string.IsNullOrWhiteSpace(sortDirection) ? "asc" : sortDirection)}"
-                : null;
-        var filters = new GradeListFilters(
-            page,
-            size ?? pageSize,
-            q ?? search,
-            computedSort,
-            gender,
-            branch,
-            year ?? graduationYear,
-            school ?? schoolCategoryCode,
-            changed ?? changedOnly);
-        var result = await listGrades.ExecuteAsync(filters, ct);
-        return page.HasValue || size.HasValue || pageSize.HasValue ? Ok(result) : Ok(result.Rows);
+        var result = await listGrades.ExecuteAsync(query.ToPagedFilters(), ct);
+        return query.HasPaging ? Ok(result) : Ok(result.Rows);
     }
 
     [HttpGet("export")]
-    public async Task<IActionResult> Export([FromQuery] string? q, CancellationToken ct)
-        => Ok((await listGrades.ExecuteAsync(new GradeListFilters(null, null, q, null, null, null, null, null, null), ct)).Rows);
+    public async Task<IActionResult> Export(
+        [FromQuery] ApplicantGradesListQuery query,
+        CancellationToken ct)
+        => Ok((await listGrades.ExecuteAsync(query.ToExportFilters(), ct)).Rows);
 
     [HttpGet("by-nid/{nid}")]
     public async Task<IActionResult> ByNid([FromRoute] string nid, [FromQuery] string? cycleId, CancellationToken ct)
@@ -146,4 +118,93 @@ public sealed class ApplicantGradesController(
                 e => e.ErrorMessage),
             message = "بيانات غير صالحة.",
         });
+}
+
+public sealed class ApplicantGradesListQuery
+{
+    public int? Page { get; set; }
+
+    [FromQuery(Name = "size")]
+    public int? Size { get; set; }
+
+    public int? PageSize { get; set; }
+
+    [FromQuery(Name = "q")]
+    public string? Q { get; set; }
+
+    [FromQuery(Name = "search")]
+    public string? Search { get; set; }
+
+    public string? Sort { get; set; }
+    public string? SortKey { get; set; }
+    public string? SortDirection { get; set; }
+    public string? Gender { get; set; }
+    public string? Branch { get; set; }
+
+    [FromQuery(Name = "year")]
+    public int? Year { get; set; }
+
+    public int? GraduationYear { get; set; }
+
+    [FromQuery(Name = "school")]
+    public string? School { get; set; }
+
+    public string? SchoolCategoryCode { get; set; }
+    public string? SchoolName { get; set; }
+    public string[]? SchoolCategoryCodes { get; set; }
+
+    [FromQuery(Name = "changed")]
+    public bool? Changed { get; set; }
+
+    public bool? ChangedOnly { get; set; }
+    public string? Nid { get; set; }
+    public string? SeatingNumber { get; set; }
+    public string? Name { get; set; }
+    public decimal? TotalMin { get; set; }
+    public decimal? TotalMax { get; set; }
+    public decimal? PctMin { get; set; }
+    public decimal? PctMax { get; set; }
+    public decimal? EffMin { get; set; }
+    public decimal? EffMax { get; set; }
+    public int? GraduationYearMin { get; set; }
+    public int? GraduationYearMax { get; set; }
+
+    public bool HasPaging => Page.HasValue || Size.HasValue || PageSize.HasValue;
+
+    public GradeListFilters ToPagedFilters()
+        => CreateFilters(Page, Size ?? PageSize);
+
+    public GradeListFilters ToExportFilters()
+        => CreateFilters(null, null);
+
+    private GradeListFilters CreateFilters(int? page, int? pageSize)
+        => new(
+            page,
+            pageSize,
+            Q ?? Search,
+            ComputedSort,
+            Gender,
+            Branch,
+            Year ?? GraduationYear,
+            School ?? SchoolCategoryCode,
+            Changed ?? ChangedOnly,
+            Nid,
+            SeatingNumber,
+            Name,
+            SchoolName,
+            SchoolCategoryCodes?.Where(x => !string.IsNullOrWhiteSpace(x)).ToArray(),
+            TotalMin,
+            TotalMax,
+            PctMin,
+            PctMax,
+            EffMin,
+            EffMax,
+            GraduationYearMin,
+            GraduationYearMax);
+
+    private string? ComputedSort => !string.IsNullOrWhiteSpace(Sort)
+        ? Sort
+        : !string.IsNullOrWhiteSpace(SortKey)
+            ? $"{SortKey}:{(string.IsNullOrWhiteSpace(SortDirection) ? "asc" : SortDirection)}"
+            : null;
 }

@@ -19,6 +19,8 @@ public sealed class ListGradesUseCase(IApplicantGradesAdminDbContext db)
             q = q.Where(x => x.GraduationYear == filters.GraduationYear);
         if (!string.IsNullOrWhiteSpace(filters.SchoolCategoryCode))
             q = q.Where(x => x.SchoolCategoryCode == filters.SchoolCategoryCode);
+        if (filters.SchoolCategoryCodes is { Count: > 0 })
+            q = q.Where(x => x.SchoolCategoryCode != null && filters.SchoolCategoryCodes.Contains(x.SchoolCategoryCode));
         if (filters.ChangedOnly == true)
             q = q.Where(x => x.Adjustments.Any(a => a.IsActive) || x.OverrideMax != null || x.GradeChangedAt != null);
 
@@ -47,6 +49,44 @@ public sealed class ListGradesUseCase(IApplicantGradesAdminDbContext db)
             }
         }
 
+        if (!string.IsNullOrWhiteSpace(filters.Nid))
+        {
+            var text = EscapeLike(filters.Nid);
+            q = q.Where(x => EF.Functions.Like(x.Nid, "%" + text + "%"));
+        }
+        if (!string.IsNullOrWhiteSpace(filters.SeatingNumber))
+        {
+            var text = EscapeLike(filters.SeatingNumber);
+            q = q.Where(x => x.SeatingNumber != null && EF.Functions.Like(x.SeatingNumber, "%" + text + "%"));
+        }
+        if (!string.IsNullOrWhiteSpace(filters.Name))
+        {
+            var text = EscapeLike(filters.Name);
+            q = q.Where(x => EF.Functions.Like(x.Name, "%" + text + "%"));
+        }
+        if (!string.IsNullOrWhiteSpace(filters.SchoolName))
+        {
+            var text = EscapeLike(filters.SchoolName);
+            q = q.Where(x => EF.Functions.Like(x.School, "%" + text + "%"));
+        }
+
+        if (filters.TotalMin.HasValue)
+            q = q.Where(x => x.Total >= filters.TotalMin);
+        if (filters.TotalMax.HasValue)
+            q = q.Where(x => x.Total <= filters.TotalMax);
+        if (filters.PctMin.HasValue)
+            q = q.Where(x => x.Total * 100 / (x.OverrideMax ?? x.ImportMax) >= filters.PctMin);
+        if (filters.PctMax.HasValue)
+            q = q.Where(x => x.Total * 100 / (x.OverrideMax ?? x.ImportMax) <= filters.PctMax);
+        if (filters.EffMin.HasValue)
+            q = q.Where(x => x.Total + x.Adjustments.Where(a => a.IsActive).Sum(a => a.Amount) >= filters.EffMin);
+        if (filters.EffMax.HasValue)
+            q = q.Where(x => x.Total + x.Adjustments.Where(a => a.IsActive).Sum(a => a.Amount) <= filters.EffMax);
+        if (filters.GraduationYearMin.HasValue)
+            q = q.Where(x => x.GraduationYear >= filters.GraduationYearMin);
+        if (filters.GraduationYearMax.HasValue)
+            q = q.Where(x => x.GraduationYear <= filters.GraduationYearMax);
+
         var total = await q.CountAsync(ct);
         q = GradeImportLogic.ApplySort(q, filters.Sort);
 
@@ -63,6 +103,12 @@ public sealed class ListGradesUseCase(IApplicantGradesAdminDbContext db)
 
         return new GradeListResult(rows.Select(GradeMapper.ToDto).ToList(), total);
     }
+
+    private static string EscapeLike(string value)
+        => value.Trim()
+            .Replace("[", "[[]", StringComparison.Ordinal)
+            .Replace("%", "[%]", StringComparison.Ordinal)
+            .Replace("_", "[_]", StringComparison.Ordinal);
 }
 
 public sealed class FindGradeByNidUseCase(IApplicantGradesAdminDbContext db)
