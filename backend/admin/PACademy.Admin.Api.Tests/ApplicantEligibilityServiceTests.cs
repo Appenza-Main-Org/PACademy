@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Admin.Api.Modules.Admissions.Eligibility;
+using PACademy.Admin.Api.Modules.Settings;
 using PACademy.Admin.Api.Modules.OperationalRecords;
 using PACademy.Admin.Api.Modules.Lookups;
 using PACademy.Admin.Api.Persistence;
@@ -292,11 +293,14 @@ public sealed class ApplicantEligibilityServiceTests
     {
         await using var db = CreateDb();
         await SeedBaseAsync(db, gradeSource: "استيراد خارجي");
+        await SeedGeneralSettingsAsync(db, examDays: 10, selectionWindowDays: 30);
         var store = new OperationalRecordStore(db);
-        await store.UpsertAsync("committeeInstances", "ci-1", CommitteeInstance("ci-1", "cycle-2026", "CAT-GEN", "CMT-1", "2026-06-10", capacity: 120, reserved: 7), TestContext.Current.CancellationToken);
-        await store.UpsertAsync("committeeInstances", "ci-2", CommitteeInstance("ci-2", "cycle-2026", "CAT-GEN", "CMT-1", "2026-06-12", capacity: 80, reserved: 3), TestContext.Current.CancellationToken);
-        await store.UpsertAsync("committeeInstances", "ci-other-cycle", CommitteeInstance("ci-other-cycle", "cycle-2025", "CAT-GEN", "CMT-1", "2025-06-10", capacity: 40, reserved: 0), TestContext.Current.CancellationToken);
-        await store.UpsertAsync("committeeInstances", "ci-other-committee", CommitteeInstance("ci-other-committee", "cycle-2026", "CAT-GEN", "CMT-2", "2026-06-20", capacity: 50, reserved: 0), TestContext.Current.CancellationToken);
+        var firstDate = IsoDateDaysFromToday(3);
+        var secondDate = IsoDateDaysFromToday(5);
+        await store.UpsertAsync("committeeInstances", "ci-1", CommitteeInstance("ci-1", "cycle-2026", "CAT-GEN", "CMT-1", firstDate, capacity: 120, reserved: 7), TestContext.Current.CancellationToken);
+        await store.UpsertAsync("committeeInstances", "ci-2", CommitteeInstance("ci-2", "cycle-2026", "CAT-GEN", "CMT-1", secondDate, capacity: 80, reserved: 3), TestContext.Current.CancellationToken);
+        await store.UpsertAsync("committeeInstances", "ci-other-cycle", CommitteeInstance("ci-other-cycle", "cycle-2025", "CAT-GEN", "CMT-1", IsoDateDaysFromToday(3), capacity: 40, reserved: 0), TestContext.Current.CancellationToken);
+        await store.UpsertAsync("committeeInstances", "ci-other-committee", CommitteeInstance("ci-other-committee", "cycle-2026", "CAT-GEN", "CMT-2", IsoDateDaysFromToday(6), capacity: 50, reserved: 0), TestContext.Current.CancellationToken);
         var service = CreateService(db);
 
         var response = await service.GetEligibleCategoriesAsync("30001010123457", CancellationToken.None);
@@ -305,9 +309,33 @@ public sealed class ApplicantEligibilityServiceTests
         var root = JsonNode.Parse(json)!.AsObject();
         var committee = root["categories"]![0]!["committees"]![0]!.AsObject();
         var dates = committee["examDates"]!.AsArray();
-        Assert.Equal(["2026-06-10", "2026-06-12"], dates.Select(x => x!.GetValue<string>()).ToArray());
+        Assert.Equal([firstDate, secondDate], dates.Select(x => x!.GetValue<string>()).ToArray());
         Assert.Equal(120, committee["examSlots"]![0]!["capacity"]!.GetValue<int>());
         Assert.Equal(7, committee["examSlots"]![0]!["reserved"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task EligibleCommitteeExamDatesRespectGeneralSettingsWindowAndDayLimit()
+    {
+        await using var db = CreateDb();
+        await SeedBaseAsync(db, gradeSource: "استيراد خارجي");
+        await SeedGeneralSettingsAsync(db, examDays: 2, selectionWindowDays: 5);
+        var store = new OperationalRecordStore(db);
+        var firstDate = IsoDateDaysFromToday(1);
+        var secondDate = IsoDateDaysFromToday(3);
+        var thirdDate = IsoDateDaysFromToday(5);
+        var outsideWindowDate = IsoDateDaysFromToday(6);
+        await store.UpsertAsync("committeeInstances", "ci-1", CommitteeInstance("ci-1", "cycle-2026", "CAT-GEN", "CMT-1", firstDate, capacity: 120, reserved: 7), TestContext.Current.CancellationToken);
+        await store.UpsertAsync("committeeInstances", "ci-2", CommitteeInstance("ci-2", "cycle-2026", "CAT-GEN", "CMT-1", secondDate, capacity: 80, reserved: 3), TestContext.Current.CancellationToken);
+        await store.UpsertAsync("committeeInstances", "ci-3", CommitteeInstance("ci-3", "cycle-2026", "CAT-GEN", "CMT-1", thirdDate, capacity: 60, reserved: 4), TestContext.Current.CancellationToken);
+        await store.UpsertAsync("committeeInstances", "ci-4", CommitteeInstance("ci-4", "cycle-2026", "CAT-GEN", "CMT-1", outsideWindowDate, capacity: 40, reserved: 2), TestContext.Current.CancellationToken);
+        var service = CreateService(db);
+
+        var response = await service.GetEligibleCategoriesAsync("30001010123457", CancellationToken.None);
+
+        var committee = Assert.Single(response.Categories[0].Committees);
+        Assert.Equal([firstDate, secondDate], committee.ExamDates);
+        Assert.Equal([firstDate, secondDate], committee.ExamSlots.Select(x => x.Date).ToArray());
     }
 
     [Fact]
@@ -505,6 +533,25 @@ public sealed class ApplicantEligibilityServiceTests
     {
         return new ApplicantEligibilityService(db, new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink()));
     }
+
+    private static async Task SeedGeneralSettingsAsync(
+        AdminDbContext db,
+        int examDays,
+        int selectionWindowDays)
+    {
+        db.GeneralSettings.Add(new GeneralSettingsEntity
+        {
+            Id = GeneralSettingsEntity.SingletonId,
+            ExamDaysPerApplicant = examDays,
+            ExamSlotSelectionWindowDays = selectionWindowDays,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        });
+        await db.SaveChangesAsync();
+    }
+
+    private static string IsoDateDaysFromToday(int days) =>
+        DateOnly.FromDateTime(DateTime.UtcNow.Date.AddDays(days)).ToString("yyyy-MM-dd");
 
     private static string FindRepoFile(string relativePath)
     {
