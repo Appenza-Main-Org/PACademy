@@ -299,6 +299,28 @@ export function buildFamilyRows(s: FamilyDataSnapshot): readonly FamilyViewRow[]
   return rows;
 }
 
+function hasRequiredDetails(member: FamilyMemberForm): boolean {
+  return (
+    member.professionDetail.trim().length > 0 &&
+    member.qualificationDetail.trim().length > 0
+  );
+}
+
+function allRequiredMemberDetailsPresent(s: FamilyDataSnapshot): boolean {
+  const requiredMembers: FamilyMemberForm[] = [
+    s.father,
+    s.mother,
+    s.grandparents.paternalGrandfather,
+    s.grandparents.paternalGrandmother,
+    s.grandparents.maternalGrandfather,
+    s.grandparents.maternalGrandmother,
+    ...s.fatherWives,
+    ...s.motherHusbands,
+    ...(Object.keys(s.relatives) as RelativeKind[]).flatMap((kind) => s.relatives[kind]),
+  ];
+  return requiredMembers.every(hasRequiredDetails);
+}
+
 /** Same gate as the entry page used for the in-tab "اعتماد" button. */
 export function canApproveFamilySnapshot(s: FamilyDataSnapshot): boolean {
   const allGrandparentsSaved =
@@ -325,6 +347,7 @@ export function canApproveFamilySnapshot(s: FamilyDataSnapshot): boolean {
     s.savedFather &&
     s.savedMother &&
     allGrandparentsSaved &&
+    allRequiredMemberDetailsPresent(s) &&
     fatherWivesOk &&
     motherHusbandsOk &&
     relativesOk &&

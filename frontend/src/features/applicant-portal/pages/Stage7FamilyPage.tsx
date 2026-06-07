@@ -38,8 +38,10 @@ import {
   isBirthLocalityRequired,
   PROFESSION_OPTIONS,
   RELATIVE_LABEL,
+  canApproveFamilySnapshot,
   saveFamilySnapshot,
   sanitizeFamilyMemberForBirthplace,
+  type FamilyDataSnapshot,
   type FamilyMemberForm,
   type GrandparentsForm,
   type GuardianForm,
@@ -270,37 +272,39 @@ export function Stage7FamilyPage(): JSX.Element {
   const motherHusbandsOk = !hasMotherHusbands || (
     motherHusbands.length > 0 && savedMotherHusbands.every(Boolean)
   );
+  const familySnapshot: FamilyDataSnapshot = {
+    father,
+    mother,
+    fatherWives,
+    motherHusbands,
+    grandparents,
+    relatives,
+    guardian,
+    savedFather,
+    savedMother,
+    savedFatherWives,
+    savedMotherHusbands,
+    savedGrandparents,
+    savedRelatives,
+    savedGuardian,
+    hasFatherWives,
+    hasMotherHusbands,
+  };
   const canApprove =
-    savedFather
-    && savedMother
-    && allGrandparentsSaved
-    && fatherWivesOk
-    && motherHusbandsOk
-    && relativesOk
-    && guardianOk;
+    fatherWivesOk &&
+    motherHusbandsOk &&
+    relativesOk &&
+    guardianOk &&
+    canApproveFamilySnapshot(familySnapshot);
 
   /* Snapshot all family state to sessionStorage and persist to the
    * backend, then hand off to the review step for summary + اعتماد. */
   const onContinueToReview = (): void => {
-    const snapshot = {
-      father,
-      mother,
-      fatherWives,
-      motherHusbands,
-      grandparents,
-      relatives,
-      guardian,
-      savedFather,
-      savedMother,
-      savedFatherWives,
-      savedMotherHusbands,
-      savedGrandparents,
-      savedRelatives,
-      savedGuardian,
-      hasFatherWives,
-      hasMotherHusbands,
-    };
-    saveFamilySnapshot(snapshot);
+    if (!canApprove) {
+      toast('أكمل الحقول المطلوبة واحفظ كل بيانات العائلة قبل المتابعة', 'warning');
+      return;
+    }
+    saveFamilySnapshot(familySnapshot);
     void applicantPortalService.saveDraft(applicantId, {
       family: { father, mother, fatherWives, motherHusbands, grandparents, relatives, guardian },
     } as Parameters<typeof applicantPortalService.saveDraft>[1]);
@@ -889,14 +893,20 @@ function MemberFormCard({
         <Textarea
           label="وصف تفصيلي للوظيفة"
           rows={2}
-          {...register('professionDetail')}
+          required
+          {...register('professionDetail', {
+            validate: (v: string) => v.trim().length > 0 || 'مطلوب',
+          })}
           error={errors.professionDetail?.message}
           containerClassName="md:col-span-2"
         />
         <Textarea
           label="وصف تفصيلي للمؤهل"
           rows={2}
-          {...register('qualificationDetail')}
+          required
+          {...register('qualificationDetail', {
+            validate: (v: string) => v.trim().length > 0 || 'مطلوب',
+          })}
           error={errors.qualificationDetail?.message}
           containerClassName="md:col-span-2"
         />
@@ -1436,6 +1446,8 @@ function isFilled(m: FamilyMemberForm): boolean {
     birthLocalityOk &&
     m.profession.length > 0 &&
     m.qualification.length > 0 &&
+    m.professionDetail.trim().length > 0 &&
+    m.qualificationDetail.trim().length > 0 &&
     (!MEMBERSHIP_PROFESSIONS.has(m.profession) || (m.seniorityNumber ?? '').length > 0);
   if (!baseOk) return false;
   /* Residence is now required for every member (even deceased — last
