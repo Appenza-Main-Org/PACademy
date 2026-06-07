@@ -90,10 +90,8 @@ export function AdmissionFormSection({
     readProfileString(submittedProfile, 'bachelorYear') ||
     (v?.bachelorYear != null && v?.bachelorYear !== '' ? String(v.bachelorYear) : '');
   const bachelorGradeText = readProfileString(submittedProfile, 'bachelorGrade') || v?.bachelorGrade || '';
-  const thanawiTotalText = formatScoreField(
-    readProfileString(submittedProfile, 'thanawiTotal') ||
-      (v?.thanawiTotal != null ? String(v.thanawiTotal) : ''),
-  );
+  const thanawiTotalText = readProfileString(submittedProfile, 'thanawiTotal') ||
+    (v?.thanawiTotal != null ? String(v.thanawiTotal) : '');
   const thanawiPercentageText = formatPercentField(
     readProfileString(submittedProfile, 'thanawiPercentage') ||
       (v?.thanawiPercentage != null ? String(v.thanawiPercentage) : ''),
@@ -437,11 +435,6 @@ function readProfileString(
   if (typeof value === 'string') return value;
   if (typeof value === 'number') return String(value);
   return '';
-}
-
-function formatScoreField(value: string): string {
-  const trimmed = value.trim();
-  return trimmed ? `${trimmed} / 410` : '';
 }
 
 function formatPercentField(value: string): string {

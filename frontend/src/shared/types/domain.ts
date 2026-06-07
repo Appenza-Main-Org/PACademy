@@ -1306,6 +1306,7 @@ export interface ApplicantDraft {
     bachelorMajor?: string;
     bachelorBranch?: string;
     bachelorSpecialization?: string;
+    bachelorGrade?: string;
     bachelorPercentage?: number;
     bachelorYear?: number;
     [key: string]: unknown;
