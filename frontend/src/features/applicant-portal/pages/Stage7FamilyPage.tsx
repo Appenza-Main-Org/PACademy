@@ -922,8 +922,8 @@ function MemberFormCard({
           required={!professionDetailOptional}
           disabled={professionDetailOptional}
           {...register('professionDetail', {
-            validate: (_value: string, values: FamilyMemberForm) =>
-              isProfessionDetailOptional?.(values) || values.professionDetail.trim().length > 0 || 'مطلوب',
+            validate: (value: string | undefined, values: FamilyMemberForm) =>
+              isProfessionDetailOptional?.(values) || (value ?? '').trim().length > 0 || 'مطلوب',
           })}
           error={errors.professionDetail?.message}
           containerClassName="md:col-span-2"

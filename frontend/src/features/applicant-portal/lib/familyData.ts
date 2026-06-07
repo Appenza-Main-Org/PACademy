@@ -303,15 +303,15 @@ export function buildFamilyRows(s: FamilyDataSnapshot): readonly FamilyViewRow[]
 
 function hasRequiredDetails(member: FamilyMemberForm): boolean {
   return (
-    member.professionDetail.trim().length > 0 &&
-    member.qualificationDetail.trim().length > 0
+    (member.professionDetail ?? '').trim().length > 0 &&
+    (member.qualificationDetail ?? '').trim().length > 0
   );
 }
 
 function hasRequiredMotherDetails(member: FamilyMemberForm): boolean {
   return (
-    (member.profession === HOUSEWIFE_PROFESSION || member.professionDetail.trim().length > 0) &&
-    member.qualificationDetail.trim().length > 0
+    (member.profession === HOUSEWIFE_PROFESSION || (member.professionDetail ?? '').trim().length > 0) &&
+    (member.qualificationDetail ?? '').trim().length > 0
   );
 }
 
