@@ -43,11 +43,11 @@ function writePersisted(id: string | null): void {
 export function useAdmissionSetupCycle(): AdmissionSetupCycleContext {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlCycleId = searchParams.get('cycleId');
-  const activeQuery = useActiveCycle();
+  const initialSelectedRef = useRef<string | null>(urlCycleId ?? readPersisted());
+  const [selectedId, setSelectedId] = useState<string | null>(() => initialSelectedRef.current);
+  const activeQuery = useActiveCycle(selectedId === null);
   const listQuery = useCycles();
   const available = listQuery.data ?? [];
-
-  const [selectedId, setSelectedId] = useState<string | null>(() => urlCycleId ?? readPersisted());
 
   const updateSelection = useCallback(
     (id: string | null) => {
@@ -56,6 +56,7 @@ export function useAdmissionSetupCycle(): AdmissionSetupCycleContext {
       const next = new URLSearchParams(searchParams);
       if (id) next.set('cycleId', id);
       else next.delete('cycleId');
+      if (next.toString() === searchParams.toString()) return;
       setSearchParams(next, { replace: true });
     },
     [searchParams, setSearchParams],
