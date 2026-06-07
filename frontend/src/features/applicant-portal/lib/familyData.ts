@@ -42,6 +42,8 @@ export const PROFESSION_OPTIONS = [
   { value: 'other', label: 'أخرى' },
 ] as const;
 
+export const HOUSEWIFE_PROFESSION = 'housewife';
+
 export function professionLabel(code: string): string {
   return PROFESSION_OPTIONS.find((o) => o.value === code)?.label ?? '—';
 }
@@ -306,10 +308,16 @@ function hasRequiredDetails(member: FamilyMemberForm): boolean {
   );
 }
 
+function hasRequiredMotherDetails(member: FamilyMemberForm): boolean {
+  return (
+    (member.profession === HOUSEWIFE_PROFESSION || member.professionDetail.trim().length > 0) &&
+    member.qualificationDetail.trim().length > 0
+  );
+}
+
 function allRequiredMemberDetailsPresent(s: FamilyDataSnapshot): boolean {
   const requiredMembers: FamilyMemberForm[] = [
     s.father,
-    s.mother,
     s.grandparents.paternalGrandfather,
     s.grandparents.paternalGrandmother,
     s.grandparents.maternalGrandfather,
@@ -318,7 +326,7 @@ function allRequiredMemberDetailsPresent(s: FamilyDataSnapshot): boolean {
     ...s.motherHusbands,
     ...(Object.keys(s.relatives) as RelativeKind[]).flatMap((kind) => s.relatives[kind]),
   ];
-  return requiredMembers.every(hasRequiredDetails);
+  return hasRequiredMotherDetails(s.mother) && requiredMembers.every(hasRequiredDetails);
 }
 
 /** Same gate as the entry page used for the in-tab "اعتماد" button. */

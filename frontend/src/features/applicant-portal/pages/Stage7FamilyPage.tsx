@@ -35,6 +35,7 @@ import {
   EMPTY_GUARDIAN,
   EMPTY_MEMBER,
   formatMemberName,
+  HOUSEWIFE_PROFESSION,
   isBirthLocalityRequired,
   PROFESSION_OPTIONS,
   RELATIVE_LABEL,
@@ -450,6 +451,7 @@ export function Stage7FamilyPage(): JSX.Element {
             form={mother}
             title="بيانات الأم"
             requireNationalId
+            isProfessionDetailOptional={(values) => values.profession === HOUSEWIFE_PROFESSION}
             childDob={applicantDob}
             onChange={setMother}
             onSave={(values) => {
@@ -611,6 +613,7 @@ function MemberFormCard({
   onSave,
   headerExtras,
   requireNationalId = false,
+  isProfessionDetailOptional,
   childDob,
 }: {
   form: FamilyMemberForm;
@@ -625,6 +628,9 @@ function MemberFormCard({
    *  the applicant must enter a 14-digit NID. Used for الأب + الأم per
    *  client direction 2026-05-21 (parents' NIDs are mandatory). */
   requireNationalId?: boolean;
+  /** Optional escape hatch for role-specific profession details, e.g.
+   *  mother's "ربة منزل" does not require a job-details description. */
+  isProfessionDetailOptional?: (values: FamilyMemberForm) => boolean;
   /** ISO yyyy-mm-dd of the *child* this member is a parent of. When set,
    *  the DOB input enforces the 15-year minimum age gap. Validator
    *  no-ops if either side is empty (filling order isn't constrained). */
@@ -635,6 +641,7 @@ function MemberFormCard({
   });
   const { register, handleSubmit, control, watch, setValue, formState: { errors } } = form_;
   const profession = watch('profession');
+  const professionDetailOptional = isProfessionDetailOptional?.(watch()) ?? false;
   const birthGov = watch('birthGovernorate');
   const residenceGov = watch('residenceGovernorate');
   const nidUnavailableReason = watch('nidUnavailableReason');
@@ -893,9 +900,11 @@ function MemberFormCard({
         <Textarea
           label="وصف تفصيلي للوظيفة"
           rows={2}
-          required
+          required={!professionDetailOptional}
+          disabled={professionDetailOptional}
           {...register('professionDetail', {
-            validate: (v: string) => v.trim().length > 0 || 'مطلوب',
+            validate: (_value: string, values: FamilyMemberForm) =>
+              isProfessionDetailOptional?.(values) || values.professionDetail.trim().length > 0 || 'مطلوب',
           })}
           error={errors.professionDetail?.message}
           containerClassName="md:col-span-2"
