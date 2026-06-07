@@ -167,12 +167,12 @@ export function DatePicker({
   }, [open]);
 
   const todayDate = useMemo(() => cairoToday(), []);
-  const configuredMinDate = min ? stripTime(new Date(min)) : null;
+  const configuredMinDate = min ? parseDateOnly(min) : null;
   const minDate =
     configuredMinDate && configuredMinDate.getTime() > todayDate.getTime()
       ? configuredMinDate
       : todayDate;
-  const maxDate = max ? new Date(max) : null;
+  const maxDate = max ? parseDateOnly(max) : null;
 
   return (
     <div ref={wrapperRef} className={cn('flex flex-col gap-1', className)}>
@@ -391,6 +391,12 @@ function addMonths(d: Date, delta: number): Date {
 
 function stripTime(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function parseDateOnly(value: string): Date {
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) return stripTime(new Date(value));
+  return new Date(year, month - 1, day);
 }
 
 /**

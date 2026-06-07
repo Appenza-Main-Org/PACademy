@@ -97,6 +97,22 @@ function toIsoDate(d: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+/**
+ * Business date anchor for exam appointments. Exam scheduling follows
+ * Egypt's calendar day even if an operator's browser timezone differs.
+ */
+function cairoDateOffsetIso(offsetDays: number): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Cairo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const get = (type: string): number =>
+    Number(parts.find((part) => part.type === type)?.value ?? 0);
+  return toIsoDate(new Date(get('year'), get('month') - 1, get('day') + offsetDays));
+}
+
 function toDateKey(value: string): string {
   return value.slice(0, 10);
 }
@@ -151,13 +167,14 @@ export function CommitteeInstanceAddForm({
   const [pickedDate, setPickedDate] = useState<Date | null>(null);
   const [capacityStr, setCapacityStr] = useState<string>('');
   const [pendingPlan, setPendingPlan] = useState<CapacityAddPlan | null>(null);
+  const minExamDateIso = useMemo(() => cairoDateOffsetIso(1), []);
 
   const capacityRaw = Number(capacityStr);
   const capacityValid =
     capacityStr.length > 0 &&
     Number.isInteger(capacityRaw) &&
     capacityRaw >= 1;
-  const dateValid = pickedDate !== null;
+  const dateValid = pickedDate !== null && toIsoDate(pickedDate) >= minExamDateIso;
   const categoriesValid = selectedCategories.length >= 1;
 
   const submitting = addMut.isPending || updateMut.isPending;
@@ -325,6 +342,7 @@ export function CommitteeInstanceAddForm({
           value={pickedDate}
           onChange={setPickedDate}
           placeholder="اختر اليوم…"
+          min={minExamDateIso}
           isDateDisabled={isFriday}
         />
         <Input
