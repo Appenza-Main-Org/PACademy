@@ -5,7 +5,7 @@
  * query keys for add/edit/delete/transfer flows.
  */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import {
   committeeInstanceService,
   type CommitteeInstanceAddInput,
@@ -21,12 +21,42 @@ export const committeeInstanceKeys = {
     [...committeeInstanceKeys.all, 'list', filters] as const,
 };
 
+function upsertCommitteeInstancesInCache(
+  qc: QueryClient,
+  rows: ReadonlyArray<CommitteeInstance>,
+): void {
+  if (rows.length === 0) return;
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  qc.setQueriesData<CommitteeInstance[]>(
+    { queryKey: committeeInstanceKeys.all },
+    (current) => {
+      if (!current) return current;
+      let changed = false;
+      const next = current.map((row) => {
+        const replacement = byId.get(row.id);
+        if (!replacement) return row;
+        changed = true;
+        return replacement;
+      });
+      return changed ? next : current;
+    },
+  );
+}
+
+function removeCommitteeInstanceFromCache(qc: QueryClient, id: string): void {
+  qc.setQueriesData<CommitteeInstance[]>(
+    { queryKey: committeeInstanceKeys.all },
+    (current) => current?.filter((row) => row.id !== id),
+  );
+}
+
 export function useCommitteeInstances(
   filters: CommitteeInstanceListFilters = {},
 ) {
   return useQuery<CommitteeInstance[]>({
     queryKey: committeeInstanceKeys.list(filters),
     queryFn: () => committeeInstanceService.list(filters),
+    refetchInterval: 10_000,
   });
 }
 
@@ -46,7 +76,8 @@ export function useUpdateCommitteeInstanceMutation() {
   return useMutation({
     mutationFn: (input: { id: string; patch: CommitteeInstancePatch }) =>
       committeeInstanceService.update(input.id, input.patch),
-    onSuccess: () => {
+    onSuccess: (row) => {
+      upsertCommitteeInstancesInCache(qc, [row]);
       qc.invalidateQueries({ queryKey: committeeInstanceKeys.all });
     },
   });
@@ -56,7 +87,8 @@ export function useRemoveCommitteeInstanceMutation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => committeeInstanceService.remove(id),
-    onSuccess: () => {
+    onSuccess: (_result, id) => {
+      removeCommitteeInstanceFromCache(qc, id);
       qc.invalidateQueries({ queryKey: committeeInstanceKeys.all });
     },
   });
@@ -111,7 +143,8 @@ export function useRefreshReservedCountsMutation() {
   return useMutation({
     mutationFn: (filters: CommitteeInstanceListFilters = {}) =>
       committeeInstanceService.refreshReservedCounts(filters),
-    onSuccess: () => {
+    onSuccess: (rows) => {
+      upsertCommitteeInstancesInCache(qc, rows);
       qc.invalidateQueries({ queryKey: committeeInstanceKeys.all });
     },
   });
