@@ -57,7 +57,7 @@ const SIDEBAR: SidebarSection[] = [
     items: [
       { key: 'cycles',             label: 'دورات القبول وإعداد التقديم', icon: <CalendarDays size={18} />,   to: ROUTES.admin.cycles, permission: 'cycles:view' },
       { key: 'committees',         label: 'إدارة مواعيد الاختبارات واللجان', icon: <Gavel size={18} />,          to: ROUTES.admin.committeesExamConfig, permission: 'committees-exam-config:view' },
-      { key: 'applicant-grades',   label: 'درجات الثانوية العامة والأزهرية', icon: <FileSpreadsheet size={18} />, to: ROUTES.admin.applicantGrades, permission: 'applicant-grades:view' },
+      { key: 'applicant-grades',   label: 'رفع درجات الثانوية', icon: <FileSpreadsheet size={18} />, to: ROUTES.admin.applicantGrades, permission: 'applicant-grades:view' },
     ],
   },
   /* ── 3. Cross-cycle reference data ─────────────────────────────────── */

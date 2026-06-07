@@ -838,7 +838,7 @@ export function ApplicantGradesPage(): JSX.Element {
     return (
       <div>
         <PageHeader
-          title="درجات الثانوية العامة والأزهرية"
+          title="رفع درجات الثانوية"
           subtitle="استيراد درجات الطلاب من ملفات Excel وإدارة التعديلات"
         />
         <LoadingState variant="page" />
@@ -850,7 +850,7 @@ export function ApplicantGradesPage(): JSX.Element {
     return (
       <div>
         <PageHeader
-          title="درجات الثانوية العامة والأزهرية"
+          title="رفع درجات الثانوية"
           subtitle="استيراد درجات الطلاب من ملفات Excel وإدارة التعديلات"
         />
         <Card>
@@ -873,7 +873,7 @@ export function ApplicantGradesPage(): JSX.Element {
   return (
     <div>
       <PageHeader
-        title="درجات الثانوية العامة والأزهرية"
+        title="رفع درجات الثانوية"
         subtitle="استيراد درجات الطلاب من ملفات Excel وإدارة التعديلات"
         actions={
           <div className="flex flex-wrap items-center justify-end gap-2">
