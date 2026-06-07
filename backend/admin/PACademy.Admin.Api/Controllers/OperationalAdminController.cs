@@ -16,42 +16,48 @@ public sealed class OperationalAdminController(OperationalRecordsService records
     [HttpGet("api/committee-instances")]
     public async Task<ActionResult<IReadOnlyList<JsonObject>>> CommitteeInstances(CancellationToken ct)
     {
-        var activeCategoryCodes = await lookups.LookupRows
-            .AsNoTracking()
-            .Where(x => x.LookupKey == "applicant-categories" && x.IsActive)
-            .Select(x => x.Code)
-            .ToListAsync(ct);
-        var active = activeCategoryCodes.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var rows = (await records.ListAsync("committeeInstances", ct))
-            .Where(row =>
-            {
-                var categoryKey = AdminRecordJson.StringProp(row, "categoryKey");
-                return !string.IsNullOrWhiteSpace(categoryKey) && active.Contains(categoryKey);
-            })
-            .ToList();
+        var rows = await ListCommitteeInstancesAsync(null, null, null, ct);
+        await SaveChangedReservationSnapshotsAsync(rows, ct);
         return Ok(rows);
     }
 
     [HttpPost("api/committee-instances")]
     public async Task<ActionResult<object>> AddCommitteeInstances([FromBody] JsonNode body, CancellationToken ct)
     {
+        var now = DateTimeOffset.UtcNow.ToString("O");
         if (body is JsonArray arr)
         {
             foreach (var node in arr.OfType<JsonObject>())
             {
                 var id = AdminRecordJson.StringProp(node, "id") ?? $"CI-{Guid.NewGuid():N}";
+                node["id"] = id;
+                node["createdAt"] ??= now;
+                node["updatedAt"] = now;
                 await records.UpsertAsync("committeeInstances", id, node, ct);
             }
-            return Ok(await records.ListAsync("committeeInstances", ct));
+            var rows = await ListCommitteeInstancesAsync(null, null, null, ct);
+            await SaveReservationSnapshotAsync(rows, ct);
+            return Ok(rows);
         }
         var obj = body as JsonObject ?? [];
         var singleId = AdminRecordJson.StringProp(obj, "id") ?? $"CI-{Guid.NewGuid():N}";
-        return Ok(await records.UpsertAsync("committeeInstances", singleId, obj, ct));
+        obj["id"] = singleId;
+        obj["createdAt"] ??= now;
+        obj["updatedAt"] = now;
+        var saved = await records.UpsertAsync("committeeInstances", singleId, obj, ct);
+        await SaveReservationSnapshotAsync([saved], ct);
+        return Ok(saved);
     }
 
     [HttpPatch("api/committee-instances/{id}")]
-    public async Task<ActionResult<JsonObject>> UpdateCommitteeInstance(string id, [FromBody] JsonObject body, CancellationToken ct) =>
-        Ok(await records.UpsertAsync("committeeInstances", id, body, ct));
+    public async Task<ActionResult<JsonObject>> UpdateCommitteeInstance(string id, [FromBody] JsonObject body, CancellationToken ct)
+    {
+        var now = DateTimeOffset.UtcNow.ToString("O");
+        body["updatedAt"] = now;
+        var saved = await records.UpsertAsync("committeeInstances", id, body, ct);
+        await SaveReservationSnapshotAsync([saved], ct);
+        return Ok(saved);
+    }
 
     [HttpDelete("api/committee-instances/{id}")]
     public async Task<ActionResult<object>> DeleteCommitteeInstance(string id, CancellationToken ct)
@@ -62,24 +68,15 @@ public sealed class OperationalAdminController(OperationalRecordsService records
     }
 
     [HttpPost("api/committee-instances/refresh-reserved")]
-    public async Task<ActionResult<IReadOnlyList<JsonObject>>> RefreshReserved(CancellationToken ct)
+    public async Task<ActionResult<IReadOnlyList<JsonObject>>> RefreshReserved([FromBody] JsonObject? filters, CancellationToken ct)
     {
-        var instances = await records.ListAsync("committeeInstances", ct);
-        var applicants = await records.ListAsync("applicants", ct);
-        var committees = await records.ListAsync("committees", ct);
-        foreach (var instance in instances)
-        {
-            var definitionCode = AdminRecordJson.StringProp(instance, "definitionCode");
-            var committee = committees.FirstOrDefault(x => AdminRecordJson.StringProp(x, "id") == definitionCode || AdminRecordJson.StringProp(x, "definitionCode") == definitionCode);
-            var committeeName = committee is null ? null : AdminRecordJson.StringProp(committee, "name");
-            var reserved = string.IsNullOrWhiteSpace(committeeName)
-                ? AdminRecordJson.NumberProp(instance, "reserved") ?? 0
-                : applicants.Count(x => AdminRecordJson.StringProp(x, "committee") == committeeName);
-            instance["reserved"] = reserved;
-            instance["reservedRefreshedAt"] = DateTimeOffset.UtcNow.ToString("O");
-            await records.UpsertAsync("committeeInstances", AdminRecordJson.StringProp(instance, "id")!, instance, ct);
-        }
-        return Ok(await records.ListAsync("committeeInstances", ct));
+        var rows = await ListCommitteeInstancesAsync(
+            filters is null ? null : AdminRecordJson.StringProp(filters, "cycleId"),
+            filters is null ? null : AdminRecordJson.StringProp(filters, "categoryKey"),
+            filters is null ? null : AdminRecordJson.StringProp(filters, "definitionCode"),
+            ct);
+        await SaveReservationSnapshotAsync(rows, ct);
+        return Ok(rows);
     }
 
     [HttpDelete("api/committee-instances")]
@@ -139,6 +136,186 @@ public sealed class OperationalAdminController(OperationalRecordsService records
                     reserved
                 });
         }
+    }
+
+    private async Task<List<JsonObject>> ListCommitteeInstancesAsync(
+        string? cycleId,
+        string? categoryKey,
+        string? definitionCode,
+        CancellationToken ct)
+    {
+        var activeCategoryCodes = await lookups.LookupRows
+            .AsNoTracking()
+            .Where(x => x.LookupKey == "applicant-categories" && x.IsActive)
+            .Select(x => x.Code)
+            .ToListAsync(ct);
+        var active = activeCategoryCodes.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var rows = (await records.ListAsync("committeeInstances", ct))
+            .Where(row =>
+            {
+                var rowCategoryKey = AdminRecordJson.StringProp(row, "categoryKey");
+                return !string.IsNullOrWhiteSpace(rowCategoryKey) &&
+                    active.Contains(rowCategoryKey) &&
+                    (string.IsNullOrWhiteSpace(cycleId) || AdminRecordJson.StringProp(row, "cycleId") == cycleId) &&
+                    (string.IsNullOrWhiteSpace(categoryKey) || rowCategoryKey == categoryKey) &&
+                    (string.IsNullOrWhiteSpace(definitionCode) || AdminRecordJson.StringProp(row, "definitionCode") == definitionCode);
+            })
+            .ToList();
+
+        return rows;
+    }
+
+    private async Task ApplyReservationSnapshotAsync(IReadOnlyList<JsonObject> instances, CancellationToken ct)
+    {
+        if (instances.Count == 0) return;
+
+        var applicants = await records.ListAsync("applicants", ct);
+        var definitionNameByCode = await CommitteeDefinitionNameMapAsync(ct);
+        var refreshedAt = DateTimeOffset.UtcNow.ToString("O");
+        foreach (var instance in instances)
+        {
+            instance["reserved"] = CountReservations(applicants, instance, definitionNameByCode);
+            instance["reservedRefreshedAt"] = refreshedAt;
+            instance["updatedAt"] = refreshedAt;
+        }
+    }
+
+    private async Task SaveReservationSnapshotAsync(IReadOnlyList<JsonObject> instances, CancellationToken ct)
+    {
+        await ApplyReservationSnapshotAsync(instances, ct);
+        foreach (var instance in instances)
+        {
+            await records.UpsertAsync("committeeInstances", AdminRecordJson.StringProp(instance, "id")!, instance, ct);
+        }
+    }
+
+    private async Task SaveChangedReservationSnapshotsAsync(IReadOnlyList<JsonObject> instances, CancellationToken ct)
+    {
+        if (instances.Count == 0) return;
+
+        var applicants = await records.ListAsync("applicants", ct);
+        var definitionNameByCode = await CommitteeDefinitionNameMapAsync(ct);
+        var refreshedAt = DateTimeOffset.UtcNow.ToString("O");
+        foreach (var instance in instances)
+        {
+            var nextReserved = CountReservations(applicants, instance, definitionNameByCode);
+            var currentReserved = AdminRecordJson.NumberProp(instance, "reserved");
+            var hasTimestamp = !string.IsNullOrWhiteSpace(AdminRecordJson.StringProp(instance, "reservedRefreshedAt"));
+            if (currentReserved == nextReserved && hasTimestamp) continue;
+
+            instance["reserved"] = nextReserved;
+            instance["reservedRefreshedAt"] = refreshedAt;
+            instance["updatedAt"] = refreshedAt;
+            await records.UpsertAsync("committeeInstances", AdminRecordJson.StringProp(instance, "id")!, instance, ct);
+        }
+    }
+
+    private async Task<Dictionary<string, string>> CommitteeDefinitionNameMapAsync(CancellationToken ct)
+    {
+        var definitions = await lookups.LookupRows
+            .AsNoTracking()
+            .Where(x => x.LookupKey == "committees")
+            .Select(x => new { x.Code, x.Name })
+            .ToListAsync(ct);
+        var definitionNameByCode = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var definition in definitions)
+        {
+            if (!string.IsNullOrWhiteSpace(definition.Code) && !string.IsNullOrWhiteSpace(definition.Name))
+            {
+                definitionNameByCode[definition.Code] = definition.Name;
+            }
+        }
+
+        var committeeRecords = await records.ListAsync("committees", ct);
+        foreach (var committee in committeeRecords)
+        {
+            var code = AdminRecordJson.StringProp(committee, "id") ??
+                       AdminRecordJson.StringProp(committee, "code") ??
+                       AdminRecordJson.StringProp(committee, "definitionCode");
+            var name = AdminRecordJson.StringProp(committee, "name") ??
+                       AdminRecordJson.StringProp(committee, "nameAr");
+            if (!string.IsNullOrWhiteSpace(code) && !string.IsNullOrWhiteSpace(name))
+            {
+                definitionNameByCode[code] = name;
+            }
+        }
+
+        return definitionNameByCode;
+    }
+
+    private static int CountReservations(
+        IReadOnlyList<JsonObject> applicants,
+        JsonObject instance,
+        IReadOnlyDictionary<string, string> definitionNameByCode)
+    {
+        var definitionCode = AdminRecordJson.StringProp(instance, "definitionCode");
+        var committeeName = definitionCode is not null && definitionNameByCode.TryGetValue(definitionCode, out var mappedName)
+            ? mappedName
+            : null;
+        var cycleId = AdminRecordJson.StringProp(instance, "cycleId");
+        var date = AdminRecordJson.StringProp(instance, "date");
+
+        return applicants.Count(applicant =>
+        {
+            if (!ApplicantMatchesCommittee(applicant, definitionCode, committeeName)) return false;
+            if (!ApplicantMatchesOptionalField(applicant, cycleId, "cycleId", "admissionCycleId")) return false;
+            if (!ApplicantMatchesOptionalDate(applicant, date)) return false;
+            return true;
+        });
+    }
+
+    private static bool ApplicantMatchesCommittee(JsonObject applicant, string? definitionCode, string? committeeName)
+    {
+        var applicantCommitteeCode =
+            AdminRecordJson.StringProp(applicant, "committeeId") ??
+            AdminRecordJson.StringProp(applicant, "committeeCode") ??
+            AdminRecordJson.StringProp(applicant, "definitionCode");
+        if (!string.IsNullOrWhiteSpace(definitionCode) &&
+            string.Equals(applicantCommitteeCode, definitionCode, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var applicantCommitteeName =
+            AdminRecordJson.StringProp(applicant, "committee") ??
+            AdminRecordJson.StringProp(applicant, "committeeName") ??
+            AdminRecordJson.StringProp(applicant, "committeeLabelAr");
+        return !string.IsNullOrWhiteSpace(committeeName) &&
+            string.Equals(applicantCommitteeName, committeeName, StringComparison.Ordinal);
+    }
+
+    private static bool ApplicantMatchesOptionalField(JsonObject applicant, string? expected, params string[] keys)
+    {
+        if (string.IsNullOrWhiteSpace(expected)) return true;
+        foreach (var key in keys)
+        {
+            var actual = AdminRecordJson.StringProp(applicant, key);
+            if (!string.IsNullOrWhiteSpace(actual))
+            {
+                return string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+        return true;
+    }
+
+    private static bool ApplicantMatchesOptionalDate(JsonObject applicant, string? expectedDate)
+    {
+        if (string.IsNullOrWhiteSpace(expectedDate)) return true;
+        var actualDate =
+            AdminRecordJson.StringProp(applicant, "examDate") ??
+            AdminRecordJson.StringProp(applicant, "date") ??
+            AdminRecordJson.StringProp(applicant, "scheduledDate") ??
+            AdminRecordJson.StringProp(applicant, "examSlotDate") ??
+            NestedStringProp(applicant, "examSlot", "date");
+        if (string.IsNullOrWhiteSpace(actualDate)) return true;
+        return string.Equals(actualDate.Length >= 10 ? actualDate[..10] : actualDate, expectedDate, StringComparison.Ordinal);
+    }
+
+    private static string? NestedStringProp(JsonObject obj, string parentKey, string childKey)
+    {
+        return obj.TryGetPropertyValue(parentKey, out var node) && node is JsonObject child
+            ? AdminRecordJson.StringProp(child, childKey)
+            : null;
     }
 
     [HttpGet("api/v1/admin/workflows")]

@@ -413,6 +413,129 @@ public sealed class ApiRegressionTests
         Assert.Contains("حجوزات", ex.Message);
     }
 
+    [Fact]
+    public async Task UpdatingCommitteeInstanceReturnsSyncedCapacityReservationsAndTimestamp()
+    {
+        await using var db = CreateDb();
+        SeedLookup(db, "applicant-categories", "CAT-ACTIVE", "فئة نشطة");
+        SeedLookup(db, "committees", "COM-GEN-01", "اللجنة الأولى");
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        await records.UpsertAsync(
+            "committeeInstances",
+            "CI-ACTIVE",
+            new JsonObject
+            {
+                ["id"] = "CI-ACTIVE",
+                ["cycleId"] = "CYC-2026-M",
+                ["categoryKey"] = "CAT-ACTIVE",
+                ["definitionCode"] = "COM-GEN-01",
+                ["date"] = "2026-07-10",
+                ["capacity"] = 100,
+                ["reserved"] = 0,
+                ["reservedRefreshedAt"] = "2026-01-01T00:00:00.0000000Z",
+                ["updatedAt"] = "2026-01-01T00:00:00.0000000Z"
+            },
+            TestContext.Current.CancellationToken);
+        await records.UpsertAsync(
+            "applicants",
+            "APP-1",
+            new JsonObject
+            {
+                ["id"] = "APP-1",
+                ["committeeId"] = "COM-GEN-01"
+            },
+            TestContext.Current.CancellationToken);
+        var controller = new OperationalAdminController(records, db, new GeneralSettingsService(db));
+
+        var response = await controller.UpdateCommitteeInstance(
+            "CI-ACTIVE",
+            new JsonObject { ["capacity"] = 125 },
+            TestContext.Current.CancellationToken);
+
+        var ok = Assert.IsType<OkObjectResult>(response.Result);
+        var row = Assert.IsType<JsonObject>(ok.Value);
+        Assert.Equal(125, row["capacity"]?.GetValue<int>());
+        Assert.Equal(1, row["reserved"]?.GetValue<int>());
+        Assert.NotEqual("2026-01-01T00:00:00.0000000Z", row["reservedRefreshedAt"]?.GetValue<string>());
+        Assert.NotEqual("2026-01-01T00:00:00.0000000Z", row["updatedAt"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task ListingCommitteeInstancesKeepsTimestampWhenReservationCountIsUnchanged()
+    {
+        await using var db = CreateDb();
+        SeedLookup(db, "applicant-categories", "CAT-ACTIVE", "فئة نشطة");
+        SeedLookup(db, "committees", "COM-GEN-01", "اللجنة الأولى");
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        await records.UpsertAsync(
+            "committeeInstances",
+            "CI-ACTIVE",
+            CommitteeInstance(
+                "CI-ACTIVE",
+                "CAT-ACTIVE",
+                reservedCount: 1,
+                reservedRefreshedAt: "2026-01-01T00:00:00.0000000Z"),
+            TestContext.Current.CancellationToken);
+        await records.UpsertAsync(
+            "applicants",
+            "APP-1",
+            new JsonObject
+            {
+                ["id"] = "APP-1",
+                ["committeeId"] = "COM-GEN-01"
+            },
+            TestContext.Current.CancellationToken);
+        var controller = new OperationalAdminController(records, db, new GeneralSettingsService(db));
+
+        var response = await controller.CommitteeInstances(TestContext.Current.CancellationToken);
+
+        var ok = Assert.IsType<OkObjectResult>(response.Result);
+        var row = Assert.Single(Assert.IsAssignableFrom<IReadOnlyList<JsonObject>>(ok.Value));
+        Assert.Equal(1, row["reserved"]?.GetValue<int>());
+        Assert.Equal("2026-01-01T00:00:00.0000000Z", row["reservedRefreshedAt"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task ListingCommitteeInstancesCountsReservationsByCommitteeDateAndCycleWhenPresent()
+    {
+        await using var db = CreateDb();
+        SeedLookup(db, "applicant-categories", "CAT-ACTIVE", "فئة نشطة");
+        SeedLookup(db, "committees", "COM-GEN-01", "اللجنة الأولى");
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        await records.UpsertAsync(
+            "committeeInstances",
+            "CI-FIRST-DAY",
+            CommitteeInstance("CI-FIRST-DAY", "CAT-ACTIVE", date: "2026-07-10"),
+            TestContext.Current.CancellationToken);
+        await records.UpsertAsync(
+            "committeeInstances",
+            "CI-SECOND-DAY",
+            CommitteeInstance("CI-SECOND-DAY", "CAT-ACTIVE", date: "2026-07-11"),
+            TestContext.Current.CancellationToken);
+        await records.UpsertAsync(
+            "applicants",
+            "APP-1",
+            new JsonObject
+            {
+                ["id"] = "APP-1",
+                ["cycleId"] = "CYC-2026-M",
+                ["committeeId"] = "COM-GEN-01",
+                ["examSlot"] = new JsonObject { ["date"] = "2026-07-10T08:00:00.000Z" }
+            },
+            TestContext.Current.CancellationToken);
+        var controller = new OperationalAdminController(records, db, new GeneralSettingsService(db));
+
+        var response = await controller.CommitteeInstances(TestContext.Current.CancellationToken);
+
+        var ok = Assert.IsType<OkObjectResult>(response.Result);
+        var rows = Assert.IsAssignableFrom<IReadOnlyList<JsonObject>>(ok.Value);
+        Assert.Equal(1, Assert.Single(rows, x => x["id"]?.GetValue<string>() == "CI-FIRST-DAY")["reserved"]?.GetValue<int>());
+        Assert.Equal(0, Assert.Single(rows, x => x["id"]?.GetValue<string>() == "CI-SECOND-DAY")["reserved"]?.GetValue<int>());
+    }
+
     private static void AssertRequireBearerAuth(MemberInfo? target)
     {
         Assert.NotNull(target);
@@ -460,7 +583,12 @@ public sealed class ApiRegressionTests
         };
     }
 
-    private static JsonObject CommitteeInstance(string id, string categoryKey, int reservedCount = 0)
+    private static JsonObject CommitteeInstance(
+        string id,
+        string categoryKey,
+        int reservedCount = 0,
+        string date = "2026-07-10",
+        string? reservedRefreshedAt = null)
     {
         return new JsonObject
         {
@@ -468,9 +596,10 @@ public sealed class ApiRegressionTests
             ["cycleId"] = "CYC-2026-M",
             ["categoryKey"] = categoryKey,
             ["definitionCode"] = "COM-GEN-01",
-            ["date"] = "2026-07-10",
+            ["date"] = date,
             ["capacity"] = 100,
-            ["reserved"] = reservedCount
+            ["reserved"] = reservedCount,
+            ["reservedRefreshedAt"] = reservedRefreshedAt
         };
     }
 
