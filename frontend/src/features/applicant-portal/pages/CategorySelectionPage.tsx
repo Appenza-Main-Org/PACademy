@@ -103,11 +103,32 @@ const APPLICATION_FEE_FORMATTER = new Intl.NumberFormat('ar-EG', {
   maximumFractionDigits: 0,
 });
 
+const ELIGIBILITY_REASON_LABELS: Record<string, string> = {
+  application_closed: 'باب التقدم غير مفتوح لهذه الفئة في الدورة الحالية',
+  cycle_not_active: 'لا توجد دورة تقديم نشطة حالياً',
+  data_not_found: 'لم يتم العثور على بيانات الثانوية العامة للمتقدم',
+  score_below_min: 'مجموع الثانوية العامة أقل من الحد الأدنى المطلوب لهذه الفئة',
+  qualification_mismatch: 'نوع المؤهل لا يطابق شروط هذه الفئة',
+  age_out_of_range: 'السن خارج النطاق المسموح لهذه الفئة',
+  gender_mismatch: 'النوع لا يطابق شروط هذه الفئة',
+  height_below_min: 'الطول أقل من الحد الأدنى المطلوب لهذه الفئة',
+  marital_status_mismatch: 'الحالة الاجتماعية لا تطابق شروط هذه الفئة',
+  nomination_required: 'هذا القسم يفتح عبر الترشيح الإداري فقط',
+  nid_already_used: 'تم استخدام الرقم القومي في طلب سابق',
+};
+
 function formatApplicationFee(value: number | null | undefined): string {
   const fee = typeof value === 'number' && Number.isFinite(value)
     ? value
     : DEFAULT_APPLICATION_FEE;
   return `${APPLICATION_FEE_FORMATTER.format(fee)} جنيه`;
+}
+
+function formatEligibilityFailureReasons(reasons: readonly string[]): string {
+  if (reasons.length === 0) return 'بيانات المتقدم لا تحقق شروط هذه الفئة.';
+  return reasons
+    .map((reason) => ELIGIBILITY_REASON_LABELS[reason] ?? reason)
+    .join('، ');
 }
 
 export function CategorySelectionPage(): JSX.Element {
@@ -472,7 +493,7 @@ export function CategorySelectionPage(): JSX.Element {
             /* When MOI/backend eligibility is available, show only those
              * categories. For not_found / no MOI session, show the full
              * catalogue so the applicant can pick. */
-            eligibleKeys={derivedEligibleKeys}
+            visibleKeys={derivedEligibleKeys}
             onPick={onPickCategory}
           />
         </Card>
@@ -725,15 +746,17 @@ function CategoryRows({
   categoriesQuery,
   eligibility,
   eligibilityLoading,
-  eligibleKeys,
+  visibleKeys,
   onPick,
 }: {
   categoriesQuery: ReturnType<typeof useCategories>;
   eligibility: readonly ApplicantCategoryEligibility[];
   eligibilityLoading: boolean;
   /** Restrict the rendered list to categories returned by MOI/backend
-   *  eligibility. When null, the full catalogue renders. */
-  eligibleKeys: readonly string[] | null;
+   *  eligibility. Failed secondary-school verdicts may be included so the
+   *  applicant can see an explicit not-eligible status. When null, the full
+   *  catalogue renders. */
+  visibleKeys: readonly string[] | null;
   onPick: (key: string, enabled: boolean) => void;
 }): JSX.Element {
   if (categoriesQuery.isLoading || eligibilityLoading) {
@@ -760,7 +783,7 @@ function CategoryRows({
    *    response be the source of truth and use the catalogue only to
    *    enrich labels/descriptions. Staging can legitimately return
    *    eligible categories that the local catalogue does not know yet. */
-  const allowedKeys = eligibleKeys === null ? null : new Set(eligibleKeys);
+  const allowedKeys = visibleKeys === null ? null : new Set(visibleKeys);
   const catalogue = categoriesQuery.data ?? [];
   const catalogueByKey = new Map<string, ApplicantCategory>(
     catalogue.map((category) => [category.key, category]),
@@ -784,6 +807,7 @@ function CategoryRows({
     return {
       category: catalogueCategory ?? categoryFromEligibility(verdict, key),
       isEnabled: verdict ? verdict.eligible : true,
+      hasEligibilityVerdict: Boolean(verdict),
       failedReasons: verdict?.failedReasons ?? [],
     };
   });
@@ -797,11 +821,12 @@ function CategoryRows({
 
   return (
     <div className="border-t border-border-default">
-      {categories.map(({ category, isEnabled, failedReasons }, i) => (
+      {categories.map(({ category, isEnabled, hasEligibilityVerdict, failedReasons }, i) => (
         <CategoryRow
           key={category.key}
           category={category}
           isEnabled={isEnabled}
+          hasEligibilityVerdict={hasEligibilityVerdict}
           failedReasons={failedReasons}
           onPick={(enabled) => onPick(category.key, enabled)}
           isLast={i === categories.length - 1}
@@ -844,12 +869,14 @@ function categoryFromEligibility(
 function CategoryRow({
   category,
   isEnabled,
+  hasEligibilityVerdict,
   failedReasons,
   onPick,
   isLast,
 }: {
   category: ApplicantCategory;
   isEnabled: boolean;
+  hasEligibilityVerdict: boolean;
   failedReasons: readonly string[];
   onPick: (enabled: boolean) => void;
   isLast: boolean;
@@ -857,11 +884,12 @@ function CategoryRow({
   const enabled = isEnabled;
   const disabledReason = enabled
     ? null
-    : failedReasons.length > 0
-      ? failedReasons.join('، ')
+    : hasEligibilityVerdict
+      ? formatEligibilityFailureReasons(failedReasons)
       : category.conditions.nominationOnly
       ? 'هذا القسم يفتح عبر الترشيح الإداري فقط — لا تقديم مباشر.'
       : 'باب التقدم غير مفتوح لهذه الفئة في الدورة الحالية.';
+  const disabledLabel = hasEligibilityVerdict ? 'غير مؤهل' : 'مغلق';
 
   const button = (
     <Button
@@ -901,15 +929,20 @@ function CategoryRow({
           <h4 className="font-ar-display text-lg font-bold text-ink-900">
             {category.labelAr}
           </h4>
-          <Badge tone={enabled ? 'success' : 'neutral'}>
+          <Badge tone={enabled ? 'success' : hasEligibilityVerdict ? 'danger' : 'neutral'}>
             {enabled ? (
               <CheckCircle2 size={11} strokeWidth={1.75} className="me-1 inline-block" />
             ) : (
               <Lock size={11} strokeWidth={1.75} className="me-1 inline-block" />
             )}
-            {enabled ? 'متاح للتقدم' : 'مغلق'}
+            {enabled ? 'متاح للتقدم' : disabledLabel}
           </Badge>
         </div>
+        {!enabled && disabledReason && (
+          <p className="mt-2 text-sm leading-relaxed text-ink-600">
+            {disabledReason}
+          </p>
+        )}
       </div>
       <div className="flex-shrink-0 md:justify-self-end">
         {disabledReason ? (
