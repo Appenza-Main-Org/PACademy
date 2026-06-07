@@ -5,10 +5,10 @@
  * in user-facing terms) with status, completeness summary, and a single
  * "إعداد التقديم" CTA that opens the wizard at the first step.
  *
- * The active cycle is hoisted to a dedicated highlight card at the top
- * with a primary "إعداد التقديم" CTA — admins enter the wizard by
- * selecting an existing cycle, never by creating one here. Cycle creation
- * / metadata editing live in the Cycles section (/admin/cycles).
+ * Admins enter the wizard by selecting an existing cycle, never by creating
+ * one here. Draft/review cycles are writable; published cycles open in
+ * view-only mode. Cycle creation / metadata editing live in the Cycles
+ * section (/admin/cycles).
  */
 
 import { useNavigate } from 'react-router-dom';
@@ -74,8 +74,6 @@ export function AdmissionSetupIndexPage(): JSX.Element {
     );
   }
 
-  const activeCycle = cycles.find((c) => ACTIVE_STATUSES.has(c.status)) ?? null;
-
   const openWizard = (cycleId: string, stepKey: string): void => {
     cycleCtx.setCycle(cycleId);
     navigate(ROUTES.admin.admissionSetup.wizard(stepKey));
@@ -101,14 +99,13 @@ export function AdmissionSetupIndexPage(): JSX.Element {
         <NoCyclesEmptyState onGoToCycles={() => navigate(ROUTES.admin.cycles)} />
       ) : (
         <div className="flex flex-col gap-4">
-          {activeCycle ? (
-            <ActiveCycleCard
-              cycle={activeCycle}
-              onStart={(stepKey) => openWizard(activeCycle.id, stepKey)}
+          {cycles.map((cycle) => (
+            <CycleSetupCard
+              key={cycle.id}
+              cycle={cycle}
+              onStart={(stepKey) => openWizard(cycle.id, stepKey)}
             />
-          ) : (
-            <NoActiveCycleNotice onGoToCycles={() => navigate(ROUTES.admin.cycles)} />
-          )}
+          ))}
         </div>
       )}
     </AdmissionSetupShell>
@@ -145,31 +142,7 @@ function NoCyclesEmptyState({ onGoToCycles }: { onGoToCycles: () => void }): JSX
   );
 }
 
-function NoActiveCycleNotice({ onGoToCycles }: { onGoToCycles: () => void }): JSX.Element {
-  return (
-    <Card variant="elevated" className="border border-gold-300 bg-gold-50">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-1 py-1">
-        <div className="min-w-0">
-          <h2 className="font-ar-display text-md font-bold text-gold-800">
-            لا توجد دورة قبول نشطة حالياً
-          </h2>
-          <p className="mt-1 text-2xs leading-relaxed text-gold-700">
-            فعّل إحدى الدورات من قسم إدارة الدورات قبل بدء التقديم.
-          </p>
-        </div>
-        <Button
-          variant="secondary"
-          onClick={onGoToCycles}
-          leadingIcon={<Settings size={14} strokeWidth={1.75} />}
-        >
-          إدارة الدورات
-        </Button>
-      </div>
-    </Card>
-  );
-}
-
-function ActiveCycleCard({
+function CycleSetupCard({
   cycle,
   onStart,
 }: {
@@ -203,15 +176,22 @@ function ActiveCycleCard({
     (s) => computeStepStatus(s.key, inputs) === 'complete',
   ).length;
   const draft = readDraft(cycle.id);
+  const isPublished = ACTIVE_STATUSES.has(cycle.status);
 
   return (
-    <Card variant="elevated" className="border-t-4" style={{ borderTopColor: 'var(--accent-500)' }}>
+    <Card
+      variant="elevated"
+      className="border-t-4"
+      style={{ borderTopColor: isPublished ? 'var(--success)' : 'var(--accent-500)' }}
+    >
       <div className="flex flex-wrap items-center justify-between gap-4 p-1">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge tone="success">الدورة النشطة</Badge>
+            <Badge tone={isPublished ? 'success' : 'warning'}>
+              {isPublished ? 'اعتماد ونشر' : 'إدراج ومراجعة'}
+            </Badge>
             <h2 className="font-ar-display text-lg font-bold text-ink-900">{cycle.nameAr}</h2>
-            <Badge tone="success">{arStatusLabel(cycle.status)}</Badge>
+            <Badge tone={isPublished ? 'success' : 'neutral'}>{arStatusLabel(cycle.status)}</Badge>
             {draft && (
               <Badge tone="info">
                 مسودة — آخر حفظ {fmtDate(draft.savedAt, 'short')}
@@ -227,13 +207,13 @@ function ActiveCycleCard({
         </div>
         <div className="flex items-center gap-2">
           <Button
-            variant="primary"
+            variant={isPublished ? 'secondary' : 'primary'}
             onClick={() => onStart(FIRST_STEP)}
             trailingIcon={
               <ArrowLeft size={14} strokeWidth={1.75} className="rtl:scale-x-[-1]" />
             }
           >
-            إعداد التقديم
+            {isPublished ? 'عرض الإعداد' : 'إعداد التقديم'}
           </Button>
         </div>
       </div>
@@ -261,4 +241,3 @@ function arStatusLabel(status: AdmissionCycle['status']): string {
       return 'مؤرشفة';
   }
 }
-
