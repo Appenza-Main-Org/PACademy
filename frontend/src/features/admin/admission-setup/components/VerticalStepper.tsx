@@ -1,9 +1,9 @@
 /**
  * VerticalStepper — side-of-page progress rail for the admission-setup wizard.
- * Replaces the earlier horizontal pill-strip: every step renders as a stacked
- * row of `dot · label`, all 16 labels are visible at once, and the active row
- * is highlighted. The rail is sized to the wizard's start-edge column so the
- * step content keeps its natural reading width on the opposite side.
+ * Replaces the earlier horizontal pill-strip: every step renders as a natural
+ * stacked row of `dot · label`, and the active row is highlighted. The rail is
+ * sized to the wizard's start-edge column so the step content keeps its
+ * natural reading width on the opposite side.
  *
  * Visual semantics (state):
  *   • complete    — teal dot + check glyph, label in ink-700
@@ -11,9 +11,8 @@
  *   • in_progress — gold ring dot, label in gold-700
  *   • upcoming    — outlined dot, label in ink-500
  *
- * The connector segments between dots take their colour from the *upper*
- * step — once a step is complete its trailing connector turns teal so the
- * progress reads as a continuous filled spine from top to current.
+ * Connector segments are anchored inside each dot column so the rail remains
+ * centered even when Arabic labels wrap or the side panel scrolls internally.
  *
  * Auto-scrolls the active row into view on mount and on every active-key
  * change; honours `prefers-reduced-motion`.
@@ -56,6 +55,7 @@ export function VerticalStepper({
   disabledKeys = [],
 }: VerticalStepperProps): JSX.Element {
   const activeRef = useRef<HTMLButtonElement | null>(null);
+  const activeIndex = Math.max(0, steps.findIndex((step) => step.key === activeKey));
 
   useEffect(() => {
     if (!activeRef.current) return;
@@ -77,31 +77,39 @@ export function VerticalStepper({
           تابع الإعدادات بالترتيب حتى المراجعة والاعتماد.
         </p>
       </div>
-      {/* `flex-1 + min-h-0` lets the list fill the rail's available
-       * height; per-row `flex-1` then distributes that height evenly
-       * across every step so all entries fit without inner scroll
-       * and each row becomes a comfortable tap target. */}
-      <ol className="flex min-h-0 w-full flex-1 flex-col">
-        {steps.map((step, i) => {
-          const isLast = i === steps.length - 1;
+      <ol className="relative flex min-h-0 w-full flex-1 flex-col">
+        {steps.map((step, index) => {
           const isActive = step.key === activeKey;
           const isDisabled = disabledKeys.includes(step.key);
-          const connectorColor =
-            step.state === 'complete' ? 'bg-teal-500' : 'bg-ink-200';
+          const hasPrevious = index > 0;
+          const hasNext = index < steps.length - 1;
+          const isReached = index <= activeIndex;
+          const isNextReached = index < activeIndex;
           return (
             <li
               key={step.key}
-              className="flex min-h-0 w-full flex-1 items-stretch gap-2.5"
+              className="relative flex min-h-8 items-stretch gap-2"
             >
-              {/* Spine column — dot + connector */}
-              <div className="relative flex w-7 shrink-0 flex-col items-center">
-                <StepDot state={step.state} order={step.order} />
-                {!isLast && (
+              <div className="relative flex w-6 shrink-0 items-center justify-center">
+                {hasPrevious && (
                   <span
                     aria-hidden
-                    className={cn('my-0.5 w-px flex-1', connectorColor)}
+                    className={cn(
+                      'absolute bottom-1/2 top-0 w-px -translate-x-1/2 transition-colors duration-slow ease-standard motion-reduce:transition-none start-1/2',
+                      isReached ? 'bg-teal-500' : 'bg-ink-200',
+                    )}
                   />
                 )}
+                {hasNext && (
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'absolute bottom-0 top-1/2 w-px -translate-x-1/2 transition-colors duration-slow ease-standard motion-reduce:transition-none start-1/2',
+                      isNextReached ? 'bg-teal-500' : 'bg-ink-200',
+                    )}
+                  />
+                )}
+                <StepDot state={step.state} order={step.order} isDisabled={isDisabled} />
               </div>
 
               {/* Label column — clickable row */}
@@ -113,13 +121,13 @@ export function VerticalStepper({
                 disabled={isDisabled}
                 aria-label={`${step.label} — الخطوة ${step.order}`}
                 className={cn(
-                  'group flex flex-1 items-center gap-2 self-stretch rounded-md px-2.5 text-start',
-                  'transition-colors duration-fast ease-standard',
+                  'group my-1 flex min-h-8 flex-1 items-center gap-2 rounded-md border border-transparent px-3 py-1 text-start',
+                  'transition-[background-color,border-color,box-shadow] duration-fast ease-standard',
                   'focus-visible:shadow-focus-teal focus-visible:outline-none',
                   'disabled:cursor-not-allowed disabled:opacity-55',
                   isActive
-                    ? 'bg-accent-50'
-                    : !isDisabled && 'hover:bg-ink-50',
+                    ? 'border-teal-200 bg-accent-50 shadow-xs'
+                    : !isDisabled && 'hover:border-border-subtle hover:bg-ink-50',
                 )}
               >
                 <span
@@ -136,13 +144,10 @@ export function VerticalStepper({
                 >
                   {step.label}
                 </span>
-                {isDisabled && (
-                  <Lock
-                    size={12}
-                    strokeWidth={1.75}
-                    className="ms-auto shrink-0 text-ink-400"
-                    aria-hidden
-                  />
+                {step.state === 'in_progress' && !isActive && (
+                  <span className="ms-auto shrink-0 rounded-pill bg-gold-50 px-2 py-0.5 font-ar text-2xs font-medium text-gold-700">
+                    جار
+                  </span>
                 )}
               </button>
             </li>
@@ -156,12 +161,24 @@ export function VerticalStepper({
 function StepDot({
   state,
   order,
+  isDisabled,
 }: {
   state: VerticalStepState;
   order: number;
+  isDisabled: boolean;
 }): JSX.Element {
   const base =
-    'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-2xs font-numeric tnum';
+    'relative z-[2] inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-2xs font-numeric tnum';
+  if (isDisabled) {
+    return (
+      <span
+        className={cn(base, 'border-ink-300 bg-surface-card text-ink-400')}
+        aria-hidden
+      >
+        <Lock size={12} strokeWidth={1.8} />
+      </span>
+    );
+  }
   if (state === 'complete' || state === 'current_complete') {
     return (
       <span
