@@ -41,7 +41,6 @@ import {
   type ApplicantCategoryGenderScope,
   type ApplicantCategoryRow,
   type ApplicantCategoryType,
-  type SubmissionTypeRow,
 } from '@/features/lookups';
 import { cn } from '@/shared/lib/cn';
 import {
@@ -50,10 +49,9 @@ import {
 } from '../../api/applicationSettings.queries';
 import type { CategoryConfigJoined } from '../../api/applicationSettings.service';
 import {
-  deriveExcellenceMode,
+  deriveExcellenceModes,
   type ExcellenceMode,
 } from '../../lib/excellenceMode';
-import { resolveCategoryGradingMode } from '../../lib/resolveGradingMode';
 import { useAdmissionSetupCycle } from '../../hooks/useAdmissionSetupCycle';
 import {
   selectCategoryCompletion,
@@ -69,7 +67,6 @@ export function CategoryTabs(): JSX.Element {
   const configsQuery = useCategoryConfigs(isInitialised, cycleId);
   const categoriesQuery = useLookup('applicant-categories', applicationSettingsQueryOptions);
   const excellenceQuery = useLookup('excellence-criteria', applicationSettingsQueryOptions);
-  const submissionTypesQuery = useLookup('submission-types', applicationSettingsQueryOptions);
 
   const [activeId, setActiveId] = useState<string | undefined>(undefined);
 
@@ -77,8 +74,7 @@ export function CategoryTabs(): JSX.Element {
     configsQuery.isLoading ||
     !isInitialised ||
     categoriesQuery.isLoading ||
-    excellenceQuery.isLoading ||
-    submissionTypesQuery.isLoading
+    excellenceQuery.isLoading
   ) {
     return <LoadingState variant="list" />;
   }
@@ -86,7 +82,6 @@ export function CategoryTabs(): JSX.Element {
     configsQuery.isError ||
     categoriesQuery.isError ||
     excellenceQuery.isError ||
-    submissionTypesQuery.isError ||
     !configsQuery.data
   ) {
     return (
@@ -94,8 +89,7 @@ export function CategoryTabs(): JSX.Element {
         error={
           configsQuery.error ??
           categoriesQuery.error ??
-          excellenceQuery.error ??
-          submissionTypesQuery.error
+          excellenceQuery.error
         }
         title="تعذر تحميل الفئات"
         description="حاول إعادة المحاولة بعد قليل."
@@ -103,7 +97,6 @@ export function CategoryTabs(): JSX.Element {
           configsQuery.refetch();
           categoriesQuery.refetch();
           excellenceQuery.refetch();
-          submissionTypesQuery.refetch();
         }}
       />
     );
@@ -116,7 +109,6 @@ export function CategoryTabs(): JSX.Element {
   const visibleConfigs = mergeCategoryConfigsWithActiveLookups(
     configsQuery.data,
     categoriesQuery.data ?? [],
-    submissionTypesQuery.data ?? [],
     excellenceQuery.data ?? [],
   );
 
@@ -133,7 +125,6 @@ export function CategoryTabs(): JSX.Element {
           configsQuery.refetch();
           categoriesQuery.refetch();
           excellenceQuery.refetch();
-          submissionTypesQuery.refetch();
         }}
       />
     );
@@ -167,6 +158,7 @@ export function CategoryTabs(): JSX.Element {
             <ConfigPanel
               config={config}
               excellenceMode={config.lookupExcellenceMode}
+              allowedExcellenceModes={config.allowedExcellenceModes}
             />
           </div>
         </Tabs.Panel>
@@ -222,14 +214,14 @@ function ConfigTab({
 
 type CategoryConfigWithLookupMode = CategoryConfigJoined & {
   lookupExcellenceMode: ExcellenceMode | null;
+  allowedExcellenceModes: readonly ExcellenceMode[];
   lookupExcellenceLabels: readonly string[];
 };
 
 function mergeCategoryConfigsWithActiveLookups(
   configs: readonly CategoryConfigJoined[],
   categories: readonly ApplicantCategoryRow[],
-  submissionTypes: readonly SubmissionTypeRow[],
-  excellenceRows: Parameters<typeof deriveExcellenceMode>[1],
+  excellenceRows: Parameters<typeof deriveExcellenceModes>[1],
 ): CategoryConfigWithLookupMode[] {
   const activeCategories = categories.filter((category) => category.isActive);
   const configByCode = new Map(
@@ -238,14 +230,14 @@ function mergeCategoryConfigsWithActiveLookups(
 
   return activeCategories.map((category, index) => {
     const config = configByCode.get(category.code);
-    const lookupExcellenceMode = resolveLookupExcellenceMode(
-      category,
-      activeCategories,
-      submissionTypes,
+    const allowedExcellenceModes = deriveExcellenceModes(
+      category.excellenceCriterion,
       excellenceRows,
     );
-    const lookupExcellenceLabels = lookupExcellenceMode
-      ? [excellenceModeLabel(lookupExcellenceMode)]
+    const lookupExcellenceMode =
+      allowedExcellenceModes.length === 1 ? allowedExcellenceModes[0] : null;
+    const lookupExcellenceLabels = allowedExcellenceModes.length > 0
+      ? allowedExcellenceModes.map(excellenceModeLabel)
       : resolveExcellenceCriteriaLabels(category.excellenceCriterion, excellenceRows);
 
     if (!config) {
@@ -269,6 +261,7 @@ function mergeCategoryConfigsWithActiveLookups(
         createdAt: '',
         updatedAt: '',
         lookupExcellenceMode,
+        allowedExcellenceModes,
         lookupExcellenceLabels,
       };
     }
@@ -283,24 +276,10 @@ function mergeCategoryConfigsWithActiveLookups(
         category.genderScope.length === 1 ? category.genderScope[0] : null,
       excellenceCriterion: normalizeExcellenceCriteria(category.excellenceCriterion),
       lookupExcellenceMode,
+      allowedExcellenceModes,
       lookupExcellenceLabels,
     };
   });
-}
-
-function resolveLookupExcellenceMode(
-  category: ApplicantCategoryRow,
-  categories: readonly ApplicantCategoryRow[],
-  submissionTypes: readonly SubmissionTypeRow[],
-  excellenceRows: Parameters<typeof deriveExcellenceMode>[1],
-): ExcellenceMode | null {
-  return (
-    resolveCategoryGradingMode(category.code, {
-      categoryLookup: categories,
-      submissionTypeLookup: submissionTypes,
-    }) ??
-    deriveExcellenceMode(category.excellenceCriterion, excellenceRows)
-  );
 }
 
 function excellenceModeLabel(mode: ExcellenceMode): string {
@@ -327,15 +306,16 @@ function normalizeApplicantCategoryType(
 
 interface ConfigPanelProps {
   config: CategoryConfigJoined;
-  /** Resolved «معيار التمييز» discriminator — TAGDIR (تقدير) hides the
-   *  score pair, GRADES (درجة) hides the grade pair. `null` (no
-   *  criterion picked) keeps both pairs visible. */
+  /** Resolved single «معيار التمييز» discriminator. `null` means the
+   *  category allows multiple modes or has not been configured yet. */
   excellenceMode: ExcellenceMode | null;
+  allowedExcellenceModes: readonly ExcellenceMode[];
 }
 
 function ConfigPanel({
   config,
   excellenceMode,
+  allowedExcellenceModes,
 }: ConfigPanelProps): JSX.Element {
   return config.categoryType === 'university' ? (
     <GeneralRulesSection
@@ -344,11 +324,13 @@ function ConfigPanel({
       specializationCodes={config.categorySpecializationCodes}
       genderScope={genderScopeForConfig(config)}
       excellenceMode={excellenceMode}
+      allowedExcellenceModes={allowedExcellenceModes}
     />
   ) : (
     <ThanawiRulesSection
       categoryCode={config.categoryCode}
       excellenceMode={excellenceMode}
+      allowedExcellenceModes={allowedExcellenceModes}
     />
   );
 }

@@ -8,7 +8,8 @@
  *
  *   • `TAGDIR` (تقدير) → show only الحد الأدنى / الأقصى للتقدير
  *   • `GRADES` (درجة)  → show only الحد الأدنى / الأقصى للدرجة (٪)
- *   • `null`           → no criterion or multiple criteria → show both pairs
+ *   • multiple modes   → allow the admin to switch per condition
+ *   • no modes         → no criterion picked yet; callers may fall back
  *
  * Matching priority: stable seed code → Arabic name substring → null.
  * The name fallback covers admins who reseed the lookup with custom
@@ -20,18 +21,40 @@ import { normalizeExcellenceCriteria } from '@/features/lookups';
 
 export type ExcellenceMode = 'TAGDIR' | 'GRADES';
 
-export function deriveExcellenceMode(
-  criterionValue: readonly string[] | string | null,
+function excellenceCriterionToMode(
+  criterionCode: string,
   excellenceRows: readonly ExcellenceCriterionRow[],
 ): ExcellenceMode | null {
-  const criteria = normalizeExcellenceCriteria(criterionValue);
-  if (criteria.length !== 1) return null;
-  const selectedCriterionCode = criteria[0];
-  const row = excellenceRows.find((r) => r.code === selectedCriterionCode);
+  const row = excellenceRows.find((r) => r.code === criterionCode);
   if (!row) return null;
   if (row.code === 'EXC-01') return 'TAGDIR';
   if (row.code === 'EXC-02') return 'GRADES';
   if (row.name.includes('تقدير')) return 'TAGDIR';
   if (row.name.includes('درجة')) return 'GRADES';
   return null;
+}
+
+export function deriveExcellenceModes(
+  criterionValue: readonly string[] | string | null,
+  excellenceRows: readonly ExcellenceCriterionRow[],
+): ExcellenceMode[] {
+  const modes: ExcellenceMode[] = [];
+  const seen = new Set<ExcellenceMode>();
+
+  for (const criterionCode of normalizeExcellenceCriteria(criterionValue)) {
+    const mode = excellenceCriterionToMode(criterionCode, excellenceRows);
+    if (mode === null || seen.has(mode)) continue;
+    seen.add(mode);
+    modes.push(mode);
+  }
+
+  return modes;
+}
+
+export function deriveExcellenceMode(
+  criterionValue: readonly string[] | string | null,
+  excellenceRows: readonly ExcellenceCriterionRow[],
+): ExcellenceMode | null {
+  const modes = deriveExcellenceModes(criterionValue, excellenceRows);
+  return modes.length === 1 ? modes[0] : null;
 }
