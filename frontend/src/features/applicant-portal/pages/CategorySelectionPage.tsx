@@ -339,6 +339,22 @@ export function CategorySelectionPage(): JSX.Element {
     } as Parameters<typeof applicantPortalService.saveDraft>[1]);
   };
 
+  const continueWithSpecializedProgram = (
+    categoryKey: string,
+    faculty: FacultyRow,
+    specialization: SpecializationRow,
+  ): void => {
+    setSelectedCategoryKey(categoryKey);
+    saveCommitteeForCategory(categoryKey);
+    setSelectedFaculty(faculty.name);
+    setSelectedSpecialization(specialization.name);
+    persistCategoryStart(categoryKey, {
+      selectedFaculty: faculty.name,
+      selectedSpecialization: specialization.name,
+    });
+    navigate(ROUTES.applicantProfile);
+  };
+
   const onPickCategory = (categoryKey: string, enabled: boolean): void => {
     if (!enabled) return;
     const categoryEligibility = eligibilityCategoriesQuery.data?.categories.find(
@@ -348,6 +364,28 @@ export function CategorySelectionPage(): JSX.Element {
      * الضباط المتخصصون) require the applicant to choose the exact الكلية /
      * التخصص before entering the wizard. */
     if (categoryEligibility && categoryEligibility.academicPrograms.length > 0) {
+      const pickerOptions = toSpecializedProgramPickerOptions(
+        categoryEligibility.academicPrograms,
+      );
+      const activeFaculties = pickerOptions.faculties.filter((faculty) => faculty.isActive);
+      const singleFaculty = activeFaculties.length === 1 ? activeFaculties[0]! : null;
+      const activeSpecializations = singleFaculty
+        ? pickerOptions.specializations.filter(
+            (specialization) =>
+              specialization.isActive &&
+              specialization.facultyCode === singleFaculty.code,
+          )
+        : [];
+
+      if (singleFaculty && activeSpecializations.length === 1) {
+        continueWithSpecializedProgram(
+          categoryKey,
+          singleFaculty,
+          activeSpecializations[0]!,
+        );
+        return;
+      }
+
       setSelectedCategoryKey(categoryKey);
       saveCommitteeForCategory(categoryKey);
       setPickedFacultyCode(null);
@@ -385,27 +423,8 @@ export function CategorySelectionPage(): JSX.Element {
     const faculty = facultyByCode.get(pickedFacultyCode);
     const specialization = specializationByCode.get(pickedSpecializationCode);
     if (!faculty || !specialization) return;
-    setSelectedFaculty(faculty.name);
-    setSelectedSpecialization(specialization.name);
     setSpecializationPickerOpen(false);
-    /* Same routing logic as the standard onPickCategory path: skip the
-     * eligibility step for not_found-in-MOI users, otherwise navigate
-     * to the eligibility-check page first. */
-    if (!identity || !effectiveCycleId) {
-      persistCategoryStart(pickerCategoryKey, {
-        selectedFaculty: faculty.name,
-        selectedSpecialization: specialization.name,
-      });
-      navigate(ROUTES.applicantProfile);
-      return;
-    }
-    /* Eligibility already resolved on /applicant/start — go straight to
-     * the data-entry profile instead of the standalone check page. */
-    persistCategoryStart(pickerCategoryKey, {
-      selectedFaculty: faculty.name,
-      selectedSpecialization: specialization.name,
-    });
-    navigate(ROUTES.applicantProfile);
+    continueWithSpecializedProgram(pickerCategoryKey, faculty, specialization);
   };
 
   return (
