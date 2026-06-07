@@ -10,8 +10,8 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Search, UsersRound } from 'lucide-react';
-import { Badge, Card, CardBody, CardHeader, DataTable, Input } from '@/shared/components';
+import { ListChecks, Search, UsersRound } from 'lucide-react';
+import { Badge, Button, DataTable, Input } from '@/shared/components';
 import type { DataTableColumn } from '@/shared/components/DataTable';
 import type { ApplicantRosterRow } from '../types';
 
@@ -29,6 +29,8 @@ export function ApplicantRosterPanel({
   onSelectionChange,
 }: ApplicantRosterPanelProps): JSX.Element {
   const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
   /* First-load default: select every row in the gated roster. Subsequent
    * roster reloads (e.g. background refetch) honor the admin's narrowed
@@ -50,6 +52,29 @@ export function ApplicantRosterPanel({
         (r.examSlotLocation?.includes(needle) ?? false),
     );
   }, [roster, query]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRoster.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pageRows = useMemo(() => {
+    const start = (safePage - 1) * pageSize;
+    return filteredRoster.slice(start, start + pageSize);
+  }, [filteredRoster, pageSize, safePage]);
+
+  const filteredNationalIds = useMemo(() => filteredRoster.map((row) => row.nationalId), [filteredRoster]);
+
+  function handleQueryChange(next: string): void {
+    setQuery(next);
+    setPage(1);
+  }
+
+  function selectFiltered(): void {
+    onSelectionChange(Array.from(new Set([...selectedNationalIds, ...filteredNationalIds])));
+  }
+
+  function clearFiltered(): void {
+    const filtered = new Set(filteredNationalIds);
+    onSelectionChange(selectedNationalIds.filter((nationalId) => !filtered.has(nationalId)));
+  }
 
   const columns: DataTableColumn<ApplicantRosterRow>[] = [
     {
@@ -93,48 +118,71 @@ export function ApplicantRosterPanel({
   ];
 
   return (
-    <Card>
-      <CardHeader
-        title={
-          <span className="flex items-center gap-2">
+    <section className="space-y-3 rounded-lg border border-border-subtle bg-ink-50 p-4" aria-label="اختيار المتقدمين للتصدير">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-ink-900">
             <UsersRound size={18} /> اختيار المتقدمين للتصدير
-          </span>
-        }
-        subtitle="حدّد المتقدمين الذين سيُدرَجون في ملف Excel. الافتراضي هو تصدير كل المحجوزين."
-        actions={
-          <Badge tone={selectedNationalIds.length === roster.length ? 'success' : 'accent'}>
-            {selectedNationalIds.length} من {roster.length} محدّد
-          </Badge>
-        }
-      />
-      <CardBody className="space-y-3">
-        <div className="relative max-w-xs">
-          <Search
-            size={14}
-            className="pointer-events-none absolute top-1/2 -translate-y-1/2 text-ink-400 end-3"
-            aria-hidden
-          />
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="بحث بالاسم أو الرقم القومي أو اللجنة…"
-            className="pe-9"
-            aria-label="بحث في قائمة المتقدمين"
-          />
+          </h3>
+          <p className="max-w-3xl text-xs leading-6 text-ink-600">
+            الافتراضي هو كل المتقدمين المحجوزين. استخدم البحث والصفحات لتضييق القائمة دون تحميل آلاف الصفوف أمامك.
+          </p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge tone={selectedNationalIds.length === roster.length ? 'success' : 'accent'}>
+            {selectedNationalIds.length.toLocaleString('en-US')} من {roster.length.toLocaleString('en-US')} محدّد
+          </Badge>
+          {filteredRoster.length !== roster.length && (
+            <Badge tone="neutral">
+              {filteredRoster.length.toLocaleString('en-US')} نتيجة بحث
+            </Badge>
+          )}
+        </div>
+      </div>
 
-        <DataTable<ApplicantRosterRow>
-          data={filteredRoster}
-          columns={columns}
-          rowKey={(r) => r.nationalId}
-          loading={loading}
-          density="compact"
-          stickyHeader
-          selectionMode="multi"
-          selectedRowKeys={selectedNationalIds}
-          onSelectionChange={(keys) => onSelectionChange(keys.map((k) => String(k)))}
+      <div className="flex flex-wrap items-end justify-between gap-3 rounded-md border border-border-subtle bg-surface-card p-3">
+        <Input
+          value={query}
+          onChange={(event) => handleQueryChange(event.target.value)}
+          placeholder="بحث بالاسم أو الرقم القومي أو اللجنة…"
+          aria-label="بحث في قائمة المتقدمين"
+          trailingIcon={<Search size={14} />}
+          containerClassName="w-full sm:max-w-sm"
         />
-      </CardBody>
-    </Card>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm" onClick={selectFiltered} disabled={filteredRoster.length === 0}>
+            <ListChecks size={14} className="me-1" />
+            تحديد نتائج البحث
+          </Button>
+          <Button variant="ghost" size="sm" onClick={clearFiltered} disabled={filteredRoster.length === 0}>
+            إلغاء نتائج البحث
+          </Button>
+        </div>
+      </div>
+
+      <DataTable<ApplicantRosterRow>
+        data={pageRows}
+        columns={columns}
+        rowKey={(r) => r.nationalId}
+        loading={loading}
+        density="compact"
+        stickyHeader
+        selectionMode="multi"
+        selectedRowKeys={selectedNationalIds}
+        onSelectionChange={(keys) => onSelectionChange(keys.map((k) => String(k)))}
+        sequenceStart={(safePage - 1) * pageSize + 1}
+        pagination={{
+          page: safePage,
+          pageSize,
+          total: filteredRoster.length,
+          pageSizeOptions: [10, 25, 50, 100],
+          onPageChange: setPage,
+          onPageSizeChange: (nextSize) => {
+            setPageSize(nextSize);
+            setPage(1);
+          },
+        }}
+      />
+    </section>
   );
 }
