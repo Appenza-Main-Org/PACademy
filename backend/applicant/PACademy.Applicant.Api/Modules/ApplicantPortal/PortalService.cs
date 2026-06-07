@@ -612,13 +612,18 @@ public sealed class PortalService(PortalDbContext db)
 
     public async Task SaveFollowUpAsync(string applicantId, JsonObject data, CancellationToken ct)
     {
-        // Merge only the known result keys to prevent arbitrary data injection.
-        var allowed = new[] { "capacities", "traits", "sports", "medical", "investigation", "finalResult" };
+        // Preserve configured test identifiers used by the acquaintance-doc gate,
+        // while still rejecting unrelated follow-up keys.
         var existing = await GetFollowUpAsync(applicantId, ct);
-        foreach (var key in allowed)
+        foreach (var (key, node) in data)
         {
-            if (data[key] is { } val)
-                existing[key] = val.DeepClone();
+            if (string.IsNullOrWhiteSpace(key) || node is null) continue;
+            if (!IsAllowedFollowUpKey(key)) continue;
+            string? value;
+            try { value = node.GetValue<string>(); }
+            catch (InvalidOperationException) { value = node.ToString(); }
+            if (!IsValidFollowUpOutcome(value)) continue;
+            existing[key] = value;
         }
         await SaveDraftAsync(applicantId, new JsonObject { ["followUp"] = existing.DeepClone() }, ct);
     }
@@ -1163,6 +1168,33 @@ public sealed class PortalService(PortalDbContext db)
         _ => value ?? "",
     };
 
+    private static bool IsValidFollowUpOutcome(string? value) => NormalizeOutcome(value) is
+        "pending" or "in-progress" or "awaiting-approval" or "passed" or "failed";
+
+    private static bool IsAllowedFollowUpKey(string key) =>
+        key.StartsWith("TST-", StringComparison.OrdinalIgnoreCase) ||
+        key.StartsWith("AX-", StringComparison.OrdinalIgnoreCase) ||
+        KnownFollowUpKeys.Contains(key);
+
+    private static readonly HashSet<string> KnownFollowUpKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "capacities",
+        "traits",
+        "sports",
+        "medical",
+        "investigation",
+        "finalResult",
+        "aptitude",
+        "appearance_external",
+        "appearance_internal",
+        "posture",
+        "build",
+        "physical",
+        "security_review",
+        "psychology",
+        "medical_advanced",
+    };
+
     private static IEnumerable<string> CandidateTestKeys(string key)
     {
         if (!string.IsNullOrWhiteSpace(key)) yield return key;
@@ -1179,6 +1211,7 @@ public sealed class PortalService(PortalDbContext db)
 
     private static string MapLegacyFollowUpKey(string key) => key switch
     {
+        "AX-01" => "capacities",
         "TST-01" => "capacities",
         "TST-02" => "traits",
         "TST-03" => "traits",

@@ -291,6 +291,47 @@ public sealed class ApplicantPortalPersistenceTests
         Assert.Null(doc.ClosedAt);
     }
 
+    [Fact]
+    public async Task AcquaintanceDocOpensWhenAptitudePassIsStoredUnderLegacyPipelineKey()
+    {
+        await using var db = CreateDb();
+        var service = new PortalService(db);
+        var applicantId = Guid.NewGuid().ToString("D");
+        const string cycleId = "CYC-2026-M";
+
+        // Regression: aptitude may be configured as AX-01 while imported/admin results
+        // still carry the older follow-up bucket.
+        db.AcquaintanceDocSettings.Add(new AcquaintanceDocSettingsEntity
+        {
+            Id = $"ads-{cycleId}",
+            CycleId = cycleId,
+            OpeningTestKey = "AX-01",
+            OpeningRequiredOutcome = "passed",
+            ClosingTestKey = "medical",
+            ClosingMode = "after_test_passed",
+            IsEnabled = true,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+
+        await service.SaveDraftAsync(applicantId, new JsonObject
+        {
+            ["cycleId"] = cycleId,
+            ["categoryKey"] = "officers_general",
+            ["followUp"] = new JsonObject
+            {
+                ["capacities"] = "passed"
+            }
+        }, TestContext.Current.CancellationToken);
+
+        var status = await service.GetAcquaintanceDocStatusAsync(applicantId, TestContext.Current.CancellationToken);
+
+        Assert.Equal("open", status["status"]?.GetValue<string>());
+        Assert.True(status["canEdit"]?.GetValue<bool>());
+        Assert.Equal("AX-01", status["openingTestKey"]?.GetValue<string>());
+    }
+
     private static PortalDbContext CreateDb()
     {
         var options = new DbContextOptionsBuilder<PortalDbContext>()
