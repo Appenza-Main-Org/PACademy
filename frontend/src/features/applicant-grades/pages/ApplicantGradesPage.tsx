@@ -21,7 +21,6 @@ import {
   ArrowUpRight,
   Download,
   Eye,
-  FileSpreadsheet,
   FileText,
   History,
   Info,
@@ -305,11 +304,7 @@ export function ApplicantGradesPage(): JSX.Element {
   const derived = useMemo<DerivedRow[]>(() => rows.map(deriveRow), [rows]);
   const summary = displayedPaginatedData?.summary;
   const totalsAll = summary?.total ?? total;
-  const generalCount = summary?.general ?? 0;
-  const azharCount = summary?.azhar ?? 0;
   const withAdjCount = summary?.withAdjustments ?? 0;
-  const generalSchoolCategoryLabel = schoolCategoryLabel.get('SCH-01') ?? 'الثانوية العامة';
-  const azharSchoolCategoryLabel = schoolCategoryLabel.get('SCH-03') ?? 'الثانوية الأزهرية';
 
   /* Branch + year filter options are derived from rows actually present
    * in the dataset. The year filter is back-padded with the last 10
@@ -963,20 +958,6 @@ export function ApplicantGradesPage(): JSX.Element {
               label="إجمالي الطلاب"
               value={totalsAll}
               icon={<Layers size={16} strokeWidth={1.75} />}
-            />
-            <StatCard
-              label={generalSchoolCategoryLabel}
-              value={generalCount}
-              icon={<FileSpreadsheet size={16} strokeWidth={1.75} />}
-              iconBg="var(--teal-50)"
-              iconColor="var(--teal-700)"
-            />
-            <StatCard
-              label={azharSchoolCategoryLabel}
-              value={azharCount}
-              icon={<FileSpreadsheet size={16} strokeWidth={1.75} />}
-              iconBg="var(--gold-50)"
-              iconColor="var(--gold-700)"
             />
             <StatCard
               label="صفوف بها تعديلات"
