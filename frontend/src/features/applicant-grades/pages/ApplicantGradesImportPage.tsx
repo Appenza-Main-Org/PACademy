@@ -370,7 +370,7 @@ export function ApplicantGradesImportPage(): JSX.Element {
   return (
     <div>
       <PageHeader
-        title="استيراد درجات المتقدمين"
+        title="رفع درجات الثانوية"
         subtitle="ارفع الملف وراجع النتائج قبل الحفظ."
         breadcrumbs={[
           { label: 'لوحة القبول', href: ROUTES.admin.dashboard },
