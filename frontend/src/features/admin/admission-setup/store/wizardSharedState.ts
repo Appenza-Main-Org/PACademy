@@ -32,6 +32,7 @@
 
 import { create } from 'zustand';
 import type { ExcellenceMode } from '../lib/excellenceMode';
+import { validateApplicationDateRange } from '../lib/appSettingsValidation';
 
 /** Shared header captured at the top of an applicant-category section.
  *
@@ -613,6 +614,7 @@ function isHeaderComplete(h: GeneralRulesHeader): boolean {
   return (
     h.applicationStart !== '' &&
     h.applicationEnd !== '' &&
+    validateApplicationDateRange(h.applicationStart, h.applicationEnd) === null &&
     h.ageReferenceDate !== '' &&
     h.maxAge !== null &&
     h.maritalStatus.length > 0
