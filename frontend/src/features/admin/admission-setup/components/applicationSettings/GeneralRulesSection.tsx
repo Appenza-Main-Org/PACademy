@@ -900,6 +900,7 @@ function SpecializedOfficersWorkspace({
   };
 
   const handleSelectAllSpecs = (): void => {
+    if (!canWrite) return;
     setSelectedSpecCodes(new Set(selectedFacultySpecs.map((spec) => spec.code)));
   };
 
@@ -934,203 +935,222 @@ function SpecializedOfficersWorkspace({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid min-h-[520px] grid-cols-1 overflow-hidden rounded-md border border-border-subtle bg-surface-card xl:grid-cols-[260px_minmax(0,1fr)]">
-        <section className="min-w-0 border-b border-border-subtle bg-surface xl:border-b-0 xl:border-e">
-          <WorkspaceColumnHeader
-            title="الكليات"
-            subtitle="اختر كلية لعرض تخصصاتها"
-          />
-          <SearchBox
-            label="بحث في الكليات"
-            value={facultySearch}
-            onChange={setFacultySearch}
-            placeholder="ابحث عن كلية…"
-          />
-          <div className="max-h-[520px] overflow-y-auto border-t border-border-subtle">
-            {filteredFaculties.length === 0 ? (
-              <p className="px-4 py-8 text-center font-ar text-xs text-ink-500">
-                لا توجد كليات مطابقة للبحث.
-              </p>
-            ) : (
-              filteredFaculties.map((faculty) => {
-                const specs = specsByFaculty.get(faculty.code) ?? [];
-                const isSelected = selectedFaculty?.code === faculty.code;
-                const isFilled = filledFacultyCodes.has(faculty.code);
-                return (
-                  <button
-                    key={faculty.code}
-                    type="button"
-                    onClick={() => handleFacultySelect(faculty.code)}
-                    className={cn(
-                      'flex w-full items-center justify-between gap-3 border-b border-border-subtle px-4 py-4 text-start transition-colors duration-fast',
-                      'focus-visible:outline-none focus-visible:shadow-[var(--ring)]',
-                      isSelected
-                        ? 'bg-[var(--accent-50)] shadow-[inset_0_0_0_1px_var(--accent-500)]'
-                        : 'bg-surface-card hover:bg-ink-50/70',
-                    )}
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate font-ar text-sm font-semibold text-ink-900">
-                        {faculty.name}
-                      </span>
-                      <span className="mt-1 inline-flex items-center gap-1 font-ar text-2xs text-ink-500">
-                        <Layers size={11} strokeWidth={1.75} aria-hidden />
-                        {num(specs.length)} تخصص مرتبط
-                      </span>
-                    </span>
-                    <span className="inline-flex items-center gap-2">
-                      {isFilled && (
-                        <span className="size-2 rounded-full bg-[var(--accent-600)]" />
+      <div className="grid grid-cols-1 overflow-hidden rounded-md border border-border-subtle bg-surface-card xl:max-h-[calc(100vh-18rem)] xl:min-h-[34rem] xl:grid-cols-[minmax(25rem,0.95fr)_minmax(26rem,1.05fr)] 2xl:grid-cols-[minmax(30rem,0.9fr)_minmax(34rem,1.1fr)]">
+        <div className="grid min-w-0 grid-cols-1 border-b border-border-subtle bg-surface lg:grid-cols-2 xl:border-b-0 xl:border-e">
+          <section className="min-w-0 border-b border-border-subtle lg:border-b-0 lg:border-e">
+            <WorkspaceColumnHeader
+              title="الكليات"
+              subtitle="اختر كلية لعرض تخصصاتها"
+            />
+            <SearchBox
+              label="بحث في الكليات"
+              value={facultySearch}
+              onChange={setFacultySearch}
+              placeholder="ابحث عن كلية…"
+            />
+            <div className="max-h-72 overflow-y-auto border-t border-border-subtle xl:max-h-[calc(100vh-25rem)]">
+              {filteredFaculties.length === 0 ? (
+                <p className="px-4 py-8 text-center font-ar text-xs text-ink-500">
+                  لا توجد كليات مطابقة للبحث.
+                </p>
+              ) : (
+                filteredFaculties.map((faculty) => {
+                  const specs = specsByFaculty.get(faculty.code) ?? [];
+                  const isSelected = selectedFaculty?.code === faculty.code;
+                  const isFilled = filledFacultyCodes.has(faculty.code);
+                  return (
+                    <button
+                      key={faculty.code}
+                      type="button"
+                      onClick={() => handleFacultySelect(faculty.code)}
+                      className={cn(
+                        'flex w-full items-center justify-between gap-3 border-b border-border-subtle px-4 py-3 text-start transition-colors duration-fast',
+                        'focus-visible:outline-none focus-visible:shadow-[var(--ring)]',
+                        isSelected
+                          ? 'bg-[var(--accent-50)] shadow-[inset_0_0_0_1px_var(--accent-500)]'
+                          : 'bg-surface-card hover:bg-ink-50/70',
                       )}
-                      {isSelected && (
-                        <ChevronLeft
-                          size={14}
-                          strokeWidth={2}
-                          className="text-[var(--accent-600)]"
-                          aria-hidden
-                        />
-                      )}
-                    </span>
-                  </button>
-                );
-              })
-            )}
-          </div>
-        </section>
-
-        <section className="min-w-0 bg-surface">
-          <WorkspaceColumnHeader
-            title={
-              selectedFaculty
-                ? `تخصصات: ${selectedFaculty.name}`
-                : 'التخصصات'
-            }
-            subtitle={`${num(selectedSpecCodesInFaculty.size)} / ${num(selectedFacultySpecs.length)} محددة`}
-          />
-          <SearchBox
-            label="بحث في التخصصات"
-            value={specSearch}
-            onChange={setSpecSearch}
-            placeholder="ابحث عن تخصص…"
-          />
-          <div className="mx-4 mb-3 flex flex-wrap items-center justify-between gap-2">
-            <span className="font-ar text-2xs text-ink-500">
-              اختر تخصصاً أو أكثر لتطبيق نفس الشروط.
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleSelectAllSpecs}
-                disabled={!canWrite || selectedFacultySpecs.length === 0}
-              >
-                تحديد الكل
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleClearSpecs}
-                disabled={!canWrite || selectedSpecCodesInFaculty.size === 0}
-              >
-                إلغاء
-              </Button>
-            </span>
-          </div>
-          <div className="max-h-[520px] overflow-y-auto border-t border-border-subtle">
-            {selectedFacultySpecs.length === 0 ? (
-              <p className="px-4 py-8 text-center font-ar text-xs text-ink-500">
-                لا توجد تخصصات نشطة في هذه الكلية.
-              </p>
-            ) : filteredSpecs.length === 0 ? (
-              <p className="px-4 py-8 text-center font-ar text-xs text-ink-500">
-                لا توجد تخصصات مطابقة للبحث.
-              </p>
-            ) : (
-              filteredSpecs.map((spec) => {
-                const isSelected = selectedSpecCodesInFaculty.has(spec.code);
-                const isFilled = filledSpecCodes.has(spec.code);
-                return (
-                  <div
-                    key={spec.code}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => handleSpecToggle(spec.code)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        handleSpecToggle(spec.code);
-                      }
-                    }}
-                    className={cn(
-                      'flex w-full cursor-pointer items-center justify-between gap-3 border-b border-border-subtle px-4 py-4 text-start transition-colors duration-fast',
-                      'focus-visible:outline-none focus-visible:shadow-[var(--ring)]',
-                      isSelected
-                        ? 'bg-[var(--accent-50)] shadow-[inset_0_0_0_1px_var(--accent-500)]'
-                        : 'bg-surface-card hover:bg-ink-50/70',
-                    )}
-                  >
-                    <span className="flex min-w-0 items-center gap-3">
-                      <span onClick={(event) => event.stopPropagation()}>
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => handleSpecToggle(spec.code)}
-                          disabled={!canWrite}
-                          aria-label={`اختيار ${spec.name}`}
-                        />
-                      </span>
+                    >
                       <span className="min-w-0">
                         <span className="block truncate font-ar text-sm font-semibold text-ink-900">
-                          {spec.name}
+                          {faculty.name}
+                        </span>
+                        <span className="mt-1 inline-flex items-center gap-1 font-ar text-2xs text-ink-500">
+                          <Layers size={11} strokeWidth={1.75} aria-hidden />
+                          {num(specs.length)} تخصص مرتبط
                         </span>
                       </span>
-                    </span>
-                    {isFilled && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--accent-50)] px-2 py-1 font-ar text-2xs font-medium text-[var(--accent-700)]">
-                        <CheckCircle2 size={12} strokeWidth={2} aria-hidden />
-                        شروط
+                      <span className="inline-flex items-center gap-2">
+                        {isFilled && (
+                          <span className="size-2 rounded-full bg-[var(--accent-600)]" />
+                        )}
+                        {isSelected && (
+                          <ChevronLeft
+                            size={14}
+                            strokeWidth={2}
+                            className="text-[var(--accent-600)]"
+                            aria-hidden
+                          />
+                        )}
                       </span>
-                    )}
-                  </div>
-                );
-              })
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </section>
+
+          <section className="min-w-0">
+            <WorkspaceColumnHeader
+              title={
+                selectedFaculty
+                  ? `تخصصات: ${selectedFaculty.name}`
+                  : 'التخصصات'
+              }
+              subtitle={`${num(selectedSpecCodesInFaculty.size)} / ${num(selectedFacultySpecs.length)} محددة`}
+            />
+            <SearchBox
+              label="بحث في التخصصات"
+              value={specSearch}
+              onChange={setSpecSearch}
+              placeholder="ابحث عن تخصص…"
+            />
+            <div className="mx-4 mb-3 flex flex-wrap items-center justify-between gap-2">
+              <span className="font-ar text-2xs text-ink-500">
+                اختر تخصصاً أو أكثر لتطبيق نفس الشروط.
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSelectAllSpecs}
+                  disabled={!canWrite || selectedFacultySpecs.length === 0}
+                >
+                  تحديد الكل
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClearSpecs}
+                  disabled={!canWrite || selectedSpecCodesInFaculty.size === 0}
+                >
+                  إلغاء
+                </Button>
+              </span>
+            </div>
+            <div className="max-h-72 overflow-y-auto border-t border-border-subtle xl:max-h-[calc(100vh-28rem)]">
+              {selectedFacultySpecs.length === 0 ? (
+                <p className="px-4 py-8 text-center font-ar text-xs text-ink-500">
+                  لا توجد تخصصات نشطة في هذه الكلية.
+                </p>
+              ) : filteredSpecs.length === 0 ? (
+                <p className="px-4 py-8 text-center font-ar text-xs text-ink-500">
+                  لا توجد تخصصات مطابقة للبحث.
+                </p>
+              ) : (
+                filteredSpecs.map((spec) => {
+                  const isSelected = selectedSpecCodesInFaculty.has(spec.code);
+                  const isFilled = filledSpecCodes.has(spec.code);
+                  return (
+                    <div
+                      key={spec.code}
+                      role="button"
+                      aria-pressed={isSelected}
+                      tabIndex={0}
+                      onClick={() => handleSpecToggle(spec.code)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          handleSpecToggle(spec.code);
+                        }
+                      }}
+                      className={cn(
+                        'flex w-full cursor-pointer items-center justify-between gap-3 border-b border-border-subtle px-4 py-3 text-start transition-colors duration-fast',
+                        'focus-visible:outline-none focus-visible:shadow-[var(--ring)]',
+                        isSelected
+                          ? 'bg-[var(--accent-50)] shadow-[inset_0_0_0_1px_var(--accent-500)]'
+                          : 'bg-surface-card hover:bg-ink-50/70',
+                      )}
+                    >
+                      <span className="flex min-w-0 items-center gap-3">
+                        <span onClick={(event) => event.stopPropagation()}>
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => handleSpecToggle(spec.code)}
+                            disabled={!canWrite}
+                            aria-label={`اختيار ${spec.name}`}
+                          />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate font-ar text-sm font-semibold text-ink-900">
+                            {spec.name}
+                          </span>
+                        </span>
+                      </span>
+                      {isFilled && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--accent-50)] px-2 py-1 font-ar text-2xs font-medium text-[var(--accent-700)]">
+                          <CheckCircle2 size={12} strokeWidth={2} aria-hidden />
+                          شروط
+                        </span>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </section>
+        </div>
+
+        <section className="min-w-0 bg-ink-50/20 p-4 xl:overflow-y-auto">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h4 className="m-0 font-ar text-sm font-semibold text-ink-900">
+                شروط اللجنة
+              </h4>
+              <p className="m-0 mt-1 font-ar text-2xs text-ink-500">
+                تظهر مباشرة بعد اختيار التخصصات.
+              </p>
+            </div>
+            {selectedSpecTargets.length > 0 && (
+              <span className="rounded-full bg-[var(--accent-50)] px-2 py-1 font-ar text-2xs font-medium text-[var(--accent-700)]">
+                {num(selectedSpecTargets.length)} محددة
+              </span>
             )}
           </div>
-        </section>
-
-      </div>
-
-      <section className="min-w-0 rounded-md border border-border-subtle bg-ink-50/20 p-4">
-        {selectedSpecTargets.length > 0 && selectedFaculty ? (
-          <PerSpecForm
-            key={`${selectedFaculty.code}::${selectedSpecTargets
-              .map((target) => target.specializationCode)
-              .join('|')}`}
-            facultyCode={selectedFaculty.code}
-            facultyNameAr={selectedFaculty.name}
-            specializationCode={selectedSpecTargets[0].specializationCode}
-            specializationNameAr={selectedSpecTargets[0].specializationNameAr}
-            options={options}
-            bulkTargets={selectedSpecTargets}
-            emptyRowsLabel="لم تُضف شروط لجان بعد للتخصصات المحددة."
-            showScopeColumn={selectedSpecTargets.length > 1}
-            hideRowsGrid
-            onAddSuccess={handleClearSpecs}
-            bulkBanner={
-              <BulkApplyBanner
-                facultyName={selectedFaculty.name}
-                targets={selectedSpecTargets}
+          {selectedSpecTargets.length > 0 && selectedFaculty ? (
+            <PerSpecForm
+              key={`${selectedFaculty.code}::${selectedSpecTargets
+                .map((target) => target.specializationCode)
+                .join('|')}`}
+              facultyCode={selectedFaculty.code}
+              facultyNameAr={selectedFaculty.name}
+              specializationCode={selectedSpecTargets[0].specializationCode}
+              specializationNameAr={selectedSpecTargets[0].specializationNameAr}
+              options={options}
+              bulkTargets={selectedSpecTargets}
+              emptyRowsLabel="لم تُضف شروط لجان بعد للتخصصات المحددة."
+              showScopeColumn={selectedSpecTargets.length > 1}
+              hideRowsGrid
+              onAddSuccess={handleClearSpecs}
+              bulkBanner={
+                <BulkApplyBanner
+                  facultyName={selectedFaculty.name}
+                  targets={selectedSpecTargets}
+                />
+              }
+              canWrite={canWrite}
+            />
+          ) : (
+            <div className="rounded-md border border-dashed border-border-subtle bg-surface-card py-8">
+              <EmptyState
+                variant="generic"
+                title="اختر تخصصاً لإضافة الشروط"
+                description="اختر كلية ثم حدد تخصصاً أو أكثر لعرض نموذج شروط اللجنة."
               />
-            }
-            canWrite={canWrite}
-          />
-        ) : (
-          <EmptyState
-            variant="generic"
-            title="اختر تخصصاً لإضافة الشروط"
-            description="اختر كلية ثم حدد تخصصاً أو أكثر لعرض نموذج شروط اللجنة."
-          />
-        )}
-      </section>
+            </div>
+          )}
+        </section>
+      </div>
 
       <section className="min-w-0 rounded-md border border-border-subtle bg-surface-card p-4">
         <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
@@ -1764,7 +1784,7 @@ function PerSpecForm({
         </div>
 
         <FieldGroup title="بيانات القبول">
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4">
             <FieldLabel label="النوع" required>
               <MultiSelect
                 ariaLabel="النوع"
