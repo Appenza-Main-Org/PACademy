@@ -15,7 +15,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle2, Copy, CreditCard, Loader2, RefreshCw, Receipt } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Copy, CreditCard, Loader2, RefreshCw, Receipt } from 'lucide-react';
 import { Button, Card, ErrorState, LoadingState, Modal, toast } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
@@ -25,6 +25,8 @@ import {
   usePaymentConfig,
 } from '../api/applicantPortal.queries';
 import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
+import { loadProfileSnapshot } from '../lib/profileData';
+import { validateProfileBeforePayment } from '../lib/profileValidation';
 import { cn } from '@/shared/lib/cn';
 
 const APPLICANT_ID = MOI_APPLICANT_SESSION.applicantId;
@@ -35,6 +37,12 @@ const DEMO_FAWRY_TTL_MS = 3 * 60 * 1000;
 export function Stage6PaymentPage(): JSX.Element {
   const navigate = useNavigate();
   const setPayment = useApplicantPortalStore((s) => s.setPayment);
+  const profileComplete = useApplicantPortalStore((s) => s.profileComplete);
+  const setProfileComplete = useApplicantPortalStore((s) => s.setProfileComplete);
+  const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
+  const selectedFaculty = useApplicantPortalStore((s) => s.selectedFaculty);
+  const selectedSpecialization = useApplicantPortalStore((s) => s.selectedSpecialization);
+  const moiSession = useApplicantPortalStore((s) => s.moiSession);
   const paymentConfig = usePaymentConfig();
   const createIntent = useCreatePaymentIntent();
   const { mutateAsync: createPaymentIntent, isPending: isCreatingPaymentIntent } = createIntent;
@@ -55,6 +63,14 @@ export function Stage6PaymentPage(): JSX.Element {
    *  until the applicant clicks "إنشاء كود جديد". */
   const [expiresAt, setExpiresAt] = useState<number>(() => Date.now() + DEMO_FAWRY_TTL_MS);
   const [now, setNow] = useState<number>(() => Date.now());
+  const profileValidation = validateProfileBeforePayment(loadProfileSnapshot(), {
+    isMoiVerified: moiSession !== null,
+    moiSession,
+    selectedCategoryKey,
+    selectedFaculty,
+    selectedSpecialization,
+  });
+  const canEnterPayment = profileComplete && profileValidation.isValid;
   const remainingMs = Math.max(0, expiresAt - now);
   const expired = remainingMs === 0;
 
@@ -68,6 +84,7 @@ export function Stage6PaymentPage(): JSX.Element {
    * one (client direction 2026-05-19: each visit should generate a new
    * code so the demo can show the regenerate flow). */
   useEffect(() => {
+    if (!canEnterPayment) return;
     if (issued || hasRequestedIntent.current || feeEgp == null) return;
     hasRequestedIntent.current = true;
     void createPaymentIntent({ method: 'fawry-code', amount: feeEgp })
@@ -89,7 +106,12 @@ export function Stage6PaymentPage(): JSX.Element {
         hasRequestedIntent.current = false;
         toast('تعذر إصدار كود فوري', 'danger');
       });
-  }, [createPaymentIntent, feeEgp, issued, setPayment]);
+  }, [canEnterPayment, createPaymentIntent, feeEgp, issued, setPayment]);
+
+  useEffect(() => {
+    if (canEnterPayment) return;
+    setProfileComplete(false);
+  }, [canEnterPayment, setProfileComplete]);
 
   /** Regenerate a fresh code after expiry. */
   const onRegenerate = (): void => {
@@ -164,6 +186,38 @@ export function Stage6PaymentPage(): JSX.Element {
           description="تعذر تحميل رسوم التقديم من إعدادات الدورة النشطة."
           onRetry={() => void paymentConfig.refetch()}
         />
+      </Card>
+    );
+  }
+
+  if (!canEnterPayment) {
+    return (
+      <Card>
+        <div className="flex flex-col gap-4">
+          <div className="flex items-start gap-3 rounded-md border border-terra-500 bg-terra-50 px-4 py-3 text-terra-800">
+            <AlertTriangle size={20} strokeWidth={1.75} aria-hidden className="mt-0.5 shrink-0" />
+            <div>
+              <h2 className="font-ar-display text-md font-bold">
+                لا يمكن الانتقال إلى السداد قبل استكمال البيانات
+              </h2>
+              <p className="mt-1 text-sm leading-normal">
+                يرجى الرجوع إلى صفحة البيانات الشخصية والدراسية واستكمال الحقول المطلوبة ثم الحفظ والمتابعة.
+              </p>
+            </div>
+          </div>
+          <ul className="grid gap-2 text-sm text-ink-800 md:grid-cols-2">
+            {profileValidation.messages.map((message) => (
+              <li key={message} className="rounded-md border border-border-subtle bg-ink-50 px-3 py-2">
+                {message}
+              </li>
+            ))}
+          </ul>
+          <div className="flex justify-end">
+            <Button type="button" variant="primary" onClick={() => navigate(ROUTES.applicantProfile)}>
+              استكمال البيانات
+            </Button>
+          </div>
+        </div>
       </Card>
     );
   }

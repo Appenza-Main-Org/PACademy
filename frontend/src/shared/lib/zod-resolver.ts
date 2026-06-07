@@ -19,7 +19,7 @@ import type { z } from 'zod';
  * applicant wizard without filling required fields. Flip back to `false`
  * once real validation is needed (e.g. before backend integration).
  */
-const BYPASS_VALIDATION_FOR_DEMO = true;
+const BYPASS_VALIDATION_FOR_DEMO = false;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function zodResolver<T extends Record<string, any>>(schema: z.ZodType<T>): any {

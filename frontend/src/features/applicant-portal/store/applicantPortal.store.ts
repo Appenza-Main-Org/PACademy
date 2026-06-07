@@ -41,6 +41,8 @@ interface ApplicantPortalState {
 
   /** Identity re-verification (PDF p.5 lower) — set on /applicant/verify. */
   verifiedAt: number | null;
+  /** Stage 3/4/5 profile form has passed mandatory personal + education checks. */
+  profileComplete: boolean;
 
   /** Payment block — set on Stage 6. paid implies paymentReference. */
   paid: boolean;
@@ -77,6 +79,7 @@ interface ApplicantPortalState {
   setSelectedSpecialization: (s: string | null) => void;
   setMoiSession: (session: MoiApplicantSession | null) => void;
   setVerifiedAt: (ts: number | null) => void;
+  setProfileComplete: (complete: boolean) => void;
   setPayment: (input: {
     paid: boolean;
     paymentMethod: ApplicantPaymentMethod | null;
@@ -101,6 +104,7 @@ export const useApplicantPortalStore = create<ApplicantPortalState>()(
       selectedSpecialization: null,
       moiSession: null,
       verifiedAt: null,
+      profileComplete: false,
       paid: false,
       paymentMethod: null,
       paymentReference: null,
@@ -111,13 +115,14 @@ export const useApplicantPortalStore = create<ApplicantPortalState>()(
       vothiqaTaarufSubmittedAt: null,
       assignedCommitteeId: null,
       assignedCommitteeName: null,
-      setNationalId: (id) => set({ nationalId: id }),
-      setSelectedCategoryKey: (key) => set({ selectedCategoryKey: key }),
-      setSelectedCycleId: (id) => set({ selectedCycleId: id }),
-      setSelectedFaculty: (f) => set({ selectedFaculty: f }),
-      setSelectedSpecialization: (s) => set({ selectedSpecialization: s }),
+      setNationalId: (id) => set({ nationalId: id, profileComplete: false }),
+      setSelectedCategoryKey: (key) => set({ selectedCategoryKey: key, profileComplete: false }),
+      setSelectedCycleId: (id) => set({ selectedCycleId: id, profileComplete: false }),
+      setSelectedFaculty: (f) => set({ selectedFaculty: f, profileComplete: false }),
+      setSelectedSpecialization: (s) => set({ selectedSpecialization: s, profileComplete: false }),
       setMoiSession: (session) => set({ moiSession: session }),
       setVerifiedAt: (ts) => set({ verifiedAt: ts }),
+      setProfileComplete: (complete) => set({ profileComplete: complete }),
       setPayment: (input) => set(input),
       setFirstExamDate: (iso) => set({ firstExamDate: iso }),
       setParentsApproved: (approved) => set({ parentsApproved: approved }),
@@ -133,6 +138,7 @@ export const useApplicantPortalStore = create<ApplicantPortalState>()(
           selectedSpecialization: null,
           moiSession: null,
           verifiedAt: null,
+          profileComplete: false,
           paid: false,
           paymentMethod: null,
           paymentReference: null,
