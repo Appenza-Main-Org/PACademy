@@ -790,6 +790,24 @@ public sealed class PortalService(PortalDbContext db)
         ApplicantAcquaintanceDocEntity? Doc,
         JsonObject Status);
 
+    /// <summary>
+    /// The fully-resolved open/close rule for the acquaintance document, derived
+    /// from the admin general-settings singleton (timing + offsets) layered with
+    /// the optional per-cycle override (test keys / enabled / explicit closing-at).
+    /// <see cref="OpeningMode"/> / <see cref="ClosingMode"/> are one of
+    /// <c>before_test</c>, <c>on_test_time</c>, <c>after_test_passed</c>.
+    /// </summary>
+    private sealed record ResolvedAcquaintanceSettings(
+        bool IsEnabled,
+        string OpeningTestKey,
+        string OpeningRequiredOutcome,
+        string OpeningMode,
+        TimeSpan OpeningOffset,
+        string ClosingTestKey,
+        string ClosingMode,
+        TimeSpan ClosingOffset,
+        DateTimeOffset? ClosingAt);
+
     private async Task<AcquaintanceLifecycle> EvaluateAcquaintanceDocLifecycleAsync(string applicantId, CancellationToken ct)
     {
         var draft = await GetOrCreateDraftAsync(applicantId, ct);
@@ -849,31 +867,63 @@ public sealed class PortalService(PortalDbContext db)
         return new AcquaintanceLifecycle(cycleId, isOpen, isClosed, doc, status);
     }
 
-    private async Task<AcquaintanceDocSettingsEntity> ResolveAcquaintanceDocSettingsAsync(string cycleId, CancellationToken ct)
+    private async Task<ResolvedAcquaintanceSettings> ResolveAcquaintanceDocSettingsAsync(string cycleId, CancellationToken ct)
     {
-        var explicitSettings = await db.AcquaintanceDocSettings
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.CycleId == cycleId, ct);
-        if (explicitSettings is not null) return explicitSettings;
-
         var general = await db.GeneralSettings
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == "settings", ct);
 
-        var now = DateTimeOffset.UtcNow;
-        return new AcquaintanceDocSettingsEntity
-        {
-            Id = $"ads-{cycleId}",
-            CycleId = cycleId,
-            OpeningTestKey = general?.AcquaintanceDocumentsEntryResponsibleTestCode ?? "",
-            OpeningRequiredOutcome = "passed",
-            ClosingTestKey = general?.AcquaintanceDocumentsCloseResponsibleTestCode ?? "",
-            ClosingMode = general?.AcquaintanceDocumentsCloseTiming ?? "after_test_passed",
-            ClosingAt = null,
-            IsEnabled = true,
-            CreatedAt = now,
-            UpdatedAt = now,
-        };
+        var explicitSettings = await db.AcquaintanceDocSettings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.CycleId == cycleId, ct);
+
+        // Test keys / enabled / explicit closing-at come from the optional per-cycle
+        // override when present; opening & closing TIMING + OFFSET always derive from
+        // the admin general-settings singleton (the override table never carried them,
+        // which is why an admin-configured open timing previously had no effect).
+        var openingTest = explicitSettings?.OpeningTestKey;
+        if (string.IsNullOrWhiteSpace(openingTest))
+            openingTest = general?.AcquaintanceDocumentsEntryResponsibleTestCode;
+
+        var closingTest = explicitSettings?.ClosingTestKey;
+        if (string.IsNullOrWhiteSpace(closingTest))
+            closingTest = general?.AcquaintanceDocumentsCloseResponsibleTestCode;
+
+        return new ResolvedAcquaintanceSettings(
+            IsEnabled: explicitSettings?.IsEnabled ?? true,
+            OpeningTestKey: openingTest ?? "",
+            OpeningRequiredOutcome: explicitSettings?.OpeningRequiredOutcome ?? "passed",
+            OpeningMode: NormalizeTiming(general?.AcquaintanceDocumentsOpenTiming, "after_test_passed"),
+            OpeningOffset: OffsetToTimeSpan(
+                general?.AcquaintanceDocumentsOpenOffsetValue,
+                general?.AcquaintanceDocumentsOpenOffsetUnit),
+            ClosingTestKey: closingTest ?? "",
+            ClosingMode: NormalizeTiming(
+                general?.AcquaintanceDocumentsCloseTiming ?? explicitSettings?.ClosingMode,
+                "after_test_passed"),
+            ClosingOffset: OffsetToTimeSpan(
+                general?.AcquaintanceDocumentsCloseOffsetValue,
+                general?.AcquaintanceDocumentsCloseOffsetUnit),
+            ClosingAt: explicitSettings?.ClosingAt);
+    }
+
+    /// <summary>Validates a configured timing token, falling back when unrecognized/empty.</summary>
+    private static string NormalizeTiming(string? value, string fallback) => value switch
+    {
+        "before_test" => "before_test",
+        "on_test_time" => "on_test_time",
+        "after_test_passed" => "after_test_passed",
+        _ => fallback,
+    };
+
+    /// <summary>Converts an admin offset (value + "days"/"hours" unit) into a span; 0 when unset.</summary>
+    private static TimeSpan OffsetToTimeSpan(int? value, string? unit)
+    {
+        var magnitude = value.GetValueOrDefault(0);
+        if (magnitude <= 0) return TimeSpan.Zero;
+        return string.Equals(unit, "hours", StringComparison.OrdinalIgnoreCase)
+            ? TimeSpan.FromHours(magnitude)
+            : TimeSpan.FromDays(magnitude);
     }
 
     private async Task<ApplicantAcquaintanceDocEntity> InitializeAcquaintanceDocAsync(
@@ -1045,13 +1095,28 @@ public sealed class PortalService(PortalDbContext db)
         await db.SaveChangesAsync(ct);
     }
 
-    private static bool IsScheduleOpen(JsonObject draft, AcquaintanceDocSettingsEntity settings)
+    /// <summary>
+    /// Whether the configured opening TIMING has arrived for schedule-based modes
+    /// (<c>before_test</c> / <c>on_test_time</c>). The <c>after_test_passed</c> mode
+    /// opens via the outcome check in the caller, not here.
+    /// </summary>
+    private static bool IsScheduleOpen(JsonObject draft, ResolvedAcquaintanceSettings settings)
     {
-        if (settings.ClosingMode == "after_test_passed") return false;
-        return false;
+        if (settings.OpeningMode == "after_test_passed") return false;
+
+        var examDate = DateForConfiguredTestFromDraft(draft, settings.OpeningTestKey);
+        if (examDate is null) return false;
+
+        var openAt = settings.OpeningMode switch
+        {
+            "before_test" => examDate.Value - settings.OpeningOffset,
+            "on_test_time" => examDate.Value,
+            _ => (DateTimeOffset?)null,
+        };
+        return openAt is not null && DateTimeOffset.UtcNow >= openAt;
     }
 
-    private static bool IsCloseDue(JsonObject draft, AcquaintanceDocSettingsEntity settings)
+    private static bool IsCloseDue(JsonObject draft, ResolvedAcquaintanceSettings settings)
     {
         if (settings.ClosingAt is { } closingAt && DateTimeOffset.UtcNow >= closingAt) return true;
         if (settings.ClosingMode == "after_test_passed" &&
@@ -1065,7 +1130,7 @@ public sealed class PortalService(PortalDbContext db)
         if (examDate is null) return false;
         var due = settings.ClosingMode switch
         {
-            "before_test" => examDate.Value - TimeSpan.FromDays(1),
+            "before_test" => examDate.Value - settings.ClosingOffset,
             "on_test_time" => examDate.Value,
             _ => (DateTimeOffset?)null,
         };
