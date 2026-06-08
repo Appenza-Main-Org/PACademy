@@ -134,22 +134,22 @@ export function ApplicantPortalPage(): JSX.Element {
     <div className="flex flex-col gap-5">
       {/* ── Top-bar action cluster ───────────────────────────── */}
       <Card>
-        <div className="flex flex-col items-stretch gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h2 className="font-ar-display text-xl font-bold text-ink-900">ملخّص طلب الإلتحاق</h2>
-            <p className="mt-1 text-sm text-ink-500 leading-normal">
-              راجع البيانات المُسجَّلة. يمكنك تعديل الطلب قبل سداد رسوم الخدمة، وبعد السداد لا
-              تُعدَّل البيانات إلا بإجراء إداري.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="font-ar-display text-xl font-bold text-ink-900">ملخّص طلب الإلتحاق</h2>
+              <p className="mt-1 text-sm text-ink-500 leading-normal">
+                راجع البيانات المُسجَّلة. يمكنك تعديل الطلب قبل سداد رسوم الخدمة، وبعد السداد لا
+                تُعدَّل البيانات إلا بإجراء إداري.
+              </p>
+            </div>
             {paid ? (
               <Badge tone="success">
                 <IconStamp width={12} height={12} className="me-1 inline-block" />
                 تم الدفع
               </Badge>
             ) : (
-              <Link to={ROUTES.applicantPayment}>
+              <Link to={ROUTES.applicantPayment} className="shrink-0">
                 <Button
                   variant="primary"
                   leadingIcon={<CreditCard size={14} strokeWidth={1.75} />}
@@ -158,6 +158,8 @@ export function ApplicantPortalPage(): JSX.Element {
                 </Button>
               </Link>
             )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 border-t border-border-subtle pt-4">
             <Link to={ROUTES.applicantApplicationSummary}>
               <Button
                 variant="secondary"
@@ -179,6 +181,7 @@ export function ApplicantPortalPage(): JSX.Element {
             </Button>
             {showApplicationFormActions && (
               <>
+                <span aria-hidden className="mx-1 hidden h-6 w-px self-center bg-border-default sm:block" />
                 <Link to={ROUTES.applicantApplicationForm}>
                   <Button
                     variant="secondary"
