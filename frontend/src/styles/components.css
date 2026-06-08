@@ -577,3 +577,54 @@
 .status-dot.offline { background: var(--text-tertiary); }
 .status-dot.warning { background: var(--warning); }
 .status-dot.danger { background: var(--danger); }
+
+/* ─── Admission-setup · application-settings workspace ───────────────
+ * Faculty/specialization selection rails + committee-conditions form.
+ * Hosted inside the admission-setup wizard, whose ~260px stepper rail
+ * squeezes the content column — so viewport breakpoints mis-fire (they
+ * see a 1536px window while the real column is only ~880px) and the old
+ * `minmax(30rem,…)+minmax(34rem,…)` grid overflowed and clipped under
+ * `overflow-hidden`. Container queries track the ACTUAL available width:
+ * the rails + form stack (each full width) when narrow, and only sit
+ * side-by-side when there is genuinely room (the full-width standalone
+ * /application-settings route). No fixed minimums, so it never overflows. */
+.app-settings-workspace {
+  container-type: inline-size;
+}
+.app-settings-workspace__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.app-settings-workspace__rails-wrap {
+  container-type: inline-size;
+  border-block-end: 1px solid var(--border-subtle);
+}
+.app-settings-workspace__rails {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.app-settings-workspace__rail--faculties {
+  border-block-end: 1px solid var(--border-subtle);
+}
+
+/* Rails | form side-by-side only when the real column is wide enough. */
+@container (min-width: 68rem) {
+  .app-settings-workspace__grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .app-settings-workspace__rails-wrap {
+    border-block-end: 0;
+    border-inline-end: 1px solid var(--border-subtle);
+  }
+}
+
+/* Split the faculties / specializations rails when their cell has room. */
+@container (min-width: 28rem) {
+  .app-settings-workspace__rails {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .app-settings-workspace__rail--faculties {
+    border-block-end: 0;
+    border-inline-end: 1px solid var(--border-subtle);
+  }
+}

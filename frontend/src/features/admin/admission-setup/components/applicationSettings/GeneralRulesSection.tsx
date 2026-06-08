@@ -934,10 +934,11 @@ function SpecializedOfficersWorkspace({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 overflow-hidden rounded-md border border-border-subtle bg-surface-card xl:max-h-[calc(100vh-18rem)] xl:min-h-[34rem] xl:grid-cols-[minmax(25rem,0.95fr)_minmax(26rem,1.05fr)] 2xl:grid-cols-[minmax(30rem,0.9fr)_minmax(34rem,1.1fr)]">
-        <div className="grid min-w-0 grid-cols-1 border-b border-border-subtle bg-surface lg:grid-cols-2 xl:border-b-0 xl:border-e">
-          <section className="min-w-0 border-b border-border-subtle lg:border-b-0 lg:border-e">
+    <div className="app-settings-workspace flex flex-col gap-4">
+      <div className="app-settings-workspace__grid overflow-hidden rounded-md border border-border-subtle bg-surface-card">
+        <div className="app-settings-workspace__rails-wrap min-w-0 bg-surface">
+          <div className="app-settings-workspace__rails min-w-0">
+            <section className="app-settings-workspace__rail--faculties min-w-0">
             <WorkspaceColumnHeader
               title="الكليات"
               subtitle="اختر كلية لعرض تخصصاتها"
@@ -948,7 +949,7 @@ function SpecializedOfficersWorkspace({
               onChange={setFacultySearch}
               placeholder="ابحث عن كلية…"
             />
-            <div className="max-h-72 overflow-y-auto border-t border-border-subtle xl:max-h-[calc(100vh-25rem)]">
+            <div className="max-h-72 overflow-y-auto border-t border-border-subtle lg:max-h-96">
               {filteredFaculties.length === 0 ? (
                 <p className="px-4 py-8 text-center font-ar text-xs text-ink-500">
                   لا توجد كليات مطابقة للبحث.
@@ -1038,7 +1039,7 @@ function SpecializedOfficersWorkspace({
                 </Button>
               </span>
             </div>
-            <div className="max-h-72 overflow-y-auto border-t border-border-subtle xl:max-h-[calc(100vh-28rem)]">
+            <div className="max-h-72 overflow-y-auto border-t border-border-subtle lg:max-h-96">
               {selectedFacultySpecs.length === 0 ? (
                 <p className="px-4 py-8 text-center font-ar text-xs text-ink-500">
                   لا توجد تخصصات نشطة في هذه الكلية.
@@ -1099,9 +1100,10 @@ function SpecializedOfficersWorkspace({
               )}
             </div>
           </section>
+          </div>
         </div>
 
-        <section className="min-w-0 bg-ink-50/20 p-4 xl:overflow-y-auto">
+        <section className="min-w-0 bg-ink-50/20 p-4">
           <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <h4 className="m-0 font-ar text-sm font-semibold text-ink-900">
