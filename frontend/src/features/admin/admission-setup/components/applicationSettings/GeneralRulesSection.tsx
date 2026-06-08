@@ -1786,7 +1786,7 @@ function PerSpecForm({
         </div>
 
         <FieldGroup title="بيانات القبول">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <FieldLabel label="النوع" required>
               <MultiSelect
                 ariaLabel="النوع"
