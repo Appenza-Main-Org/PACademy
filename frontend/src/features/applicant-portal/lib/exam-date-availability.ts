@@ -37,27 +37,31 @@ export function filterBookableExamDates(values: readonly string[], now: Date = n
 }
 
 /**
- * Apply the General Settings booking-window cap to a list of already-bookable
- * dates: a date is selectable only if it lies within `slotWindowDays` days of
- * today (i.e., the booking window opens N days before each exam date — the
- * literal reading of «عدد الأيام المسموح للطالب خلالها باختيار موعد الاختبار قبل تاريخ الاختبار»).
+ * Apply the General Settings minimum-lead-time rule to a list of already-bookable
+ * dates: a date is selectable only if it is at least `leadDays` days ahead of
+ * today. The applicant must pick a slot no later than N days before the exam, so
+ * any date within the restricted window (today through today+N-1) is hidden — the
+ * intended reading of «عدد الأيام المسموح للطالب خلالها باختيار موعد الاختبار قبل تاريخ الاختبار».
+ *
+ * e.g. today = 2026-06-08, leadDays = 3 → first selectable date is 2026-06-11.
+ *
  * Pass null/undefined to leave the list untouched.
  */
-export function filterDatesWithinBookingWindow(
+export function filterDatesWithMinimumLeadTime(
   values: readonly string[],
-  slotWindowDays: number | null | undefined,
+  leadDays: number | null | undefined,
   now: Date = new Date(),
 ): string[] {
-  if (slotWindowDays == null || !Number.isFinite(slotWindowDays) || slotWindowDays < 0) {
+  if (leadDays == null || !Number.isFinite(leadDays) || leadDays <= 0) {
     return values.slice();
   }
   const todayMs = startOfLocalDay(now).getTime();
-  const windowMs = slotWindowDays * 24 * 60 * 60 * 1000;
+  const leadMs = leadDays * 24 * 60 * 60 * 1000;
   return values.filter((value) => {
     const normalized = normalizeExamDateValue(value);
     if (!normalized) return false;
     const examMs = localDayTime(normalized);
-    return examMs - todayMs <= windowMs;
+    return examMs - todayMs >= leadMs;
   });
 }
 

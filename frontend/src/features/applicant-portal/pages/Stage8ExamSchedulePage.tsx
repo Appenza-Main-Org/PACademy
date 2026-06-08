@@ -31,7 +31,7 @@ import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
 import {
   filterBookableExamDates,
-  filterDatesWithinBookingWindow,
+  filterDatesWithMinimumLeadTime,
   normalizeExamDateValue,
 } from '../lib/exam-date-availability';
 
@@ -49,12 +49,12 @@ export function Stage8ExamSchedulePage(): JSX.Element {
   /* Always fetch eligible-categories to get committeeName + examDates. */
   const eligibilityQuery = useEligibleCategories(nid);
   /* General Settings (admin /admin/settings) control how many date options the
-   *  applicant sees («عدد أيام الاختبار للطالب») and the booking-window in days
-   *  before each exam date during which the applicant may pick that slot
-   *  («عدد الأيام المسموح للطالب خلالها باختيار موعد الاختبار قبل تاريخ الاختبار»). */
+   *  applicant sees («عدد أيام الاختبار للطالب») and the minimum lead time in days
+   *  the applicant must leave before the exam date — slots closer than that are
+   *  hidden («عدد الأيام المسموح للطالب خلالها باختيار موعد الاختبار قبل تاريخ الاختبار»). */
   const examDateSettingsQuery = useExamDateSettings();
   const examDaysPerApplicant = examDateSettingsQuery.data?.examDaysPerApplicant ?? null;
-  const slotWindowDays = examDateSettingsQuery.data?.examSlotSelectionWindowDays ?? null;
+  const leadDays = examDateSettingsQuery.data?.examSlotSelectionWindowDays ?? null;
 
   const matchedCategory = eligibilityQuery.data?.categories.find(
     (c) => c.categoryId === selectedCategoryKey,
@@ -75,16 +75,16 @@ export function Stage8ExamSchedulePage(): JSX.Element {
 
   const dayOptions = useMemo(() => {
     const bookable = filterBookableExamDates(examDates);
-    const withinWindow = filterDatesWithinBookingWindow(bookable, slotWindowDays);
+    const eligible = filterDatesWithMinimumLeadTime(bookable, leadDays);
     const capped = examDaysPerApplicant != null
-      ? withinWindow.slice(0, examDaysPerApplicant)
-      : withinWindow;
+      ? eligible.slice(0, examDaysPerApplicant)
+      : eligible;
     return capped.map((dateStr) => ({
       value: normalizeExamDateValue(dateStr) ?? dateStr,
       dayName: formatExamDayName(dateStr),
       dateLabel: formatExamDateLabel(dateStr),
     }));
-  }, [examDates, slotWindowDays, examDaysPerApplicant]);
+  }, [examDates, leadDays, examDaysPerApplicant]);
 
   if (eligibilityQuery.isLoading || examDateSettingsQuery.isLoading) {
     return <LoadingState variant="card-grid" count={2} />;
