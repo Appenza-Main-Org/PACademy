@@ -49,7 +49,9 @@ public sealed class ApplicantsControllerTests
                 ["thanawiType"] = "علمي علوم",
                 ["thanawiTotal"] = 392,
                 ["thanawiPercentage"] = 95.61,
+                ["thanawiGrade"] = "ممتاز",
                 ["schoolNameAr"] = "ثانوية النيل النموذجية",
+                ["schoolAddress"] = "الجيزة — شارع التحرير — الدقي",
                 ["addressGovernorate"] = "الجيزة",
                 ["addressDistrict"] = "الدقي",
                 ["currentAddressDetail"] = "12 شارع التحرير",
@@ -119,7 +121,9 @@ public sealed class ApplicantsControllerTests
         Assert.Equal("0233456789", row["contact"]?["homePhone"]?.GetValue<string>());
         Assert.Equal("ahmed.updated", row["contact"]?["socialFacebook"]?.GetValue<string>());
         Assert.Equal("ثانوية النيل النموذجية", row["education"]?["schoolName"]?.GetValue<string>());
+        Assert.Equal("الجيزة — شارع التحرير — الدقي", row["education"]?["schoolAddress"]?.GetValue<string>());
         Assert.Equal("علمي علوم", row["education"]?["branch"]?.GetValue<string>());
+        Assert.Equal("ممتاز", row["education"]?["grade"]?.GetValue<string>());
         Assert.Equal("under-review", row["status"]?.GetValue<string>());
         Assert.Equal(8, row["stage"]?.GetValue<int>());
         Assert.Equal("حجز الاختبارات", row["stageLabel"]?.GetValue<string>());
@@ -137,6 +141,70 @@ public sealed class ApplicantsControllerTests
         Assert.Equal(9, row["familySize"]?.GetValue<int>());
         Assert.Equal(1, row["relativesCount"]?.GetValue<int>());
         Assert.Equal("applicant-portal", row["source"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public void ApplicantManagementProjectionKeepsHigherAndSecondaryEducationFields()
+    {
+        var createdAt = new DateTimeOffset(2026, 5, 31, 8, 30, 0, TimeSpan.Zero);
+        var identity = new ApplicantIdentityProjection(
+            TableId: "5d4f19bc-6b75-41da-bfe2-3374ecde9a4f",
+            AdminRecordId: null,
+            NationalId: "30412180103456",
+            PhoneNumber: "01012345678",
+            FullName: "أحمد محمد إبراهيم سعد",
+            Email: "ahmed.ibrahim.saad@gmail.com",
+            Gender: "male",
+            Religion: "مسلم",
+            BirthDate: "2004-12-18",
+            BirthGovernorate: "القاهرة",
+            BirthDistrict: "مدينة نصر",
+            CertificateType: null,
+            Source: "moi",
+            CreatedAt: createdAt,
+            UpdatedAt: createdAt);
+        var draft = new JsonObject
+        {
+            ["applicantId"] = identity.TableId,
+            ["furthestStage"] = 4,
+            ["categoryKey"] = "specialized_officers",
+            ["profile"] = new JsonObject
+            {
+                ["qualificationLevel"] = "bachelor",
+                ["bachelorFaculty"] = "كلية الهندسة",
+                ["bachelorUniversity"] = "القاهرة",
+                ["bachelorSpecialization"] = "هندسة اتصالات",
+                ["bachelorGrade"] = "جيد جداً",
+                ["bachelorPercentage"] = 87.5,
+                ["bachelorYear"] = 2025,
+                ["thanawiType"] = "علمي رياضة",
+                ["thanawiTotal"] = 388,
+                ["thanawiPercentage"] = 94.63,
+                ["thanawiGradDate"] = "2021-07-15",
+                ["thanawiGrade"] = "ممتاز",
+                ["schoolNameAr"] = "مدرسة المتفوقين",
+                ["schoolAddress"] = "القاهرة — التجمع الخامس"
+            }
+        };
+
+        var row = OperationalRecordsService.ProjectApplicantManagementPayload(draft, identity);
+        var education = Assert.IsType<JsonObject>(row["education"]);
+        var secondary = Assert.IsType<JsonObject>(education["secondary"]);
+
+        Assert.Equal("higher", education["kind"]?.GetValue<string>());
+        Assert.Equal("كلية الهندسة", education["faculty"]?.GetValue<string>());
+        Assert.Equal("القاهرة", education["university"]?.GetValue<string>());
+        Assert.Equal("هندسة اتصالات", education["specialization"]?.GetValue<string>());
+        Assert.Equal("جيد جداً", education["grade"]?.GetValue<string>());
+        Assert.Equal(2025, education["graduationYear"]?.GetValue<double>());
+        Assert.Equal(87.5, education["percentage"]?.GetValue<double>());
+        Assert.Null(education["totalScore"]);
+        Assert.Equal("مدرسة المتفوقين", secondary["schoolName"]?.GetValue<string>());
+        Assert.Equal("القاهرة — التجمع الخامس", secondary["schoolAddress"]?.GetValue<string>());
+        Assert.Equal(388, secondary["totalScore"]?.GetValue<double>());
+        Assert.Equal(94.63, secondary["percentage"]?.GetValue<double>());
+        Assert.Equal(2021, secondary["graduationYear"]?.GetValue<double>());
+        Assert.Equal("ممتاز", secondary["grade"]?.GetValue<string>());
     }
 
     [Fact]

@@ -444,7 +444,10 @@ function EducationView({
   education: ApplicantEducation | undefined;
   fallback: Applicant;
 }): JSX.Element {
-  if (!education) {
+  const submittedProfile = applicantSubmittedEducationProfile(fallback);
+  const hasProfileEducation = hasAnyEducationValue(submittedProfile, PROFILE_EDUCATION_KEYS);
+
+  if (!education && !hasProfileEducation) {
     return (
       <>
         <DefRow label="نوع الشهادة" value={fallback.certType} />
@@ -462,14 +465,18 @@ function EducationView({
     );
   }
 
-  const educationRecord = education as EducationRecord;
+  const educationRecord = {
+    ...submittedProfile,
+    ...((education ?? {}) as EducationRecord),
+  };
   const consumedKeys = new Set<string>(['kind']);
   const secondaryRecord = isEducationRecord(educationRecord.secondary)
-    ? educationRecord.secondary
+    ? { ...submittedProfile, ...educationRecord.secondary }
     : undefined;
-  const isUniversityQualification = education.kind === 'higher' || hasAnyEducationValue(educationRecord, UNIVERSITY_FIELD_KEYS);
+  const educationKind = typeof educationRecord.kind === 'string' ? educationRecord.kind : undefined;
+  const isUniversityQualification = educationKind === 'higher' || hasAnyEducationValue(educationRecord, UNIVERSITY_FIELD_KEYS);
   const isSecondaryQualification =
-    education.kind !== 'higher'
+    educationKind !== 'higher'
     || Boolean(secondaryRecord)
     || hasAnyEducationValue(educationRecord, SECONDARY_FIELD_KEYS);
 
@@ -535,6 +542,8 @@ const UNIVERSITY_FIELD_KEYS = [
   'bachelorUniversity',
   'university',
   'bachelorSpecialization',
+  'bachelorMajor',
+  'bachelorBranch',
   'specialization',
   'bachelorGrade',
   'bachelorYear',
@@ -557,6 +566,35 @@ const EDUCATION_EXTRA_LABELS: Record<string, string> = {
   doctorateYear: 'سنة الحصول على الدكتوراه',
   doctorateGrade: 'تقدير الدكتوراه',
 };
+
+const ADDITIONAL_QUALIFICATION_FIELD_KEYS = [
+  'postgradDegree',
+  'postgradSpecialization',
+  'postgradUniversity',
+  'postgradYear',
+  'postgradGrade',
+  'doctorateYear',
+  'doctorateGrade',
+] as const;
+
+const PROFILE_EDUCATION_KEYS = [
+  ...SECONDARY_FIELD_KEYS,
+  ...UNIVERSITY_FIELD_KEYS,
+  ...ADDITIONAL_QUALIFICATION_FIELD_KEYS,
+  'thanawiCountry',
+  'bachelorTotal',
+  'universityTotal',
+] as const;
+
+function applicantSubmittedEducationProfile(applicant: Applicant): EducationRecord {
+  const profile = (applicant as Applicant & { profile?: unknown }).profile;
+  if (!isEducationRecord(profile)) return {};
+  return Object.fromEntries(
+    PROFILE_EDUCATION_KEYS
+      .filter((key) => hasSubmittedEducationValue(profile[key]))
+      .map((key) => [key, profile[key]]),
+  );
+}
 
 function isEducationRecord(candidate: unknown): candidate is EducationRecord {
   return typeof candidate === 'object' && candidate !== null && !Array.isArray(candidate);
@@ -648,7 +686,7 @@ function universityEducationRows(
     },
     { label: 'الكلية', keys: ['faculty', 'bachelorFaculty'] },
     { label: 'الجامعة', keys: ['university', 'bachelorUniversity'] },
-    { label: 'التخصص', keys: ['specialization', 'bachelorSpecialization'] },
+    { label: 'التخصص', keys: ['specialization', 'bachelorSpecialization', 'bachelorMajor', 'bachelorBranch'] },
     { label: 'التقدير العام', keys: ['grade', 'bachelorGrade', 'generalGrade'] },
     { label: 'سنة التخرج', keys: ['graduationYear', 'bachelorYear'] },
     { label: 'المجموع', keys: ['totalScore', 'bachelorTotal'], formatter: formattedEducationValue },

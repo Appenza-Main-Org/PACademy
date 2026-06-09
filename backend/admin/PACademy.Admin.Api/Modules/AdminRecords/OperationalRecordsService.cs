@@ -1755,10 +1755,14 @@ public sealed class OperationalRecordsService(
         {
             var secondary = new JsonObject();
             SetIfPresent(secondary, "certificateName", ThanawiCertificateName(profile));
+            SetIfPresent(secondary, "schoolName", StringProp(profile, "schoolNameAr"));
+            SetIfPresent(secondary, "schoolAddress", StringProp(profile, "schoolAddress"));
             SetNumberIfPresent(secondary, "totalScore", NumberProp(profile, "thanawiTotal"));
             SetIfPresent(secondary, "schoolCategory", StringProp(profile, "thanawiType"));
             SetIfPresent(secondary, "country", StringProp(profile, "thanawiCountry"));
+            SetNumberIfPresent(secondary, "graduationYear", GraduationYear(profile));
             SetNumberIfPresent(secondary, "percentage", NumberProp(profile, "thanawiPercentage"));
+            SetIfPresent(secondary, "grade", StringProp(profile, "thanawiGrade"));
 
             var education = new JsonObject
             {
@@ -1768,10 +1772,10 @@ public sealed class OperationalRecordsService(
             SetIfPresent(education, "specialization", StringProp(profile, "bachelorSpecialization") ?? StringProp(profile, "bachelorMajor"));
             SetIfPresent(education, "university", StringProp(profile, "bachelorUniversity"));
             SetIfPresent(education, "faculty", StringProp(profile, "bachelorFaculty"));
-            SetNumberIfPresent(education, "totalScore", NumberProp(profile, "bachelorPercentage"));
             SetIfPresent(education, "grade", StringProp(profile, "bachelorGrade"));
             SetIfPresent(education, "higherSpecialization", StringProp(profile, "qualificationLevel"));
             SetNumberIfPresent(education, "graduationYear", NumberProp(profile, "bachelorYear"));
+            SetNumberIfPresent(education, "percentage", NumberProp(profile, "bachelorPercentage"));
             return education;
         }
 
@@ -1788,11 +1792,13 @@ public sealed class OperationalRecordsService(
         };
         SetIfPresent(general, "certificateName", ThanawiCertificateName(profile));
         SetIfPresent(general, "schoolName", StringProp(profile, "schoolNameAr"));
+        SetIfPresent(general, "schoolAddress", StringProp(profile, "schoolAddress"));
         SetNumberIfPresent(general, "totalScore", NumberProp(profile, "thanawiTotal"));
         SetIfPresent(general, "branch", StringProp(profile, "thanawiType"));
         SetIfPresent(general, "schoolCategory", StringProp(profile, "thanawiType"));
         SetNumberIfPresent(general, "graduationYear", GraduationYear(profile));
         SetNumberIfPresent(general, "percentage", NumberProp(profile, "thanawiPercentage"));
+        SetIfPresent(general, "grade", StringProp(profile, "thanawiGrade"));
         return general;
     }
 
