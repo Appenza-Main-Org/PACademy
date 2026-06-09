@@ -601,6 +601,29 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
+    public async Task Applicants_export_includes_booked_rows_with_missing_cycle_or_category()
+    {
+        // Regression: booked applicants whose record carried a blank/stale cycle id
+        // (e.g. the portal default vs the admin's timestamp cycle id) were silently
+        // dropped from the export. A missing cycle/category must not remove a booked
+        // row; only a positively-different cycle does.
+        var (svc, db) = Create();
+        await SeedCycleAsync(db, "CYC-ACTIVE", true);
+        await SeedOperationalAsync(db, "committeeInstances", "CI-ACTIVE-LAW",
+            """{"id":"CI-ACTIVE-LAW","cycleId":"CYC-ACTIVE","categoryKey":"law_bachelor","definitionCode":"CMT-LAW","date":"2026-06-17"}""");
+        await SeedOperationalAsync(db, "applicants", "APP-NO-CYCLE",
+            """{"id":"APP-NO-CYCLE","nationalId":"29801011230301","fullName":"بدون دورة","status":"exam_scheduled","examSlot":{"slotId":"SLOT-1","date":"2026-06-17"}}""");
+        await SeedOperationalAsync(db, "applicants", "APP-OTHER-CYCLE",
+            """{"id":"APP-OTHER-CYCLE","nationalId":"29801011230302","fullName":"دورة أخرى","status":"exam_scheduled","cycleId":"CYC-OTHER","categoryKey":"law_bachelor","examSlot":{"slotId":"SLOT-2","date":"2026-06-17"}}""");
+
+        var export = await svc.ExportAsync([ExchangeDomain.Applicants], "single-workbook", ExportFilter.Default, default);
+        var keys = export.Sheets.Single(s => s.Domain == "Applicants").Rows.Select(r => r["business_key"]).ToHashSet();
+
+        Assert.Contains("29801011230301", keys);       // missing cycle + category → kept
+        Assert.DoesNotContain("29801011230302", keys);  // positively different cycle → dropped
+    }
+
+    [Fact]
     public async Task Cycle_owned_export_sheets_are_strictly_scoped_to_active_cycle()
     {
         var (svc, db) = Create();
