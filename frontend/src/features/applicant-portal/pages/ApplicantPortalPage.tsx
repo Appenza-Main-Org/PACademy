@@ -16,7 +16,7 @@
  * shell's NotificationCenter and the support page.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -34,7 +34,7 @@ import { Badge, Button, Card, Drawer, IconStamp } from '@/shared/components';
 import { ROUTES } from '@/config/routes';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import { useApplicationInstructions, useDraft } from '../api/applicantPortal.queries';
-import { useCategories } from '../api/categories.queries';
+import { useCategories, useEligibleCategories } from '../api/categories.queries';
 import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
 import { deterministicFileNumber } from '../lib/deterministic-codes';
 import {
@@ -61,6 +61,8 @@ export function ApplicantPortalPage(): JSX.Element {
   const storeParentsApproved = useApplicantPortalStore((s) => s.parentsApproved);
   const storeFirstExamDate = useApplicantPortalStore((s) => s.firstExamDate);
   const selectedCategoryKey = useApplicantPortalStore((s) => s.selectedCategoryKey);
+  const selectedCycleId = useApplicantPortalStore((s) => s.selectedCycleId);
+  const setAssignedCommittee = useApplicantPortalStore((s) => s.setAssignedCommittee);
   const moiSession = useApplicantPortalStore((s) => s.moiSession);
   /* Read the MOI session from the store first — it's set by the login
    * form per the picked demo user. Fall back to the static default only
@@ -77,12 +79,26 @@ export function ApplicantPortalPage(): JSX.Element {
   const appointmentLocked = isApplicantAppointmentLocked(draft) || Boolean(storeFirstExamDate);
   /* Profile fields come from the draft saved in Stage 3 (real data).
    * The draft is undefined until fetched, so every field is optional. */
+  const effectiveCategoryKey = selectedCategoryKey ?? draft?.categoryKey ?? null;
+  const effectiveCycleId = selectedCycleId ?? draft?.cycleId ?? null;
   const profile = draft?.profile;
-  const categoriesQuery = useCategories();
+  const categoriesQuery = useCategories(effectiveCycleId ?? undefined);
+  const eligibilityQuery = useEligibleCategories(session.nationalId, effectiveCycleId);
   const [showInstructions, setShowInstructions] = useState(false);
   const fileNumber = paid ? deterministicFileNumber(APPLICANT_ID) : null;
-  const committeeNumber = paid ? 'اللجنة الثانية' : null;
-  const category = (categoriesQuery.data ?? []).find((c) => c.key === selectedCategoryKey);
+  const category = (categoriesQuery.data ?? []).find((c) => c.key === effectiveCategoryKey);
+  const matchedEligibleCategory = eligibilityQuery.data?.categories.find(
+    (c) => c.categoryId === effectiveCategoryKey,
+  );
+  const resolvedCommittee = matchedEligibleCategory?.committees?.[0] ?? null;
+  const committeeName = paid
+    ? (resolvedCommittee?.committeeName ?? (eligibilityQuery.isLoading ? '…' : '—'))
+    : '—';
+
+  useEffect(() => {
+    if (!resolvedCommittee) return;
+    setAssignedCommittee(resolvedCommittee.committeeId, resolvedCommittee.committeeName);
+  }, [resolvedCommittee, setAssignedCommittee]);
 
   const primaryCta = (() => {
     if (appointmentLocked && firstExamDate) {
@@ -225,7 +241,7 @@ export function ApplicantPortalPage(): JSX.Element {
           <Row label="اسم الشهرة" value={profile?.shuhra ?? '—'} />
           <Row label="الرقم القومي" value={session.nationalId} ltr mono />
           <Row label="القسم" value={category?.labelAr ?? '— لم يُختر —'} />
-          <Row label="اللجنة" value={committeeNumber ?? '—'} />
+          <Row label="اللجنة" value={committeeName} />
           <Row label="النوع" value={session.gender === 'male' ? 'ذكر' : 'أنثى'} />
           <Row label="تاريخ الميلاد" value={session.dateOfBirthAr} />
           <Row label="رقم الملف" value={fileNumber ?? '—'} ltr mono />
