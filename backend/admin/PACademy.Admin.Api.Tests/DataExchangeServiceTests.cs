@@ -457,6 +457,23 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
+    public async Task Applicants_roster_and_export_infer_committee_from_unique_schedule_row()
+    {
+        var (svc, db) = Create();
+        await SeedCommitteeLookupAsync(db, "CMT-LAW-04", "اللجنة الرابعة ليسانس حقوق");
+        await SeedOperationalAsync(db, "committeeInstances", "CI-LAW-04",
+            """{"id":"CI-LAW-04","cycleId":"CYC-2026","categoryKey":"law_bachelor","definitionCode":"CMT-LAW-04","date":"2026-06-17","capacity":50,"reserved":0}""");
+        await SeedOperationalAsync(db, "applicants", "APP-S",
+            """{"id":"APP-S","nationalId":"30501011234568","fullName":"محجوز","status":"exam_scheduled","cycleId":"CYC-2026","categoryKey":"law_bachelor","examSlot":{"slotId":"SLOT-10","date":"2026-06-17","time":"08:00","location":"كلية الشرطة - مبنى الاختبارات - القاهرة"}}""");
+
+        var roster = await svc.ListBookedApplicantsAsync(default);
+        var export = await svc.ExportAsync([ExchangeDomain.Applicants], "single-workbook", ExportFilter.Default, default);
+
+        Assert.Equal("اللجنة الرابعة ليسانس حقوق", Assert.Single(roster).CommitteeName);
+        Assert.Equal("اللجنة الرابعة ليسانس حقوق", Assert.Single(export.Sheets[0].Rows)["committeeName"]);
+    }
+
+    [Fact]
     public async Task Applicants_export_with_nationalIds_filter_returns_only_selected_rows()
     {
         var (svc, db) = Create();

@@ -117,6 +117,7 @@ public sealed class DataExchangeService(
         catch (InvalidOperationException) { return []; }
 
         var committeeNameByCode = await LoadCommitteeNameByCodeAsync(ct);
+        var committeeInstances = await LoadCommitteeInstancesAsync(ct);
 
         var roster = new List<ApplicantRosterRow>(payloads.Count);
         foreach (var payload in payloads)
@@ -136,7 +137,7 @@ public sealed class DataExchangeService(
                 Status: payload["status"]?.ToString(),
                 ExamSlotDate: slot?["date"]?.ToString(),
                 ExamSlotTime: slot?["time"]?.ToString(),
-                CommitteeName: ResolveCommitteeName(payload, committeeNameByCode),
+                CommitteeName: ResolveCommitteeName(payload, committeeNameByCode, committeeInstances),
                 ExamSlotLocation: slot?["location"]?.ToString(),
                 UpdatedAt: ParseDto(payload["updatedAt"] ?? payload["updated_at"])));
         }
@@ -148,7 +149,8 @@ public sealed class DataExchangeService(
 
     private static string? ResolveCommitteeName(
         JsonObject applicant,
-        IReadOnlyDictionary<string, string> committeeNameByCode)
+        IReadOnlyDictionary<string, string> committeeNameByCode,
+        IReadOnlyList<JsonObject> committeeInstances)
     {
         var code =
             AdminRecordJson.StringProp(applicant, "assignedCommitteeId") ??
@@ -160,6 +162,13 @@ public sealed class DataExchangeService(
             return mappedName;
         }
 
+        var scheduledCode = ResolveCommitteeCodeFromSchedule(applicant, committeeInstances);
+        if (!string.IsNullOrWhiteSpace(scheduledCode) &&
+            committeeNameByCode.TryGetValue(scheduledCode, out var scheduledName))
+        {
+            return scheduledName;
+        }
+
         return AdminRecordJson.StringProp(applicant, "assignedCommitteeName") ??
             AdminRecordJson.StringProp(applicant, "committeeName") ??
             AdminRecordJson.StringProp(applicant, "committeeLabelAr");
@@ -169,6 +178,62 @@ public sealed class DataExchangeService(
         => db.LookupRows.AsNoTracking()
             .Where(x => x.LookupKey == "committees")
             .ToDictionaryAsync(x => x.Code, x => x.Name, StringComparer.OrdinalIgnoreCase, ct);
+
+    private async Task<IReadOnlyList<JsonObject>> LoadCommitteeInstancesAsync(CancellationToken ct)
+    {
+        try { return await records.ListAsync("committeeInstances", ct); }
+        catch (InvalidOperationException) { return []; }
+    }
+
+    private static string? ResolveCommitteeCodeFromSchedule(
+        JsonObject applicant,
+        IReadOnlyList<JsonObject> committeeInstances)
+    {
+        var applicantCycleId = FirstString(applicant, "cycleId", "admissionCycleId", "cycle_id");
+        var applicantCategoryKey = FirstString(applicant, "categoryKey", "categoryId", "applicantCategory", "category");
+        var applicantExamDate = FirstString(applicant, "examDate", "date", "scheduledDate", "examSlotDate")
+            ?? NestedStringProp(applicant, "examSlot", "date");
+        if (string.IsNullOrWhiteSpace(applicantCategoryKey) || string.IsNullOrWhiteSpace(applicantExamDate))
+        {
+            return null;
+        }
+
+        var dateKey = DateKey(applicantExamDate);
+        var matchingCodes = committeeInstances
+            .Where(instance => string.IsNullOrWhiteSpace(applicantCycleId) ||
+                TextEquals(FirstString(instance, "cycleId", "admissionCycleId", "cycle_id"), applicantCycleId))
+            .Where(instance => TextEquals(FirstString(instance, "categoryKey", "categoryId", "applicantCategory"), applicantCategoryKey))
+            .Where(instance => TextEquals(DateKey(FirstString(instance, "date", "examDate", "scheduledDate")), dateKey))
+            .Select(instance => FirstString(instance, "definitionCode", "committeeId", "committeeCode"))
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return matchingCodes.Length == 1 ? matchingCodes[0] : null;
+    }
+
+    private static string? FirstString(JsonObject payload, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            var text = AdminRecordJson.StringProp(payload, key);
+            if (!string.IsNullOrWhiteSpace(text)) return text;
+        }
+        return null;
+    }
+
+    private static string? NestedStringProp(JsonObject payload, string parentKey, string childKey)
+        => payload.TryGetPropertyValue(parentKey, out var node) && node is JsonObject child
+            ? AdminRecordJson.StringProp(child, childKey)
+            : null;
+
+    private static bool TextEquals(string? left, string? right)
+        => !string.IsNullOrWhiteSpace(left) &&
+            !string.IsNullOrWhiteSpace(right) &&
+            string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+
+    private static string? DateKey(string? rawDate)
+        => string.IsNullOrWhiteSpace(rawDate) ? null : rawDate.Length >= 10 ? rawDate[..10] : rawDate;
 
     // ──────────────────────────────────────────────────────────────────────
     // RECONCILIATION (applicants — field-level diff + result writeback)
@@ -764,6 +829,9 @@ public sealed class DataExchangeService(
         var committeeNameByCode = spec.Domain == ExchangeDomain.Applicants
             ? await LoadCommitteeNameByCodeAsync(ct)
             : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var committeeInstances = spec.Domain == ExchangeDomain.Applicants
+            ? await LoadCommitteeInstancesAsync(ct)
+            : Array.Empty<JsonObject>();
         var result = new List<LoadedRow>(payloads.Count);
         foreach (var payload in payloads)
         {
@@ -777,7 +845,7 @@ public sealed class DataExchangeService(
             // Relatives sheet. Also drop the original `profile.*` shape — the
             // projection already lifts those fields to canonical top-level columns.
             var flattenSource = spec.Domain == ExchangeDomain.Applicants
-                ? PruneBranches(WithResolvedCommitteeName(payload, committeeNameByCode), ApplicantSheetExcludedBranches)
+                ? PruneBranches(WithResolvedCommitteeName(payload, committeeNameByCode, committeeInstances), ApplicantSheetExcludedBranches)
                 : payload;
             var data = new Dictionary<string, string?>(StringComparer.Ordinal);
             foreach (var (k, v) in JsonFlatten.Flatten(flattenSource))
@@ -795,9 +863,10 @@ public sealed class DataExchangeService(
 
     private static JsonObject WithResolvedCommitteeName(
         JsonObject applicant,
-        IReadOnlyDictionary<string, string> committeeNameByCode)
+        IReadOnlyDictionary<string, string> committeeNameByCode,
+        IReadOnlyList<JsonObject> committeeInstances)
     {
-        var committeeName = ResolveCommitteeName(applicant, committeeNameByCode);
+        var committeeName = ResolveCommitteeName(applicant, committeeNameByCode, committeeInstances);
         if (string.IsNullOrWhiteSpace(committeeName)) return applicant;
         var enriched = AdminRecordJson.Clone(applicant);
         enriched["committeeName"] = committeeName;
