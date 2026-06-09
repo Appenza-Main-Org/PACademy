@@ -39,9 +39,8 @@ export function filterBookableExamDates(values: readonly string[], now: Date = n
 /**
  * Apply the General Settings minimum-lead-time rule to a list of already-bookable
  * dates: a date is selectable only if it is at least `leadDays` days ahead of
- * today. The applicant must pick a slot no later than N days before the exam, so
- * any date within the restricted window (today through today+N-1) is hidden — the
- * intended reading of «عدد الأيام المسموح للطالب خلالها باختيار موعد الاختبار قبل تاريخ الاختبار».
+ * today. Any date before today + N days is hidden — the intended reading of
+ * «عدد الأيام المسموح للطالب خلالها باختيار موعد الاختبار قبل تاريخ الاختبار».
  *
  * e.g. today = 2026-06-08, leadDays = 3 → first selectable date is 2026-06-11.
  *

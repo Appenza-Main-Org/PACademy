@@ -14,7 +14,7 @@ export const DEFAULT_APPLICANT_SESSION_TIMEOUT_MINUTES = 120;
 export interface AdminSettings {
   /** عدد أيام الاختبار للطالب. Positive integer, default 3. */
   examDaysPerApplicant: number;
-  /** عدد الأيام المسموح للطالب خلالها باختيار موعد الاختبار قبل تاريخ الاختبار. Positive integer, default 1. */
+  /** أقل عدد أيام قبل تاريخ الاختبار يجب أن يفصل بين اليوم وموعد الاختبار المعروض. Positive integer, default 1. */
   examSlotSelectionWindowDays: number;
   /** مدة انتهاء جلسة الموظفين بعد عدم النشاط بالدقائق. Recommended 30. */
   staffSessionTimeoutMinutes?: number;

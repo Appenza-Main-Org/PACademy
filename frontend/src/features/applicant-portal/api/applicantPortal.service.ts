@@ -103,8 +103,7 @@ interface ExamDateSettingsResponse {
 export interface ExamDateSettings {
   /** Max number of exam-date options to show the applicant in Stage 8. */
   examDaysPerApplicant: number | null;
-  /** Booking-window in days before each exam date during which the applicant
-   *  may select that slot. Slots farther out are hidden until the window opens. */
+  /** Minimum number of full days between today and the first selectable exam date. */
   examSlotSelectionWindowDays: number | null;
 }
 

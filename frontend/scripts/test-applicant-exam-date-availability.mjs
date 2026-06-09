@@ -36,7 +36,7 @@ try {
 
   const {
     filterBookableExamDates,
-    filterDatesWithinBookingWindow,
+    filterDatesWithMinimumLeadTime,
     isBookableExamDate,
     normalizeExamDateValue,
   } = await import(pathToFileURL(outFile).href);
@@ -58,23 +58,32 @@ try {
   );
 
   assert.deepEqual(
-    filterDatesWithinBookingWindow(
+    filterDatesWithMinimumLeadTime(
+      ['2026-06-09', '2026-06-10', '2026-06-13', '2026-06-14', '2026-06-20'],
+      5,
+      new Date('2026-06-09T12:00:00+03:00'),
+    ),
+    ['2026-06-14', '2026-06-20'],
+    'a 5-day minimum lead time on 2026-06-09 starts at 2026-06-14',
+  );
+  assert.deepEqual(
+    filterDatesWithMinimumLeadTime(
       ['2026-06-02', '2026-06-03', '2026-06-05', '2026-06-10'],
       1,
       now,
     ),
-    ['2026-06-02', '2026-06-03'],
-    'a 1-day booking window keeps today and tomorrow only',
+    ['2026-06-03', '2026-06-05', '2026-06-10'],
+    'a 1-day minimum lead time hides today',
   );
   assert.deepEqual(
-    filterDatesWithinBookingWindow(['2026-06-02', '2026-06-10'], null, now),
+    filterDatesWithMinimumLeadTime(['2026-06-02', '2026-06-10'], null, now),
     ['2026-06-02', '2026-06-10'],
-    'a null booking window leaves the list untouched',
+    'a null minimum lead time leaves the list untouched',
   );
   assert.deepEqual(
-    filterDatesWithinBookingWindow(['2026-06-02', '2026-06-10'], 0, now),
-    ['2026-06-02'],
-    'a zero-day booking window only keeps today',
+    filterDatesWithMinimumLeadTime(['2026-06-02', '2026-06-10'], 0, now),
+    ['2026-06-02', '2026-06-10'],
+    'a zero-day minimum lead time leaves the list untouched',
   );
 
   const stage8Source = readFileSync(
@@ -88,8 +97,8 @@ try {
   );
   assert.match(
     stage8Source,
-    /filterDatesWithinBookingWindow\(bookable, slotWindowDays\)/,
-    'Stage 8 should narrow the bookable list to the General Settings booking window.',
+    /filterDatesWithMinimumLeadTime\(bookable, leadDays\)/,
+    'Stage 8 should hide dates earlier than the General Settings minimum lead days.',
   );
   assert.match(
     stage8Source,
