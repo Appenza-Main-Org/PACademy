@@ -202,6 +202,9 @@ export interface Applicant extends ApplicantExtended {
   status: ApplicantStatus;
   stage: number;
   stageLabel: string;
+  /** Assigned committee display name resolved from committee configuration. */
+  committeeName?: string;
+  /** Legacy field; may contain the exam location on old applicant payloads. */
   committee: string;
   registeredAt: string;
   paymentStatus: PaymentStatus;

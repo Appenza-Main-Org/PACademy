@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.AdminRecords;
+using PACademy.Admin.Api.Modules.Lookups;
 using PACademy.Admin.Api.Persistence;
 using PACademy.Shared.Audit;
 
@@ -87,6 +88,61 @@ public sealed class OperationalRecordsServiceTests
         var liveRows = (await service.ListAsync("grades", TestContext.Current.CancellationToken))
             .Count(x => !AdminRecordJson.IsSoftDeleted(x));
         Assert.Equal(0, liveRows);
+    }
+
+    [Fact]
+    public async Task ApplicantListResolvesCommitteeNameFromBookedSlot()
+    {
+        await using var db = CreateDb();
+        var service = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        db.LookupRows.Add(new LookupRowEntity
+        {
+            LookupKey = "committees",
+            Code = "CMT-LAW-04",
+            Name = "اللجنة الرابعة ليسانس حقوق",
+            IsActive = true,
+            PayloadJson = "{}",
+            SourceSystem = "test"
+        });
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+        await service.UpsertAsync(
+            "committeeInstances",
+            "CI-LAW-04-20260617",
+            new JsonObject
+            {
+                ["id"] = "CI-LAW-04-20260617",
+                ["cycleId"] = "CYC-1780758679766",
+                ["categoryKey"] = "law_bachelor",
+                ["definitionCode"] = "CMT-LAW-04",
+                ["date"] = "2026-06-17"
+            },
+            TestContext.Current.CancellationToken);
+        await service.UpsertAsync(
+            "applicants",
+            "APP-SLOT",
+            new JsonObject
+            {
+                ["id"] = "APP-SLOT",
+                ["nationalId"] = "30501011234568",
+                ["name"] = "محجوز",
+                ["status"] = "exam_scheduled",
+                ["cycleId"] = "CYC-1780758679766",
+                ["categoryKey"] = "law_bachelor",
+                ["examSlot"] = new JsonObject
+                {
+                    ["slotId"] = "CI-LAW-04-20260617",
+                    ["date"] = "2026-06-17",
+                    ["time"] = "08:00",
+                    ["location"] = "كلية الشرطة - مبنى الاختبارات - القاهرة"
+                }
+            },
+            TestContext.Current.CancellationToken);
+
+        var applicants = await service.ListAsync("applicants", TestContext.Current.CancellationToken);
+
+        var applicant = Assert.Single(applicants);
+        Assert.Equal("اللجنة الرابعة ليسانس حقوق", applicant["committeeName"]?.GetValue<string>());
+        Assert.Equal("كلية الشرطة - مبنى الاختبارات - القاهرة", applicant["examSlot"]?["location"]?.GetValue<string>());
     }
 
     private static AdminDbContext CreateDb()

@@ -189,6 +189,17 @@ public sealed class DataExchangeService(
         JsonObject applicant,
         IReadOnlyList<JsonObject> committeeInstances)
     {
+        var slotId = FirstString(applicant, "examSlotId", "slotId")
+            ?? NestedStringProp(applicant, "examSlot", "slotId")
+            ?? NestedStringProp(applicant, "examSlot", "id");
+        if (!string.IsNullOrWhiteSpace(slotId))
+        {
+            var exactSlot = committeeInstances.FirstOrDefault(instance =>
+                TextEquals(FirstString(instance, "id", "slotId"), slotId));
+            var exactSlotCode = exactSlot is null ? null : FirstString(exactSlot, "definitionCode", "committeeId", "committeeCode");
+            if (!string.IsNullOrWhiteSpace(exactSlotCode)) return exactSlotCode;
+        }
+
         var applicantCycleId = FirstString(applicant, "cycleId", "admissionCycleId", "cycle_id");
         var applicantCategoryKey = FirstString(applicant, "categoryKey", "categoryId", "applicantCategory", "category");
         var applicantExamDate = FirstString(applicant, "examDate", "date", "scheduledDate", "examSlotDate")

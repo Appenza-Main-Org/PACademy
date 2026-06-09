@@ -4,6 +4,7 @@ using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Persistence;
 using PACademy.Admin.Api.Modules.OperationalRecords;
+using PACademy.Admin.Api.Modules.Lookups;
 using PACademy.Shared.Audit;
 using PACademy.Shared.Contracts;
 
@@ -67,10 +68,18 @@ public sealed class OperationalRecordsService(
         if (CanUseNormalizedTables(module))
         {
             var normalizedRows = await ListNormalizedAsync(module, ct);
-            if (normalizedRows is not null) return normalizedRows;
+            if (normalizedRows is not null)
+            {
+                return module == "applicants"
+                    ? await EnrichApplicantCommitteeNamesAsync(normalizedRows, ct)
+                    : normalizedRows;
+            }
         }
 
-        return await ListDocumentAsync(module, ct);
+        var documentRows = await ListDocumentAsync(module, ct);
+        return module == "applicants"
+            ? await EnrichApplicantCommitteeNamesAsync(documentRows, ct)
+            : documentRows;
     }
 
     public async Task<object> PageAsync(string module, IQueryCollection query, CancellationToken ct)
@@ -97,10 +106,18 @@ public sealed class OperationalRecordsService(
         if (CanUseNormalizedTables(module))
         {
             var normalizedRow = await GetNormalizedAsync(module, id, ct);
-            if (normalizedRow is not null) return normalizedRow;
+            if (normalizedRow is not null)
+            {
+                return module == "applicants"
+                    ? (await EnrichApplicantCommitteeNamesAsync([normalizedRow], ct)).FirstOrDefault()
+                    : normalizedRow;
+            }
         }
 
-        return await GetDocumentAsync(module, id, ct);
+        var documentRow = await GetDocumentAsync(module, id, ct);
+        return module == "applicants" && documentRow is not null
+            ? (await EnrichApplicantCommitteeNamesAsync([documentRow], ct)).FirstOrDefault()
+            : documentRow;
     }
 
     public async Task<JsonObject> UpsertAsync(string module, string id, JsonObject payload, CancellationToken ct)
@@ -648,6 +665,141 @@ public sealed class OperationalRecordsService(
         return await operationalRecords.GetAsync(module, id, ct);
     }
 
+    private async Task<IReadOnlyList<JsonObject>> EnrichApplicantCommitteeNamesAsync(
+        IReadOnlyList<JsonObject> applicants,
+        CancellationToken ct)
+    {
+        if (applicants.Count == 0) return applicants;
+
+        var committeeNameByCode = await LoadCommitteeNameByCodeAsync(ct);
+        var committeeInstances = await operationalRecords.ListAsync("committeeInstances", ct);
+        foreach (var applicant in applicants)
+        {
+            var committeeName = ResolveCommitteeName(applicant, committeeNameByCode, committeeInstances);
+            if (string.IsNullOrWhiteSpace(committeeName)) continue;
+
+            applicant["committeeName"] = committeeName;
+        }
+
+        return applicants;
+    }
+
+    private async Task<Dictionary<string, string>> LoadCommitteeNameByCodeAsync(CancellationToken ct)
+    {
+        var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        await AddCommitteeLookupNamesAsync(names, ct);
+        await AddCommitteeRecordNamesAsync(names, ct);
+        return names;
+    }
+
+    private async Task AddCommitteeLookupNamesAsync(Dictionary<string, string> names, CancellationToken ct)
+    {
+        if (db is ILookupsDbContext lookups)
+        {
+            var rows = await lookups.LookupRows
+                .AsNoTracking()
+                .Where(x => x.LookupKey == "committees")
+                .Select(x => new { x.Code, x.Name })
+                .ToListAsync(ct);
+            foreach (var row in rows)
+            {
+                if (!string.IsNullOrWhiteSpace(row.Code) && !string.IsNullOrWhiteSpace(row.Name))
+                {
+                    names[row.Code] = row.Name;
+                }
+            }
+        }
+    }
+
+    private async Task AddCommitteeRecordNamesAsync(Dictionary<string, string> names, CancellationToken ct)
+    {
+        var committeeRecords = await operationalRecords.ListAsync("committees", ct);
+        foreach (var committee in committeeRecords)
+        {
+            var code = FirstString(committee, "id", "code", "definitionCode", "committeeId");
+            var name = FirstString(committee, "name", "nameAr", "committeeName");
+            if (!string.IsNullOrWhiteSpace(code) && !string.IsNullOrWhiteSpace(name))
+            {
+                names[code] = name;
+            }
+        }
+    }
+
+    private static string? ResolveCommitteeName(
+        JsonObject applicant,
+        IReadOnlyDictionary<string, string> committeeNameByCode,
+        IReadOnlyList<JsonObject> committeeInstances)
+    {
+        var code = FirstString(applicant, "assignedCommitteeId", "committeeId", "committeeCode", "definitionCode")
+            ?? NestedString(applicant, "examSlot", "committeeId")
+            ?? NestedString(applicant, "examSlot", "committeeCode")
+            ?? NestedString(applicant, "examSlot", "definitionCode");
+        if (!string.IsNullOrWhiteSpace(code) && committeeNameByCode.TryGetValue(code, out var mappedName))
+        {
+            return mappedName;
+        }
+
+        var scheduledCode = ResolveCommitteeCodeFromSchedule(applicant, committeeInstances);
+        if (!string.IsNullOrWhiteSpace(scheduledCode) &&
+            committeeNameByCode.TryGetValue(scheduledCode, out var scheduledName))
+        {
+            return scheduledName;
+        }
+
+        return FirstString(applicant, "assignedCommitteeName", "committeeName", "committeeLabelAr");
+    }
+
+    private static string? ResolveCommitteeCodeFromSchedule(
+        JsonObject applicant,
+        IReadOnlyList<JsonObject> committeeInstances)
+        => CommitteeCodeFromBookedSlot(applicant, committeeInstances)
+            ?? CommitteeCodeFromUniqueSchedule(applicant, committeeInstances);
+
+    private static string? CommitteeCodeFromBookedSlot(
+        JsonObject applicant,
+        IReadOnlyList<JsonObject> committeeInstances)
+    {
+        var slotId = FirstString(applicant, "examSlotId", "slotId")
+            ?? NestedString(applicant, "examSlot", "slotId")
+            ?? NestedString(applicant, "examSlot", "id");
+        if (!string.IsNullOrWhiteSpace(slotId))
+        {
+            var exactSlot = committeeInstances.FirstOrDefault(instance =>
+                TextEquals(FirstString(instance, "id", "slotId"), slotId));
+            var exactSlotCode = exactSlot is null ? null : FirstString(exactSlot, "definitionCode", "committeeId", "committeeCode");
+            if (!string.IsNullOrWhiteSpace(exactSlotCode)) return exactSlotCode;
+        }
+
+        return null;
+    }
+
+    private static string? CommitteeCodeFromUniqueSchedule(
+        JsonObject applicant,
+        IReadOnlyList<JsonObject> committeeInstances)
+    {
+        var applicantCycleId = FirstString(applicant, "cycleId", "admissionCycleId", "cycle_id");
+        var applicantCategoryKey = FirstString(applicant, "categoryKey", "categoryId", "applicantCategory", "category");
+        var applicantExamDate = FirstString(applicant, "examDate", "date", "scheduledDate", "examSlotDate")
+            ?? NestedString(applicant, "examSlot", "date");
+        if (string.IsNullOrWhiteSpace(applicantCategoryKey) || string.IsNullOrWhiteSpace(applicantExamDate))
+        {
+            return null;
+        }
+
+        var dateKey = DateKey(applicantExamDate);
+        var matchingCodes = committeeInstances
+            .Where(instance => string.IsNullOrWhiteSpace(applicantCycleId) ||
+                TextEquals(FirstString(instance, "cycleId", "admissionCycleId", "cycle_id"), applicantCycleId))
+            .Where(instance => TextEquals(FirstString(instance, "categoryKey", "categoryId", "applicantCategory"), applicantCategoryKey))
+            .Where(instance => TextEquals(DateKey(FirstString(instance, "date", "examDate", "scheduledDate")), dateKey))
+            .Select(instance => FirstString(instance, "definitionCode", "committeeId", "committeeCode"))
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return matchingCodes.Length == 1 ? matchingCodes[0] : null;
+    }
+
     private static IReadOnlyList<JsonObject> ApplyApplicantFilters(
         IReadOnlyList<JsonObject> rows,
         IQueryCollection query)
@@ -687,6 +839,14 @@ public sealed class OperationalRecordsService(
 
     private static bool IsAllFilter(string? value) =>
         string.IsNullOrWhiteSpace(value) || value.Equals("all", StringComparison.OrdinalIgnoreCase);
+
+    private static bool TextEquals(string? left, string? right) =>
+        !string.IsNullOrWhiteSpace(left) &&
+        !string.IsNullOrWhiteSpace(right) &&
+        string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+
+    private static string? DateKey(string? rawDate) =>
+        string.IsNullOrWhiteSpace(rawDate) ? null : rawDate.Length >= 10 ? rawDate[..10] : rawDate;
 
     private static string? FirstString(JsonObject payload, params string[] keys)
     {

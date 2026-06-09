@@ -77,6 +77,10 @@ function applicantCategoryLabel(applicant: Applicant): string {
   return '—';
 }
 
+function applicantCommitteeName(applicant: Applicant): string {
+  return applicant.committeeName ?? '—';
+}
+
 function applicantCategoryKey(applicant: Applicant): ApplicantCategoryKey | null {
   const categoryKey = (applicant as Applicant & { categoryKey?: string }).categoryKey;
   if (isApplicantCategoryKey(categoryKey)) return categoryKey;
@@ -242,6 +246,7 @@ export function ApplicantDetailPage(): JSX.Element {
               label="فئة التقدم"
               value={applicantCategoryLabel(applicant)}
             />
+            <DefRow label="اللجنة" value={applicantCommitteeName(applicant)} />
             <DefRow label="الدورة" value={cycleName} />
           </SectionCard>
 

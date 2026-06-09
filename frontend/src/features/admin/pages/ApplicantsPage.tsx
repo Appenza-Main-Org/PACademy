@@ -245,6 +245,20 @@ export function ApplicantsPage(): JSX.Element {
         ),
       },
       {
+        key: 'committeeName',
+        label: 'اللجنة',
+        width: '12%',
+        hideOn: 'md',
+        sortable: true,
+        getSortValue: (a) => a.committeeName ?? '',
+        filter: { kind: 'text', getValue: (a) => a.committeeName ?? '' },
+        render: (a) => (
+          <span className="block truncate text-sm text-ink-700">
+            {displayValue(a.committeeName)}
+          </span>
+        ),
+      },
+      {
         key: 'progress',
         label: 'الحالة',
         width: '13%',
