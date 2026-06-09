@@ -98,6 +98,8 @@ export interface VerifyInput {
   operator: string;
   stationCommittee?: string;
   today?: string;
+  /** Restrict the device match to punches from this terminal (serial). */
+  terminalSn?: string;
 }
 
 export interface VerifyResult {
@@ -110,6 +112,16 @@ export interface VerifyResult {
   canContinue: boolean;
   alertCodes?: BiometricAlertCode[];
   voiceAlerts?: string[];
+  /** Provenance of the device punch that drove a listen-and-verify (verify-live). */
+  found?: boolean;
+  identifiedName?: string | null;
+  identifiedEmpCode?: string | null;
+  identifiedDeviceEmpId?: number | null;
+  identifiedAreaName?: string | null;
+  identifiedTerminalSn?: string | null;
+  identifiedTerminalAlias?: string | null;
+  identifiedUploadTime?: string | null;
+  identifiedVerifyType?: number | null;
 }
 
 export interface VerificationLog {
@@ -332,7 +344,157 @@ function pushAudit(input: Omit<BiometricAuditLog, 'id'>): void {
   });
 }
 
+/** A registered terminal as returned by the ZKBioTime device directory. */
+export interface ZkDevice {
+  id: number;
+  sn: string;
+  alias?: string;
+  terminal_name?: string;
+  ip_address?: string;
+  area_name?: string;
+  state?: string;
+  last_activity?: string;
+  user_count?: number;
+  fp_count?: number;
+  face_count?: number;
+  transaction_count?: number;
+  [key: string]: unknown;
+}
+
+/** A personnel record as returned by the ZKBioTime employee directory. */
+export interface ZkEmployee {
+  id: number;
+  emp_code: string;
+  first_name?: string;
+  last_name?: string;
+  department?: { id: number; dept_name?: string } | null;
+  area?: Array<{ id: number; area_name?: string }>;
+  /** Biometric enrollment state on the terminal: a value like "Ver 12:1" means enrolled; "-" means none. */
+  fingerprint?: string | null;
+  face?: string | null;
+  /** Visible-light face template + photo (ZK face devices register here). */
+  vl_face?: string | null;
+  vl_face_photo?: number | null;
+  palm?: string | null;
+  [key: string]: unknown;
+}
+
+export interface ZkDirectoryResponse<T> {
+  mode: string;
+  count: number;
+  data: T[];
+  /** Base URL of the ZKBioTime web (for deep-linking to enrollment). Only on the devices response. */
+  webUrl?: string | null;
+}
+
+/** ZKBioTime connection config (editable from the admin screen). */
+export interface ZkConfig {
+  baseUrl?: string | null;
+  username?: string | null;
+  passwordSet?: boolean;
+  authPath?: string;
+  tokenScheme?: string;
+  serverTimeUtcOffsetHours?: string;
+  /** "database" (set from screen) or "appsettings" (from config file). */
+  source?: string;
+}
+
+export interface ZkTestResult {
+  ok: boolean;
+  deviceCount: number;
+  message: string;
+}
+
+/** Result of identifying the last person who presented a biometric at the device. */
+export interface ZkLastPunch {
+  found: boolean;
+  empCode?: string;
+  deviceName?: string;
+  verifyType?: number;
+  verifyTypeDisplay?: string;
+  uploadTime?: string;
+  punchTime?: string;
+  terminalSn?: string;
+  applicant?: BiometricApplicantLookup | null;
+}
+
+/** A single resolved punch in the realtime device feed. */
+export interface ZkRecentPunch {
+  empCode: string;
+  deviceName?: string | null;
+  verifyType?: number;
+  verifyTypeDisplay?: string | null;
+  uploadTime?: string | null;
+  punchTime?: string | null;
+  terminalSn?: string | null;
+  terminalAlias?: string | null;
+  areaName?: string | null;
+  deviceEmpId?: number | null;
+  applicantId?: string | null;
+  applicantName?: string | null;
+}
+
+export interface ZkRecentPunchesResponse {
+  count: number;
+  data: ZkRecentPunch[];
+}
+
 export const biometricService = {
+  /**
+   * Live list of ZKBioTime terminals (devices). Requires Biometric:Mode=zkbiotime
+   * on the backend; otherwise the API returns 409 ZK_MODE_INACTIVE.
+   */
+  async getZkDevices(): Promise<ZkDirectoryResponse<ZkDevice>> {
+    return apiClient.get<ZkDirectoryResponse<ZkDevice>>('/api/biometric/zk/devices');
+  },
+
+  /** Live, paged list of ZKBioTime personnel (employees). */
+  async getZkEmployees(page = 1, pageSize = 100): Promise<ZkDirectoryResponse<ZkEmployee>> {
+    return apiClient.get<ZkDirectoryResponse<ZkEmployee>>('/api/biometric/zk/employees', {
+      query: { page, pageSize },
+    });
+  },
+
+  /**
+   * Identify whoever last presented a biometric at the terminal (1:N). The
+   * device does the match and stamps the emp_code; this resolves it to an
+   * applicant (emp_code = national id) when one exists.
+   */
+  async getZkLastPunch(windowSeconds = 120): Promise<ZkLastPunch> {
+    return apiClient.get<ZkLastPunch>('/api/biometric/zk/last-punch', {
+      query: { windowSeconds },
+    });
+  },
+
+  /** Realtime feed of recent device punches, each resolved to an applicant. */
+  async getZkRecentPunches(windowSeconds = 300, limit = 20): Promise<ZkRecentPunchesResponse> {
+    return apiClient.get<ZkRecentPunchesResponse>('/api/biometric/zk/recent-punches', {
+      query: { windowSeconds, limit },
+    });
+  },
+
+  /** Current ZKBioTime connection config (password never returned). */
+  async getZkConfig(): Promise<ZkConfig> {
+    return apiClient.get<ZkConfig>('/api/biometric/zk/config');
+  },
+
+  /** Save the ZKBioTime connection config. Password is updated only if non-empty. */
+  async saveZkConfig(input: {
+    BaseUrl?: string;
+    Username?: string;
+    Password?: string;
+    AuthPath?: string;
+    TokenScheme?: string;
+    ServerTimeUtcOffsetHours?: string;
+  }): Promise<{ ok: boolean }> {
+    return apiClient.put<{ ok: boolean }>('/api/biometric/zk/config', input);
+  },
+
+  /** Test the live connection to the configured ZKBioTime server. */
+  async testZkConnection(): Promise<ZkTestResult> {
+    return apiClient.post<ZkTestResult>('/api/biometric/zk/test-connection', {});
+  },
+
   async searchApplicants(input: { field: SearchField; query: string }): Promise<BiometricApplicantLookup[]> {
     if (isBackendEnabled()) {
       return apiClient.get<BiometricApplicantLookup[]>('/api/biometric/applicants/search', {
@@ -462,6 +624,20 @@ export const biometricService = {
       result: 'enrolled',
     });
     return next;
+  },
+
+  /**
+   * Listen-and-verify (1:N): the backend takes the latest device punch within
+   * the window, identifies the applicant by the device-assigned employee id, and
+   * runs the verification — no identifier typed by the operator.
+   */
+  async verifyLive(input: {
+    module?: VerificationModule;
+    method?: VerificationMethod;
+    windowSeconds?: number;
+    terminalSn?: string;
+  }): Promise<VerifyResult> {
+    return apiClient.post<VerifyResult>('/api/biometric/verify-live', input);
   },
 
   async verify(input: VerifyInput): Promise<VerifyResult> {

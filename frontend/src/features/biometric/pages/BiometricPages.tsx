@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -10,7 +11,6 @@ import {
   Fingerprint,
   History,
   IdCard,
-  Link2,
   RotateCcw,
   ScanBarcode,
   ScanFace,
@@ -145,6 +145,14 @@ function VerificationResultPanel({ result }: { result: VerifyResult | null }): J
         </div>
       </div>
 
+      {result.found && (
+        <div className="grid gap-3 md:grid-cols-3">
+          <Metric label="البوابة" value={result.identifiedAreaName || '—'} />
+          <Metric label="الجهاز" value={result.identifiedTerminalAlias || result.identifiedTerminalSn || '—'} mono />
+          <Metric label="كود الموظف (الجهاز)" value={result.identifiedEmpCode || '—'} mono />
+        </div>
+      )}
+
       {result.applicant && (
         <ApplicantSummaryCard lookup={result.applicant} compact />
       )}
@@ -175,6 +183,7 @@ function ApplicantSummaryCard({ lookup, compact = false }: { lookup: BiometricAp
       </div>
 
       <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <Metric label="الرقم القومي" value={lookup.applicant.nationalId} mono />
         <Metric label="الباركود" value={lookup.barcode} mono />
         <Metric label="اللجنة" value={lookup.committee} />
         <Metric label="الاختبار الحالي" value={lookup.currentExam} />
@@ -210,10 +219,27 @@ function Metric({ label, value, mono }: { label: string; value: string | number;
   return (
     <div className="rounded-md border border-border-subtle bg-surface-card px-3 py-2">
       <p className="text-2xs text-ink-500">{label}</p>
-      <p className={'mt-1 truncate text-sm font-bold text-ink-900 ' + (mono ? 'font-mono' : '')} dir={mono ? 'ltr' : undefined}>
+      <p
+        className={'mt-1 text-sm font-bold text-ink-900 ' + (mono ? 'font-mono break-all' : 'break-words')}
+        dir={mono ? 'ltr' : undefined}
+      >
         {value}
       </p>
     </div>
+  );
+}
+
+function StepDot({ n, done, active }: { n: string; done: boolean; active: boolean }): JSX.Element {
+  return (
+    <span
+      className={
+        'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-2xs font-bold ' +
+        (done ? 'bg-emerald-100 text-emerald-700' : active ? 'text-white' : 'bg-ink-100 text-ink-500')
+      }
+      style={active && !done ? { background: 'var(--accent-600)' } : undefined}
+    >
+      {done ? <CheckCircle2 size={14} /> : n}
+    </span>
   );
 }
 
@@ -222,34 +248,52 @@ function CapturePanel({
   captured,
   busy,
   onCapture,
+  listening = false,
+  label,
+  statusText,
 }: {
   kind: 'face' | 'fingerprint';
   captured: boolean;
   busy: boolean;
   onCapture: () => void;
+  /** Live-listen mode: pulse + waiting status, button toggles the listener. */
+  listening?: boolean;
+  /** Override the button label. */
+  label?: string;
+  /** Override the status line. */
+  statusText?: string;
 }): JSX.Element {
+  const active = busy || listening;
+  const status =
+    statusText ??
+    (listening
+      ? 'جارٍ الاستماع للجهاز... ضع البصمة أو الوجه'
+      : busy
+        ? 'جارٍ الالتقاط...'
+        : captured
+          ? 'تم الالتقاط بنجاح'
+          : 'جاهز للتسجيل');
+  const btnLabel = label ?? (captured ? 'إعادة الالتقاط' : 'بدء الالتقاط');
   return (
     <div className="biometric-scan">
       <div className="biometric-frame">
         {kind === 'face' ? <ScanFace size={88} color="var(--gold-300)" /> : <Fingerprint size={88} color="var(--gold-300)" />}
-        {busy && <span className="scan-pulse" />}
+        {active && <span className="scan-pulse" />}
       </div>
-      <div className="biometric-status">
-        {busy ? 'جارٍ الالتقاط...' : captured ? 'تم الالتقاط بنجاح' : 'جاهز للتسجيل'}
-      </div>
-      {captured && (
+      <div className="biometric-status">{status}</div>
+      {captured && !listening && (
         <Badge tone="success" className="mt-3" icon={<CheckCircle2 size={11} />}>
           {kind === 'face' ? 'وضوح 92%' : 'جودة 98%'}
         </Badge>
       )}
       <Button
-        variant={captured ? 'secondary' : 'primary'}
+        variant={listening ? 'secondary' : captured ? 'secondary' : 'primary'}
         className="mt-4"
         onClick={onCapture}
-        disabled={busy}
-        leadingIcon={captured ? <RotateCcw size={14} /> : kind === 'face' ? <ScanFace size={14} /> : <Fingerprint size={14} />}
+        disabled={busy && !listening}
+        leadingIcon={listening ? <RotateCcw size={14} /> : kind === 'face' ? <ScanFace size={14} /> : <Fingerprint size={14} />}
       >
-        {captured ? 'إعادة الالتقاط' : 'بدء الالتقاط'}
+        {btnLabel}
       </Button>
     </div>
   );
@@ -272,27 +316,93 @@ function VerificationConsole({
 }): JSX.Element {
   const [method, setMethod] = useState<VerificationMethod>(defaultMethod);
   const [identifier, setIdentifier] = useState('');
+  const [terminalSn, setTerminalSn] = useState('');
   const [busy, setBusy] = useState(false);
+  const [listening, setListening] = useState(false);
   const [result, setResult] = useState<VerifyResult | null>(null);
+  const baselineRef = useRef<string | null>(null);
 
-  const verify = async (): Promise<void> => {
+  // Live device list to choose which terminal to verify against.
+  const devicesQuery = useQuery({
+    queryKey: ['biometric', 'zk', 'devices', 'console'],
+    queryFn: () => biometricService.getZkDevices(),
+    staleTime: 60_000,
+    retry: false,
+  });
+  const deviceOptions = [
+    { value: '', label: 'كل الأجهزة' },
+    ...(devicesQuery.data?.data ?? []).map((d) => ({
+      value: d.sn,
+      label: `${d.terminal_name || d.alias || d.sn}${d.area_name ? ` · ${d.area_name}` : ''}`,
+    })),
+  ];
+
+  const applyResult = (next: VerifyResult): void => {
+    setResult(next);
+    speakVoiceAlerts(next.voiceAlerts);
+    onResult?.(next);
+    toast(next.ok ? 'تم التحقق ويسمح باستكمال الإجراء' : next.reason ?? STATUS_LABEL[next.status], next.ok ? 'success' : 'danger');
+  };
+
+  // 1:1 verify — operator typed a barcode / national id / applicant number.
+  const verifyTyped = async (): Promise<void> => {
     setBusy(true);
     try {
-      const next = await biometricService.verify({
-        method,
-        module,
-        operator: 'U-006',
-        today: todayIso(),
-        ...(stationCommittee ? { stationCommittee } : {}),
-        ...(method === 'barcode' ? { barcode: identifier } : /^\d{14}$/.test(identifier) ? { nationalId: identifier } : { applicantId: identifier }),
-      });
-      setResult(next);
-      speakVoiceAlerts(next.voiceAlerts);
-      onResult?.(next);
-      toast(next.ok ? 'تم التحقق ويسمح باستكمال الإجراء' : next.reason ?? STATUS_LABEL[next.status], next.ok ? 'success' : 'danger');
+      applyResult(
+        await biometricService.verify({
+          method,
+          module,
+          operator: 'U-006',
+          today: todayIso(),
+          ...(terminalSn ? { terminalSn } : {}),
+          ...(stationCommittee ? { stationCommittee } : {}),
+          ...(method === 'barcode' ? { barcode: identifier } : /^\d{14}$/.test(identifier) ? { nationalId: identifier } : { applicantId: identifier }),
+        }),
+      );
     } finally {
       setBusy(false);
     }
+  };
+
+  // Live listener — poll the chosen device until a NEW punch arrives, then verify.
+  useEffect(() => {
+    if (!listening) return;
+    let cancelled = false;
+    baselineRef.current = null; // first tick records the current latest punch and skips it
+    const tick = async (): Promise<void> => {
+      try {
+        const r = await biometricService.verifyLive({ module, ...(terminalSn ? { terminalSn } : {}) });
+        if (cancelled) return;
+        const ut = r.identifiedUploadTime ?? '';
+        if (baselineRef.current === null) {
+          baselineRef.current = ut; // baseline; wait for the next punch
+          return;
+        }
+        if (r.found && ut && ut > baselineRef.current) {
+          applyResult(r);
+          setListening(false);
+        }
+      } catch {
+        /* keep listening through transient errors */
+      }
+    };
+    void tick();
+    const id = window.setInterval(() => void tick(), 2000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listening, terminalSn, module]);
+
+  const handleCapture = (): void => {
+    // Empty identifier → toggle the live listener (1:N, finger or face).
+    if (!identifier.trim() && method !== 'barcode') {
+      setListening((v) => !v);
+      return;
+    }
+    setListening(false);
+    void verifyTyped();
   };
 
   return (
@@ -303,13 +413,19 @@ function VerificationConsole({
           <CardHeader title="مدخل التحقق" subtitle={MODULE_LABEL[module]} />
           <CardBody className="space-y-4">
             <Select
+              label="الجهاز / البوابة"
+              value={terminalSn}
+              onChange={(event) => setTerminalSn(event.target.value)}
+              options={deviceOptions}
+            />
+            <Select
               label="طريقة التحقق"
               value={method}
               onChange={(event) => setMethod(event.target.value as VerificationMethod)}
               options={METHOD_OPTIONS}
             />
             <Input
-              label="الباركود / الرقم القومي / رقم المتقدم"
+              label="الباركود / الرقم القومي / رقم المتقدم (اتركه فارغاً للاستماع المباشر)"
               dir="ltr"
               value={identifier}
               onChange={(event) => setIdentifier(event.target.value)}
@@ -319,7 +435,9 @@ function VerificationConsole({
               kind={method === 'face' ? 'face' : 'fingerprint'}
               captured={Boolean(result?.ok)}
               busy={busy}
-              onCapture={verify}
+              listening={listening}
+              label={listening ? 'إيقاف الاستماع' : !identifier.trim() && method !== 'barcode' ? 'بدء الاستماع المباشر' : 'تحقق'}
+              onCapture={handleCapture}
             />
             {result?.voiceAlerts && result.voiceAlerts.length > 0 && (
               <div className="alert alert-warning">
@@ -351,6 +469,10 @@ export function BiometricVerifyPage(): JSX.Element {
   const selected = results[0] ?? null;
 
   const search = async (): Promise<void> => {
+    if (!query.trim()) {
+      setResults([]);
+      return;
+    }
     setBusy(true);
     try {
       setResults(await biometricService.searchApplicants({ field, query }));
@@ -358,10 +480,6 @@ export function BiometricVerifyPage(): JSX.Element {
       setBusy(false);
     }
   };
-
-  useEffect(() => {
-    void search();
-  }, []);
 
   return (
     <>
@@ -443,14 +561,82 @@ export function BiometricEnrollPage(): JSX.Element {
   const [field, setField] = useState<SearchField>('nationalId');
   const [query, setQuery] = useState('');
   const [lookup, setLookup] = useState<BiometricApplicantLookup | null>(null);
-  const [faceCaptured, setFaceCaptured] = useState(false);
-  const [fingerprintCaptured, setFingerprintCaptured] = useState(false);
-  const [fingerprintCount, setFingerprintCount] = useState(1);
   const [busy, setBusy] = useState(false);
-  const [scanBusy, setScanBusy] = useState<'face' | 'fingerprint' | null>(null);
+  const [terminalSn, setTerminalSn] = useState('');
+  const [listening, setListening] = useState(false);
+  const [confirmResult, setConfirmResult] = useState<VerifyResult | null>(null);
+  const baselineRef = useRef<string | null>(null);
+
+  const devicesQuery = useQuery({
+    queryKey: ['biometric', 'zk', 'devices', 'enroll'],
+    queryFn: () => biometricService.getZkDevices(),
+    staleTime: 60_000,
+    retry: false,
+  });
+  const deviceOptions = [
+    { value: '', label: 'كل الأجهزة' },
+    ...(devicesQuery.data?.data ?? []).map((d) => ({
+      value: d.sn,
+      label: `${d.terminal_name || d.alias || d.sn}${d.area_name ? ` · ${d.area_name}` : ''}`,
+    })),
+  ];
+
+  // Live employees on the device — the source of truth for "is this applicant
+  // actually created on the device?" (our enrollment record may reference a
+  // code the device no longer has, e.g. after a device wipe).
+  const zkEmployeesQuery = useQuery({
+    queryKey: ['biometric', 'zk', 'employees', 'enroll'],
+    queryFn: () => biometricService.getZkEmployees(1, 500),
+    staleTime: 5_000,
+    refetchInterval: 5_000, // keep the on-device biometric status fresh as the admin enrolls
+    retry: false,
+  });
+  const onDeviceCodes = new Set((zkEmployeesQuery.data?.data ?? []).map((e) => String(e.emp_code)));
+
+  // Confirm-by-punch: poll the chosen device until THIS applicant presents a
+  // biometric on the terminal — the real proof the template was enrolled.
+  useEffect(() => {
+    if (!listening || !lookup) return;
+    const myId = lookup.applicant.id;
+    let cancelled = false;
+    baselineRef.current = null;
+    const tick = async (): Promise<void> => {
+      try {
+        const r = await biometricService.verifyLive({ module: 'admissions-committee', ...(terminalSn ? { terminalSn } : {}) });
+        if (cancelled) return;
+        const ut = r.identifiedUploadTime ?? '';
+        if (baselineRef.current === null) {
+          baselineRef.current = ut;
+          return;
+        }
+        if (r.found && ut && ut > baselineRef.current) {
+          baselineRef.current = ut;
+          if (r.applicant?.applicant?.id === myId) {
+            setConfirmResult(r);
+            setListening(false);
+            toast('تم التحقق من البصمة على الجهاز بنجاح', 'success');
+            void biometricService.getApplicant({ applicantId: myId }).then(setLookup);
+          } else {
+            toast('بصمة لمتقدم آخر — في انتظار بصمة هذا المتقدم', 'warning');
+          }
+        }
+      } catch {
+        /* keep listening through transient errors */
+      }
+    };
+    void tick();
+    const id = window.setInterval(() => void tick(), 2000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listening, lookup, terminalSn]);
 
   const findApplicant = async (): Promise<void> => {
     setBusy(true);
+    setConfirmResult(null);
+    setListening(false);
     try {
       let next: BiometricApplicantLookup | null = null;
       if (field === 'nationalId') next = await biometricService.getApplicant({ nationalId: query });
@@ -464,16 +650,9 @@ export function BiometricEnrollPage(): JSX.Element {
     }
   };
 
-  const capture = (kind: 'face' | 'fingerprint'): void => {
-    setScanBusy(kind);
-    window.setTimeout(() => {
-      if (kind === 'face') setFaceCaptured(true);
-      else setFingerprintCaptured(true);
-      setScanBusy(null);
-    }, 700);
-  };
-
-  const save = async (retake = false): Promise<void> => {
+  // Step 1 — create the applicant's employee record on the ZK device (real write).
+  // The biometric template itself is captured on the G4 terminal afterwards.
+  const createOnDevice = async (retake = false): Promise<void> => {
     if (!lookup) return;
     setBusy(true);
     try {
@@ -484,40 +663,40 @@ export function BiometricEnrollPage(): JSX.Element {
         cycleId: lookup.cycleId,
         userId: 'U-006',
         retake,
-        faceCaptured,
-        fingerprintCaptured,
-        fingerprintCount,
+        faceCaptured: true,
+        fingerprintCaptured: true,
+        fingerprintCount: 1,
       });
-      toast(retake ? 'تمت إعادة التسجيل بنجاح' : 'تم تأكيد التسجيل البيومتري', 'success');
+      toast('تم إنشاء سجل المتقدم على الجهاز — سجّل البصمة على الجهاز ثم اطلب منه البصم للتأكيد', 'success');
+      setConfirmResult(null);
       setLookup(await biometricService.getApplicant({ applicantId: lookup.applicant.id }));
+      void zkEmployeesQuery.refetch();
     } finally {
       setBusy(false);
     }
   };
 
-  const linkPrevious = async (): Promise<void> => {
-    if (!lookup) return;
-    setBusy(true);
-    try {
-      await biometricService.linkPreviousEnrollment({
-        applicantId: lookup.applicant.id,
-        nationalId: lookup.applicant.nationalId,
-        barcode: lookup.barcode,
-        cycleId: lookup.cycleId,
-        userId: 'U-006',
-      });
-      toast('تم ربط البيانات البيومترية السابقة بدورة القبول الحالية', 'success');
-      setLookup(await biometricService.getApplicant({ applicantId: lookup.applicant.id }));
-    } catch {
-      toast('لا توجد بيانات بيومترية سابقة لهذا المتقدم', 'warning');
-    } finally {
-      setBusy(false);
-    }
-  };
+  const deviceEmpCode = lookup?.enrollment?.deviceEmpCode;
+  // Created only if the assigned code actually exists on the device right now.
+  const deviceCreated = Boolean(deviceEmpCode && onDeviceCodes.has(String(deviceEmpCode)));
+  // Read the live biometric enrollment state from the device employee record:
+  // a value like "Ver 12:1" means enrolled; "-" / empty means none.
+  const deviceEmp = (zkEmployeesQuery.data?.data ?? []).find((e) => String(e.emp_code) === String(deviceEmpCode));
+  const hasBio = (v?: string | null): boolean => Boolean(v && String(v).trim() !== '' && String(v).trim() !== '-');
+  // "Ver 12:1" → 1 enrolled fingerprint; the device exposes the COUNT, not which finger.
+  const fingerCount = (() => {
+    const m = String(deviceEmp?.fingerprint ?? '').match(/:(\d+)/);
+    return m ? Number(m[1]) : hasBio(deviceEmp?.fingerprint) ? 1 : 0;
+  })();
+  const hasFingerprint = fingerCount > 0;
+  // Face is registered if a face/visible-light template OR a VL face photo exists.
+  const hasFace =
+    hasBio(deviceEmp?.face) || hasBio(deviceEmp?.vl_face) || Number(deviceEmp?.vl_face_photo ?? 0) > 0;
+  const bioRegistered = hasFingerprint || hasFace;
 
   return (
     <>
-      <PageHeader title="تسجيل بيومتري" subtitle="تسجيل بصمة الإصبع وصورة الوجه وربطها بالمتقدم والرقم القومي والباركود ودورة القبول" />
+      <PageHeader title="تسجيل بيومتري" subtitle="إنشاء سجل المتقدم على الجهاز، ثم تسجيل البصمة والوجه على الجهاز، ثم التأكيد ببصمة حية" />
 
       <div className="grid gap-5 lg:grid-cols-[0.7fr_1.3fr]">
         <Card>
@@ -545,40 +724,104 @@ export function BiometricEnrollPage(): JSX.Element {
         </Card>
 
         <Card>
-          <CardHeader title="التقاط العينات" subtitle="يدعم التسجيل وإعادة التسجيل / إعادة الالتقاط" />
-          <CardBody>
-            <div className="grid gap-4 md:grid-cols-2">
-              <CapturePanel kind="face" captured={faceCaptured} busy={scanBusy === 'face'} onCapture={() => capture('face')} />
-              <CapturePanel kind="fingerprint" captured={fingerprintCaptured} busy={scanBusy === 'fingerprint'} onCapture={() => capture('fingerprint')} />
-            </div>
-            <div className="mt-5 grid gap-3 md:grid-cols-5">
-              <Metric label="المتقدم" value={lookup?.applicant.id ?? 'غير محدد'} mono />
-              <Metric label="الرقم القومي" value={lookup ? maskNationalId(lookup.applicant.nationalId) : 'غير محدد'} mono />
-              <Metric label="الباركود" value={lookup?.barcode ?? 'غير محدد'} mono />
-              <Metric label="دورة القبول" value={lookup?.cycleId ?? 'غير محدد'} mono />
-              <div className="rounded-md border border-border-subtle bg-surface-card px-3 py-2">
-                <label className="text-2xs text-ink-500" htmlFor="fingerprint-count">عدد البصمات</label>
-                <input
-                  id="fingerprint-count"
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={fingerprintCount}
-                  onChange={(event) => setFingerprintCount(Math.min(10, Math.max(1, Number(event.target.value) || 1)))}
-                  className="mt-1 h-7 w-full rounded-sm border border-border-default bg-surface-card px-2 text-sm font-bold text-ink-900 focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none"
-                />
+          <CardHeader
+            title="التسجيل على الجهاز"
+            subtitle="إنشاء سجل المتقدم على جهاز ZKBioTime ثم تسجيل البصمة على الجهاز والتأكيد ببصمة حية"
+          />
+          <CardBody className="space-y-5">
+            {/* Step 1 — create the device employee (real write) */}
+            <div className="rounded-lg border border-border-subtle bg-ink-50 p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <StepDot n="١" done={deviceCreated} active={Boolean(lookup) && !deviceCreated} />
+                <span className="text-sm font-bold text-ink-900">إنشاء سجل المتقدم على الجهاز</span>
+                {deviceCreated && (
+                  <Badge tone="success" className="ms-auto" icon={<CheckCircle2 size={11} />}>تم الإنشاء</Badge>
+                )}
+              </div>
+              {!lookup ? (
+                <p className="text-sm text-ink-500">ابحث عن المتقدم بالرقم القومي أولاً.</p>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Metric label="اسم المتقدم" value={lookup.applicant.name} />
+                  <Metric label="الرقم القومي" value={lookup.applicant.nationalId} mono />
+                  <Metric label="كود المتقدم على الجهاز (٩ أرقام)" value={deviceEmpCode ?? 'يُنشأ تلقائياً عند الإنشاء'} mono />
+                  <Metric label="معرّف الجهاز (id)" value={lookup.enrollment?.deviceEmpId ?? '—'} mono />
+                </div>
+              )}
+              {deviceCreated && (
+                <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-border-subtle bg-surface-card px-3 py-2">
+                  <span className="text-2xs text-ink-500">حالة البيومتري على الجهاز:</span>
+                  <Badge tone={hasFingerprint ? 'success' : 'warning'} icon={hasFingerprint ? <CheckCircle2 size={11} /> : undefined}>
+                    البصمة {hasFingerprint ? `مسجّلة (${fingerCount === 1 ? 'إصبع واحد' : fingerCount === 2 ? 'إصبعان' : fingerCount <= 10 ? `${fingerCount} أصابع` : `${fingerCount} إصبع`})` : 'غير مسجّلة'}
+                  </Badge>
+                  <Badge tone={hasFace ? 'success' : 'warning'} icon={hasFace ? <CheckCircle2 size={11} /> : undefined}>
+                    الوجه {hasFace ? 'مسجّلة' : 'غير مسجّلة'}
+                  </Badge>
+                  {!bioRegistered && (
+                    <span className="text-2xs text-gold-700">— سجّل البصمة/الوجه على الجهاز</span>
+                  )}
+                </div>
+              )}
+              <div className="mt-3 flex justify-end">
+                <Button
+                  variant={deviceCreated ? 'secondary' : 'primary'}
+                  leadingIcon={deviceCreated ? <CheckCircle2 size={14} /> : <UserPlus size={14} />}
+                  onClick={() => void createOnDevice(false)}
+                  disabled={!lookup || deviceCreated}
+                  isLoading={busy}
+                >
+                  {deviceCreated ? 'تم الإنشاء على الجهاز' : 'إنشاء السجل على الجهاز'}
+                </Button>
               </div>
             </div>
-            <div className="mt-5 flex flex-wrap justify-end gap-2">
-              <Button variant="secondary" leadingIcon={<Link2 size={14} />} onClick={() => void linkPrevious()} disabled={!lookup} isLoading={busy}>
-                ربط بيانات سابقة
-              </Button>
-              <Button variant="secondary" leadingIcon={<RotateCcw size={14} />} onClick={() => void save(true)} disabled={!lookup || (!faceCaptured && !fingerprintCaptured)} isLoading={busy}>
-                إعادة التسجيل
-              </Button>
-              <Button variant="primary" leadingIcon={<UserPlus size={14} />} onClick={() => void save(false)} disabled={!lookup || !faceCaptured || !fingerprintCaptured} isLoading={busy}>
-                تأكيد التسجيل
-              </Button>
+
+            {/* Step 2 — confirm with a live punch */}
+            <div className={`rounded-lg border border-border-subtle bg-surface-card p-4 ${deviceCreated ? '' : 'opacity-60'}`}>
+              <div className="mb-2 flex items-center gap-2">
+                <StepDot n="٢" done={Boolean(confirmResult)} active={deviceCreated && !confirmResult} />
+                <span className="text-sm font-bold text-ink-900">التأكيد الحي على الجهاز (بصمة أو وجه)</span>
+              </div>
+              <p className="mb-3 text-2xs text-ink-500">
+                بعد تسجيل البصمة/الوجه للمتقدم بكود <b className="font-mono">{deviceEmpCode ?? '—'}</b> على الجهاز،
+                اطلب من المتقدم البصم للتأكيد.
+              </p>
+              <Select
+                label="الجهاز / البوابة"
+                value={terminalSn}
+                onChange={(event) => setTerminalSn(event.target.value)}
+                options={deviceOptions}
+                disabled={!deviceCreated}
+              />
+              <div className="mt-4">
+                <CapturePanel
+                  kind={confirmResult?.identifiedVerifyType === 15 ? 'face' : 'fingerprint'}
+                  captured={Boolean(confirmResult)}
+                  busy={false}
+                  listening={listening}
+                  statusText={
+                    !deviceCreated
+                      ? 'أنشئ السجل على الجهاز أولاً'
+                      : confirmResult
+                        ? `تم التحقق من ${confirmResult.identifiedVerifyType === 15 ? 'الوجه' : 'البصمة'} على الجهاز`
+                        : listening
+                          ? 'جارٍ الاستماع... اطلب من المتقدم البصم على الجهاز'
+                          : 'جاهز للتأكيد'
+                  }
+                  label={listening ? 'إيقاف الاستماع' : 'بدء الاستماع للتأكيد'}
+                  onCapture={() => {
+                    if (!deviceCreated) return;
+                    setConfirmResult(null);
+                    setListening((v) => !v);
+                  }}
+                />
+              </div>
+              {confirmResult && (
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <Metric label="المتقدم" value={confirmResult.applicant?.applicant?.name ?? '—'} />
+                  <Metric label="طريقة التحقق" value={confirmResult.identifiedVerifyType === 15 ? 'صورة الوجه' : 'البصمة'} />
+                  <Metric label="البوابة" value={confirmResult.identifiedAreaName ?? '—'} />
+                </div>
+              )}
             </div>
           </CardBody>
         </Card>

@@ -1,0 +1,534 @@
+{
+  "info": {
+    "name": "ZKBioTime API",
+    "_postman_id": "f1a2b3c4-d5e6-47a8-9b10-zkbiotime0001",
+    "description": "ZKBioTime / BioTime 8.x REST API test collection.\n\nDocs: https://zkbiotime.xmzkteco.com/docs/api-docs/\n\nUsage:\n1. Set the `base_url`, `username`, `password` variables (collection or environment).\n2. Run **Authentication → Get JWT Token** first — its test script captures `{{token}}` automatically.\n3. All other requests send `Authorization: Token {{token}}` via collection-level auth.\n\nNote: a static general token is preconfigured in `{{token}}`, so you can skip the Authentication folder entirely.\n\nResources covered: Authentication, Area, Department, Position, Employee, Resign, Device (Terminal), Transaction, Transaction Report.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      { "key": "key", "value": "Authorization", "type": "string" },
+      { "key": "value", "value": "Token {{token}}", "type": "string" },
+      { "key": "in", "value": "header", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1", "type": "string" },
+    { "key": "username", "value": "", "type": "string" },
+    { "key": "password", "value": "", "type": "string" },
+    { "key": "token", "value": "d871d36636368811e83db9ca81e9a4136c04b46b", "type": "string" },
+    { "key": "emp_code", "value": "1", "type": "string" },
+    { "key": "page_size", "value": "100", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Get JWT Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.token) {",
+                  "  pm.collectionVariables.set('token', res.token);",
+                  "  pm.environment.set('token', res.token);",
+                  "  console.log('Saved JWT token');",
+                  "}",
+                  "pm.test('200 OK and token returned', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(res.token).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/jwt-api-token-auth/",
+              "host": ["{{base_url}}"],
+              "path": ["jwt-api-token-auth", ""]
+            },
+            "description": "Obtain a JWT auth token. The test script stores it as {{token}} for every other request.\n\nHeader used elsewhere: `Authorization: JWT <token>`."
+          }
+        },
+        {
+          "name": "Get General Token (alt)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api-token-auth/",
+              "host": ["{{base_url}}"],
+              "path": ["api-token-auth", ""]
+            },
+            "description": "Alternative general (non-JWT) token. If you use this, the header becomes `Authorization: Token <token>` instead of `JWT`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Area",
+      "item": [
+        {
+          "name": "List Areas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/personnel/api/areas/?page=1&page_size={{page_size}}",
+              "host": ["{{base_url}}"],
+              "path": ["personnel", "api", "areas", ""],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "{{page_size}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Area",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/personnel/api/areas/1/",
+              "host": ["{{base_url}}"],
+              "path": ["personnel", "api", "areas", "1", ""]
+            }
+          }
+        },
+        {
+          "name": "Create Area",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"area_code\": \"A01\",\n  \"area_name\": \"Headquarters\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/personnel/api/areas/",
+              "host": ["{{base_url}}"],
+              "path": ["personnel", "api", "areas", ""]
+            }
+          }
+        },
+        {
+          "name": "Update Area",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"area_code\": \"A01\",\n  \"area_name\": \"Headquarters (renamed)\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/personnel/api/areas/1/",
+              "host": ["{{base_url}}"],
+              "path": ["personnel", "api", "areas", "1", ""]
+            }
+          }
+        },
+        {
+          "name": "Delete Area",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/personnel/api/areas/1/",
+              "host": ["{{base_url}}"],
+              "path": ["personnel", "api", "areas", "1", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Department",
+      "item": [
+        {
+          "name": "List Departments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/personnel/api/departments/?page=1&page_size={{page_size}}",
+              "host": ["{{base_url}}"],
+              "path": ["personnel", "api", "departments", ""],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "{{page_size}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Department",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/personnel/api/departments/1/",
+              "host": ["{{base_url}}"],
+              "path": ["personnel", "api", "departments", "1", ""]
+            }
+          }
+        },
+        {
+          "name": "Create Department",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dept_code\": \"D01\",\n  \"dept_name\": \"Admissions\",\n  \"parent_dept\": null\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/personnel/api/departments/",
+              "host": ["{{base_url}}"],
+              "path": ["personnel", "api", "departments", ""]
+            }
+          }
+        },
+        {
+          "name": "Update Department",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dept_code\": \"D01\",\n  \"dept_name\": \"Admissions (renamed)\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/personnel/api/departments/1/",
+              "host": ["{{base_url}}"],
+              "path": ["personnel", "api", "departments", "1", ""]
+            }
+          }
+        },
+        {
+          "name": "Delete Department",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/personnel/api/departments/1/",
+              "host": ["{{base_url}}"],
+              "path": ["personnel", "api", "departments", "1", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Position",
+      "item": [
+        {
+          "name": "List Positions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/personnel/api/positions/?page=1&page_size={{page_size}}",
+              "host": ["{{base_url}}"],
+              "path": ["personnel", "api", "positions", ""],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "{{page_size}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Position",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position_code\": \"P01\",\n  \"position_name\": \"Officer\",\n  \"parent_position\": null\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/personnel/api/positions/",
+              "host": ["{{base_url}}"],
+              "path": ["personnel", "api", "positions", ""]
+            }
+          }
+        },
+        {
+          "name": "Update Position",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position_code\": \"P01\",\n  \"position_name\": \"Senior Officer\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/personnel/api/positions/1/",
+              "host": ["{{base_url}}"],
+              "path": ["personnel", "api", "positions", "1", ""]
+            }
+          }
+        },
+        {
+          "name": "Delete Position",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/personnel/api/positions/1/",
+              "host": ["{{base_url}}"],
+              "path": ["personnel", "api", "positions", "1", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Employee",
+      "item": [
+        {
+          "name": "List Employees",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/personnel/api/employees/?page=1&page_size={{page_size}}",
+              "host": ["{{base_url}}"],
+              "path": ["personnel", "api", "employees", ""],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "{{page_size}}" },
+                { "key": "emp_code", "value": "{{emp_code}}", "disabled": true },
+                { "key": "department", "value": "1", "disabled": true },
+                { "key": "area", "value": "1", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Employee",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/personnel/api/employees/1/",
+              "host": ["{{base_url}}"],
+              "path": ["personnel", "api", "employees", "1", ""]
+            }
+          }
+        },
+        {
+          "name": "Create Employee",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"emp_code\": \"{{emp_code}}\",\n  \"first_name\": \"Mohamed\",\n  \"last_name\": \"Ghareeb\",\n  \"department\": 1,\n  \"area\": [1],\n  \"position\": null,\n  \"hire_date\": \"2026-06-09\",\n  \"gender\": \"M\",\n  \"mobile\": \"01000000000\",\n  \"card_no\": \"\",\n  \"ssn\": \"\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/personnel/api/employees/",
+              "host": ["{{base_url}}"],
+              "path": ["personnel", "api", "employees", ""]
+            },
+            "description": "Required: emp_code, department (id), area (list of area ids). Other fields optional."
+          }
+        },
+        {
+          "name": "Update Employee",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"emp_code\": \"{{emp_code}}\",\n  \"first_name\": \"Mohamed\",\n  \"last_name\": \"Ghareeb (updated)\",\n  \"department\": 1,\n  \"area\": [1]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/personnel/api/employees/1/",
+              "host": ["{{base_url}}"],
+              "path": ["personnel", "api", "employees", "1", ""]
+            }
+          }
+        },
+        {
+          "name": "Delete Employee",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/personnel/api/employees/1/",
+              "host": ["{{base_url}}"],
+              "path": ["personnel", "api", "employees", "1", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Resign",
+      "item": [
+        {
+          "name": "List Resignations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/personnel/api/resigns/?page=1&page_size={{page_size}}",
+              "host": ["{{base_url}}"],
+              "path": ["personnel", "api", "resigns", ""],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "{{page_size}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Resignation",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employee\": 1,\n  \"resign_type\": 1,\n  \"resign_date\": \"2026-06-09\",\n  \"reason\": \"Test resignation\",\n  \"disable_att\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/personnel/api/resigns/",
+              "host": ["{{base_url}}"],
+              "path": ["personnel", "api", "resigns", ""]
+            }
+          }
+        },
+        {
+          "name": "Reinstate (Delete Resignation)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/personnel/api/resigns/1/",
+              "host": ["{{base_url}}"],
+              "path": ["personnel", "api", "resigns", "1", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Device (Terminal)",
+      "item": [
+        {
+          "name": "List Devices",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/iclock/api/terminals/?page=1&page_size={{page_size}}",
+              "host": ["{{base_url}}"],
+              "path": ["iclock", "api", "terminals", ""],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "{{page_size}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Device",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/iclock/api/terminals/1/",
+              "host": ["{{base_url}}"],
+              "path": ["iclock", "api", "terminals", "1", ""]
+            }
+          }
+        },
+        {
+          "name": "Delete Device",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/iclock/api/terminals/1/",
+              "host": ["{{base_url}}"],
+              "path": ["iclock", "api", "terminals", "1", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transaction",
+      "item": [
+        {
+          "name": "List Transactions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/iclock/api/transactions/?page=1&page_size={{page_size}}",
+              "host": ["{{base_url}}"],
+              "path": ["iclock", "api", "transactions", ""],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "{{page_size}}" },
+                { "key": "emp_code", "value": "{{emp_code}}", "disabled": true },
+                { "key": "terminal_sn", "value": "", "disabled": true },
+                { "key": "start_time", "value": "2026-06-01 00:00:00", "disabled": true },
+                { "key": "end_time", "value": "2026-06-09 23:59:59", "disabled": true },
+                { "key": "departments", "value": "1", "disabled": true },
+                { "key": "areas", "value": "1", "disabled": true }
+              ]
+            },
+            "description": "Punch records. Filter by emp_code, terminal_sn, start_time/end_time (YYYY-MM-DD HH:mm:ss), departments, areas."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transaction Report",
+      "item": [
+        {
+          "name": "Get Transaction Report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/iclock/api/transactionReport/?page=1&page_size={{page_size}}&start_date=2026-06-01&end_date=2026-06-09",
+              "host": ["{{base_url}}"],
+              "path": ["iclock", "api", "transactionReport", ""],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "page_size", "value": "{{page_size}}" },
+                { "key": "start_date", "value": "2026-06-01" },
+                { "key": "end_date", "value": "2026-06-09" },
+                { "key": "employees", "value": "1", "disabled": true },
+                { "key": "departments", "value": "1", "disabled": true }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

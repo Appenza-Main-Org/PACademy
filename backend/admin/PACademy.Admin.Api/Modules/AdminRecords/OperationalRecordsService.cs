@@ -96,7 +96,6 @@ public sealed class OperationalRecordsService(
         if (module == "applicants")
         {
             rows = ApplyApplicantFilters(rows, query);
-            rows = SortApplicantRowsNewestFirst(rows);
         }
         var total = rows.Count;
         var data = rows.Skip((page - 1) * pageSize).Take(pageSize).ToList();
@@ -833,29 +832,6 @@ public sealed class OperationalRecordsService(
             .OrderBy(NumericIdTail)
             .ThenBy(code => committeeNameByCode.TryGetValue(code, out var name) ? name : code, StringComparer.Ordinal)
             .FirstOrDefault();
-
-    private static List<JsonObject> SortApplicantRowsNewestFirst(IReadOnlyList<JsonObject> rows) =>
-        rows
-            .Select((row, index) => new { Row = row, Index = index })
-            .OrderByDescending(item => ApplicantCreatedAt(item.Row))
-            .ThenByDescending(item => ApplicantIdTail(item.Row))
-            .ThenBy(item => item.Index)
-            .Select(item => item.Row)
-            .ToList();
-
-    private static DateTimeOffset? ApplicantCreatedAt(JsonObject applicant)
-    {
-        var text = FirstString(applicant, "createdAt", "registeredAt");
-        return DateTimeOffset.TryParse(text, out var parsed) ? parsed : null;
-    }
-
-    private static int ApplicantIdTail(JsonObject applicant)
-    {
-        var id = FirstString(applicant, "adminRecordId", "applicantTableId", "id");
-        if (string.IsNullOrWhiteSpace(id)) return -1;
-        var tail = NumericIdTail(id);
-        return tail == int.MaxValue ? -1 : tail;
-    }
 
     private static int NumericIdTail(string text)
     {

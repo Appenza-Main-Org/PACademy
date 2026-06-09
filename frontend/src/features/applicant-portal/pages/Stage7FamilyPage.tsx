@@ -73,7 +73,8 @@ import {
   resolveGovernorateRow,
 } from '../lib/governorateLookup';
 import {
-  isStrictNationalId,
+  analyseNationalId,
+  validateNationalIdGenderField,
   validateNationalIdField,
 } from '@/shared/lib/national-id';
 import { cn } from '@/shared/lib/cn';
@@ -229,7 +230,7 @@ export function Stage7FamilyPage(): JSX.Element {
   const guardianOk =
     savedGuardian &&
     guardian.firstName.length >= 2 &&
-    isStrictNationalId(guardian.nationalId ?? '') &&
+    analyseNationalId(guardian.nationalId ?? '').valid &&
     guardian.profession.length > 0 &&
     guardian.qualification.length > 0;
 
@@ -939,6 +940,7 @@ function MemberFormCard({
             {...register('nationalId', {
               validate: (v: string) => {
                 if (nidUnavailable) return true;
+                if (gender) return validateNationalIdGenderField(v, gender);
                 return validateNationalIdField(v);
               },
             })}
@@ -1551,10 +1553,10 @@ function GrandparentsPanel({
   };
 
   const allFilled =
-    isFilled(value.paternalGrandfather) &&
-    isFilled(value.paternalGrandmother) &&
-    isFilled(value.maternalGrandfather) &&
-    isFilled(value.maternalGrandmother);
+    isFilled(value.paternalGrandfather, 'male') &&
+    isFilled(value.paternalGrandmother, 'female') &&
+    isFilled(value.maternalGrandfather, 'male') &&
+    isFilled(value.maternalGrandmother, 'female');
 
   return (
     <div className="flex flex-col gap-3">
@@ -1621,15 +1623,14 @@ function GrandparentsPanel({
   );
 }
 
-function isFilled(m: FamilyMemberForm): boolean {
+function isFilled(m: FamilyMemberForm, expectedGender?: FamilyMemberGender): boolean {
   const birthLocalityOk =
     !isBirthLocalityRequired(m) ||
     (m.birthGovernorate.length > 0 && m.birthDistrict.length > 0);
+  const nationalIdOk = isFamilyMemberNationalIdOk(m, expectedGender);
   const baseOk =
     m.firstName.length >= 2 &&
-    (m.nidUnavailable
-      ? m.nidUnavailableReason.length > 0
-      : isStrictNationalId(m.nationalId)) &&
+    nationalIdOk &&
     m.dateOfBirth.length > 0 &&
     birthLocalityOk &&
     m.profession.length > 0 &&
@@ -1645,6 +1646,16 @@ function isFilled(m: FamilyMemberForm): boolean {
     m.residenceDistrict.length > 0 &&
     m.residenceDetail.length >= 5
   );
+}
+
+function isFamilyMemberNationalIdOk(
+  member: Pick<FamilyMemberForm, 'nationalId' | 'nidUnavailable' | 'nidUnavailableReason'>,
+  expectedGender?: FamilyMemberGender,
+): boolean {
+  if (member.nidUnavailable) return member.nidUnavailableReason.length > 0;
+  const analysis = analyseNationalId(member.nationalId);
+  if (!analysis.valid) return false;
+  return expectedGender ? analysis.gender === expectedGender : true;
 }
 
 /* ─── small helpers ──────────────────────────────────────────────── */

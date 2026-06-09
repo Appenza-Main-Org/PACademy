@@ -410,7 +410,7 @@ public sealed class OperationalRecordStore(IOperationalRecordsDbContext db)
             "workflows" or "workflowTransitions" or "applicantWorkflowProgress" => OperationalBucket.Workflow,
             "committees" or "committeeInstances" or "committeeResults" => OperationalBucket.Committees,
             "examPlans" or "examResults" or "exam-attempts" or "exam-live-sessions" or "exam-committee-users" or "exam-devices" or "exam-audit" => OperationalBucket.Exams,
-            "biometric-enrollments" or "biometric-verifications" or "biometric-gate-logs" or "biometric-audit" => OperationalBucket.Biometric,
+            "biometric-enrollments" or "biometric-verifications" or "biometric-gate-logs" or "biometric-audit" or "biometric-config" => OperationalBucket.Biometric,
             "committeeBindings" => OperationalBucket.AdmissionSetup,
             "kpis" or "last14Days" => OperationalBucket.Reports,
             _ => null

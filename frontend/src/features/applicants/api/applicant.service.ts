@@ -535,8 +535,8 @@ export const applicantService = {
       );
     }
 
-    const page = await apiClient.get<Pagination<Applicant>>('/api/applicants', { query: cleaned });
-    return normalizeApplicantPage(page);
+    const rows = await listAllApplicantsForClientFilter();
+    return paginateApplicants(sortApplicantsNewestFirst(rows), cleaned.page, cleaned.pageSize);
   },
 
   async getById(id: string): Promise<Applicant | null> {

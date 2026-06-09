@@ -1770,6 +1770,9 @@ export interface BiometricEnrollment {
   fingerprintCaptured: boolean;
   livenessConfirmed: boolean;
   templateRef: string;
+  /** ZK device linkage — emp_code and the device-assigned employee id. */
+  deviceEmpCode?: string;
+  deviceEmpId?: string;
 }
 
 export interface BiometricVerification {

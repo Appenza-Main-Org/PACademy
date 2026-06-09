@@ -387,3 +387,21 @@ export function validateNationalIdField(
   const message = nationalIdErrorMessage(rawId);
   return message ?? true;
 }
+
+/**
+ * React-hook-form `validate` helper for fields whose surrounding form
+ * already knows the expected person gender. It first runs the strict
+ * Egyptian-NID validation, then compares the encoded gender digit.
+ */
+export function validateNationalIdGenderField(
+  rawId: string | null | undefined,
+  expectedGender: 'male' | 'female',
+): true | string {
+  const analysis = analyseNationalId(rawId);
+  if (!analysis.valid) {
+    return nationalIdErrorMessage(rawId) ?? 'الرقم القومي غير صحيح';
+  }
+  return analysis.gender === expectedGender
+    ? true
+    : 'الرقم القومي لا يتوافق مع نوع صلة القرابة المحددة.';
+}

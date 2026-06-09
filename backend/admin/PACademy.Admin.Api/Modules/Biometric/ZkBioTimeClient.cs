@@ -25,9 +25,30 @@ namespace PACademy.Admin.Api.Modules.Biometric;
 /// transient, so a per-instance field would not survive across requests) and
 /// re-fetched on a 401.
 /// </summary>
-public sealed class ZkBioTimeClient(HttpClient http, IConfiguration config, IMemoryCache cache)
+public sealed class ZkBioTimeClient(
+    HttpClient http, IConfiguration config, IMemoryCache cache, Modules.AdminRecords.OperationalRecordsService records)
 {
-    private const string TokenCacheKey = "zkbiotime:jwt";
+    public const string TokenCacheKey = "zkbiotime:jwt";
+    public const string ConfigBucket = "biometric-config";
+    public const string ConfigId = "zkbiotime";
+
+    // DB config overrides (set from the admin screen) beat appsettings. Loaded
+    // once per client instance (the client is transient = per request scope).
+    private Dictionary<string, string>? _overrides;
+
+    private async Task EnsureConfigAsync(CancellationToken ct)
+    {
+        if (_overrides is not null) return;
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var rec = await records.GetAsync(ConfigBucket, ConfigId, ct);
+        if (rec is not null)
+            foreach (var kv in rec)
+            {
+                var s = kv.Value?.ToString();
+                if (!string.IsNullOrWhiteSpace(s)) map[kv.Key] = s!;
+            }
+        _overrides = map;
+    }
 
     private string BaseUrl => Cfg("BaseUrl")
         ?? throw new BiometricDeviceException("لم يتم ضبط عنوان منظومة ZKBioTime (Biometric:ZkBioTime:BaseUrl)");
@@ -45,7 +66,8 @@ public sealed class ZkBioTimeClient(HttpClient http, IConfiguration config, IMem
     private double ServerTimeUtcOffsetHours => CfgDouble("ServerTimeUtcOffsetHours") ?? 0;
 
     private string? Cfg(string key) =>
-        config[$"Biometric:ZkBioTime:{key}"] is { } v && !string.IsNullOrWhiteSpace(v) ? v : null;
+        (_overrides is not null && _overrides.TryGetValue(key, out var ov) && !string.IsNullOrWhiteSpace(ov) ? ov : null)
+        ?? (config[$"Biometric:ZkBioTime:{key}"] is { } v && !string.IsNullOrWhiteSpace(v) ? v : null);
     private int? CfgInt(string key) => int.TryParse(Cfg(key), out var n) ? n : null;
     private double? CfgDouble(string key) =>
         double.TryParse(Cfg(key), NumberStyles.Any, CultureInfo.InvariantCulture, out var n) ? n : null;
@@ -55,6 +77,7 @@ public sealed class ZkBioTimeClient(HttpClient http, IConfiguration config, IMem
     /// <summary>Fetch (and cache) the JWT auth token. <paramref name="force"/> bypasses the cache.</summary>
     public async Task<string> GetTokenAsync(bool force, CancellationToken ct)
     {
+        await EnsureConfigAsync(ct);
         if (!force && cache.TryGetValue<string>(TokenCacheKey, out var cached) && !string.IsNullOrEmpty(cached))
             return cached!;
 
@@ -75,6 +98,7 @@ public sealed class ZkBioTimeClient(HttpClient http, IConfiguration config, IMem
     /// <summary>GET/POST helper that attaches the JWT and re-auths once on 401.</summary>
     private async Task<JsonNode?> SendAsync(HttpMethod method, string path, object? body, CancellationToken ct)
     {
+        await EnsureConfigAsync(ct);
         async Task<HttpResponseMessage> Attempt(string token)
         {
             using var req = new HttpRequestMessage(method, Url(path));
@@ -135,31 +159,109 @@ public sealed class ZkBioTimeClient(HttpClient http, IConfiguration config, IMem
     /* ── Transactions (punch stream) ───────────────────────────────── */
 
     /// <summary>
-    /// Recent punches for an employee since now − <paramref name="windowSeconds"/>.
-    /// Only the lower bound is sent (clock-skew safe); the caller treats any
-    /// returned row as a recent verification event. <c>ServerTimeUtcOffsetHours</c>
-    /// shifts our computed start_time into the platform's local time.
+    /// Recent punches for an employee within the last <paramref name="windowSeconds"/>.
+    ///
+    /// Clock-skew safe: filters on the platform-side <c>upload_time</c> (the
+    /// server clock, when the punch was received) rather than the device-stamped
+    /// <c>punch_time</c> — terminal RTCs drift (a G4 observed stamping 2023 in
+    /// 2026), and a wrong device clock would otherwise silently fail every
+    /// verification. We fetch newest-first by <c>ordering=-upload_time</c> and
+    /// keep rows whose <c>upload_time</c> is within the window.
+    /// <c>ServerTimeUtcOffsetHours</c> aligns "now" to the platform's local clock.
     /// </summary>
     public async Task<IReadOnlyList<ZkTransaction>> GetRecentTransactionsAsync(
-        string empCode, int windowSeconds, CancellationToken ct)
+        string empCode, int windowSeconds, string? terminalSn, CancellationToken ct)
     {
-        var start = DateTime.UtcNow
-            .AddHours(ServerTimeUtcOffsetHours)
-            .AddSeconds(-Math.Max(1, windowSeconds))
-            .ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+        await EnsureConfigAsync(ct);
+        var serverNow = DateTime.UtcNow.AddHours(ServerTimeUtcOffsetHours);
+        var cutoff = serverNow.AddSeconds(-Math.Max(1, windowSeconds));
 
-        var body = await SendAsync(HttpMethod.Get,
-            $"/iclock/api/transactions/?emp_code={Uri.EscapeDataString(empCode)}" +
-            $"&start_time={Uri.EscapeDataString(start)}", null, ct);
+        var url = $"/iclock/api/transactions/?emp_code={Uri.EscapeDataString(empCode)}" +
+            "&ordering=-upload_time&page_size=25";
+        if (!string.IsNullOrWhiteSpace(terminalSn))
+            url += $"&terminal_sn={Uri.EscapeDataString(terminalSn)}";
+
+        var body = await SendAsync(HttpMethod.Get, url, null, ct);
 
         if (body?["data"] is not JsonArray rows) return [];
         return rows.OfType<JsonObject>()
-            .Select(r => new ZkTransaction(
-                r["emp_code"]?.GetValue<string>() ?? empCode,
-                r["punch_time"]?.GetValue<string>() ?? "",
-                ReadInt(r["verify_type"]),
-                r["terminal_sn"]?.GetValue<string>()))
+            .Select(ToTransaction)
+            .Where(t => string.IsNullOrWhiteSpace(terminalSn) || t.TerminalSn == terminalSn)
+            .Where(t => WithinWindow(t.UploadTime, cutoff))
             .ToList();
+    }
+
+    /// <summary>
+    /// The single most-recent punch on ANY employee within the last
+    /// <paramref name="windowSeconds"/> (server clock). Drives "identify from
+    /// device" — the terminal does the 1:N match and stamps the emp_code.
+    /// </summary>
+    public async Task<ZkTransaction?> GetLatestTransactionAsync(
+        int windowSeconds, string? terminalSn, CancellationToken ct)
+    {
+        await EnsureConfigAsync(ct);
+        var serverNow = DateTime.UtcNow.AddHours(ServerTimeUtcOffsetHours);
+        var cutoff = serverNow.AddSeconds(-Math.Max(1, windowSeconds));
+
+        var url = "/iclock/api/transactions/?ordering=-upload_time&page_size=10";
+        if (!string.IsNullOrWhiteSpace(terminalSn))
+            url += $"&terminal_sn={Uri.EscapeDataString(terminalSn)}";
+
+        var body = await SendAsync(HttpMethod.Get, url, null, ct);
+        if (body?["data"] is not JsonArray rows) return null;
+        return rows.OfType<JsonObject>()
+            .Select(ToTransaction)
+            // Defensive client-side filter in case the server ignores terminal_sn.
+            .Where(t => string.IsNullOrWhiteSpace(terminalSn) || t.TerminalSn == terminalSn)
+            .FirstOrDefault(t => WithinWindow(t.UploadTime, cutoff));
+    }
+
+    /// <summary>
+    /// The most recent punches on ANY employee within the window (newest first),
+    /// up to <paramref name="limit"/>. Drives the realtime identify feed.
+    /// </summary>
+    public async Task<IReadOnlyList<ZkTransaction>> GetRecentPunchesAsync(
+        int windowSeconds, int limit, CancellationToken ct)
+    {
+        await EnsureConfigAsync(ct);
+        var serverNow = DateTime.UtcNow.AddHours(ServerTimeUtcOffsetHours);
+        var cutoff = serverNow.AddSeconds(-Math.Max(1, windowSeconds));
+
+        var body = await SendAsync(HttpMethod.Get,
+            $"/iclock/api/transactions/?ordering=-upload_time&page_size={Math.Clamp(limit, 1, 100)}",
+            null, ct);
+        if (body?["data"] is not JsonArray rows) return [];
+        return rows.OfType<JsonObject>()
+            .Select(ToTransaction)
+            .Where(t => WithinWindow(t.UploadTime, cutoff))
+            .ToList();
+    }
+
+    private static ZkTransaction ToTransaction(JsonObject r) => new(
+        r["emp_code"]?.GetValue<string>() ?? "",
+        r["punch_time"]?.GetValue<string>() ?? "",
+        ReadInt(r["verify_type"]),
+        r["terminal_sn"]?.GetValue<string>(),
+        r["upload_time"]?.GetValue<string>(),
+        r["first_name"]?.GetValue<string>(),
+        r["verify_type_display"]?.GetValue<string>(),
+        ReadInt(r["emp"]),
+        r["area_alias"]?.GetValue<string>(),
+        r["terminal_alias"]?.GetValue<string>());
+
+    private static bool WithinWindow(string? uploadTime, DateTime cutoff) =>
+        DateTime.TryParseExact(uploadTime, "yyyy-MM-dd HH:mm:ss",
+            CultureInfo.InvariantCulture, DateTimeStyles.None, out var t) && t >= cutoff;
+
+    /// <summary>Registered employees (personnel), paged. Returns (rows, totalCount).</summary>
+    public async Task<(IReadOnlyList<JsonObject> Rows, int Count)> ListEmployeesAsync(
+        int page, int pageSize, CancellationToken ct)
+    {
+        var body = await SendAsync(HttpMethod.Get,
+            $"/personnel/api/employees/?page={Math.Max(1, page)}&page_size={Math.Clamp(pageSize, 1, 500)}",
+            null, ct);
+        var rows = body?["data"] is JsonArray arr ? arr.OfType<JsonObject>().ToList() : [];
+        return (rows, ReadInt(body?["count"]));
     }
 
     /* ── Terminals ─────────────────────────────────────────────────── */
@@ -182,4 +284,7 @@ public sealed class ZkBioTimeClient(HttpClient http, IConfiguration config, IMem
 }
 
 /// <summary>A single punch from the ZKBioTime transaction stream.</summary>
-public sealed record ZkTransaction(string EmpCode, string PunchTime, int VerifyType, string? TerminalSn);
+public sealed record ZkTransaction(
+    string EmpCode, string PunchTime, int VerifyType, string? TerminalSn,
+    string? UploadTime = null, string? Name = null, string? VerifyTypeDisplay = null,
+    int Emp = 0, string? AreaName = null, string? TerminalAlias = null);
