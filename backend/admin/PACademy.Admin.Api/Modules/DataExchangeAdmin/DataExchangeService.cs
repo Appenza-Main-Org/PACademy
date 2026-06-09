@@ -106,15 +106,17 @@ public sealed class DataExchangeService(
         return dateScoped;
     }
 
+    // Admin-authored cycle-owned config sheets: a row without a matching cycle is
+    // intentionally excluded (legacy/no-cycle rows don't belong to a live export).
+    // People-derived sheets (Applicants, Relatives, ExamResults, AcquaintanceDocs)
+    // are deliberately NOT here — they are scoped leniently at load time so a
+    // booked applicant is never silently dropped just because their record carries
+    // a blank or stale cycle id. See IsApplicantInCycleScope / BelongsToDifferentCycle.
     private static readonly IReadOnlySet<ExchangeDomain> CycleScopedDomains = new HashSet<ExchangeDomain>
     {
-        ExchangeDomain.Applicants,
         ExchangeDomain.Exams,
-        ExchangeDomain.Relatives,
-        ExchangeDomain.AcquaintanceDocs,
         ExchangeDomain.Committees,
         ExchangeDomain.AdmissionConditions,
-        ExchangeDomain.ExamResults,
         ExchangeDomain.ExamSchedules,
     };
 
@@ -1045,20 +1047,31 @@ public sealed class DataExchangeService(
         string? cycleId,
         IReadOnlySet<string>? activeCategoryKeys)
     {
-        if (!string.IsNullOrWhiteSpace(cycleId) &&
-            !MatchesCycle(FirstString(applicant, "cycleId", "admissionCycleId", "cycle_id"), cycleId))
+        // Lenient on purpose: only drop an applicant when their record positively
+        // declares a DIFFERENT cycle. A blank/stale cycle id is treated as in-scope
+        // so booked applicants are never silently missing from the export.
+        if (BelongsToDifferentCycle(FirstString(applicant, "cycleId", "admissionCycleId", "cycle_id"), cycleId))
         {
             return false;
         }
 
+        // Likewise for category: exclude only when the category is known AND outside
+        // the active set. A missing category never removes an otherwise-booked row.
         if (activeCategoryKeys is { Count: > 0 })
         {
             var category = CategoryKey(applicant);
-            return !string.IsNullOrWhiteSpace(category) && activeCategoryKeys.Contains(category);
+            if (!string.IsNullOrWhiteSpace(category) && !activeCategoryKeys.Contains(category)) return false;
         }
 
         return true;
     }
+
+    /// <summary>True only when both ids are present and differ — i.e. the row
+    /// positively belongs to another cycle. Missing ids are never "different".</summary>
+    private static bool BelongsToDifferentCycle(string? rowCycleId, string? cycleId)
+        => !string.IsNullOrWhiteSpace(cycleId)
+            && !string.IsNullOrWhiteSpace(rowCycleId)
+            && !string.Equals(rowCycleId, cycleId, StringComparison.OrdinalIgnoreCase);
 
     private static bool LoadedRowMatchesCycle(LoadedRow row, string cycleId)
     {
@@ -1449,7 +1462,7 @@ public sealed class DataExchangeService(
         var result = new List<LoadedRow>(docs.Count);
         foreach (var doc in docs)
         {
-            if (!MatchesCycle(doc.CycleId, cycleId)) continue;
+            if (BelongsToDifferentCycle(doc.CycleId, cycleId)) continue;
             if (!nidById.TryGetValue(doc.ApplicantId, out var nid)) continue;
             var data = new Dictionary<string, string?>(StringComparer.Ordinal)
             {
