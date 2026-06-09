@@ -22,6 +22,10 @@ interface ApplicantRosterPanelProps {
   onSelectionChange: (nationalIds: string[]) => void;
 }
 
+function committeeDisplay(row: ApplicantRosterRow): string | null {
+  return row.committeeName ?? row.committee ?? row.committeeLabelAr ?? row.examSlotLocation ?? null;
+}
+
 export function ApplicantRosterPanel({
   roster,
   loading,
@@ -49,7 +53,7 @@ export function ApplicantRosterPanel({
       (r) =>
         r.nationalId.includes(needle) ||
         (r.fullName?.includes(needle) ?? false) ||
-        (r.examSlotLocation?.includes(needle) ?? false),
+        (committeeDisplay(r)?.includes(needle) ?? false),
     );
   }, [roster, query]);
 
@@ -103,9 +107,9 @@ export function ApplicantRosterPanel({
         ),
     },
     {
-      key: 'examSlotLocation',
+      key: 'committeeName',
       label: 'اللجنة',
-      render: (r) => r.examSlotLocation ?? '—',
+      render: (r) => committeeDisplay(r) ?? '—',
       hideOn: 'md',
     },
     {

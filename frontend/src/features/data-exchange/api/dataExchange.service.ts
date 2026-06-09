@@ -213,6 +213,7 @@ function mockRoster(): ApplicantRosterRow[] {
       status: r.cells.status ?? null,
       examSlotDate: r.cells['examSlot.date'] ?? null,
       examSlotTime: r.cells['examSlot.time'] ?? null,
+      committeeName: r.cells.committeeName ?? r.cells.committee ?? null,
       examSlotLocation: r.cells['examSlot.location'] ?? null,
       updatedAt: r.updatedAt,
     }));
@@ -439,6 +440,7 @@ function buildMockRow(domain: ExchangeDomain, i: number): MockRow {
       cells['examSlot.slotId'] = `SLOT-${i + 1}`;
       cells['examSlot.date'] = `2026-06-${String(12 + i).padStart(2, '0')}`;
       cells['examSlot.time'] = i === 0 ? '08:00' : '10:00';
+      cells.committeeName = i === 0 ? 'اللجنة الأولى قسم عام' : 'اللجنة الأولى ليسانس حقوق (طالبات)';
       cells['examSlot.location'] = 'كلية الشرطة - مبنى الاختبارات - القاهرة';
     }
   } else {

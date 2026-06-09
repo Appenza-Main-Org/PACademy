@@ -167,6 +167,7 @@ public sealed record ApplicantRosterRow(
     string? Status,
     string? ExamSlotDate,
     string? ExamSlotTime,
+    string? CommitteeName,
     string? ExamSlotLocation,
     DateTimeOffset? UpdatedAt);
 

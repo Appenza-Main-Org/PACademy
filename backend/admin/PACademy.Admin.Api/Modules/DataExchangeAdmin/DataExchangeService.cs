@@ -116,6 +116,10 @@ public sealed class DataExchangeService(
         try { payloads = await records.ListAsync("applicants", ct); }
         catch (InvalidOperationException) { return []; }
 
+        var committeeNameByCode = await db.LookupRows.AsNoTracking()
+            .Where(x => x.LookupKey == "committees")
+            .ToDictionaryAsync(x => x.Code, x => x.Name, StringComparer.OrdinalIgnoreCase, ct);
+
         var roster = new List<ApplicantRosterRow>(payloads.Count);
         foreach (var payload in payloads)
         {
@@ -134,6 +138,7 @@ public sealed class DataExchangeService(
                 Status: payload["status"]?.ToString(),
                 ExamSlotDate: slot?["date"]?.ToString(),
                 ExamSlotTime: slot?["time"]?.ToString(),
+                CommitteeName: ResolveCommitteeName(payload, committeeNameByCode),
                 ExamSlotLocation: slot?["location"]?.ToString(),
                 UpdatedAt: ParseDto(payload["updatedAt"] ?? payload["updated_at"])));
         }
@@ -141,6 +146,25 @@ public sealed class DataExchangeService(
             .OrderBy(r => r.ExamSlotDate ?? string.Empty, StringComparer.Ordinal)
             .ThenBy(r => r.FullName ?? string.Empty, StringComparer.Ordinal)
             .ToList();
+    }
+
+    private static string? ResolveCommitteeName(
+        JsonObject applicant,
+        IReadOnlyDictionary<string, string> committeeNameByCode)
+    {
+        var explicitName =
+            AdminRecordJson.StringProp(applicant, "committeeName") ??
+            AdminRecordJson.StringProp(applicant, "committee") ??
+            AdminRecordJson.StringProp(applicant, "committeeLabelAr");
+        if (!string.IsNullOrWhiteSpace(explicitName)) return explicitName;
+
+        var code =
+            AdminRecordJson.StringProp(applicant, "committeeId") ??
+            AdminRecordJson.StringProp(applicant, "committeeCode") ??
+            AdminRecordJson.StringProp(applicant, "definitionCode");
+        return !string.IsNullOrWhiteSpace(code) && committeeNameByCode.TryGetValue(code, out var mappedName)
+            ? mappedName
+            : null;
     }
 
     // ──────────────────────────────────────────────────────────────────────

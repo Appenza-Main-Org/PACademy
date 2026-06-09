@@ -408,7 +408,7 @@ public sealed class DataExchangeServiceTests
         await SeedOperationalAsync(db, "applicants", "APP-D",
             """{"id":"APP-D","nationalId":"29801011230001","fullName":"مسودة","status":"draft"}""");
         await SeedOperationalAsync(db, "applicants", "APP-S",
-            """{"id":"APP-S","nationalId":"29801011230002","fullName":"محجوز","status":"exam_scheduled","examSlot":{"slotId":"SLOT-7","date":"2026-06-15","time":"08:00","location":"كلية الشرطة"}}""");
+            """{"id":"APP-S","nationalId":"29801011230002","fullName":"محجوز","status":"exam_scheduled","committeeName":"اللجنة الأولى قسم عام","examSlot":{"slotId":"SLOT-7","date":"2026-06-15","time":"08:00","location":"كلية الشرطة"}}""");
 
         var roster = await svc.ListBookedApplicantsAsync(default);
 
@@ -416,6 +416,7 @@ public sealed class DataExchangeServiceTests
         Assert.Equal("29801011230002", row.NationalId);
         Assert.Equal("محجوز", row.FullName);
         Assert.Equal("2026-06-15", row.ExamSlotDate);
+        Assert.Equal("اللجنة الأولى قسم عام", row.CommitteeName);
         Assert.Equal("كلية الشرطة", row.ExamSlotLocation);
     }
 

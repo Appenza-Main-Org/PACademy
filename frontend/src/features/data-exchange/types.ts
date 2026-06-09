@@ -174,6 +174,9 @@ export interface ApplicantRosterRow {
   status: string | null;
   examSlotDate: string | null;
   examSlotTime: string | null;
+  committeeName?: string | null;
+  committee?: string | null;
+  committeeLabelAr?: string | null;
   examSlotLocation: string | null;
   updatedAt: string | null;
 }
