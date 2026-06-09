@@ -47,6 +47,7 @@ import {
   canUseApplicationFormActions,
 } from '../lib/application-form-actions';
 import {
+  EMPTY_GUARDIAN,
   RELATIVE_LABEL,
   formatMemberName,
   professionLabel,
@@ -524,6 +525,7 @@ function GuardianPanel({ guardian }: { guardian: GuardianForm }): JSX.Element {
         {formatGuardianName(guardian)}
       </p>
       <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+        <Row label="الرقم القومي" value={guardian.nationalId || '—'} ltr mono />
         <Row label="المهنة" value={professionLabel(guardian.profession)} />
         <Row label="رقم الأقدمية" value={guardian.seniorityNumber || '—'} ltr mono />
         <Row label="المؤهل" value={guardian.qualificationDetail || guardian.qualification || '—'} />
@@ -602,7 +604,7 @@ function toGuardian(value: unknown): GuardianForm | undefined {
   if (!isRecord(value)) return undefined;
   const guardian = value as Partial<GuardianForm>;
   if (!guardian.firstName && !guardian.workplaceDetail) return undefined;
-  return guardian as GuardianForm;
+  return { ...EMPTY_GUARDIAN, ...guardian };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

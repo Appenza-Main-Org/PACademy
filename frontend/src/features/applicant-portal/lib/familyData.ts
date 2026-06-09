@@ -9,6 +9,8 @@
  * reloads, but doesn't leak across sessions.
  */
 
+import { analyseNationalId } from '@/shared/lib/national-id';
+
 export type RelativeKind =
   | 'brothers'
   | 'sisters'
@@ -43,6 +45,7 @@ export const PROFESSION_OPTIONS = [
 ] as const;
 
 export const HOUSEWIFE_PROFESSION = 'housewife';
+export const DUPLICATE_FAMILY_NATIONAL_ID_MESSAGE = 'الرقم القومي مُستخدم بالفعل لأحد أفراد الأسرة.';
 
 export function professionLabel(code: string): string {
   return PROFESSION_OPTIONS.find((o) => o.value === code)?.label ?? '—';
@@ -123,6 +126,7 @@ export interface GuardianForm {
   firstName: string;
   secondName: string;
   thirdName: string;
+  nationalId: string;
   profession: string;
   seniorityNumber?: string;
   qualification: string;
@@ -135,6 +139,7 @@ export const EMPTY_GUARDIAN: GuardianForm = {
   firstName: '',
   secondName: '',
   thirdName: '',
+  nationalId: '',
   profession: '',
   seniorityNumber: '',
   qualification: '',
@@ -349,16 +354,48 @@ export function canApproveFamilySnapshot(s: FamilyDataSnapshot): boolean {
   const guardianOk =
     s.savedGuardian &&
     s.guardian.firstName.trim().length >= 2 &&
+    analyseNationalId(s.guardian.nationalId ?? '').valid &&
     s.guardian.profession.length > 0 &&
     s.guardian.qualification.length > 0;
   return (
     s.savedFather &&
     s.savedMother &&
     allGrandparentsSaved &&
+    !hasDuplicateFamilyNationalId(s) &&
     allRequiredMemberDetailsPresent(s) &&
     fatherWivesOk &&
     motherHusbandsOk &&
     relativesOk &&
     guardianOk
   );
+}
+
+export function hasDuplicateFamilyNationalId(snapshot: FamilyDataSnapshot): boolean {
+  const seen = new Set<string>();
+  for (const nationalId of familyNationalIds(snapshot)) {
+    if (seen.has(nationalId)) return true;
+    seen.add(nationalId);
+  }
+  return false;
+}
+
+function familyNationalIds(snapshot: FamilyDataSnapshot): string[] {
+  return [
+    ...familyMembersWithNationalIds(snapshot).map((member) => member.nationalId.trim()),
+    snapshot.guardian.nationalId?.trim() ?? '',
+  ].filter((nationalId) => nationalId.length > 0);
+}
+
+function familyMembersWithNationalIds(snapshot: FamilyDataSnapshot): FamilyMemberForm[] {
+  return [
+    snapshot.father,
+    snapshot.mother,
+    ...snapshot.fatherWives,
+    ...snapshot.motherHusbands,
+    snapshot.grandparents.paternalGrandfather,
+    snapshot.grandparents.paternalGrandmother,
+    snapshot.grandparents.maternalGrandfather,
+    snapshot.grandparents.maternalGrandmother,
+    ...(Object.keys(snapshot.relatives) as RelativeKind[]).flatMap((kind) => snapshot.relatives[kind]),
+  ].filter((member) => !member.nidUnavailable);
 }

@@ -45,8 +45,10 @@ import { ROUTES } from '@/config/routes';
 import {
   EMPTY_GUARDIAN,
   EMPTY_MEMBER,
+  DUPLICATE_FAMILY_NATIONAL_ID_MESSAGE,
   formatMemberName,
   HOUSEWIFE_PROFESSION,
+  hasDuplicateFamilyNationalId,
   isBirthLocalityRequired,
   PROFESSION_OPTIONS,
   RELATIVE_LABEL,
@@ -79,6 +81,10 @@ import { cn } from '@/shared/lib/cn';
 const MEMBERSHIP_PROFESSIONS = new Set(['police_officer', 'army_officer']);
 const FEMALE_ONLY_PROFESSIONS = new Set([HOUSEWIFE_PROFESSION]);
 type FamilyMemberGender = 'male' | 'female';
+type FamilyDraftPatch = Partial<Pick<
+  FamilyDataSnapshot,
+  'father' | 'mother' | 'fatherWives' | 'motherHusbands' | 'grandparents' | 'relatives' | 'guardian'
+>>;
 
 const QUALIFICATION_OPTIONS = [
   { value: '', label: '— اختر —' },
@@ -223,6 +229,7 @@ export function Stage7FamilyPage(): JSX.Element {
   const guardianOk =
     savedGuardian &&
     guardian.firstName.length >= 2 &&
+    isStrictNationalId(guardian.nationalId ?? '') &&
     guardian.profession.length > 0 &&
     guardian.qualification.length > 0;
 
@@ -303,7 +310,7 @@ export function Stage7FamilyPage(): JSX.Element {
       }
       setSavedRelatives((prev) => ({ ...prev, ...restoredSaved }));
     }
-    if (f.guardian?.firstName) { setGuardian(f.guardian); setSavedGuardian(true); }
+    if (f.guardian?.firstName) { setGuardian({ ...EMPTY_GUARDIAN, ...f.guardian }); setSavedGuardian(true); }
 
     setFormKey((k) => k + 1);
   }, [draft]);
@@ -332,11 +339,13 @@ export function Stage7FamilyPage(): JSX.Element {
     hasFatherWives,
     hasMotherHusbands,
   };
+  const duplicateNationalId = hasDuplicateFamilyNationalId(familySnapshot);
   const canApprove =
     fatherWivesOk &&
     motherHusbandsOk &&
     relativesOk &&
     guardianOk &&
+    !duplicateNationalId &&
     canApproveFamilySnapshot(familySnapshot);
   const sectionNavItems = buildFamilySectionNavItems({
     savedFather,
@@ -372,6 +381,10 @@ export function Stage7FamilyPage(): JSX.Element {
   /* Snapshot all family state to sessionStorage and persist to the
    * backend, then hand off to the review step for summary + اعتماد. */
   const onContinueToReview = (): void => {
+    if (duplicateNationalId) {
+      toast(DUPLICATE_FAMILY_NATIONAL_ID_MESSAGE, 'warning');
+      return;
+    }
     if (!canApprove) {
       toast('أكمل الحقول المطلوبة واحفظ كل بيانات العائلة قبل المتابعة', 'warning');
       return;
@@ -401,6 +414,11 @@ export function Stage7FamilyPage(): JSX.Element {
         ...patch,
       },
     } as Parameters<typeof applicantPortalService.saveDraft>[1]);
+  };
+  const rejectDuplicateNationalId = (patch: FamilyDraftPatch): boolean => {
+    if (!hasDuplicateFamilyNationalId({ ...familySnapshot, ...patch })) return false;
+    toast(DUPLICATE_FAMILY_NATIONAL_ID_MESSAGE, 'warning');
+    return true;
   };
 
   return (
@@ -468,6 +486,7 @@ export function Stage7FamilyPage(): JSX.Element {
             childDob={applicantDob}
             onChange={setFather}
             onSave={(values) => {
+              if (rejectDuplicateNationalId({ father: values })) return;
               setSavedFather(true);
               persistFamily({ father: values });
               toast('تم حفظ بيانات الأب', 'success');
@@ -508,6 +527,7 @@ export function Stage7FamilyPage(): JSX.Element {
             }}
             onSave={(i, values) => {
               const updated = fatherWives.map((f, idx) => (idx === i ? values : f));
+              if (rejectDuplicateNationalId({ fatherWives: updated })) return;
               setSavedFatherWives((xs) => xs.map((s, idx) => (idx === i ? true : s)));
               persistFamily({ fatherWives: updated });
               toast(`تم حفظ بيانات زوجة الأب رقم ${i + 1}`, 'success');
@@ -527,6 +547,7 @@ export function Stage7FamilyPage(): JSX.Element {
             childDob={applicantDob}
             onChange={setMother}
             onSave={(values) => {
+              if (rejectDuplicateNationalId({ mother: values })) return;
               setSavedMother(true);
               persistFamily({ mother: values });
               toast('تم حفظ بيانات الأم', 'success');
@@ -567,6 +588,7 @@ export function Stage7FamilyPage(): JSX.Element {
             }}
             onSave={(i, values) => {
               const updated = motherHusbands.map((m, idx) => (idx === i ? values : m));
+              if (rejectDuplicateNationalId({ motherHusbands: updated })) return;
               setSavedMotherHusbands((xs) => xs.map((s, idx) => (idx === i ? true : s)));
               persistFamily({ motherHusbands: updated });
               toast(`تم حفظ بيانات زوج الأم رقم ${i + 1}`, 'success');
@@ -583,11 +605,13 @@ export function Stage7FamilyPage(): JSX.Element {
             onChange={setGrandparents}
             onSaveOne={(key, values) => {
               const updated = { ...grandparents, [key]: values };
+              if (rejectDuplicateNationalId({ grandparents: updated })) return;
               setSavedGrandparents((s) => ({ ...s, [key]: true }));
               persistFamily({ grandparents: updated });
               toast('تم حفظ البيانات', 'success');
             }}
             onSaveAll={() => {
+              if (rejectDuplicateNationalId({ grandparents })) return;
               setSavedGrandparents({
                 paternalGrandfather: true,
                 paternalGrandmother: true,
@@ -616,11 +640,13 @@ export function Stage7FamilyPage(): JSX.Element {
               }
               onSave={(i, values) => {
                 const updated = relatives[kind].map((m, idx) => (idx === i ? values : m));
+                const nextRelatives = { ...relatives, [kind]: updated };
+                if (rejectDuplicateNationalId({ relatives: nextRelatives })) return;
                 setSavedRelatives((s) => ({
                   ...s,
                   [kind]: s[kind].map((v, idx) => (idx === i ? true : v)),
                 }));
-                persistFamily({ relatives: { ...relatives, [kind]: updated } });
+                persistFamily({ relatives: nextRelatives });
                 toast('تم حفظ البيانات', 'success');
               }}
             />
@@ -641,6 +667,7 @@ export function Stage7FamilyPage(): JSX.Element {
               relatives,
             })}
             onSave={(values) => {
+              if (rejectDuplicateNationalId({ guardian: values })) return;
               setSavedGuardian(true);
               persistFamily({ guardian: values });
               toast('تم حفظ بيانات ولي الأمر', 'success');
@@ -660,6 +687,8 @@ export function Stage7FamilyPage(): JSX.Element {
             <p className="mt-1 text-2xs text-ink-500">
               {canApprove
                 ? 'كل البيانات مكتملة — انتقل لعرض الملخّص والاعتماد.'
+                : duplicateNationalId
+                  ? DUPLICATE_FAMILY_NATIONAL_ID_MESSAGE
                 : 'أكمل الأقسام التي تظهر بحالة «ناقص» واحفظها قبل الانتقال للمراجعة.'}
             </p>
           </div>
@@ -1284,13 +1313,14 @@ function buildGuardianFamilyMemberOptions(input: {
 }
 
 /** Map a FamilyMemberForm into the GuardianForm shape — copies the
- * five fields the two records share. The textarea/details fields fall
+ * fields the two records share. The textarea/details fields fall
  * back to empty strings when the source doesn't carry them. */
 function familyMemberToGuardian(m: FamilyMemberForm): GuardianForm {
   return {
     firstName: m.firstName,
     secondName: m.secondName,
     thirdName: m.thirdName,
+    nationalId: m.nationalId,
     profession: m.profession,
     seniorityNumber: m.seniorityNumber ?? '',
     qualification: m.qualification,
@@ -1418,6 +1448,17 @@ function GuardianFormCard({
             error={errors.thirdName?.message}
           />
         </div>
+        <Input
+          label="الرقم القومي"
+          required
+          dir="ltr"
+          placeholder="14 رقماً"
+          maxLength={14}
+          disabled={guardianLocked}
+          {...register('nationalId', { validate: validateNationalIdField })}
+          error={errors.nationalId?.message}
+          containerClassName="md:col-span-2"
+        />
         <Select
           label="الوظيفة"
           required

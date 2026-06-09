@@ -595,6 +595,7 @@ function readGuardian(rawGuardian: unknown): GuardianForm | undefined {
     firstName: readString(rawGuardian, 'firstName') || fullName,
     secondName: readString(rawGuardian, 'secondName'),
     thirdName: readString(rawGuardian, 'thirdName'),
+    nationalId: readString(rawGuardian, 'nationalId'),
     profession: readString(rawGuardian, 'profession') || readString(rawGuardian, 'occupation'),
     seniorityNumber: readString(rawGuardian, 'seniorityNumber'),
     qualification: readString(rawGuardian, 'qualification') || readString(rawGuardian, 'education'),
