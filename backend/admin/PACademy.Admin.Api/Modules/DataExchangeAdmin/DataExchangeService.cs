@@ -39,7 +39,6 @@ public sealed class DataExchangeService(
     private const string Module = "data-exchange";
     private const string ImportSource = "data-exchange-import";
     private const string AuditEntityType = "data-exchange";
-    private const string DefaultExamScheduleTime = "08:00";
 
     private static readonly string[] TrackingColumns =
         ["created_at", "updated_at", "row_version", "last_modified_by", "source_system", "checksum"];
@@ -855,8 +854,8 @@ public sealed class DataExchangeService(
         {
             ExchangeStorage.DocStore => await LoadDocStoreAsync(spec, cycleId, ct),
             ExchangeStorage.Lookups => await LoadLookupsAsync(ct),
-            ExchangeStorage.AdmissionRules => await LoadAdmissionRulesAsync(ct),
-            ExchangeStorage.Exams => await LoadExamsAsync(ct),
+            ExchangeStorage.AdmissionRules => await LoadAdmissionConditionsAsync(cycleId, ct),
+            ExchangeStorage.Exams => await LoadExamsAsync(cycleId, ct),
             ExchangeStorage.ExamSlots => await LoadExamSchedulesAsync(cycleId, ct),
             _ => [],
         },
@@ -1117,14 +1116,26 @@ public sealed class DataExchangeService(
         }).ToList();
     }
 
-    private async Task<IReadOnlyList<LoadedRow>> LoadAdmissionRulesAsync(CancellationToken ct)
+    private async Task<IReadOnlyList<LoadedRow>> LoadAdmissionConditionsAsync(string? cycleId, CancellationToken ct)
     {
-        var rows = await db.AdmissionRules.AsNoTracking().ToListAsync(ct);
+        var rows = new List<LoadedRow>();
+        rows.AddRange(await LoadAdmissionRulesAsync(cycleId, ct));
+        rows.AddRange(await LoadCycleApplicationSettingsAsync(cycleId, ct));
+        return rows;
+    }
+
+    private async Task<IReadOnlyList<LoadedRow>> LoadAdmissionRulesAsync(string? cycleId, CancellationToken ct)
+    {
+        var rows = await db.AdmissionRules
+            .AsNoTracking()
+            .Where(x => string.IsNullOrWhiteSpace(cycleId) || x.CycleId == cycleId)
+            .ToListAsync(ct);
         return rows.Select(x =>
         {
             var bk = $"{x.CycleId}|{x.Version}";
             var data = new Dictionary<string, string?>(StringComparer.Ordinal)
             {
+                ["record_type"] = "admission_rule",
                 ["cycle_id"] = x.CycleId, ["version"] = x.Version.ToString(CultureInfo.InvariantCulture),
             };
             foreach (var (k, v) in JsonFlatten.Flatten(ParseObject(x.PayloadJson)))
@@ -1133,11 +1144,46 @@ public sealed class DataExchangeService(
         }).ToList();
     }
 
-    private async Task<IReadOnlyList<LoadedRow>> LoadExamsAsync(CancellationToken ct)
+    private async Task<IReadOnlyList<LoadedRow>> LoadCycleApplicationSettingsAsync(string? cycleId, CancellationToken ct)
     {
-        var rows = await db.Exams.AsNoTracking().ToListAsync(ct);
+        if (string.IsNullOrWhiteSpace(cycleId)) return [];
+
+        var module = $"admissionSetup.applicationSettings.{cycleId}";
+        JsonObject? payload;
+        try { payload = await records.GetAsync(module, module, ct); }
+        catch (InvalidOperationException) { return []; }
+        if (payload is null) return [];
+
+        var data = new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            ["record_type"] = "application_settings",
+            ["cycleId"] = cycleId,
+        };
+        foreach (var (key, value) in JsonFlatten.Flatten(payload))
+            if (!NonDataColumns.Contains(key)) data[key] = value;
+
+        var updated = ParseDto(payload["updatedAt"] ?? payload["updated_at"]) ?? default;
+        var created = ParseDto(payload["createdAt"] ?? payload["created_at"]) ?? updated;
+        return [Loaded(module, module, data, created, updated, [], null, "admission-setup")];
+    }
+
+    private async Task<IReadOnlyList<LoadedRow>> LoadExamsAsync(string? cycleId, CancellationToken ct)
+    {
+        var rows = new List<LoadedRow>();
+        rows.AddRange(await LoadExamEntitiesAsync(cycleId, ct));
+        rows.AddRange(await LoadExamPlansAsync(cycleId, ct));
+        return rows;
+    }
+
+    private async Task<IReadOnlyList<LoadedRow>> LoadExamEntitiesAsync(string? cycleId, CancellationToken ct)
+    {
+        var rows = await db.Exams
+            .AsNoTracking()
+            .Where(x => string.IsNullOrWhiteSpace(cycleId) || x.CycleId == cycleId)
+            .ToListAsync(ct);
         return rows.Select(x => Loaded(x.Id, x.Id, new Dictionary<string, string?>(StringComparer.Ordinal)
         {
+            ["record_type"] = "exam",
             ["name_ar"] = x.NameAr, ["cycle_id"] = x.CycleId, ["cycle_name"] = x.CycleName, ["scheduled_for"] = x.ScheduledFor,
             ["access_start_at"] = x.AccessStartAt, ["access_end_at"] = x.AccessEndAt,
             ["duration_minutes"] = x.DurationMinutes?.ToString(CultureInfo.InvariantCulture),
@@ -1146,6 +1192,52 @@ public sealed class DataExchangeService(
             ["random_question_order"] = x.RandomQuestionOrder?.ToString().ToLowerInvariant(),
             ["display_mode"] = x.DisplayMode, ["status"] = x.Status,
         }, x.CreatedAt, x.UpdatedAt, x.RowVersion, x.LastModifiedBy, x.SourceSystem)).ToList();
+    }
+
+    private async Task<IReadOnlyList<LoadedRow>> LoadExamPlansAsync(string? cycleId, CancellationToken ct)
+    {
+        IReadOnlyList<JsonObject> plans;
+        try { plans = await records.ListAsync("examPlans", ct); }
+        catch (InvalidOperationException) { return []; }
+
+        var result = new List<LoadedRow>();
+        foreach (var plan in plans)
+        {
+            if (AdminRecordJson.IsSoftDeleted(plan)) continue;
+            if (!MatchesCycle(FirstString(plan, "cycleId", "admissionCycleId", "cycle_id"), cycleId)) continue;
+            result.AddRange(ToExamPlanRows(plan));
+        }
+        return result;
+    }
+
+    private static IReadOnlyList<LoadedRow> ToExamPlanRows(JsonObject plan)
+    {
+        var cycleId = FirstString(plan, "cycleId", "admissionCycleId", "cycle_id");
+        var categoryId = FirstString(plan, "categoryId", "categoryKey", "applicantCategory");
+        var updated = ParseDto(plan["updatedAt"] ?? plan["updated_at"]) ?? default;
+        var created = ParseDto(plan["createdAt"] ?? plan["created_at"]) ?? updated;
+        var source = plan["sourceSystem"]?.ToString();
+        var rows = new List<LoadedRow>();
+        var order = 0;
+
+        foreach (var node in plan["exams"] as JsonArray ?? [])
+        {
+            if (node is not JsonObject exam) continue;
+            order++;
+            var examId = FirstString(exam, "examId", "id", "key", "code") ?? $"exam-{order}";
+            var businessKey = Compose(Compose(cycleId, categoryId), examId);
+            var data = new Dictionary<string, string?>(StringComparer.Ordinal)
+            {
+                ["record_type"] = "exam_plan",
+                ["cycleId"] = cycleId,
+                ["categoryId"] = categoryId,
+                ["examId"] = examId,
+            };
+            foreach (var (key, value) in JsonFlatten.Flatten(exam))
+                if (!NonDataColumns.Contains(key)) data[key] = value;
+            rows.Add(Loaded(businessKey, businessKey, data, created, updated, [], null, source ?? "exam-plans"));
+        }
+        return rows;
     }
 
     private async Task<IReadOnlyList<LoadedRow>> LoadExamSchedulesAsync(string? cycleId, CancellationToken ct)
@@ -1176,7 +1268,6 @@ public sealed class DataExchangeService(
         var data = new Dictionary<string, string?>(StringComparer.Ordinal);
         foreach (var (key, value) in JsonFlatten.Flatten(payload))
             if (!NonDataColumns.Contains(key)) data[key] = value;
-        data["time"] = FirstString(payload, "time", "slotTime", "examTime") ?? DefaultExamScheduleTime;
         var id = FirstString(payload, "id") ?? FirstString(payload, "dayId") ?? "";
         var businessKey = string.IsNullOrWhiteSpace(id)
             ? Compose(FirstString(payload, "cycleId"), FirstString(payload, "date", "day", "examDate"))

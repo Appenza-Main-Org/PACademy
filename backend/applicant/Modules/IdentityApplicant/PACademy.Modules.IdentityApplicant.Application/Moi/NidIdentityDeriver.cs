@@ -18,7 +18,7 @@ namespace PACademy.Modules.IdentityApplicant.Application.Moi;
 /// </summary>
 public static class NidIdentityDeriver
 {
-    private static readonly string[] NamePool =
+    private static readonly string[] MaleNamePool =
     [
         "محمد إبراهيم سعد",
         "يوسف أحمد محمد",
@@ -26,6 +26,16 @@ public static class NidIdentityDeriver
         "عمر مصطفى الشيخ",
         "كريم مجدي عبد الله",
         "محمود فؤاد العقاد",
+    ];
+
+    private static readonly string[] FemaleNamePool =
+    [
+        "مريم عادل منصور",
+        "فاطمة أحمد السيد",
+        "نورهان محمود سعيد",
+        "سارة عبد الله حسن",
+        "هبة علي إبراهيم",
+        "ياسمين خالد فؤاد",
     ];
 
     private static readonly Dictionary<string, string> GovMap = new()
@@ -70,7 +80,11 @@ public static class NidIdentityDeriver
         var hash = Djb2(nationalId);
         var lastDigit = sequence[^1] - '0';
         var gender = lastDigit % 2 == 0 ? "female" : "male";
-        var fullName = NamePool[hash % NamePool.Length];
+        // Pick a gender-matched name — the NID's gender digit is authoritative, so
+        // a female NID must not get a male name (which would land the applicant in
+        // a (طالبات)/(طلاب) committee that contradicts the name).
+        var pool = gender == "female" ? FemaleNamePool : MaleNamePool;
+        var fullName = pool[hash % pool.Length];
         var governorate = GovMap.GetValueOrDefault(gov, "غير محددة");
         var arCulture = CultureInfo.GetCultureInfo("ar-EG");
 

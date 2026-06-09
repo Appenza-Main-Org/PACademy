@@ -607,7 +607,7 @@ public sealed class DataExchangeServiceTests
         await SeedCycleAsync(db, "CYC-ACTIVE", true);
         await SeedCycleAsync(db, "CYC-CLOSED", false);
         await SeedOperationalAsync(db, "committeeInstances", "CI-ACTIVE",
-            """{"id":"CI-ACTIVE","cycleId":"CYC-ACTIVE","categoryKey":"law_bachelor","definitionCode":"CMT-LAW","date":"2026-06-17","time":"09:30","capacity":50,"reserved":4}""");
+            """{"id":"CI-ACTIVE","cycleId":"CYC-ACTIVE","categoryKey":"law_bachelor","definitionCode":"CMT-LAW","date":"2026-06-17","capacity":50,"reserved":4}""");
         await SeedOperationalAsync(db, "committeeInstances", "CI-CLOSED",
             """{"id":"CI-CLOSED","cycleId":"CYC-CLOSED","categoryKey":"law_bachelor","definitionCode":"CMT-LAW","date":"2026-07-01","capacity":50,"reserved":8}""");
         await SeedOperationalAsync(db, "committeeInstances", "CI-LEGACY",
@@ -624,12 +624,42 @@ public sealed class DataExchangeServiceTests
             default);
 
         var committeeIds = export.Sheets.Single(s => s.Domain == "Committees").Rows.Select(r => r["business_key"]!).ToArray();
-        var scheduleRows = export.Sheets.Single(s => s.Domain == "ExamSchedules").Rows;
-        var scheduleIds = scheduleRows.Select(r => r["business_key"]!).ToArray();
+        var scheduleIds = export.Sheets.Single(s => s.Domain == "ExamSchedules").Rows.Select(r => r["business_key"]!).ToArray();
         Assert.Equal(["CI-ACTIVE"], committeeIds);
         Assert.Equal(["CI-ACTIVE", "DAY-ACTIVE"], scheduleIds);
-        Assert.Equal("09:30", scheduleRows.Single(r => r["business_key"] == "CI-ACTIVE")["time"]);
-        Assert.Equal("08:00", scheduleRows.Single(r => r["business_key"] == "DAY-ACTIVE")["time"]);
+    }
+
+    [Fact]
+    public async Task Export_includes_cycle_exam_plans_and_application_settings_conditions()
+    {
+        var (svc, db) = Create();
+        await SeedCycleAsync(db, "CYC-ACTIVE", true);
+        await SeedCycleAsync(db, "CYC-CLOSED", false);
+        await SeedOperationalAsync(db, "examPlans", "EP-CYC-ACTIVE-law_bachelor",
+            """{"id":"EP-CYC-ACTIVE-law_bachelor","cycleId":"CYC-ACTIVE","categoryId":"law_bachelor","updatedAt":"2026-06-01T00:00:00Z","exams":[{"examId":"TST-01","order":1,"isRequired":true},{"examId":"TST-02","order":2,"isRequired":false}]}""");
+        await SeedOperationalAsync(db, "examPlans", "EP-CYC-CLOSED-law_bachelor",
+            """{"id":"EP-CYC-CLOSED-law_bachelor","cycleId":"CYC-CLOSED","categoryId":"law_bachelor","updatedAt":"2026-06-01T00:00:00Z","exams":[{"examId":"TST-99","order":1,"isRequired":true}]}""");
+        await SeedOperationalAsync(db, "admissionSetup.applicationSettings.CYC-ACTIVE", "admissionSetup.applicationSettings.CYC-ACTIVE",
+            """{"id":"admissionSetup.applicationSettings.CYC-ACTIVE","cycleId":"CYC-ACTIVE","version":1,"updatedAt":"2026-06-01T00:00:00Z","headers":{"law_bachelor":{"applicationStart":"2026-06-01","applicationEnd":"2026-06-30","ageMin":20,"maxAge":28}},"approved":[{"id":"COND-1","category":"law_bachelor","gradeKind":"GRADES","minPercentage":65}],"local":[]}""");
+
+        var result = await svc.ExportAsync(
+            [ExchangeDomain.Exams, ExchangeDomain.AdmissionConditions],
+            "single-workbook",
+            ExportFilter.Default,
+            default);
+
+        var exams = result.Sheets.Single(s => s.Domain == "Exams");
+        var conditions = result.Sheets.Single(s => s.Domain == "AdmissionConditions");
+
+        Assert.Equal(2, exams.Rows.Count);
+        Assert.All(exams.Rows, row => Assert.Equal("CYC-ACTIVE", row["cycleId"]));
+        Assert.Contains(exams.Rows, row => row["examId"] == "TST-01" && row["categoryId"] == "law_bachelor");
+        Assert.DoesNotContain(exams.Rows, row => row.TryGetValue("examId", out var examId) && examId == "TST-99");
+
+        var condition = Assert.Single(conditions.Rows);
+        Assert.Equal("application_settings", condition["record_type"]);
+        Assert.Equal("CYC-ACTIVE", condition["cycleId"]);
+        Assert.Contains("\"minPercentage\":65", condition["approved"]!);
     }
 
     [Fact]

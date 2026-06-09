@@ -56,6 +56,7 @@ import {
   type GuardianForm,
   type RelativeKind,
 } from '../lib/familyData';
+import { cn } from '@/shared/lib/cn';
 import { year as fmtYear } from '@/shared/lib/format';
 
 export function ApplicantPortalPage(): JSX.Element {
@@ -403,17 +404,18 @@ function Row({
   containerClassName?: string;
 }): JSX.Element {
   return (
-    <div className={containerClassName}>
+    <div className={cn('min-w-0', containerClassName)}>
       <dt className="text-2xs uppercase tracking-wide text-ink-500">{label}</dt>
       <dd
-        className={
-          'mt-0.5 text-sm font-medium text-ink-900 ' +
+        className={cn(
+          'mt-0.5 max-w-full whitespace-normal text-sm font-medium leading-normal text-ink-900',
+          '[overflow-wrap:anywhere] [word-break:break-word]',
           /* LTR values (digits, emails) need text-end so they align to
            * the right edge of the column under the RTL right-aligned
            * label — without it they hug the left edge. */
-          (ltr ? 'text-end ' : '') +
-          (mono ? 'font-mono' : '')
-        }
+          ltr && 'text-end',
+          mono && 'font-mono',
+        )}
         dir={ltr ? 'ltr' : undefined}
       >
         {value}
@@ -470,7 +472,7 @@ function FamilySection({
         )}
       </header>
       {familyRows.length > 0 ? (
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid min-w-0 items-stretch gap-3 md:grid-cols-2">
           {familyRows.map((row) => (
             <FamilyMemberPanel key={row.key} relation={row.relation} member={row.member} />
           ))}
@@ -493,12 +495,12 @@ function FamilyMemberPanel({
   member: FamilyMemberForm;
 }): JSX.Element {
   return (
-    <div className="rounded-md border border-border-subtle bg-surface-page px-4 py-3">
+    <div className="flex h-full min-w-0 flex-col rounded-md border border-border-subtle bg-surface-page px-4 py-3">
       <p className="text-2xs font-bold uppercase tracking-wide text-ink-500">{relation}</p>
-      <p className="mt-1 font-ar-display text-sm font-bold text-ink-900">
+      <p className="mt-1 max-w-full whitespace-normal font-ar-display text-sm font-bold leading-normal text-ink-900 [overflow-wrap:anywhere] [word-break:break-word]">
         {formatMemberName(member)}
       </p>
-      <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+      <dl className="mt-3 grid min-w-0 flex-1 grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
         <Row label="الرقم القومي" value={member.nationalId || member.nidUnavailableReason || '—'} ltr mono />
         <Row label="الديانة" value={member.religion || '—'} />
         <Row label="تاريخ الميلاد" value={member.dateOfBirth || '—'} ltr />
@@ -520,12 +522,12 @@ function FamilyMemberPanel({
 
 function GuardianPanel({ guardian }: { guardian: GuardianForm }): JSX.Element {
   return (
-    <div className="rounded-md border border-border-subtle bg-surface-page px-4 py-3">
+    <div className="flex h-full min-w-0 flex-col rounded-md border border-border-subtle bg-surface-page px-4 py-3">
       <p className="text-2xs font-bold uppercase tracking-wide text-ink-500">ولي الأمر</p>
-      <p className="mt-1 font-ar-display text-sm font-bold text-ink-900">
+      <p className="mt-1 max-w-full whitespace-normal font-ar-display text-sm font-bold leading-normal text-ink-900 [overflow-wrap:anywhere] [word-break:break-word]">
         {formatGuardianName(guardian)}
       </p>
-      <dl className="mt-3 grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+      <dl className="mt-3 grid min-w-0 flex-1 grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
         <Row label="الرقم القومي" value={guardian.nationalId || '—'} ltr mono />
         <Row label="المهنة" value={professionLabel(guardian.profession)} />
         <Row label="رقم الأقدمية" value={guardian.seniorityNumber || '—'} ltr mono />

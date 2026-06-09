@@ -25,6 +25,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Eye, FileCheck, Lock, Printer, Save } from 'lucide-react';
 import { Button, Drawer, ErrorState, LoadingState, toast } from '@/shared/components';
+import { validateNationalIdGenderField } from '@/shared/lib/national-id';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import {
   useAcquaintanceDoc,
@@ -79,6 +80,31 @@ const OFFICER_PROFESSIONS = new Set(['police_officer', 'army_officer']);
 function isOfficer(profession: string | undefined): boolean {
   return profession ? OFFICER_PROFESSIONS.has(profession) : false;
 }
+
+const MALE_RELATIVE_LIST_KEYS = new Set([
+  'fullBrothers',
+  'halfBrothers',
+  'brothersSons',
+  'sistersSons',
+  'paternalUncles',
+  'paternalUnclesSons',
+  'paternalAuntsSons',
+  'maternalUncles',
+  'maternalUnclesSons',
+  'maternalAuntsSons',
+]);
+const FEMALE_RELATIVE_LIST_KEYS = new Set([
+  'brothersDaughters',
+  'fullSisters',
+  'halfSisters',
+  'sistersDaughters',
+  'paternalUnclesDaughters',
+  'paternalAunts',
+  'paternalAuntsDaughters',
+  'maternalUnclesDaughters',
+  'maternalAunts',
+  'maternalAuntsDaughters',
+]);
 
 /* ────────────────────────────────────────────────────────────────────
  * Guardian picker (نموذج 3) — copies an existing family member into
@@ -1455,6 +1481,10 @@ function validateApplicantFamily(doc: VothiqaTaarufDocument): string | null {
       }
     }
   }
+  const sonsNationalIdError = validateRelativeListNationalIds(doc.applicantFamily.sons, 'male');
+  if (sonsNationalIdError) return sonsNationalIdError;
+  const daughtersNationalIdError = validateRelativeListNationalIds(doc.applicantFamily.daughters, 'female');
+  if (daughtersNationalIdError) return daughtersNationalIdError;
   return null;
 }
 
@@ -1464,22 +1494,34 @@ function validateParents(doc: VothiqaTaarufDocument): string | null {
   if (!isFilled(f.dateOfBirth)) return 'يرجى استكمال «تاريخ ميلاد الوالد» في نموذج 2.';
   const fatherDobCheck = validateParentDob(f.dateOfBirth, doc.personal.personal.dateOfBirth);
   if (fatherDobCheck !== true) return fatherDobCheck;
+  const fatherNationalIdError = nationalIdGenderError(f.nationalId, 'male');
+  if (fatherNationalIdError) return fatherNationalIdError;
   if (isOfficer(f.profession) && !isFilled(f.seniorityNumber)) {
     return 'يرجى إدخال رقم الأقدمية للوالد (ضابط).';
   }
-  if (f.hasCurrentWife && isOfficer(f.currentWife.profession) && !isFilled(f.currentWife.seniorityNumber)) {
-    return 'يرجى إدخال رقم الأقدمية لزوجة الوالد (ضابطة).';
+  if (f.hasCurrentWife) {
+    const fatherWifeNationalIdError = nationalIdGenderError(f.currentWife.nationalId, 'female');
+    if (fatherWifeNationalIdError) return fatherWifeNationalIdError;
+    if (isOfficer(f.currentWife.profession) && !isFilled(f.currentWife.seniorityNumber)) {
+      return 'يرجى إدخال رقم الأقدمية لزوجة الوالد (ضابطة).';
+    }
   }
   const m = doc.parents.mother;
   if (!isFilled(m.fullName)) return 'يرجى استكمال «اسم الوالدة» في نموذج 4.';
   if (!isFilled(m.dateOfBirth)) return 'يرجى استكمال «تاريخ ميلاد الوالدة» في نموذج 4.';
   const motherDobCheck = validateParentDob(m.dateOfBirth, doc.personal.personal.dateOfBirth);
   if (motherDobCheck !== true) return motherDobCheck;
+  const motherNationalIdError = nationalIdGenderError(m.nationalId, 'female');
+  if (motherNationalIdError) return motherNationalIdError;
   if (isOfficer(m.profession) && !isFilled(m.seniorityNumber)) {
     return 'يرجى إدخال رقم الأقدمية للوالدة (ضابطة).';
   }
-  if (m.hasCurrentHusband && isOfficer(m.currentHusband.profession) && !isFilled(m.currentHusband.seniorityNumber)) {
-    return 'يرجى إدخال رقم الأقدمية لزوج الوالدة (ضابط).';
+  if (m.hasCurrentHusband) {
+    const motherHusbandNationalIdError = nationalIdGenderError(m.currentHusband.nationalId, 'male');
+    if (motherHusbandNationalIdError) return motherHusbandNationalIdError;
+    if (isOfficer(m.currentHusband.profession) && !isFilled(m.currentHusband.seniorityNumber)) {
+      return 'يرجى إدخال رقم الأقدمية لزوج الوالدة (ضابط).';
+    }
   }
   if (f.deceased) {
     const g = doc.parents.guardian;
@@ -1494,12 +1536,12 @@ function validateParents(doc: VothiqaTaarufDocument): string | null {
 
 function validateGrandparents(doc: VothiqaTaarufDocument): string | null {
   const slots = [
-    ['paternalGrandfather', 'جد الطالب للوالد', doc.parents.father.dateOfBirth],
-    ['paternalGrandmother', 'جدة الطالب للوالد', doc.parents.father.dateOfBirth],
-    ['maternalGrandfather', 'جد الطالب للوالدة', doc.parents.mother.dateOfBirth],
-    ['maternalGrandmother', 'جدة الطالب للوالدة', doc.parents.mother.dateOfBirth],
+    ['paternalGrandfather', 'جد الطالب للوالد', doc.parents.father.dateOfBirth, 'male'],
+    ['paternalGrandmother', 'جدة الطالب للوالد', doc.parents.father.dateOfBirth, 'female'],
+    ['maternalGrandfather', 'جد الطالب للوالدة', doc.parents.mother.dateOfBirth, 'male'],
+    ['maternalGrandmother', 'جدة الطالب للوالدة', doc.parents.mother.dateOfBirth, 'female'],
   ] as const;
-  for (const [key, label, childDob] of slots) {
+  for (const [key, label, childDob, expectedGender] of slots) {
     const g = doc.grandparents[key];
     if (!isFilled(g.fullName)) return `يرجى استكمال اسم ${label}.`;
     if (!isFilled(g.alive)) return `يرجى تحديد حالة ${label} (على قيد الحياة / متوفى).`;
@@ -1507,6 +1549,8 @@ function validateGrandparents(doc: VothiqaTaarufDocument): string | null {
       const dobCheck = validateParentDob(g.dateOfBirth, childDob);
       if (dobCheck !== true) return dobCheck;
     }
+    const nationalIdError = nationalIdGenderError(g.nationalId, expectedGender);
+    if (nationalIdError) return nationalIdError;
     if (isOfficer(g.profession) && !isFilled(g.seniorityNumber)) {
       return `يرجى إدخال رقم الأقدمية لـ${label} (ضابط).`;
     }
@@ -1531,10 +1575,44 @@ function validateList(
         if (isOfficer(r.profession) && !isFilled(r.seniorityNumber)) {
           return `يرجى إدخال رقم الأقدمية لـ«${r.name ?? 'الفرد'}» (ضابط).`;
         }
+        const expectedGender = relativeListExpectedGender(key);
+        if (expectedGender) {
+          const nationalIdError = nationalIdGenderError(
+            (item as { nationalId?: string }).nationalId,
+            expectedGender,
+          );
+          if (nationalIdError) return nationalIdError;
+        }
       }
     }
   }
   return null;
+}
+
+function validateRelativeListNationalIds(
+  list: { items: { nationalId?: string }[] },
+  expectedGender: 'male' | 'female',
+): string | null {
+  for (const relative of list.items) {
+    const nationalIdError = nationalIdGenderError(relative.nationalId, expectedGender);
+    if (nationalIdError) return nationalIdError;
+  }
+  return null;
+}
+
+function relativeListExpectedGender(key: string): 'male' | 'female' | null {
+  if (MALE_RELATIVE_LIST_KEYS.has(key)) return 'male';
+  if (FEMALE_RELATIVE_LIST_KEYS.has(key)) return 'female';
+  return null;
+}
+
+function nationalIdGenderError(
+  nationalId: string | undefined,
+  expectedGender: 'male' | 'female',
+): string | null {
+  if (!isFilled(nationalId)) return null;
+  const validationResult = validateNationalIdGenderField(nationalId, expectedGender);
+  return validationResult === true ? null : validationResult;
 }
 
 function validateForeignAndCases(doc: VothiqaTaarufDocument): string | null {

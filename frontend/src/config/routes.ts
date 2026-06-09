@@ -180,6 +180,8 @@ export const ROUTES = {
     history: '/biometric/history',
     verifyOps: '/biometric/verify-ops',
     monitoring: '/biometric/monitoring',
+    zkDirectory: '/biometric/zk-directory',
+    zkGates: '/biometric/zk-gates',
   },
   questionBank: {
     overview: '/question-bank',

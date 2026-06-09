@@ -73,23 +73,37 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
             : 0;
         var retake = BoolProp(input, "retake");
 
+        // The ZK terminal accepts a 9-digit emp_code only (the 14-digit national id
+        // and the 36-char GUID are both rejected at the device). We mint a unique
+        // 9-digit device code per applicant and keep the national id as the identity.
+        var nationalId = AdminRecordJson.StringProp(input, "nationalId");
+        if (string.IsNullOrWhiteSpace(nationalId))
+            nationalId = await ApplicantNationalIdByIdAsync(applicantId, ct);
+        var enrollName = await ApplicantNameByIdAsync(applicantId, ct);
+        var deviceEmpCode = await ResolveOrGenerateDeviceEmpCodeAsync(applicantId, ct);
+
         var templateRefs = new List<string>();
         var fingerprintTemplates = new JsonArray();
         string? faceTemplateRef = null;
+        string? deviceEmpId = null;
         var livenessConfirmed = false;
         if (face)
         {
-            var cap = await device.CaptureAsync(new BiometricCaptureRequest(applicantId, "face", null), ct);
+            var cap = await device.CaptureAsync(new BiometricCaptureRequest(
+                applicantId, "face", null, EmpCode: deviceEmpCode, DisplayName: enrollName), ct);
             templateRefs.Add(cap.TemplateRef);
             faceTemplateRef = cap.TemplateRef;
             livenessConfirmed = cap.LivenessConfirmed;
+            deviceEmpId ??= cap.DeviceEmpId;
         }
         if (fingerprint)
         {
             for (var index = 1; index <= fingerprintCount; index++)
             {
                 var modality = fingerprintCount == 1 ? "fingerprint" : $"fingerprint-{index}";
-                var cap = await device.CaptureAsync(new BiometricCaptureRequest(applicantId, modality, null), ct);
+                var cap = await device.CaptureAsync(new BiometricCaptureRequest(
+                    applicantId, modality, null, EmpCode: deviceEmpCode, DisplayName: enrollName), ct);
+                deviceEmpId ??= cap.DeviceEmpId;
                 templateRefs.Add(cap.TemplateRef);
                 fingerprintTemplates.Add(new JsonObject
                 {
@@ -103,14 +117,21 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
         var status = face && fingerprint ? "enrolled" : face || fingerprint ? "partial" : "not_enrolled";
         var now = NowMs();
         var applicantName = await ApplicantNameByIdAsync(applicantId, ct);
-        var id = $"BIO-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+        // Reuse the applicant's existing enrollment record (one per applicant) so
+        // re-enrolling updates it in place instead of leaving stale duplicates.
+        var existingEnrollment = LatestEnrollment(await records.ListAsync(EnrollmentsModule, ct), applicantId);
+        var id = existingEnrollment is not null
+            ? AdminRecordJson.StringProp(existingEnrollment, "id") ?? $"BIO-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}"
+            : $"BIO-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
 
         var record = new JsonObject
         {
             ["id"] = id,
             ["applicantId"] = applicantId,
             ["applicantName"] = applicantName,
-            ["nationalId"] = AdminRecordJson.StringProp(input, "nationalId") ?? "",
+            ["nationalId"] = nationalId ?? "",
+            ["deviceEmpCode"] = deviceEmpCode,
+            ["deviceEmpId"] = deviceEmpId,
             ["barcode"] = AdminRecordJson.StringProp(input, "barcode") ?? applicantId,
             ["cycleId"] = AdminRecordJson.StringProp(input, "cycleId") ?? DefaultCycleId,
             ["enrolledAt"] = now,
@@ -239,7 +260,13 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
         }
         else
         {
-            var match = await device.MatchAsync(new BiometricMatchRequest(applicantId, method, AdminRecordJson.StringProp(lookup, "barcode"), null), ct);
+            var preMatched = BoolProp(input, "biometricMatched");
+            var match = preMatched
+                ? new BiometricMatchResult(IsMatch: true, Confidence: 100, Score: 100)
+                : await device.MatchAsync(new BiometricMatchRequest(
+                    applicantId, method, AdminRecordJson.StringProp(lookup, "barcode"), null,
+                    EmpCode: AdminRecordJson.StringProp(applicant, "nationalId"),
+                    TerminalSn: AdminRecordJson.StringProp(input, "terminalSn")), ct);
             confidence = match.Confidence;
             status = match.Score >= 88 ? "match" : match.Score >= 76 ? "manual_review_required" : "no_match";
             if (status == "manual_review_required") reason = "درجة التطابق أقل من حد الاعتماد الآلي";
@@ -484,12 +511,20 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
         IReadOnlyList<JsonObject>? gateLogs = null)
     {
         var applicantId = AdminRecordJson.StringProp(applicant, "id") ?? "";
-        var enrollment = enrollments.FirstOrDefault(e => AdminRecordJson.StringProp(e, "applicantId") == applicantId);
+        var enrollment = LatestEnrollment(enrollments, applicantId);
         var enrollmentStatus = enrollment is not null ? AdminRecordJson.StringProp(enrollment, "status") ?? "not_enrolled" : "not_enrolled";
         var status = AdminRecordJson.StringProp(applicant, "status");
-        var committee = AdminRecordJson.StringProp(applicant, "committee") ?? "";
+        // The real committee is `committeeName` (resolved from committee config);
+        // the legacy `committee` field holds the exam LOCATION on portal payloads.
+        var committeeName = AdminRecordJson.StringProp(applicant, "committeeName");
+        var examLocation = AdminRecordJson.StringProp(applicant, "committee");
+        var assignedCommitteeId = AdminRecordJson.StringProp(applicant, "assignedCommitteeId");
+        var committee = !string.IsNullOrWhiteSpace(committeeName) ? committeeName : (examLocation ?? "");
         var isStopped = status == "rejected" || status == "on-hold";
-        var canProceed = !isStopped && !string.IsNullOrWhiteSpace(committee);
+        var hasCommittee = !string.IsNullOrWhiteSpace(committeeName)
+            || !string.IsNullOrWhiteSpace(assignedCommitteeId)
+            || !string.IsNullOrWhiteSpace(examLocation);
+        var canProceed = !isStopped && hasCommittee;
 
         var lookup = new JsonObject
         {
@@ -500,6 +535,8 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
             ["currentExamDate"] = AdminRecordJson.StringProp(applicant, "currentExamDate") ?? DateTimeOffset.UtcNow.ToString("yyyy-MM-dd"),
             ["currentExamResult"] = AdminRecordJson.StringProp(applicant, "currentExamResult") ?? "لم تظهر",
             ["committee"] = committee,
+            ["committeeName"] = committeeName,
+            ["examLocation"] = examLocation,
             ["admissionStatus"] = status,
             ["enrollmentStatus"] = enrollmentStatus,
             ["academyVisitCount"] = CountGateVisits(gateLogs, applicantId),
@@ -588,6 +625,197 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
         var applicants = await records.ListAsync("applicants", ct);
         var applicant = applicants.FirstOrDefault(a => AdminRecordJson.StringProp(a, "id") == applicantId);
         return applicant is null ? "متقدم غير معروف" : ApplicantName(applicant);
+    }
+
+    private async Task<string?> ApplicantNationalIdByIdAsync(string applicantId, CancellationToken ct)
+    {
+        var applicants = await records.ListAsync("applicants", ct);
+        var applicant = applicants.FirstOrDefault(a => AdminRecordJson.StringProp(a, "id") == applicantId);
+        return applicant is null ? null : AdminRecordJson.StringProp(applicant, "nationalId");
+    }
+
+    /// <summary>
+    /// The applicant's effective enrollment record. Prefers a device-linked record
+    /// (one carrying a 9-digit device code), then the most recent by enrolledAt.
+    /// Applicant id is matched case-insensitively (GUIDs are stored mixed-case).
+    /// </summary>
+    private static JsonObject? LatestEnrollment(IReadOnlyList<JsonObject> enrollments, string applicantId) =>
+        enrollments
+            .Where(e => string.Equals(AdminRecordJson.StringProp(e, "applicantId"), applicantId, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(e => IsNineDigit(AdminRecordJson.StringProp(e, "deviceEmpCode")) ? 1 : 0)
+            .ThenByDescending(e => AdminRecordJson.NumberProp(e, "enrolledAt") ?? 0)
+            .FirstOrDefault();
+
+    private const long DeviceEmpCodeBase = 100_000_000; // first issued code = 100000001 (9 digits)
+
+    private static bool IsNineDigit(string? code) =>
+        code is { Length: 9 } && code.All(char.IsDigit);
+
+    /// <summary>
+    /// Reuse the applicant's existing 9-digit device code, or mint the next free
+    /// one. ZK terminals cap emp_code at 9 digits, so we cannot use the 14-digit
+    /// national id as the device code — we keep a separate unique device code.
+    /// </summary>
+    private async Task<string> ResolveOrGenerateDeviceEmpCodeAsync(string applicantId, CancellationToken ct)
+    {
+        var enrollments = await records.ListAsync(EnrollmentsModule, ct);
+
+        var mine = LatestEnrollment(enrollments, applicantId);
+        var existing = mine is null ? null : AdminRecordJson.StringProp(mine, "deviceEmpCode");
+        if (IsNineDigit(existing)) return existing!;
+
+        var maxCode = DeviceEmpCodeBase;
+        foreach (var e in enrollments)
+        {
+            var c = AdminRecordJson.StringProp(e, "deviceEmpCode");
+            if (IsNineDigit(c) && long.TryParse(c, out var n) && n > maxCode) maxCode = n;
+        }
+        var next = maxCode + 1;
+        if (next > 999_999_999)
+            throw new InvalidOperationException("نفدت أكواد الموظفين المكوّنة من ٩ أرقام");
+        return next.ToString();
+    }
+
+    /// <summary>
+    /// Resolve a device punch to a PACademy applicant id. Linkage precedence:
+    ///   1. the device-assigned employee id stored at enrollment (the canonical key),
+    ///   2. the device emp_code stored at enrollment,
+    ///   3. legacy fallback: emp_code equals the applicant's national id.
+    /// Returns null when the punch is not bound to any applicant.
+    /// </summary>
+    public async Task<string?> ResolvePunchApplicantIdAsync(int deviceEmpId, string empCode, CancellationToken ct)
+    {
+        var enrollments = await records.ListAsync(EnrollmentsModule, ct);
+        if (deviceEmpId > 0)
+        {
+            var byDevice = enrollments.FirstOrDefault(e =>
+                AdminRecordJson.StringProp(e, "deviceEmpId") == deviceEmpId.ToString());
+            if (byDevice is not null) return AdminRecordJson.StringProp(byDevice, "applicantId");
+        }
+        if (!string.IsNullOrWhiteSpace(empCode))
+        {
+            var byCode = enrollments.FirstOrDefault(e => AdminRecordJson.StringProp(e, "deviceEmpCode") == empCode);
+            if (byCode is not null) return AdminRecordJson.StringProp(byCode, "applicantId");
+
+            var applicants = await records.ListAsync("applicants", ct);
+            var byNid = applicants.FirstOrDefault(a => AdminRecordJson.StringProp(a, "nationalId") == empCode);
+            if (byNid is not null) return AdminRecordJson.StringProp(byNid, "id");
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Bind an existing ZK device employee (by device emp_code + device id) to a
+    /// PACademy applicant, so punches from that device record resolve to the
+    /// applicant — used when a biometric was enrolled on the terminal under a
+    /// different employee record. Creates or updates the applicant's enrollment.
+    /// </summary>
+    public async Task<JsonObject> BindDeviceEmployeeAsync(
+        string? applicantId, string? nationalId, string deviceEmpCode, int deviceEmpId, CancellationToken ct)
+    {
+        var applicants = await records.ListAsync("applicants", ct);
+        var applicant = applicants.FirstOrDefault(a =>
+            (!string.IsNullOrWhiteSpace(applicantId) && AdminRecordJson.StringProp(a, "id") == applicantId) ||
+            (!string.IsNullOrWhiteSpace(nationalId) && AdminRecordJson.StringProp(a, "nationalId") == nationalId))
+            ?? throw new InvalidOperationException("لم يتم العثور على المتقدم");
+
+        var appId = AdminRecordJson.StringProp(applicant, "id") ?? "";
+        var name = ApplicantName(applicant);
+        var nid = AdminRecordJson.StringProp(applicant, "nationalId");
+        var now = NowMs();
+
+        var enrollments = await records.ListAsync(EnrollmentsModule, ct);
+        var existing = enrollments.FirstOrDefault(e => AdminRecordJson.StringProp(e, "applicantId") == appId);
+        var id = existing is not null
+            ? AdminRecordJson.StringProp(existing, "id") ?? $"BIO-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}"
+            : $"BIO-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+        var record = existing is not null ? AdminRecordJson.Clone(existing) : new JsonObject();
+
+        record["id"] = id;
+        record["applicantId"] = appId;
+        record["applicantName"] = name;
+        record["nationalId"] = nid ?? "";
+        record["deviceEmpCode"] = deviceEmpCode;
+        record["deviceEmpId"] = deviceEmpId > 0 ? deviceEmpId.ToString() : null;
+        record["barcode"] ??= appId;
+        record["faceCaptured"] = true;
+        record["fingerprintCaptured"] = true;
+        record["status"] = "enrolled";
+        record["source"] = "device-bind";
+        record["enrolledAt"] ??= now;
+        record["updatedAt"] = now;
+
+        await records.UpsertAsync(EnrollmentsModule, id, record, ct);
+        await AppendAuditAsync("system", appId, name, "device_bind", "enrolled", now, ct);
+        return record;
+    }
+
+    /// <summary>
+    /// Batch-resolve device punches to {id, name}, keyed by emp_code, in a single
+    /// read of enrollments + applicants. Same precedence as
+    /// <see cref="ResolvePunchApplicantIdAsync"/> (device id → device code → national id).
+    /// Used by the realtime feed so punches keyed by a 9-digit device code resolve.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, JsonObject>> ResolvePunchesAsync(
+        IEnumerable<(int Emp, string EmpCode)> punches, CancellationToken ct)
+    {
+        var enrollments = await records.ListAsync(EnrollmentsModule, ct);
+        var applicants = await records.ListAsync("applicants", ct);
+
+        JsonObject? ById(string? id) => string.IsNullOrEmpty(id)
+            ? null
+            : applicants.FirstOrDefault(a => string.Equals(AdminRecordJson.StringProp(a, "id"), id, StringComparison.OrdinalIgnoreCase));
+
+        var map = new Dictionary<string, JsonObject>();
+        foreach (var (emp, empCode) in punches)
+        {
+            if (string.IsNullOrWhiteSpace(empCode) || map.ContainsKey(empCode)) continue;
+
+            JsonObject? applicant = null;
+            if (emp > 0)
+            {
+                var byDev = enrollments.FirstOrDefault(e => AdminRecordJson.StringProp(e, "deviceEmpId") == emp.ToString());
+                applicant = byDev is null ? null : ById(AdminRecordJson.StringProp(byDev, "applicantId"));
+            }
+            if (applicant is null)
+            {
+                var byCode = enrollments.FirstOrDefault(e => AdminRecordJson.StringProp(e, "deviceEmpCode") == empCode);
+                applicant = byCode is null ? null : ById(AdminRecordJson.StringProp(byCode, "applicantId"));
+            }
+            applicant ??= applicants.FirstOrDefault(a => AdminRecordJson.StringProp(a, "nationalId") == empCode);
+
+            if (applicant is not null)
+                map[empCode] = new JsonObject
+                {
+                    ["id"] = AdminRecordJson.StringProp(applicant, "id"),
+                    ["name"] = ApplicantName(applicant),
+                };
+        }
+        return map;
+    }
+
+    /// <summary>
+    /// Resolve a set of national ids to {id, name} in a single applicants read —
+    /// used by the realtime device feed to label punches by emp_code (= national id).
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, JsonObject>> ResolveByNationalIdsAsync(
+        IEnumerable<string> nationalIds, CancellationToken ct)
+    {
+        var wanted = nationalIds.Where(s => !string.IsNullOrWhiteSpace(s)).ToHashSet();
+        var map = new Dictionary<string, JsonObject>();
+        if (wanted.Count == 0) return map;
+
+        foreach (var a in await records.ListAsync("applicants", ct))
+        {
+            var nid = AdminRecordJson.StringProp(a, "nationalId");
+            if (nid is null || !wanted.Contains(nid) || map.ContainsKey(nid)) continue;
+            map[nid] = new JsonObject
+            {
+                ["id"] = AdminRecordJson.StringProp(a, "id"),
+                ["name"] = ApplicantName(a),
+            };
+        }
+        return map;
     }
 
     private static string ApplicantName(JsonObject applicant)

@@ -361,6 +361,7 @@ export function canApproveFamilySnapshot(s: FamilyDataSnapshot): boolean {
     s.savedFather &&
     s.savedMother &&
     allGrandparentsSaved &&
+    allFamilyMemberNationalIdsMatchGender(s) &&
     !hasDuplicateFamilyNationalId(s) &&
     allRequiredMemberDetailsPresent(s) &&
     fatherWivesOk &&
@@ -398,4 +399,38 @@ function familyMembersWithNationalIds(snapshot: FamilyDataSnapshot): FamilyMembe
     snapshot.grandparents.maternalGrandmother,
     ...(Object.keys(snapshot.relatives) as RelativeKind[]).flatMap((kind) => snapshot.relatives[kind]),
   ].filter((member) => !member.nidUnavailable);
+}
+
+function allFamilyMemberNationalIdsMatchGender(s: FamilyDataSnapshot): boolean {
+  const maleMembers: FamilyMemberForm[] = [
+    s.father,
+    s.grandparents.paternalGrandfather,
+    s.grandparents.maternalGrandfather,
+    ...s.motherHusbands,
+    ...s.relatives.brothers,
+    ...s.relatives.paternal_uncles,
+    ...s.relatives.maternal_uncles,
+  ];
+  const femaleMembers: FamilyMemberForm[] = [
+    s.mother,
+    s.grandparents.paternalGrandmother,
+    s.grandparents.maternalGrandmother,
+    ...s.fatherWives,
+    ...s.relatives.sisters,
+    ...s.relatives.paternal_aunts,
+    ...s.relatives.maternal_aunts,
+  ];
+  return (
+    maleMembers.every((member) => familyMemberNationalIdMatches(member, 'male')) &&
+    femaleMembers.every((member) => familyMemberNationalIdMatches(member, 'female'))
+  );
+}
+
+function familyMemberNationalIdMatches(
+  member: Pick<FamilyMemberForm, 'nationalId' | 'nidUnavailable'>,
+  expectedGender: 'male' | 'female',
+): boolean {
+  if (member.nidUnavailable) return true;
+  const analysis = analyseNationalId(member.nationalId);
+  return analysis.valid && analysis.gender === expectedGender;
 }

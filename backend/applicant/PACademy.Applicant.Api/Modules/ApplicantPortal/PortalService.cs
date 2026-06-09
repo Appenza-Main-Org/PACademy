@@ -342,17 +342,8 @@ public sealed class PortalService(PortalDbContext db)
         PickedCommittee? committee,
         CancellationToken ct)
     {
-        var pickedSlot = await ResolvePickedExamSlotAsync(slotId, ct);
-        EnsureExamDateBookable(pickedSlot.Date);
-
-        var draft = await GetOrCreateDraftAsync(applicantId, ct);
-        var current = draft["furthestStage"]?.GetValue<int>() ?? 0;
-        await SaveDraftAsync(applicantId, BuildExamDatePatch(current, pickedSlot, committee), ct);
-        return pickedSlot.Date.ToString("yyyy-MM-dd");
-    }
-
-    private async Task<PickedExamSlot> ResolvePickedExamSlotAsync(string slotId, CancellationToken ct)
-    {
+        // Accept full slot IDs, ISO dates, and the day-first date strings
+        // currently emitted by the admin eligibility schedule.
         var candidateIds = CandidateSlotIds(slotId);
         var slot = await db.ExamSlots.AsNoTracking()
             .FirstOrDefaultAsync(x => candidateIds.Contains(x.Id), ct);
@@ -361,32 +352,30 @@ public sealed class PortalService(PortalDbContext db)
         if (slot is null && !TryParseSlotDate(slotId, out pickedDate))
             throw new KeyNotFoundException($"موعد الاختبار '{slotId}' غير موجود");
 
-        return new PickedExamSlot(
-            slot?.Id ?? $"SLT-{pickedDate:yyyy-MM-dd}",
-            slot?.Date ?? pickedDate,
-            slot?.Time ?? "08:00",
-            slot?.Location ?? "كلية الشرطة - مبنى الاختبارات - القاهرة");
-    }
+        var resolvedSlotId = slot?.Id ?? $"SLT-{pickedDate:yyyy-MM-dd}";
+        var resolvedDate = slot?.Date ?? pickedDate;
+        var resolvedTime = slot?.Time ?? "08:00";
+        var resolvedLocation = slot?.Location ?? "كلية الشرطة - مبنى الاختبارات - القاهرة";
 
-    private static JsonObject BuildExamDatePatch(
-        int currentStage,
-        PickedExamSlot pickedSlot,
-        PickedCommittee? committee)
-    {
+        EnsureExamDateBookable(resolvedDate);
+
+        var draft = await GetOrCreateDraftAsync(applicantId, ct);
+        var current = draft["furthestStage"]?.GetValue<int>() ?? 0;
         var examSlot = new JsonObject
         {
-            ["slotId"] = pickedSlot.Id,
-            ["date"] = pickedSlot.Date.ToString("yyyy-MM-dd"),
-            ["time"] = pickedSlot.Time,
-            ["location"] = pickedSlot.Location,
+            ["slotId"] = resolvedSlotId,
+            ["date"] = resolvedDate.ToString("yyyy-MM-dd"),
+            ["time"] = resolvedTime,
+            ["location"] = resolvedLocation,
         };
         var patch = new JsonObject
         {
-            ["furthestStage"] = Math.Max(currentStage, 8),
+            ["furthestStage"] = Math.Max(current, 8),
             ["examSlot"] = examSlot,
         };
         ApplyPickedCommittee(patch, examSlot, committee);
-        return patch;
+        await SaveDraftAsync(applicantId, patch, ct);
+        return resolvedDate.ToString("yyyy-MM-dd");
     }
 
     private static void ApplyPickedCommittee(
@@ -1061,11 +1050,11 @@ public sealed class PortalService(PortalDbContext db)
     private static string CommitteeNameFromDraft(JsonObject draft) =>
         FirstPresentString(draft, "assignedCommitteeName", "committeeName", "committeeLabelAr");
 
-    private static string FirstPresentString(JsonObject source, params string[] keys)
+    private static string FirstPresentString(JsonObject obj, params string[] keys)
     {
         foreach (var key in keys)
         {
-            var text = StringFrom(source, key);
+            var text = StringFrom(obj, key);
             if (!string.IsNullOrWhiteSpace(text)) return text;
         }
         return "";
@@ -1390,8 +1379,6 @@ public sealed class PortalService(PortalDbContext db)
         var code = Math.Abs(seed) % 90_000_000 + 10_000_000;
         return code.ToString();
     }
-
-    private sealed record PickedExamSlot(string Id, DateOnly Date, string Time, string Location);
 }
 
 public sealed record PickedCommittee(string? CommitteeId, string? CommitteeName);

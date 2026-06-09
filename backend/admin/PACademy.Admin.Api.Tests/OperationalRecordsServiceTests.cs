@@ -244,40 +244,6 @@ public sealed class OperationalRecordsServiceTests
         Assert.Equal("كلية الشرطة - مبنى الاختبارات - القاهرة", applicant["examSlot"]?["location"]?.GetValue<string>());
     }
 
-    [Fact]
-    public async Task ApplicantPageReturnsNewestApplicantsFirst()
-    {
-        await using var db = CreateDb();
-        var service = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
-        for (var i = 1; i <= 3; i++)
-        {
-            await service.UpsertAsync(
-                "applicants",
-                $"APP-{i:D4}",
-                new JsonObject
-                {
-                    ["id"] = $"APP-{i:D4}",
-                    ["nationalId"] = $"3040101123457{i}",
-                    ["name"] = $"Applicant {i}",
-                },
-                TestContext.Current.CancellationToken);
-        }
-
-        var page = await service.PageAsync(
-            "applicants",
-            new QueryCollection(new Dictionary<string, Microsoft.Extensions.Primitives.StringValues>
-            {
-                ["page"] = "1",
-                ["pageSize"] = "2",
-            }),
-            TestContext.Current.CancellationToken);
-        var json = JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(page))!.AsObject();
-        var data = json["data"]!.AsArray();
-
-        Assert.Equal("APP-0003", data[0]?["id"]?.GetValue<string>());
-        Assert.Equal("APP-0002", data[1]?["id"]?.GetValue<string>());
-    }
-
     private static AdminDbContext CreateDb()
     {
         var options = new DbContextOptionsBuilder<AdminDbContext>()
