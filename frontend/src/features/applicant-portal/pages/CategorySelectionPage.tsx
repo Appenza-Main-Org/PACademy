@@ -46,7 +46,6 @@ import { cn } from '@/shared/lib/cn';
 import type {
   AdmissionCycle,
   ApplicantCategory,
-  CategoryCondition,
 } from '@/shared/types/domain';
 import { date as fmtDate } from '@/shared/lib/format';
 import {
@@ -79,23 +78,11 @@ import {
   filterApplicantCategoriesByVisibleKeys,
 } from '../lib/applicant-category-visibility';
 import { normalizeApplicantGender } from '../lib/applicant-gender';
+import { summariseCategoryConditions } from '../lib/category-condition-summary';
 
 const COHORT_LABEL: Record<AdmissionCycle['cohort'], string> = {
   male: 'الذكور',
   female: 'الإناث',
-};
-
-const QUALIFICATION_LABEL: Record<CategoryCondition['requiredQualification'], string> = {
-  thanaweya_amma: 'الثانوية العامة',
-  azhar: 'الثانوية الأزهرية',
-  bachelor: 'مؤهل عالي',
-  bachelor_law: 'بكالوريوس حقوق',
-  bachelor_medicine: 'بكالوريوس طب',
-  bachelor_engineering: 'بكالوريوس هندسة',
-  bachelor_media: 'بكالوريوس إعلام',
-  police_academy_grad: 'خريج كلية الشرطة',
-  serving_officer: 'ضابط شرطة',
-  any: 'أي مؤهل معتمد',
 };
 
 const DEFAULT_APPLICATION_FEE = 250;
@@ -1065,7 +1052,7 @@ function EligibilityDrawerBody({
                 {c.labelAr}
               </p>
               <ul className="flex flex-col gap-2.5 text-sm leading-relaxed text-ink-800">
-                {summariseConditions(c.conditions).map((line, i) => (
+                {summariseCategoryConditions(c.conditions).map((line, i) => (
                   <li key={`${c.key}-c-${i}`} className="flex items-start gap-2.5">
                     <CheckCircle2
                       size={16}
@@ -1096,24 +1083,6 @@ function EligibilityDrawerBody({
       )}
     </div>
   );
-}
-
-function summariseConditions(c: CategoryCondition): string[] {
-  const lines: string[] = [];
-  if (c.egyptianNationalityRequired) lines.push('مصري الجنسية ومن أب وأم مصريين');
-  if (c.conductCheck) lines.push('حسن السير والسلوك');
-  if (c.maritalStatus === 'single') lines.push('غير متزوج');
-  if (c.medicalRequired) lines.push('لائق طبياً');
-  if (c.minHeightCm !== null) lines.push(`الطول لا يقل عن ${c.minHeightCm} سم`);
-  if (c.ageMax !== null && c.ageMin !== null) lines.push(`السن من ${c.ageMin} إلى ${c.ageMax} سنة`);
-  else if (c.ageMax !== null) lines.push(`السن حتى ${c.ageMax} سنة`);
-  else if (c.ageMin !== null) lines.push(`السن لا يقل عن ${c.ageMin} سنة`);
-  if (c.requiredQualification !== 'any') lines.push(QUALIFICATION_LABEL[c.requiredQualification]);
-  if (c.minScorePercent !== null) lines.push(`الحد الأدنى لمجموع المؤهل: ${c.minScorePercent}%`);
-  if (c.employerApprovalRequired) lines.push('موافقة جهة العمل');
-  if (c.gender === 'female') lines.push('للإناث فقط');
-  if (c.gender === 'male') lines.push('للذكور فقط');
-  return lines;
 }
 
 function SpecializationsDrawerBody({

@@ -50,6 +50,7 @@ import { zodResolver } from '@/shared/lib/zod-resolver';
 import { ROUTES } from '@/config/routes';
 import { stage345Schema, type Stage345Values } from '../schemas';
 import { usePublishedDeclaration } from '../api/applicantPortal.queries';
+import { useCategories, useEligibleCategories } from '../api/categories.queries';
 import { applicantPortalService } from '../api/applicantPortal.service';
 import type { PublishedDeclaration } from '../api/applicantPortal.service';
 import { saveProfileSnapshot } from '../lib/profileData';
@@ -65,7 +66,6 @@ import {
 import {
   useApplicantGradeByNid,
 } from '@/features/applicant-grades/api/grades.queries';
-import { useEligibleCategories } from '../api/categories.queries';
 import { useApplicantCategories, useLookup } from '@/features/lookups/api/lookups.queries';
 import type { GradeRow } from '@/features/applicant-grades/types';
 import type {
@@ -74,6 +74,7 @@ import type {
   PoliceStationRow,
   UniversityRow,
 } from '@/features/lookups';
+import type { ApplicantCategory } from '@/shared/types/domain';
 import { emitAudit } from '@/shared/lib/audit';
 import {
   getEligibilityGradeExtras,
@@ -110,6 +111,7 @@ import {
   readGraduationYear,
   resolveGraduationYearTarget,
 } from '../lib/graduation-year-validation';
+import { summariseCategoryConditions } from '../lib/category-condition-summary';
 
 const APPLICANT_ID = MOI_APPLICANT_SESSION.applicantId;
 const REQUIRED_MESSAGE = 'مطلوب';
@@ -295,7 +297,15 @@ export function Stage345ApplicantDataPage(): JSX.Element {
    * literally cannot proceed. Client direction 2026-05-21. */
   const maritalBlocked =
     selectedCategoryKey === 'officers_general' && manualPersonal.maritalStatus === 'married';
-  const publishedDeclarationQuery = usePublishedDeclaration();
+  const publishedDeclarationQuery = usePublishedDeclaration(selectedCycleId, selectedCategoryKey);
+  const categoriesQuery = useCategories(selectedCycleId ?? undefined);
+  const selectedCategory = useMemo(
+    () =>
+      selectedCategoryKey
+        ? (categoriesQuery.data ?? []).find((category) => category.key === selectedCategoryKey) ?? null
+        : null,
+    [categoriesQuery.data, selectedCategoryKey],
+  );
 
   /* قسم الضباط (قسم عام) is male-only — hide the gender dropdown for
    * the manual-entry path and force the stored value to 'male' so
@@ -1433,7 +1443,9 @@ export function Stage345ApplicantDataPage(): JSX.Element {
       <Card className="order-6">
         <DeclarationReviewPanel
           declaration={publishedDeclarationQuery.data ?? null}
+          category={selectedCategory}
           isLoading={publishedDeclarationQuery.isLoading}
+          isTermsLoading={categoriesQuery.isLoading}
           hasError={publishedDeclarationQuery.isError}
         />
 
@@ -1492,11 +1504,15 @@ function isMissingRequiredValue(value: unknown): boolean {
 
 function DeclarationReviewPanel({
   declaration,
+  category,
   isLoading,
+  isTermsLoading,
   hasError,
 }: {
   declaration: PublishedDeclaration | null;
+  category: ApplicantCategory | null;
   isLoading: boolean;
+  isTermsLoading: boolean;
   hasError: boolean;
 }): JSX.Element {
   const bodyAr = declaration?.bodyAr?.trim() ?? '';
@@ -1504,6 +1520,7 @@ function DeclarationReviewPanel({
   const hasText = bodyAr.length > 0;
   const hasPdf = Boolean(document?.fileUrl);
   const modeLabel = hasText && hasPdf ? 'نص + PDF' : hasText ? 'نص' : hasPdf ? 'PDF' : null;
+  const terms = category ? buildAdmissionTermLines(category) : [];
 
   return (
     <div className="mb-4 rounded-md border border-border-subtle bg-ink-50 p-4">
@@ -1517,14 +1534,30 @@ function DeclarationReviewPanel({
         )}
       </header>
 
-      {isLoading ? (
-        <LoadingState label="جاري تحميل الإقرار المعتمد..." />
-      ) : hasError ? (
-        <p className="text-sm leading-relaxed text-ink-700">
-          تعذر تحميل الإقرار المعتمد حالياً. يمكنك المتابعة وسيتم التحقق من الإقرار عند مراجعة الطلب.
-        </p>
-      ) : hasText || hasPdf ? (
+      {isLoading || isTermsLoading ? (
+        <LoadingState label="جاري تحميل شروط الإلتحاق والإقرار المعتمد..." />
+      ) : (
         <div className="flex flex-col gap-3">
+          {terms.length > 0 && (
+            <section className="rounded-md border border-border-subtle bg-surface-card p-3">
+              <p className="mb-2 text-sm font-medium text-ink-900">
+                شروط الإلتحاق لقسم {category?.labelAr}
+              </p>
+              <ul className="grid gap-2 text-sm leading-relaxed text-ink-800 md:grid-cols-2">
+                {terms.map((term, index) => (
+                  <li key={`${term}-${index}`} className="flex items-start gap-2">
+                    <Check size={14} strokeWidth={1.9} className="mt-1 shrink-0 text-teal-700" aria-hidden />
+                    <span>{term}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {hasError && (
+            <p className="rounded-md border border-warning/30 bg-warning-bg p-3 text-sm leading-relaxed text-ink-700">
+              تعذر تحميل الإقرار المعتمد حالياً. يمكنك المتابعة وسيتم التحقق من الإقرار عند مراجعة الطلب.
+            </p>
+          )}
           {hasText && (
             <div className="max-h-56 overflow-auto whitespace-pre-wrap rounded-md border border-border-subtle bg-surface-card p-3 text-sm leading-relaxed text-ink-900">
               {bodyAr}
@@ -1546,14 +1579,22 @@ function DeclarationReviewPanel({
               </a>
             </div>
           )}
+          {!hasError && !hasText && !hasPdf && (
+            <p className="rounded-md border border-border-subtle bg-surface-card p-3 text-sm leading-relaxed text-ink-700">
+              لم يتم نشر إقرار إلكتروني لهذه الدورة بعد.
+            </p>
+          )}
         </div>
-      ) : (
-        <p className="text-sm leading-relaxed text-ink-700">
-          أقر بأنني اطلعت على شروط الإلتحاق بأكاديمية الشرطة، وأن جميع البيانات والمستندات المقدمة صحيحة ومطابقة للأوراق الثبوتية، وألتزم بالحضور في المواعيد المحددة وإحضار الأصول المطلوبة يوم الاختبار.
-        </p>
       )}
     </div>
   );
+}
+
+function buildAdmissionTermLines(category: ApplicantCategory): string[] {
+  return [
+    ...summariseCategoryConditions(category.conditions),
+    ...category.conditions.freeText.map((line) => line.trim()).filter(Boolean),
+  ];
 }
 
 function SectionHeader({

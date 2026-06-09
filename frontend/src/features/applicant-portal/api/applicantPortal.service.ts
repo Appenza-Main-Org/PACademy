@@ -122,6 +122,7 @@ export interface PublishedDeclarationDocument {
 export interface PublishedDeclaration {
   id: string;
   cycleId: string;
+  categoryKey?: string | null;
   /** Last edited/preferred admin tab. Text and PDF content may both be published. */
   mode: 'text' | 'pdf';
   bodyAr?: string;
@@ -129,6 +130,11 @@ export interface PublishedDeclaration {
   version: number;
   effectiveFrom: string;
   publishedAt?: string;
+}
+
+export interface PublishedDeclarationInput {
+  cycleId?: string;
+  categoryKey?: string;
 }
 
 export interface AcquaintanceDocStatus {
@@ -486,15 +492,21 @@ export const applicantPortalService = {
     return { examDaysPerApplicant: null, examSlotSelectionWindowDays: null };
   },
 
-  async getPublishedDeclaration(): Promise<PublishedDeclaration | null> {
+  async getPublishedDeclaration(input: PublishedDeclarationInput = {}): Promise<PublishedDeclaration | null> {
     if (isBackendEnabled()) {
-      return adminApiClient.get<PublishedDeclaration | null>('/api/admission-setup/declaration/published');
+      return adminApiClient.get<PublishedDeclaration | null>('/api/admission-setup/declaration/published', {
+        query: {
+          cycleId: input.cycleId,
+          categoryKey: input.categoryKey,
+        },
+      });
     }
 
     await simulateLatency(100, 200);
     return {
       id: 'DECL-MOCK-ACTIVE',
-      cycleId: DRAFT.cycleId,
+      cycleId: input.cycleId ?? DRAFT.cycleId,
+      categoryKey: input.categoryKey ?? DRAFT.categoryKey,
       mode: 'text',
       bodyAr:
         'أقر بأنني اطلعت على شروط الإلتحاق بأكاديمية الشرطة، وأن جميع البيانات والمستندات المقدمة صحيحة ومطابقة للأوراق الثبوتية، وألتزم بالحضور في المواعيد المحددة وإحضار الأصول المطلوبة يوم الاختبار.',

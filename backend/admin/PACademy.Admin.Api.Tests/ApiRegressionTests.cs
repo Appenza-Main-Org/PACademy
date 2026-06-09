@@ -229,6 +229,40 @@ public sealed class ApiRegressionTests
     }
 
     [Fact]
+    public async Task PublishedDeclarationUsesRequestedCycleAndCategory()
+    {
+        await using var db = CreateDb();
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        var controller = new AdmissionSetupController(records, null!);
+
+        await controller.SaveDeclaration("CYC-REQUESTED", new JsonObject
+        {
+            ["mode"] = "text",
+            ["bodyAr"] = "إقرار خاص بالدورة والفئة المختارة",
+            ["effectiveFrom"] = "2026-06-03T00:00:00.000Z"
+        }, TestContext.Current.CancellationToken);
+        await controller.SaveDeclaration("CYC-OTHER", new JsonObject
+        {
+            ["mode"] = "text",
+            ["bodyAr"] = "إقرار دورة أخرى",
+            ["effectiveFrom"] = "2026-06-03T00:00:00.000Z"
+        }, TestContext.Current.CancellationToken);
+        await controller.PublishDeclaration("DECL-CYC-REQUESTED", TestContext.Current.CancellationToken);
+        await controller.PublishDeclaration("DECL-CYC-OTHER", TestContext.Current.CancellationToken);
+
+        var response = await controller.PublishedDeclaration(
+            "CYC-REQUESTED",
+            "officers_general",
+            TestContext.Current.CancellationToken);
+
+        var ok = Assert.IsType<OkObjectResult>(response.Result);
+        var body = Assert.IsType<JsonObject>(ok.Value);
+        Assert.Equal("CYC-REQUESTED", body["cycleId"]?.GetValue<string>());
+        Assert.Equal("officers_general", body["categoryKey"]?.GetValue<string>());
+        Assert.Equal("إقرار خاص بالدورة والفئة المختارة", body["bodyAr"]?.GetValue<string>());
+    }
+
+    [Fact]
     public async Task ElectronicDeclarationPdfUploadPersistsDocumentMetadata()
     {
         await using var db = CreateDb();

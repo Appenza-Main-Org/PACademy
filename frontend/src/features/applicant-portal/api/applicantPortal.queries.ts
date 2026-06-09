@@ -15,7 +15,8 @@ export const apKeys = {
   applicationInstructions: () => [...apKeys.all, 'application-instructions'] as const,
   examDateSettings: () => [...apKeys.all, 'exam-date-settings'] as const,
   paymentConfig: () => [...apKeys.all, 'payment-config'] as const,
-  publishedDeclaration: () => [...apKeys.all, 'published-declaration'] as const,
+  publishedDeclaration: (cycleId: string | null, categoryKey: string | null) =>
+    [...apKeys.all, 'published-declaration', cycleId, categoryKey] as const,
   moi: (nid: string) => [...apKeys.all, 'moi', nid] as const,
   adminStatus: (identifier: string) => [...apKeys.all, 'admin-status', identifier] as const,
 };
@@ -169,10 +170,13 @@ export function usePaymentConfig() {
   });
 }
 
-export function usePublishedDeclaration() {
+export function usePublishedDeclaration(cycleId: string | null, categoryKey: string | null) {
   return useQuery({
-    queryKey: apKeys.publishedDeclaration(),
-    queryFn: () => applicantPortalService.getPublishedDeclaration(),
+    queryKey: apKeys.publishedDeclaration(cycleId, categoryKey),
+    queryFn: () => applicantPortalService.getPublishedDeclaration({
+      cycleId: cycleId ?? undefined,
+      categoryKey: categoryKey ?? undefined,
+    }),
     ...noServerStateCacheOptions,
   });
 }

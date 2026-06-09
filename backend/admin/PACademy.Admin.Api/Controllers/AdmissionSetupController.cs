@@ -36,22 +36,25 @@ public sealed class AdmissionSetupController(
     }
 
     [HttpGet("api/admission-setup/declaration/published")]
-    public async Task<ActionResult<JsonObject?>> PublishedDeclaration(CancellationToken ct)
+    public async Task<ActionResult<JsonObject?>> PublishedDeclaration(
+        [FromQuery] string? cycleId,
+        [FromQuery] string? categoryKey,
+        CancellationToken ct)
     {
-        var cycles = await records.ListAsync("cycles", ct);
-        var cycle = cycles.FirstOrDefault(IsActiveCycle) ?? cycles.FirstOrDefault();
-        var cycleId = cycle is null ? null : AdminRecordJson.StringProp(cycle, "id");
-        if (string.IsNullOrWhiteSpace(cycleId)) return Ok(null);
+        var resolvedCycleId = string.IsNullOrWhiteSpace(cycleId)
+            ? await ResolvePublishedDeclarationCycleIdAsync(ct)
+            : cycleId.Trim();
+        if (string.IsNullOrWhiteSpace(resolvedCycleId)) return Ok(null);
 
         var current = NormalizeDeclaration(
-            cycleId,
-            await records.GetAsync(DeclarationModule(cycleId), DeclarationId(cycleId), ct));
+            resolvedCycleId,
+            await records.GetAsync(DeclarationModule(resolvedCycleId), DeclarationId(resolvedCycleId), ct));
         var isPublished =
             !string.IsNullOrWhiteSpace(AdminRecordJson.StringProp(current, "publishedAt")) ||
             BoolProp(current, "published") == true;
         if (!isPublished || !HasDeclarationContentForSelectedMode(current)) return Ok(null);
 
-        return Ok(ProjectPublishedDeclaration(current));
+        return Ok(ProjectPublishedDeclaration(current, categoryKey));
     }
 
     [HttpPut("api/admission-setup/cycles/{cycleId}/declaration")]
@@ -321,6 +324,13 @@ public sealed class AdmissionSetupController(
 
     private static string DeclarationId(string cycleId) => $"DECL-{cycleId}";
 
+    private async Task<string?> ResolvePublishedDeclarationCycleIdAsync(CancellationToken ct)
+    {
+        var cycles = await records.ListAsync("cycles", ct);
+        var cycle = cycles.FirstOrDefault(IsActiveCycle) ?? cycles.FirstOrDefault();
+        return cycle is null ? null : AdminRecordJson.StringProp(cycle, "id");
+    }
+
     private static JsonObject NormalizeDeclaration(string cycleId, JsonObject? current)
     {
         var now = DateTimeOffset.UtcNow.ToString("O");
@@ -434,11 +444,15 @@ public sealed class AdmissionSetupController(
             !string.IsNullOrWhiteSpace(AdminRecordJson.StringProp(doc, "fileUrl"));
     }
 
-    private static JsonObject ProjectPublishedDeclaration(JsonObject declaration)
+    private static JsonObject ProjectPublishedDeclaration(JsonObject declaration, string? categoryKey)
     {
         var projected = AdminRecordJson.Clone(declaration);
         var mode = ValidDeclarationMode(AdminRecordJson.StringProp(projected, "mode"));
         projected["mode"] = mode;
+        if (!string.IsNullOrWhiteSpace(categoryKey))
+        {
+            projected["categoryKey"] = categoryKey.Trim();
+        }
         if (mode == "text")
         {
             projected["document"] = null;
