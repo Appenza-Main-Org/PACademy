@@ -494,6 +494,26 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
+    public async Task Applicants_roster_and_export_resolve_female_committee_from_date_slot()
+    {
+        var (svc, db) = Create();
+        await SeedCommitteeLookupAsync(db, "CMT-LAW-10", "اللجنة الأولى ليسانس حقوق (طالبات)");
+        await SeedCommitteeLookupAsync(db, "CMT-LAW-11", "اللجنة الثانية ليسانس حقوق");
+        await SeedOperationalAsync(db, "committeeInstances", "CI-LAW-10",
+            """{"id":"CI-LAW-10","cycleId":"CYC-1780758679766","categoryKey":"law_bachelor","definitionCode":"CMT-LAW-10","date":"2026-06-14","capacity":2,"reserved":0}""");
+        await SeedOperationalAsync(db, "committeeInstances", "CI-LAW-11",
+            """{"id":"CI-LAW-11","cycleId":"CYC-1780758679766","categoryKey":"law_bachelor","definitionCode":"CMT-LAW-11","date":"2026-06-14","capacity":2,"reserved":0}""");
+        await SeedOperationalAsync(db, "applicants", "APP-S",
+            """{"id":"APP-S","nationalId":"30501011234568","fullName":"محجوز","gender":"female","status":"exam_scheduled","cycleId":"CYC-1780758679766","categoryKey":"law_bachelor","examSlot":{"slotId":"SLT-2026-06-14","date":"2026-06-14","time":"08:00","location":"كلية الشرطة - مبنى الاختبارات - القاهرة"}}""");
+
+        var roster = await svc.ListBookedApplicantsAsync(default);
+        var export = await svc.ExportAsync([ExchangeDomain.Applicants], "single-workbook", ExportFilter.Default, default);
+
+        Assert.Equal("اللجنة الأولى ليسانس حقوق (طالبات)", Assert.Single(roster).CommitteeName);
+        Assert.Equal("اللجنة الأولى ليسانس حقوق (طالبات)", Assert.Single(export.Sheets[0].Rows)["committeeName"]);
+    }
+
+    [Fact]
     public async Task Applicants_export_with_nationalIds_filter_returns_only_selected_rows()
     {
         var (svc, db) = Create();

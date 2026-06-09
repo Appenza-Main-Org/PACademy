@@ -162,7 +162,7 @@ public sealed class DataExchangeService(
             return mappedName;
         }
 
-        var scheduledCode = ResolveCommitteeCodeFromSchedule(applicant, committeeInstances);
+        var scheduledCode = ResolveCommitteeCodeFromSchedule(applicant, committeeInstances, committeeNameByCode);
         if (!string.IsNullOrWhiteSpace(scheduledCode) &&
             committeeNameByCode.TryGetValue(scheduledCode, out var scheduledName))
         {
@@ -187,7 +187,8 @@ public sealed class DataExchangeService(
 
     private static string? ResolveCommitteeCodeFromSchedule(
         JsonObject applicant,
-        IReadOnlyList<JsonObject> committeeInstances)
+        IReadOnlyList<JsonObject> committeeInstances,
+        IReadOnlyDictionary<string, string> committeeNameByCode)
     {
         var slotId = FirstString(applicant, "examSlotId", "slotId")
             ?? NestedStringProp(applicant, "examSlot", "slotId")
@@ -217,11 +218,43 @@ public sealed class DataExchangeService(
             .Where(instance => TextEquals(DateKey(FirstString(instance, "date", "examDate", "scheduledDate")), dateKey))
             .Select(instance => FirstString(instance, "definitionCode", "committeeId", "committeeCode"))
             .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Select(code => code!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (matchingCodes.Length == 1) return matchingCodes[0];
+        return CommitteeCodeByGender(applicant, matchingCodes, committeeNameByCode);
+    }
+
+    private static string? CommitteeCodeByGender(
+        JsonObject applicant,
+        IReadOnlyList<string> committeeCodes,
+        IReadOnlyDictionary<string, string> committeeNameByCode)
+    {
+        if (committeeCodes.Count == 0) return null;
+
+        var isFemale = IsFemaleApplicant(applicant);
+        if (isFemale is null) return null;
+
+        var matchingCodes = committeeCodes
+            .Where(code => committeeNameByCode.TryGetValue(code, out var name) &&
+                IsFemaleCommitteeName(name) == isFemale)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
         return matchingCodes.Length == 1 ? matchingCodes[0] : null;
     }
+
+    private static bool? IsFemaleApplicant(JsonObject applicant)
+    {
+        var gender = FirstString(applicant, "gender") ?? NestedStringProp(applicant, "profile", "gender");
+        if (string.IsNullOrWhiteSpace(gender)) return null;
+
+        return string.Equals(gender, "female", StringComparison.OrdinalIgnoreCase) || gender == "أنثى";
+    }
+
+    private static bool IsFemaleCommitteeName(string committeeName) =>
+        committeeName.Contains("طالبات", StringComparison.Ordinal);
 
     private static string? FirstString(JsonObject payload, params string[] keys)
     {

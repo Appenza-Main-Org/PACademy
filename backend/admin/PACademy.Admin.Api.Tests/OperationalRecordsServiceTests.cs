@@ -91,7 +91,7 @@ public sealed class OperationalRecordsServiceTests
     }
 
     [Fact]
-    public async Task ApplicantListResolvesCommitteeNameFromBookedSlot()
+    public async Task ApplicantListResolvesCommitteeNameFromGenderScopedDateSlot()
     {
         await using var db = CreateDb();
         var service = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
@@ -99,7 +99,16 @@ public sealed class OperationalRecordsServiceTests
         {
             LookupKey = "committees",
             Code = "CMT-LAW-04",
-            Name = "اللجنة الرابعة ليسانس حقوق",
+            Name = "اللجنة الأولى ليسانس حقوق (طالبات)",
+            IsActive = true,
+            PayloadJson = "{}",
+            SourceSystem = "test"
+        });
+        db.LookupRows.Add(new LookupRowEntity
+        {
+            LookupKey = "committees",
+            Code = "CMT-LAW-05",
+            Name = "اللجنة الثانية ليسانس حقوق",
             IsActive = true,
             PayloadJson = "{}",
             SourceSystem = "test"
@@ -118,6 +127,18 @@ public sealed class OperationalRecordsServiceTests
             },
             TestContext.Current.CancellationToken);
         await service.UpsertAsync(
+            "committeeInstances",
+            "CI-LAW-05-20260617",
+            new JsonObject
+            {
+                ["id"] = "CI-LAW-05-20260617",
+                ["cycleId"] = "CYC-1780758679766",
+                ["categoryKey"] = "law_bachelor",
+                ["definitionCode"] = "CMT-LAW-05",
+                ["date"] = "2026-06-17"
+            },
+            TestContext.Current.CancellationToken);
+        await service.UpsertAsync(
             "applicants",
             "APP-SLOT",
             new JsonObject
@@ -125,12 +146,13 @@ public sealed class OperationalRecordsServiceTests
                 ["id"] = "APP-SLOT",
                 ["nationalId"] = "30501011234568",
                 ["name"] = "محجوز",
+                ["gender"] = "female",
                 ["status"] = "exam_scheduled",
                 ["cycleId"] = "CYC-1780758679766",
                 ["categoryKey"] = "law_bachelor",
                 ["examSlot"] = new JsonObject
                 {
-                    ["slotId"] = "CI-LAW-04-20260617",
+                    ["slotId"] = "SLT-2026-06-17",
                     ["date"] = "2026-06-17",
                     ["time"] = "08:00",
                     ["location"] = "كلية الشرطة - مبنى الاختبارات - القاهرة"
@@ -141,7 +163,7 @@ public sealed class OperationalRecordsServiceTests
         var applicants = await service.ListAsync("applicants", TestContext.Current.CancellationToken);
 
         var applicant = Assert.Single(applicants);
-        Assert.Equal("اللجنة الرابعة ليسانس حقوق", applicant["committeeName"]?.GetValue<string>());
+        Assert.Equal("اللجنة الأولى ليسانس حقوق (طالبات)", applicant["committeeName"]?.GetValue<string>());
         Assert.Equal("كلية الشرطة - مبنى الاختبارات - القاهرة", applicant["examSlot"]?["location"]?.GetValue<string>());
     }
 

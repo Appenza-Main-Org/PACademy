@@ -739,7 +739,7 @@ public sealed class OperationalRecordsService(
             return mappedName;
         }
 
-        var scheduledCode = ResolveCommitteeCodeFromSchedule(applicant, committeeInstances);
+        var scheduledCode = ResolveCommitteeCodeFromSchedule(applicant, committeeInstances, committeeNameByCode);
         if (!string.IsNullOrWhiteSpace(scheduledCode) &&
             committeeNameByCode.TryGetValue(scheduledCode, out var scheduledName))
         {
@@ -751,9 +751,10 @@ public sealed class OperationalRecordsService(
 
     private static string? ResolveCommitteeCodeFromSchedule(
         JsonObject applicant,
-        IReadOnlyList<JsonObject> committeeInstances)
+        IReadOnlyList<JsonObject> committeeInstances,
+        IReadOnlyDictionary<string, string> committeeNameByCode)
         => CommitteeCodeFromBookedSlot(applicant, committeeInstances)
-            ?? CommitteeCodeFromUniqueSchedule(applicant, committeeInstances);
+            ?? CommitteeCodeFromUniqueSchedule(applicant, committeeInstances, committeeNameByCode);
 
     private static string? CommitteeCodeFromBookedSlot(
         JsonObject applicant,
@@ -775,7 +776,8 @@ public sealed class OperationalRecordsService(
 
     private static string? CommitteeCodeFromUniqueSchedule(
         JsonObject applicant,
-        IReadOnlyList<JsonObject> committeeInstances)
+        IReadOnlyList<JsonObject> committeeInstances,
+        IReadOnlyDictionary<string, string> committeeNameByCode)
     {
         var applicantCycleId = FirstString(applicant, "cycleId", "admissionCycleId", "cycle_id");
         var applicantCategoryKey = FirstString(applicant, "categoryKey", "categoryId", "applicantCategory", "category");
@@ -794,11 +796,43 @@ public sealed class OperationalRecordsService(
             .Where(instance => TextEquals(DateKey(FirstString(instance, "date", "examDate", "scheduledDate")), dateKey))
             .Select(instance => FirstString(instance, "definitionCode", "committeeId", "committeeCode"))
             .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Select(code => code!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (matchingCodes.Length == 1) return matchingCodes[0];
+        return CommitteeCodeByGender(applicant, matchingCodes, committeeNameByCode);
+    }
+
+    private static string? CommitteeCodeByGender(
+        JsonObject applicant,
+        IReadOnlyList<string> committeeCodes,
+        IReadOnlyDictionary<string, string> committeeNameByCode)
+    {
+        if (committeeCodes.Count == 0) return null;
+
+        var isFemale = IsFemaleApplicant(applicant);
+        if (isFemale is null) return null;
+
+        var matchingCodes = committeeCodes
+            .Where(code => committeeNameByCode.TryGetValue(code, out var name) &&
+                IsFemaleCommitteeName(name) == isFemale)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
         return matchingCodes.Length == 1 ? matchingCodes[0] : null;
     }
+
+    private static bool? IsFemaleApplicant(JsonObject applicant)
+    {
+        var gender = FirstString(applicant, "gender") ?? NestedString(applicant, "profile", "gender");
+        if (string.IsNullOrWhiteSpace(gender)) return null;
+
+        return string.Equals(gender, "female", StringComparison.OrdinalIgnoreCase) || gender == "أنثى";
+    }
+
+    private static bool IsFemaleCommitteeName(string committeeName) =>
+        committeeName.Contains("طالبات", StringComparison.Ordinal);
 
     private static IReadOnlyList<JsonObject> ApplyApplicantFilters(
         IReadOnlyList<JsonObject> rows,
