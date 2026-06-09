@@ -607,7 +607,7 @@ public sealed class DataExchangeServiceTests
         await SeedCycleAsync(db, "CYC-ACTIVE", true);
         await SeedCycleAsync(db, "CYC-CLOSED", false);
         await SeedOperationalAsync(db, "committeeInstances", "CI-ACTIVE",
-            """{"id":"CI-ACTIVE","cycleId":"CYC-ACTIVE","categoryKey":"law_bachelor","definitionCode":"CMT-LAW","date":"2026-06-17","capacity":50,"reserved":4}""");
+            """{"id":"CI-ACTIVE","cycleId":"CYC-ACTIVE","categoryKey":"law_bachelor","definitionCode":"CMT-LAW","date":"2026-06-17","time":"09:30","capacity":50,"reserved":4}""");
         await SeedOperationalAsync(db, "committeeInstances", "CI-CLOSED",
             """{"id":"CI-CLOSED","cycleId":"CYC-CLOSED","categoryKey":"law_bachelor","definitionCode":"CMT-LAW","date":"2026-07-01","capacity":50,"reserved":8}""");
         await SeedOperationalAsync(db, "committeeInstances", "CI-LEGACY",
@@ -624,9 +624,12 @@ public sealed class DataExchangeServiceTests
             default);
 
         var committeeIds = export.Sheets.Single(s => s.Domain == "Committees").Rows.Select(r => r["business_key"]!).ToArray();
-        var scheduleIds = export.Sheets.Single(s => s.Domain == "ExamSchedules").Rows.Select(r => r["business_key"]!).ToArray();
+        var scheduleRows = export.Sheets.Single(s => s.Domain == "ExamSchedules").Rows;
+        var scheduleIds = scheduleRows.Select(r => r["business_key"]!).ToArray();
         Assert.Equal(["CI-ACTIVE"], committeeIds);
         Assert.Equal(["CI-ACTIVE", "DAY-ACTIVE"], scheduleIds);
+        Assert.Equal("09:30", scheduleRows.Single(r => r["business_key"] == "CI-ACTIVE")["time"]);
+        Assert.Equal("08:00", scheduleRows.Single(r => r["business_key"] == "DAY-ACTIVE")["time"]);
     }
 
     [Fact]

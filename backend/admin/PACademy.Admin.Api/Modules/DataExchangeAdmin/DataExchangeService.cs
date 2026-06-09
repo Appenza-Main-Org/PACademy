@@ -39,6 +39,7 @@ public sealed class DataExchangeService(
     private const string Module = "data-exchange";
     private const string ImportSource = "data-exchange-import";
     private const string AuditEntityType = "data-exchange";
+    private const string DefaultExamScheduleTime = "08:00";
 
     private static readonly string[] TrackingColumns =
         ["created_at", "updated_at", "row_version", "last_modified_by", "source_system", "checksum"];
@@ -1175,6 +1176,7 @@ public sealed class DataExchangeService(
         var data = new Dictionary<string, string?>(StringComparer.Ordinal);
         foreach (var (key, value) in JsonFlatten.Flatten(payload))
             if (!NonDataColumns.Contains(key)) data[key] = value;
+        data["time"] = FirstString(payload, "time", "slotTime", "examTime") ?? DefaultExamScheduleTime;
         var id = FirstString(payload, "id") ?? FirstString(payload, "dayId") ?? "";
         var businessKey = string.IsNullOrWhiteSpace(id)
             ? Compose(FirstString(payload, "cycleId"), FirstString(payload, "date", "day", "examDate"))
