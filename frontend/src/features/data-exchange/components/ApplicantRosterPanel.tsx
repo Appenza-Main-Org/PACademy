@@ -23,7 +23,7 @@ interface ApplicantRosterPanelProps {
 }
 
 function committeeDisplay(row: ApplicantRosterRow): string | null {
-  return row.committeeName ?? row.committee ?? row.committeeLabelAr ?? row.examSlotLocation ?? null;
+  return row.committeeName ?? row.committeeLabelAr ?? null;
 }
 
 export function ApplicantRosterPanel({

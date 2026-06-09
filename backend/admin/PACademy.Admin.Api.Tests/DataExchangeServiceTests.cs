@@ -33,11 +33,17 @@ public sealed class DataExchangeServiceTests
         return (Build(db), db);
     }
 
-    private static async Task SeedLookupAsync(AdminDbContext db, string code, string name)
+    private static Task SeedAcademicGradeLookupAsync(AdminDbContext db, string code, string name)
+        => SeedLookupAsync(db, "academic-grades", code, name);
+
+    private static Task SeedCommitteeLookupAsync(AdminDbContext db, string code, string name)
+        => SeedLookupAsync(db, "committees", code, name);
+
+    private static async Task SeedLookupAsync(AdminDbContext db, string lookupKey, string code, string name)
     {
         db.LookupRows.Add(new LookupRowEntity
         {
-            LookupKey = "academic-grades", Code = code, Name = name, IsActive = true,
+            LookupKey = lookupKey, Code = code, Name = name, IsActive = true,
             PayloadJson = $$"""{"code":"{{code}}","name":"{{name}}"}""",
             CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
         });
@@ -57,7 +63,7 @@ public sealed class DataExchangeServiceTests
     public async Task Export_emits_normalized_columns_not_payload_json()
     {
         var (svc, db) = Create();
-        await SeedLookupAsync(db, "EXC-01", "ممتاز");
+        await SeedAcademicGradeLookupAsync(db, "EXC-01", "ممتاز");
         var result = await svc.ExportAsync([ExchangeDomain.SystemCodes], "single-workbook", ExportFilter.Default, default);
 
         var sheet = Assert.Single(result.Sheets);
@@ -421,6 +427,21 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
+    public async Task Applicants_roster_resolves_assigned_committee_id_from_lookup()
+    {
+        var (svc, db) = Create();
+        await SeedCommitteeLookupAsync(db, "CMT-LAW-02", "اللجنة الثانية ليسانس حقوق");
+        await SeedOperationalAsync(db, "applicants", "APP-S",
+            """{"id":"APP-S","nationalId":"29801011230003","fullName":"محجوز","status":"exam_scheduled","assignedCommitteeId":"CMT-LAW-02","examSlot":{"slotId":"SLOT-8","date":"2026-06-15","time":"08:00","location":"كلية الشرطة - مبنى الاختبارات - القاهرة"}}""");
+
+        var roster = await svc.ListBookedApplicantsAsync(default);
+
+        var row = Assert.Single(roster);
+        Assert.Equal("اللجنة الثانية ليسانس حقوق", row.CommitteeName);
+        Assert.Equal("كلية الشرطة - مبنى الاختبارات - القاهرة", row.ExamSlotLocation);
+    }
+
+    [Fact]
     public async Task Applicants_export_with_nationalIds_filter_returns_only_selected_rows()
     {
         var (svc, db) = Create();
@@ -477,8 +498,8 @@ public sealed class DataExchangeServiceTests
     public async Task Preview_classifies_unchanged_skipped_edited_changed_new_new()
     {
         var (svc, db) = Create();
-        await SeedLookupAsync(db, "EXC-01", "ممتاز");
-        await SeedLookupAsync(db, "EXC-02", "جيد جداً");
+        await SeedAcademicGradeLookupAsync(db, "EXC-01", "ممتاز");
+        await SeedAcademicGradeLookupAsync(db, "EXC-02", "جيد جداً");
         var export = await svc.ExportAsync([ExchangeDomain.SystemCodes], "single-workbook", ExportFilter.Default, default);
         var rows = AsImportRows(export.Sheets[0]);
 
@@ -497,7 +518,7 @@ public sealed class DataExchangeServiceTests
     public async Task Apply_new_and_changed_inserts_updates_and_never_duplicates_keys()
     {
         var (svc, db) = Create();
-        await SeedLookupAsync(db, "EXC-01", "ممتاز");
+        await SeedAcademicGradeLookupAsync(db, "EXC-01", "ممتاز");
         var export = await svc.ExportAsync([ExchangeDomain.SystemCodes], "single-workbook", ExportFilter.Default, default);
         var rows = AsImportRows(export.Sheets[0]);
         rows[0]["name"] = "ممتاز (معدّل)";
@@ -520,7 +541,7 @@ public sealed class DataExchangeServiceTests
     public async Task Apply_new_only_skips_changed_rows()
     {
         var (svc, db) = Create();
-        await SeedLookupAsync(db, "EXC-01", "ممتاز");
+        await SeedAcademicGradeLookupAsync(db, "EXC-01", "ممتاز");
         var export = await svc.ExportAsync([ExchangeDomain.SystemCodes], "single-workbook", ExportFilter.Default, default);
         var rows = AsImportRows(export.Sheets[0]);
         rows[0]["name"] = "تغيير";
@@ -549,7 +570,7 @@ public sealed class DataExchangeServiceTests
     public async Task Outdated_row_held_unless_force_update()
     {
         var (svc, db) = Create();
-        await SeedLookupAsync(db, "EXC-01", "ممتاز");
+        await SeedAcademicGradeLookupAsync(db, "EXC-01", "ممتاز");
         var export = await svc.ExportAsync([ExchangeDomain.SystemCodes], "single-workbook", ExportFilter.Default, default);
         var rows = AsImportRows(export.Sheets[0]);
         rows[0]["name"] = "محاولة قديمة";
@@ -622,7 +643,7 @@ public sealed class DataExchangeServiceTests
     public async Task Export_and_apply_write_audit_history()
     {
         var (svc, db) = Create();
-        await SeedLookupAsync(db, "EXC-01", "ممتاز");
+        await SeedAcademicGradeLookupAsync(db, "EXC-01", "ممتاز");
         await svc.ExportAsync([ExchangeDomain.SystemCodes], "single-workbook", ExportFilter.Default, default);
         await svc.ApplyAsync(new ImportApplyRequest(
             [new("SystemCodes", [NewLookupRow("EXC-09", "مقبول")])], "new-and-changed", false, false), default);

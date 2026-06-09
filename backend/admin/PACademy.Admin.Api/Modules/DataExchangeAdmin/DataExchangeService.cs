@@ -153,12 +153,13 @@ public sealed class DataExchangeService(
         IReadOnlyDictionary<string, string> committeeNameByCode)
     {
         var explicitName =
+            AdminRecordJson.StringProp(applicant, "assignedCommitteeName") ??
             AdminRecordJson.StringProp(applicant, "committeeName") ??
-            AdminRecordJson.StringProp(applicant, "committee") ??
             AdminRecordJson.StringProp(applicant, "committeeLabelAr");
         if (!string.IsNullOrWhiteSpace(explicitName)) return explicitName;
 
         var code =
+            AdminRecordJson.StringProp(applicant, "assignedCommitteeId") ??
             AdminRecordJson.StringProp(applicant, "committeeId") ??
             AdminRecordJson.StringProp(applicant, "committeeCode") ??
             AdminRecordJson.StringProp(applicant, "definitionCode");
