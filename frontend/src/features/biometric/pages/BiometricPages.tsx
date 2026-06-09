@@ -73,12 +73,6 @@ const MODULE_LABEL: Record<VerificationModule, string> = {
   'medical-clinic': 'العيادة الطبية',
 };
 
-const METHOD_OPTIONS: ReadonlyArray<{ value: VerificationMethod; label: string }> = [
-  { value: 'fingerprint', label: 'البصمة' },
-  { value: 'face', label: 'صورة الوجه' },
-  { value: 'barcode', label: 'الباركود' },
-];
-
 const AUDIT_LABEL: Record<BiometricAuditLog['action'], string> = {
   enrollment: 'تسجيل بيومتري',
   re_enrollment: 'إعادة تسجيل',
@@ -303,18 +297,15 @@ function VerificationConsole({
   module,
   title,
   subtitle,
-  defaultMethod = 'fingerprint',
   stationCommittee,
   onResult,
 }: {
   module: VerificationModule;
   title: string;
   subtitle: string;
-  defaultMethod?: VerificationMethod;
   stationCommittee?: string;
   onResult?: (result: VerifyResult) => void;
 }): JSX.Element {
-  const [method, setMethod] = useState<VerificationMethod>(defaultMethod);
   const [identifier, setIdentifier] = useState('');
   const [terminalSn, setTerminalSn] = useState('');
   const [busy, setBusy] = useState(false);
@@ -344,19 +335,20 @@ function VerificationConsole({
     toast(next.ok ? 'تم التحقق ويسمح باستكمال الإجراء' : next.reason ?? STATUS_LABEL[next.status], next.ok ? 'success' : 'danger');
   };
 
-  // 1:1 verify — operator typed a barcode / national id / applicant number.
+  // 1:1 verify — operator typed a national id / applicant number / barcode.
+  // Modality (face/finger) is auto-detected from the punch, not pre-selected.
   const verifyTyped = async (): Promise<void> => {
+    const id = identifier.trim();
     setBusy(true);
     try {
       applyResult(
         await biometricService.verify({
-          method,
           module,
           operator: 'U-006',
           today: todayIso(),
           ...(terminalSn ? { terminalSn } : {}),
           ...(stationCommittee ? { stationCommittee } : {}),
-          ...(method === 'barcode' ? { barcode: identifier } : /^\d{14}$/.test(identifier) ? { nationalId: identifier } : { applicantId: identifier }),
+          ...(/^\d{14}$/.test(id) ? { nationalId: id } : { applicantId: id }),
         }),
       );
     } finally {
@@ -396,14 +388,17 @@ function VerificationConsole({
   }, [listening, terminalSn, module]);
 
   const handleCapture = (): void => {
-    // Empty identifier → toggle the live listener (1:N, finger or face).
-    if (!identifier.trim() && method !== 'barcode') {
+    // Empty identifier → toggle the live listener (1:N, finger or face — auto-detected).
+    if (!identifier.trim()) {
       setListening((v) => !v);
       return;
     }
     setListening(false);
     void verifyTyped();
   };
+
+  // Modality icon follows the actual punch (15 = face, else fingerprint).
+  const captureKind: 'face' | 'fingerprint' = result?.identifiedVerifyType === 15 ? 'face' : 'fingerprint';
 
   return (
     <>
@@ -418,12 +413,6 @@ function VerificationConsole({
               onChange={(event) => setTerminalSn(event.target.value)}
               options={deviceOptions}
             />
-            <Select
-              label="طريقة التحقق"
-              value={method}
-              onChange={(event) => setMethod(event.target.value as VerificationMethod)}
-              options={METHOD_OPTIONS}
-            />
             <Input
               label="الباركود / الرقم القومي / رقم المتقدم (اتركه فارغاً للاستماع المباشر)"
               dir="ltr"
@@ -431,12 +420,15 @@ function VerificationConsole({
               onChange={(event) => setIdentifier(event.target.value)}
               trailingIcon={<ScanBarcode size={14} />}
             />
+            <p className="text-2xs text-ink-500">
+              يتم التعرّف على البصمة أو الوجه تلقائياً حسب ما يقدّمه المتقدم على الجهاز.
+            </p>
             <CapturePanel
-              kind={method === 'face' ? 'face' : 'fingerprint'}
+              kind={captureKind}
               captured={Boolean(result?.ok)}
               busy={busy}
               listening={listening}
-              label={listening ? 'إيقاف الاستماع' : !identifier.trim() && method !== 'barcode' ? 'بدء الاستماع المباشر' : 'تحقق'}
+              label={listening ? 'إيقاف الاستماع' : !identifier.trim() ? 'بدء الاستماع المباشر' : 'تحقق'}
               onCapture={handleCapture}
             />
             {result?.voiceAlerts && result.voiceAlerts.length > 0 && (
@@ -869,7 +861,6 @@ export function BiometricGatePage(): JSX.Element {
         module="security-gate"
         title="بوابة الدخول والخروج"
         subtitle="تحقق بيومتري ثم تسجيل دخول أو خروج المتقدم من الأكاديمية"
-        defaultMethod="face"
         onResult={setResult}
       />
 

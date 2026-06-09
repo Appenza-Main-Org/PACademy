@@ -310,6 +310,16 @@ function ZkConfigCard({ onSaved }: { onSaved: () => void }): JSX.Element {
     retry: false,
   });
 
+  // Heartbeat — lightly pings the server every 10s to show live connection health.
+  const heartbeat = useQuery({
+    queryKey: ['biometric', 'zk', 'heartbeat'],
+    queryFn: () => biometricService.getZkDevices(),
+    refetchInterval: 10_000,
+    retry: false,
+  });
+  const online = heartbeat.isSuccess && !heartbeat.isError;
+  const heartbeatCount = heartbeat.data?.count ?? 0;
+
   const [host, setHost] = useState('');
   const [port, setPort] = useState('');
   const [username, setUsername] = useState('');
@@ -392,20 +402,49 @@ function ZkConfigCard({ onSaved }: { onSaved: () => void }): JSX.Element {
         }
       />
       <CardBody className="space-y-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <Button variant="primary" size="sm" onClick={() => void runTest()} disabled={testing}>
-            <Plug size={16} className="me-1.5" />
+        {/* Live heartbeat + test button */}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-subtle bg-ink-50 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <span className="relative flex h-3 w-3">
+              {online && (
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              )}
+              <span
+                className={`relative inline-flex h-3 w-3 rounded-full ${
+                  online ? 'bg-emerald-500' : heartbeat.isError ? 'bg-terra-500' : 'bg-ink-300'
+                }`}
+              />
+            </span>
+            <div className="leading-tight">
+              <p
+                className={`text-sm font-bold ${
+                  online ? 'text-emerald-700' : heartbeat.isError ? 'text-terra-700' : 'text-ink-500'
+                }`}
+              >
+                {online ? `الخادم متصل · ${heartbeatCount} جهاز` : heartbeat.isError ? 'الخادم غير متصل' : 'جارٍ فحص الاتصال…'}
+              </p>
+              <p className="font-mono text-2xs text-ink-400" dir="ltr">
+                {config.data?.baseUrl ?? '—'}
+              </p>
+            </div>
+          </div>
+          <Button variant="secondary" size="sm" onClick={() => void runTest()} disabled={testing}>
+            <Plug size={16} className={testing ? 'me-1.5 animate-pulse' : 'me-1.5'} />
             {testing ? 'جارٍ الاختبار…' : 'اختبار الاتصال'}
           </Button>
-          {test && (
-            <span
-              className={`inline-flex items-center gap-1.5 text-sm font-medium ${test.ok ? 'text-emerald-600' : 'text-terra-600'}`}
-            >
-              {test.ok ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
-              {test.message}
-            </span>
-          )}
         </div>
+        {test && (
+          <div
+            className={`flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium ${
+              test.ok
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                : 'border-terra-200 bg-terra-50 text-terra-700'
+            }`}
+          >
+            {test.ok ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+            {test.message}
+          </div>
+        )}
         {open && (
           <div className="grid gap-3 sm:grid-cols-2">
             <Input label="عنوان الخادم (IP)" dir="ltr" value={host} onChange={(e) => setHost(e.target.value)} />

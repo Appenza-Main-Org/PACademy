@@ -207,7 +207,9 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
 
     public async Task<JsonObject> VerifyAsync(JsonObject input, CancellationToken ct)
     {
-        var method = AdminRecordJson.StringProp(input, "method") ?? "fingerprint";
+        // "biometric" = accept any modality (face or finger) — the device already
+        // matched the person; the modality is auto-detected, not pre-selected.
+        var method = AdminRecordJson.StringProp(input, "method") ?? "biometric";
         var module = AdminRecordJson.StringProp(input, "module") ?? "security-gate";
         var operatorId = AdminRecordJson.StringProp(input, "operator") ?? "system";
         var now = NowMs();
