@@ -431,62 +431,246 @@ function EducationView({
       </>
     );
   }
-  if (education.kind === 'general') {
-    return (
-      <>
-        <DefRow label="اسم الشهادة" value={education.certificateName} />
-        <DefRow label="اسم المدرسة" value={education.schoolName} />
-        <DefRow
-          label="المجموع"
-          value={<span className="font-mono">{num(education.totalScore)} / 410</span>}
-        />
-        <DefRow label="نوع الجلوس" value={education.seatType ?? '—'} />
-        <DefRow label="الشعبة" value={education.branch} />
-        <DefRow label="فئة المدرسة" value={education.schoolCategory ?? '—'} />
-        <DefRow
-          label="سنة التخرج"
-          value={<span className="font-mono">{education.graduationYear}</span>}
-        />
-        <DefRow
-          label="النسبة المئوية"
-          value={education.percentage ? `${education.percentage}%` : '—'}
-        />
-      </>
-    );
-  }
-  if (education.kind === 'overseas') {
-    return (
-      <>
-        <DefRow label="اسم الشهادة" value={education.certificateName} />
-        <DefRow label="اسم المدرسة" value={education.schoolName} />
-        <DefRow label="المجموع" value={<span className="font-mono">{num(education.totalScore)}</span>} />
-        <DefRow label="نوع الجلوس" value={education.seatType ?? '—'} />
-        <DefRow label="فئة المدرسة" value={education.schoolCategory ?? '—'} />
-        <DefRow label="دولة الدراسة" value={education.country} />
-        <DefRow
-          label="سنة التخرج"
-          value={<span className="font-mono">{education.graduationYear}</span>}
-        />
-      </>
-    );
-  }
+
+  const educationRecord = education as EducationRecord;
+  const consumedKeys = new Set<string>(['kind']);
+  const secondaryRecord = isEducationRecord(educationRecord.secondary)
+    ? educationRecord.secondary
+    : undefined;
+  const isUniversityQualification = education.kind === 'higher' || hasAnyEducationValue(educationRecord, UNIVERSITY_FIELD_KEYS);
+  const isSecondaryQualification =
+    education.kind !== 'higher'
+    || Boolean(secondaryRecord)
+    || hasAnyEducationValue(educationRecord, SECONDARY_FIELD_KEYS);
+
   return (
     <>
-      <DefRow label="التخصص" value={education.specialization} />
-      <DefRow label="الجامعة" value={education.university} />
-      <DefRow label="الكلية" value={education.faculty} />
-      <DefRow label="المجموع" value={<span className="font-mono">{num(education.totalScore)}</span>} />
-      <DefRow label="التقدير" value={education.grade ?? '—'} />
-      <DefRow label="تخصص أعلى" value={education.higherSpecialization ?? '—'} />
-      <DefRow
-        label="سنة التخرج"
-        value={<span className="font-mono">{education.graduationYear}</span>}
+      {isSecondaryQualification && (
+        <EducationFieldGroup
+          title={isUniversityQualification ? 'بيانات الثانوية' : undefined}
+          rows={secondaryEducationRows(educationRecord, secondaryRecord, fallback, consumedKeys)}
+        />
+      )}
+      {isUniversityQualification && (
+        <EducationFieldGroup
+          title="بيانات المؤهل الجامعي"
+          rows={universityEducationRows(educationRecord, fallback, consumedKeys)}
+        />
+      )}
+      <EducationFieldGroup
+        title="مؤهلات إضافية"
+        rows={extraEducationRows(educationRecord, consumedKeys)}
       />
-      <DefRow label="ثانوية: الشهادة" value={education.secondary.certificateName} />
-      <DefRow
-        label="ثانوية: المجموع"
-        value={<span className="font-mono">{num(education.secondary.totalScore)}</span>}
-      />
+    </>
+  );
+}
+
+type EducationRecord = Record<string, unknown>;
+
+type EducationRow = {
+  label: string;
+  value: React.ReactNode;
+  wide?: boolean;
+};
+
+type EducationFieldSpec = {
+  label: string;
+  keys: readonly string[];
+  fallback?: unknown;
+  formatter?: (value: unknown) => React.ReactNode;
+};
+
+const SECONDARY_FIELD_KEYS = [
+  'certificateName',
+  'thanawiType',
+  'schoolName',
+  'schoolNameAr',
+  'schoolAddress',
+  'graduationYear',
+  'thanawiGradDate',
+  'totalScore',
+  'thanawiTotal',
+  'percentage',
+  'thanawiPercentage',
+  'grade',
+  'thanawiGrade',
+] as const;
+
+const UNIVERSITY_FIELD_KEYS = [
+  'qualificationLevel',
+  'academicDegree',
+  'degree',
+  'bachelorFaculty',
+  'faculty',
+  'bachelorUniversity',
+  'university',
+  'bachelorSpecialization',
+  'specialization',
+  'bachelorGrade',
+  'bachelorYear',
+  'bachelorPercentage',
+] as const;
+
+const EDUCATION_EXTRA_LABELS: Record<string, string> = {
+  seatType: 'نوع الجلوس',
+  branch: 'الشعبة',
+  schoolCategory: 'فئة المدرسة',
+  country: 'دولة الدراسة',
+  thanawiCountry: 'دولة المدرسة',
+  thanawiGradDate: 'تاريخ الحصول على الشهادة',
+  higherSpecialization: 'تخصص المؤهل الأعلى',
+  postgradDegree: 'درجة الماجستير',
+  postgradSpecialization: 'تخصص الماجستير',
+  postgradUniversity: 'جامعة الماجستير',
+  postgradYear: 'سنة الحصول على الماجستير',
+  postgradGrade: 'تقدير الماجستير',
+  doctorateYear: 'سنة الحصول على الدكتوراه',
+  doctorateGrade: 'تقدير الدكتوراه',
+};
+
+function isEducationRecord(candidate: unknown): candidate is EducationRecord {
+  return typeof candidate === 'object' && candidate !== null && !Array.isArray(candidate);
+}
+
+function hasSubmittedEducationValue(candidate: unknown): boolean {
+  return candidate !== undefined && candidate !== null && candidate !== '';
+}
+
+function hasAnyEducationValue(record: EducationRecord, keys: readonly string[]): boolean {
+  return keys.some((key) => hasSubmittedEducationValue(record[key]));
+}
+
+function educationValue(record: EducationRecord, keys: readonly string[]): unknown {
+  return keys.map((key) => record[key]).find(hasSubmittedEducationValue);
+}
+
+function markConsumed(consumedKeys: Set<string>, keys: readonly string[], namespace?: string): void {
+  for (const key of keys) {
+    consumedKeys.add(namespace ? `${namespace}.${key}` : key);
+  }
+}
+
+function formattedEducationValue(submittedField: unknown): React.ReactNode {
+  if (!hasSubmittedEducationValue(submittedField)) return '—';
+  if (typeof submittedField === 'number') return <span className="font-mono">{num(submittedField)}</span>;
+  if (typeof submittedField === 'boolean') return submittedField ? 'نعم' : 'لا';
+  return String(submittedField);
+}
+
+function percentageValue(submittedPercent: unknown): React.ReactNode {
+  if (!hasSubmittedEducationValue(submittedPercent)) return '—';
+  const text = typeof submittedPercent === 'number' ? num(submittedPercent) : String(submittedPercent);
+  return <span className="font-mono">{text.includes('%') ? text : `${text}%`}</span>;
+}
+
+function educationRowsFromSpecs(
+  record: EducationRecord,
+  specs: readonly EducationFieldSpec[],
+  consumedKeys: Set<string>,
+  namespace?: string,
+): EducationRow[] {
+  return specs.map((spec) => {
+    const submittedField = educationValue(record, spec.keys) ?? spec.fallback;
+    markConsumed(consumedKeys, spec.keys, namespace);
+    return {
+      label: spec.label,
+      value: spec.formatter ? spec.formatter(submittedField) : formattedEducationValue(submittedField),
+    };
+  });
+}
+
+function secondaryEducationRows(
+  record: EducationRecord,
+  secondaryRecord: EducationRecord | undefined,
+  fallback: Applicant,
+  consumedKeys: Set<string>,
+): EducationRow[] {
+  const secondarySpecs: EducationFieldSpec[] = [
+    { label: 'نوع الشهادة', keys: ['certificateName', 'thanawiType'], fallback: fallback.certType },
+    { label: 'اسم المدرسة', keys: ['schoolName', 'schoolNameAr'] },
+    { label: 'عنوان المدرسة', keys: ['schoolAddress', 'region'] },
+    { label: 'سنة التخرج', keys: ['graduationYear', 'thanawiGradDate'], fallback: fallback.certYear },
+    { label: 'المجموع', keys: ['totalScore', 'thanawiTotal'], fallback: fallback.certScore, formatter: formattedEducationValue },
+    { label: 'النسبة المئوية', keys: ['percentage', 'thanawiPercentage'], fallback: fallback.certPercent, formatter: percentageValue },
+    { label: 'التقدير', keys: ['grade', 'thanawiGrade'] },
+  ];
+  const source = secondaryRecord ?? record;
+  const rows = educationRowsFromSpecs(
+    source,
+    secondarySpecs,
+    consumedKeys,
+    secondaryRecord ? 'secondary' : undefined,
+  );
+  if (secondaryRecord) consumedKeys.add('secondary');
+  return rows;
+}
+
+function universityEducationRows(
+  record: EducationRecord,
+  fallback: Applicant,
+  consumedKeys: Set<string>,
+): EducationRow[] {
+  const universitySpecs: EducationFieldSpec[] = [
+    {
+      label: 'المؤهل / الدرجة العلمية',
+      keys: ['qualificationLevel', 'academicDegree', 'degree'],
+      fallback: applicantCategoryLabel(fallback),
+    },
+    { label: 'الكلية', keys: ['faculty', 'bachelorFaculty'] },
+    { label: 'الجامعة', keys: ['university', 'bachelorUniversity'] },
+    { label: 'التخصص', keys: ['specialization', 'bachelorSpecialization'] },
+    { label: 'التقدير العام', keys: ['grade', 'bachelorGrade', 'generalGrade'] },
+    { label: 'سنة التخرج', keys: ['graduationYear', 'bachelorYear'] },
+    { label: 'المجموع', keys: ['totalScore', 'bachelorTotal'], formatter: formattedEducationValue },
+    { label: 'النسبة المئوية', keys: ['percentage', 'bachelorPercentage'], formatter: percentageValue },
+  ];
+  return educationRowsFromSpecs(record, universitySpecs, consumedKeys);
+}
+
+function extraEducationRows(record: EducationRecord, consumedKeys: Set<string>): EducationRow[] {
+  return Object.entries(record)
+    .filter(([key, submittedField]) => (
+      key !== 'secondary'
+      && !consumedKeys.has(key)
+      && hasSubmittedEducationValue(submittedField)
+    ))
+    .flatMap(([key, submittedField]) => {
+      if (isEducationRecord(submittedField)) {
+        return Object.entries(submittedField)
+          .filter(([childKey, childField]) => (
+            !consumedKeys.has(`${key}.${childKey}`)
+            && hasSubmittedEducationValue(childField)
+          ))
+          .map(([childKey, childField]) => ({
+            label: EDUCATION_EXTRA_LABELS[childKey] ?? childKey,
+            value: formattedEducationValue(childField),
+          }));
+      }
+      return [{
+        label: EDUCATION_EXTRA_LABELS[key] ?? key,
+        value: formattedEducationValue(submittedField),
+      }];
+    });
+}
+
+function EducationFieldGroup({
+  title,
+  rows,
+}: {
+  title?: string;
+  rows: EducationRow[];
+}): JSX.Element | null {
+  if (rows.length === 0) return null;
+  return (
+    <>
+      {title && (
+        <div className="md:col-span-2">
+          <div className="text-2xs font-bold uppercase tracking-wide text-ink-500">{title}</div>
+        </div>
+      )}
+      {rows.map((row) => (
+        <DefRow key={`${title ?? 'education'}-${row.label}`} label={row.label} value={row.value} wide={row.wide} />
+      ))}
     </>
   );
 }
