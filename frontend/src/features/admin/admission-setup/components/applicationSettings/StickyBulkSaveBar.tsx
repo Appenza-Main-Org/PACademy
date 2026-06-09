@@ -51,6 +51,8 @@ export function StickyBulkSaveBar(): JSX.Element | null {
           toast(
             conflict === 'INVALID_DATE_RANGE'
               ? 'يجب أن يكون تاريخ نهاية التقديم بعد تاريخ بداية التقديم.'
+              : conflict === 'AGE_REFERENCE_AFTER_START'
+                ? 'يجب أن يكون تاريخ احتساب السن بعد تاريخ بداية التقديم.'
               : 'يرجى تصحيح أخطاء شروط التقديم قبل الحفظ.',
             'danger',
           );

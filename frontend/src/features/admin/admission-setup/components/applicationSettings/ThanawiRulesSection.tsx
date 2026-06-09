@@ -55,11 +55,35 @@ import {
   type OverlapReason,
 } from '../../lib/ruleOverlapValidation';
 import { cn } from '@/shared/lib/cn';
-import { validateApplicationDateRange } from '../../lib/appSettingsValidation';
+import {
+  validateAgeReferenceVsApplication,
+  validateApplicationDateRange,
+} from '../../lib/appSettingsValidation';
 import { ExcellenceModeToggle } from './ExcellenceModeToggle';
 import { OperatorScoreField } from './OperatorScoreField';
 
 const INVALID_DATE_RANGE_MESSAGE = 'يجب أن يكون تاريخ نهاية التقديم بعد تاريخ بداية التقديم.';
+const AGE_REFERENCE_DATE_MESSAGE = 'يجب أن يكون تاريخ احتساب السن بعد تاريخ بداية التقديم.';
+
+function headerDateMessage(header: {
+  applicationStart: string;
+  applicationEnd: string;
+  ageReferenceDate: string;
+}): string | null {
+  if (
+    validateApplicationDateRange(header.applicationStart, header.applicationEnd) ===
+    'INVALID_DATE_RANGE'
+  ) {
+    return INVALID_DATE_RANGE_MESSAGE;
+  }
+  if (
+    validateAgeReferenceVsApplication(header.ageReferenceDate, header.applicationStart) ===
+    'AGE_REFERENCE_AFTER_START'
+  ) {
+    return AGE_REFERENCE_DATE_MESSAGE;
+  }
+  return null;
+}
 
 const EMPTY_INPUT: ThanawiRuleRowInput = {
   excellenceMode: 'GRADES',
@@ -138,11 +162,7 @@ export function ThanawiRulesSection({
   const header = useAdmissionSetupWizardStore(
     (s) => s.headers[categoryCode] ?? s.getHeader(categoryCode),
   );
-  const headerDateError =
-    validateApplicationDateRange(header.applicationStart, header.applicationEnd) ===
-    'INVALID_DATE_RANGE'
-      ? INVALID_DATE_RANGE_MESSAGE
-      : null;
+  const headerDateError = headerDateMessage(header);
 
   const isLoading =
     maritalQuery.isLoading ||
@@ -338,6 +358,7 @@ function ThanawiTopFields({
                 setHeaderField(categoryCode, 'applicationStart', dateToIso(d))
               }
               disabled={!canWrite}
+              min={todayDateOnly()}
               placeholder="اختر اليوم…"
             />
           </FieldLabel>
@@ -352,13 +373,18 @@ function ThanawiTopFields({
               placeholder="اختر اليوم…"
             />
           </FieldLabel>
-          <FieldLabel label="تاريخ احتساب السن" required>
+          <FieldLabel
+            label="تاريخ احتساب السن"
+            required
+            error={headerDateMessage(header) === AGE_REFERENCE_DATE_MESSAGE ? AGE_REFERENCE_DATE_MESSAGE : null}
+          >
             <DatePicker
               value={isoToDate(header.ageReferenceDate)}
               onChange={(d) =>
                 setHeaderField(categoryCode, 'ageReferenceDate', dateToIso(d))
               }
               disabled={!canWrite}
+              min={nextDateOnly(header.applicationStart)}
               placeholder="اختر اليوم…"
             />
           </FieldLabel>
@@ -480,12 +506,16 @@ function dateToIso(d: Date | null): string {
   return `${y}-${m}-${day}`;
 }
 
+function todayDateOnly(): string {
+  return dateToIso(new Date());
+}
+
 function nextDateOnly(value: string | null | undefined): string | undefined {
   if (!value) return undefined;
   const date = new Date(`${value.slice(0, 10)}T00:00:00`);
   if (Number.isNaN(date.getTime())) return undefined;
   date.setDate(date.getDate() + 1);
-  return date.toISOString().slice(0, 10);
+  return dateToIso(date);
 }
 
 interface FieldLabelProps {
@@ -604,13 +634,10 @@ function ThanawiForm({
     header.applicationEnd !== '' &&
     validateApplicationDateRange(header.applicationStart, header.applicationEnd) === null &&
     header.ageReferenceDate !== '' &&
+    validateAgeReferenceVsApplication(header.ageReferenceDate, header.applicationStart) === null &&
     header.maritalStatus.length > 0 &&
     header.maxAge !== null;
-  const headerDateError =
-    validateApplicationDateRange(header.applicationStart, header.applicationEnd) ===
-    'INVALID_DATE_RANGE'
-      ? INVALID_DATE_RANGE_MESSAGE
-      : null;
+  const headerDateError = headerDateMessage(header);
 
   const addThanawiRow = useAdmissionSetupWizardStore((s) => s.addThanawiRow);
   const updateThanawiRow = useAdmissionSetupWizardStore((s) => s.updateThanawiRow);

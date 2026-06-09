@@ -74,7 +74,7 @@ const FIELD_MESSAGES_AR: Record<AppSettingsConflict, string> = {
   OVERLAPPING_PERIOD: 'تتداخل مع سنة أخرى',
   AGE_NOT_POSITIVE: 'السن > 0',
   AGE_RANGE_INVALID: 'السن الأدنى ≤ الأقصى',
-  AGE_REFERENCE_AFTER_START: 'تاريخ احتساب السن يجب أن يسبق بداية التقديم',
+  AGE_REFERENCE_AFTER_START: 'تاريخ احتساب السن يجب أن يكون بعد بداية التقديم',
   PERCENTAGE_OUT_OF_RANGE: 'النسبة 0–100',
   GRADE_MODE_MISMATCH: 'نمط تقدير غير مطابق',
   GENDER_REQUIRED: 'اختر النوع',
@@ -547,6 +547,7 @@ function YearCard({
                   applicationStartDate: dateToIso(d) ?? row.applicationStartDate,
                 })
               }
+              min={todayDateOnly()}
             />
           </Field>
 
@@ -573,7 +574,7 @@ function YearCard({
               onChange={(d) =>
                 onPatch({ ageReferenceDate: dateToIso(d) ?? row.ageReferenceDate })
               }
-              max={row.applicationStartDate.slice(0, 10)}
+              min={nextDateOnly(row.applicationStartDate)}
             />
           </Field>
         </FieldGroup>
@@ -823,6 +824,10 @@ function dateToIso(value: Date | null): string | null {
   const mm = String(value.getUTCMonth() + 1).padStart(2, '0');
   const dd = String(value.getUTCDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function todayDateOnly(): string {
+  return dateToIso(new Date()) ?? '';
 }
 
 function nextDateOnly(value: string | null | undefined): string | undefined {

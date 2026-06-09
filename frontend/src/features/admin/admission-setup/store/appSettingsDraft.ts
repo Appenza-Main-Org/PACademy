@@ -214,7 +214,10 @@ export const useAppSettingsDraftStore = create<Store>((set, get) => ({
   addRow: (csId, seed) => {
     const seedNumber = get().tempIdSeed;
     const tempId = `temp-${csId}-${seedNumber}`;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = dateOnly(new Date());
+    const tomorrowDate = new Date();
+    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+    const tomorrow = dateOnly(tomorrowDate);
     const seedBag = seed as Record<string, unknown>;
     const seedKind: 'GRADES' | 'TAGDIR' =
       seedBag.gradeKind === 'TAGDIR' ? 'TAGDIR' : 'GRADES';
@@ -235,8 +238,8 @@ export const useAppSettingsDraftStore = create<Store>((set, get) => ({
       divisionCodes: [] as string[],
       schoolCategoryCodes: [] as string[],
       applicationStartDate: today,
-      applicationEndDate: today,
-      ageReferenceDate: today,
+      applicationEndDate: tomorrow,
+      ageReferenceDate: tomorrow,
       isActive: true,
     };
     const row: ApplicantSpecializationYear =
@@ -378,4 +381,11 @@ export function useDraftSummary(): DraftSummary {
       total: dirtyCount + newCount + deletedCount,
     };
   });
+}
+
+function dateOnly(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }

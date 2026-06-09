@@ -73,7 +73,10 @@ import {
   type OverlapPair,
   type OverlapReason,
 } from '../../lib/ruleOverlapValidation';
-import { validateApplicationDateRange } from '../../lib/appSettingsValidation';
+import {
+  validateAgeReferenceVsApplication,
+  validateApplicationDateRange,
+} from '../../lib/appSettingsValidation';
 import { ExcellenceModeToggle } from './ExcellenceModeToggle';
 import { OperatorScoreField } from './OperatorScoreField';
 
@@ -124,6 +127,27 @@ function sameStringSet(a: readonly string[], b: readonly string[]): boolean {
 
 const SPECIALIZED_OFFICERS_CATEGORY_CODE = 'specialized_officers';
 const INVALID_DATE_RANGE_MESSAGE = 'يجب أن يكون تاريخ نهاية التقديم بعد تاريخ بداية التقديم.';
+const AGE_REFERENCE_DATE_MESSAGE = 'يجب أن يكون تاريخ احتساب السن بعد تاريخ بداية التقديم.';
+
+function headerDateMessage(header: {
+  applicationStart: string;
+  applicationEnd: string;
+  ageReferenceDate: string;
+}): string | null {
+  if (
+    validateApplicationDateRange(header.applicationStart, header.applicationEnd) ===
+    'INVALID_DATE_RANGE'
+  ) {
+    return INVALID_DATE_RANGE_MESSAGE;
+  }
+  if (
+    validateAgeReferenceVsApplication(header.ageReferenceDate, header.applicationStart) ===
+    'AGE_REFERENCE_AFTER_START'
+  ) {
+    return AGE_REFERENCE_DATE_MESSAGE;
+  }
+  return null;
+}
 
 const EMPTY_INPUT: GeneralRuleRowInput = {
   excellenceMode: 'GRADES',
@@ -218,11 +242,7 @@ export function GeneralRulesSection({
   const header = useAdmissionSetupWizardStore(
     (s) => s.headers[categoryCode] ?? s.getHeader(categoryCode),
   );
-  const headerDateError =
-    validateApplicationDateRange(header.applicationStart, header.applicationEnd) ===
-    'INVALID_DATE_RANGE'
-      ? INVALID_DATE_RANGE_MESSAGE
-      : null;
+  const headerDateError = headerDateMessage(header);
 
   /* Per-faculty + per-specialization "has authored rows" sets (across
    * local ⊕ approved) so the accordion headers can highlight which
@@ -498,6 +518,7 @@ function TopFields({
                 setHeaderField(categoryCode, 'applicationStart', dateToIso(d))
               }
               disabled={!canWrite}
+              min={todayDateOnly()}
               placeholder="اختر اليوم…"
             />
           </FieldLabel>
@@ -512,13 +533,18 @@ function TopFields({
               placeholder="اختر اليوم…"
             />
           </FieldLabel>
-          <FieldLabel label="تاريخ احتساب السن" required>
+          <FieldLabel
+            label="تاريخ احتساب السن"
+            required
+            error={headerDateMessage(header) === AGE_REFERENCE_DATE_MESSAGE ? AGE_REFERENCE_DATE_MESSAGE : null}
+          >
             <DatePicker
               value={isoToDate(header.ageReferenceDate)}
               onChange={(d) =>
                 setHeaderField(categoryCode, 'ageReferenceDate', dateToIso(d))
               }
               disabled={!canWrite}
+              min={nextDateOnly(header.applicationStart)}
               placeholder="اختر اليوم…"
             />
           </FieldLabel>
@@ -640,12 +666,16 @@ function dateToIso(d: Date | null): string {
   return `${y}-${m}-${day}`;
 }
 
+function todayDateOnly(): string {
+  return dateToIso(new Date());
+}
+
 function nextDateOnly(value: string | null | undefined): string | undefined {
   if (!value) return undefined;
   const date = new Date(`${value.slice(0, 10)}T00:00:00`);
   if (Number.isNaN(date.getTime())) return undefined;
   date.setDate(date.getDate() + 1);
-  return date.toISOString().slice(0, 10);
+  return dateToIso(date);
 }
 
 interface FieldLabelProps {
@@ -1418,13 +1448,10 @@ function PerSpecForm({
     header.applicationEnd !== '' &&
     validateApplicationDateRange(header.applicationStart, header.applicationEnd) === null &&
     header.ageReferenceDate !== '' &&
+    validateAgeReferenceVsApplication(header.ageReferenceDate, header.applicationStart) === null &&
     header.maritalStatus.length > 0 &&
     header.maxAge !== null;
-  const headerDateError =
-    validateApplicationDateRange(header.applicationStart, header.applicationEnd) ===
-    'INVALID_DATE_RANGE'
-      ? INVALID_DATE_RANGE_MESSAGE
-      : null;
+  const headerDateError = headerDateMessage(header);
 
   const addUniversityRow = useAdmissionSetupWizardStore(
     (s) => s.addUniversityRow,

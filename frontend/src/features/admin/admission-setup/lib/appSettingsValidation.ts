@@ -10,7 +10,7 @@
  *   - `maxAge`, when present, must be a positive integer
  *   - GRADES rows: `minPercentage` must be in [0, 100]
  *   - `applicationEndDate > applicationStartDate`
- *   - `ageReferenceDate <= applicationStartDate`
+ *   - `ageReferenceDate > applicationStartDate`
  *   - no two rows under the same specialization share a graduation year
  *     while having any overlapping gender (gender sets intersect)
  *   - no two rows for the same specialization with overlapping gender
@@ -87,7 +87,7 @@ export function validateAgeReferenceVsApplication(
   if (!ageReferenceDate || !applicationStartDate) return null;
   const ref = dayOnly(ageReferenceDate);
   const start = dayOnly(applicationStartDate);
-  if (ref > start) return 'AGE_REFERENCE_AFTER_START';
+  if (ref <= start) return 'AGE_REFERENCE_AFTER_START';
   return null;
 }
 

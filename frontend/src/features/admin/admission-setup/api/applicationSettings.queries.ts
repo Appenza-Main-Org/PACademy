@@ -84,7 +84,7 @@ const CONFLICT_MESSAGES_AR: Record<AppSettingsConflict, string> = {
   OVERLAPPING_PERIOD: 'فترة التقديم تتداخل مع سنة أخرى لنفس النوع',
   AGE_NOT_POSITIVE: 'السن يجب أن يكون رقماً موجباً',
   AGE_RANGE_INVALID: 'السن الأدنى يجب أن يكون أقل من أو يساوي السن الأقصى',
-  AGE_REFERENCE_AFTER_START: 'تاريخ احتساب السن يجب أن يسبق بداية التقديم',
+  AGE_REFERENCE_AFTER_START: 'تاريخ احتساب السن يجب أن يكون بعد بداية التقديم',
   PERCENTAGE_OUT_OF_RANGE: 'الدرجة المئوية يجب أن تكون بين 0 و 100',
   GRADE_MODE_MISMATCH: 'نمط التقدير لا يطابق نوع تقديم الفئة',
   GENDER_REQUIRED: 'اختر النوع (ذكور أو إناث على الأقل)',
