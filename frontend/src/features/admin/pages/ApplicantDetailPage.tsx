@@ -555,8 +555,21 @@ const EDUCATION_EXTRA_LABELS: Record<string, string> = {
   branch: 'الشعبة',
   schoolCategory: 'فئة المدرسة',
   country: 'دولة الدراسة',
+  thanawiType: 'نوع الشهادة',
+  schoolNameAr: 'اسم المدرسة',
+  thanawiTotal: 'المجموع',
+  thanawiPercentage: 'النسبة المئوية',
+  thanawiGrade: 'التقدير',
   thanawiCountry: 'دولة المدرسة',
   thanawiGradDate: 'تاريخ الحصول على الشهادة',
+  bachelorFaculty: 'الكلية',
+  bachelorUniversity: 'الجامعة',
+  bachelorSpecialization: 'التخصص',
+  bachelorMajor: 'التخصص',
+  bachelorBranch: 'التخصص',
+  bachelorGrade: 'التقدير العام',
+  bachelorYear: 'سنة التخرج',
+  bachelorPercentage: 'النسبة المئوية',
   higherSpecialization: 'تخصص المؤهل الأعلى',
   postgradDegree: 'درجة الماجستير',
   postgradSpecialization: 'تخصص الماجستير',
@@ -627,6 +640,11 @@ function markConsumed(consumedKeys: Set<string>, keys: readonly string[], namesp
   }
 }
 
+function markConsumedEverywhere(consumedKeys: Set<string>, keys: readonly string[]): void {
+  markConsumed(consumedKeys, keys);
+  markConsumed(consumedKeys, keys, 'secondary');
+}
+
 function formattedEducationValue(submittedField: unknown): React.ReactNode {
   if (!hasSubmittedEducationValue(submittedField)) return '—';
   if (typeof submittedField === 'number') return <span className="font-mono">{num(submittedField)}</span>;
@@ -638,6 +656,14 @@ function lookupEducationValue(submittedField: unknown, labels: Record<string, st
   if (!hasSubmittedEducationValue(submittedField)) return '—';
   const text = String(submittedField);
   return labels[text] ?? text;
+}
+
+function yearValue(submittedYear: unknown): React.ReactNode {
+  if (!hasSubmittedEducationValue(submittedYear)) return '—';
+  const text = typeof submittedYear === 'number'
+    ? String(Math.trunc(submittedYear))
+    : String(submittedYear);
+  return <span className="font-mono">{text}</span>;
 }
 
 function percentageValue(submittedPercent: unknown): React.ReactNode {
@@ -654,7 +680,11 @@ function educationRowsFromSpecs(
 ): EducationRow[] {
   return specs.map((spec) => {
     const submittedField = educationValue(record, spec.keys) ?? spec.fallback;
-    markConsumed(consumedKeys, spec.keys, namespace);
+    if (namespace === 'secondary') {
+      markConsumedEverywhere(consumedKeys, spec.keys);
+    } else {
+      markConsumed(consumedKeys, spec.keys);
+    }
     return {
       label: spec.label,
       value: spec.formatter ? spec.formatter(submittedField) : formattedEducationValue(submittedField),
@@ -672,7 +702,7 @@ function secondaryEducationRows(
     { label: 'نوع الشهادة', keys: ['certificateName', 'thanawiType'], fallback: fallback.certType },
     { label: 'اسم المدرسة', keys: ['schoolName', 'schoolNameAr'] },
     { label: 'عنوان المدرسة', keys: ['schoolAddress', 'region'] },
-    { label: 'سنة التخرج', keys: ['graduationYear', 'thanawiGradDate'], fallback: fallback.certYear },
+    { label: 'سنة التخرج', keys: ['graduationYear', 'thanawiGradDate'], fallback: fallback.certYear, formatter: yearValue },
     { label: 'المجموع', keys: ['totalScore', 'thanawiTotal'], fallback: fallback.certScore, formatter: formattedEducationValue },
     { label: 'النسبة المئوية', keys: ['percentage', 'thanawiPercentage'], fallback: fallback.certPercent, formatter: percentageValue },
     { label: 'التقدير', keys: ['grade', 'thanawiGrade'] },
@@ -704,7 +734,7 @@ function universityEducationRows(
     { label: 'الجامعة', keys: ['university', 'bachelorUniversity'] },
     { label: 'التخصص', keys: ['specialization', 'bachelorSpecialization', 'bachelorMajor', 'bachelorBranch'] },
     { label: 'التقدير العام', keys: ['grade', 'bachelorGrade', 'generalGrade'] },
-    { label: 'سنة التخرج', keys: ['graduationYear', 'bachelorYear'] },
+    { label: 'سنة التخرج', keys: ['graduationYear', 'bachelorYear'], formatter: yearValue },
     { label: 'المجموع', keys: ['totalScore', 'bachelorTotal'], formatter: formattedEducationValue },
     { label: 'النسبة المئوية', keys: ['percentage', 'bachelorPercentage'], formatter: percentageValue },
   ];
