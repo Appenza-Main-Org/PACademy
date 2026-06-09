@@ -336,10 +336,23 @@ public sealed class PortalService(PortalDbContext db)
 
     // ── Exam date pick ─────────────────────────────────────────────────
 
-    public async Task<string> PickExamDateAsync(string applicantId, string slotId, CancellationToken ct)
+    public async Task<string> PickExamDateAsync(
+        string applicantId,
+        string slotId,
+        PickedCommittee? committee,
+        CancellationToken ct)
     {
-        // Accept full slot IDs, ISO dates, and the day-first date strings
-        // currently emitted by the admin eligibility schedule.
+        var pickedSlot = await ResolvePickedExamSlotAsync(slotId, ct);
+        EnsureExamDateBookable(pickedSlot.Date);
+
+        var draft = await GetOrCreateDraftAsync(applicantId, ct);
+        var current = draft["furthestStage"]?.GetValue<int>() ?? 0;
+        await SaveDraftAsync(applicantId, BuildExamDatePatch(current, pickedSlot, committee), ct);
+        return pickedSlot.Date.ToString("yyyy-MM-dd");
+    }
+
+    private async Task<PickedExamSlot> ResolvePickedExamSlotAsync(string slotId, CancellationToken ct)
+    {
         var candidateIds = CandidateSlotIds(slotId);
         var slot = await db.ExamSlots.AsNoTracking()
             .FirstOrDefaultAsync(x => candidateIds.Contains(x.Id), ct);
@@ -348,27 +361,50 @@ public sealed class PortalService(PortalDbContext db)
         if (slot is null && !TryParseSlotDate(slotId, out pickedDate))
             throw new KeyNotFoundException($"موعد الاختبار '{slotId}' غير موجود");
 
-        var resolvedSlotId = slot?.Id ?? $"SLT-{pickedDate:yyyy-MM-dd}";
-        var resolvedDate = slot?.Date ?? pickedDate;
-        var resolvedTime = slot?.Time ?? "08:00";
-        var resolvedLocation = slot?.Location ?? "كلية الشرطة - مبنى الاختبارات - القاهرة";
+        return new PickedExamSlot(
+            slot?.Id ?? $"SLT-{pickedDate:yyyy-MM-dd}",
+            slot?.Date ?? pickedDate,
+            slot?.Time ?? "08:00",
+            slot?.Location ?? "كلية الشرطة - مبنى الاختبارات - القاهرة");
+    }
 
-        EnsureExamDateBookable(resolvedDate);
-
-        var draft = await GetOrCreateDraftAsync(applicantId, ct);
-        var current = draft["furthestStage"]?.GetValue<int>() ?? 0;
-        await SaveDraftAsync(applicantId, new JsonObject
+    private static JsonObject BuildExamDatePatch(
+        int currentStage,
+        PickedExamSlot pickedSlot,
+        PickedCommittee? committee)
+    {
+        var examSlot = new JsonObject
         {
-            ["furthestStage"] = Math.Max(current, 8),
-            ["examSlot"] = new JsonObject
-            {
-                ["slotId"] = resolvedSlotId,
-                ["date"] = resolvedDate.ToString("yyyy-MM-dd"),
-                ["time"] = resolvedTime,
-                ["location"] = resolvedLocation,
-            },
-        }, ct);
-        return resolvedDate.ToString("yyyy-MM-dd");
+            ["slotId"] = pickedSlot.Id,
+            ["date"] = pickedSlot.Date.ToString("yyyy-MM-dd"),
+            ["time"] = pickedSlot.Time,
+            ["location"] = pickedSlot.Location,
+        };
+        var patch = new JsonObject
+        {
+            ["furthestStage"] = Math.Max(currentStage, 8),
+            ["examSlot"] = examSlot,
+        };
+        ApplyPickedCommittee(patch, examSlot, committee);
+        return patch;
+    }
+
+    private static void ApplyPickedCommittee(
+        JsonObject patch,
+        JsonObject examSlot,
+        PickedCommittee? committee)
+    {
+        if (committee is null) return;
+        if (!string.IsNullOrWhiteSpace(committee.CommitteeId))
+        {
+            patch["assignedCommitteeId"] = committee.CommitteeId;
+            examSlot["committeeId"] = committee.CommitteeId;
+        }
+        if (!string.IsNullOrWhiteSpace(committee.CommitteeName))
+        {
+            patch["assignedCommitteeName"] = committee.CommitteeName;
+            examSlot["committeeName"] = committee.CommitteeName;
+        }
     }
 
     private static string[] CandidateSlotIds(string slotId)
@@ -974,6 +1010,7 @@ public sealed class PortalService(PortalDbContext db)
         var draft = await GetOrCreateDraftAsync(applicantId, ct);
         var family = await GetFamilyAsync(applicantId, ct);
         var profile = draft["profile"] as JsonObject;
+        var committeeName = CommitteeNameFromDraft(draft);
         var personal = new JsonObject
         {
             ["cover"] = new JsonObject
@@ -981,7 +1018,7 @@ public sealed class PortalService(PortalDbContext db)
                 ["fullName"] = StringFrom(profile, "fullName"),
                 ["fileNumber"] = applicantId,
                 ["admissionYear"] = cycleId.Contains("2026", StringComparison.Ordinal) ? "2026" : "",
-                ["committee"] = StringFrom(draft["examSlot"] as JsonObject, "location"),
+                ["committee"] = committeeName,
                 ["governorate"] = StringFrom(profile, "birthGovernorate"),
             },
             ["personal"] = new JsonObject
@@ -989,7 +1026,7 @@ public sealed class PortalService(PortalDbContext db)
                 ["fullName"] = StringFrom(profile, "fullName"),
                 ["fileNumber"] = applicantId,
                 ["shuhraName"] = "",
-                ["committee"] = StringFrom(draft["examSlot"] as JsonObject, "location"),
+                ["committee"] = committeeName,
                 ["dateOfBirth"] = StringFrom(profile, "dateOfBirth"),
                 ["nationality"] = "مصرية",
                 ["governorate"] = StringFrom(profile, "birthGovernorate"),
@@ -1019,6 +1056,19 @@ public sealed class PortalService(PortalDbContext db)
             ["maternalRelatives"] = new JsonObject(),
             ["foreignAndCases"] = new JsonObject(),
         };
+    }
+
+    private static string CommitteeNameFromDraft(JsonObject draft) =>
+        FirstPresentString(draft, "assignedCommitteeName", "committeeName", "committeeLabelAr");
+
+    private static string FirstPresentString(JsonObject source, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            var text = StringFrom(source, key);
+            if (!string.IsNullOrWhiteSpace(text)) return text;
+        }
+        return "";
     }
 
     private async Task<JsonObject> BuildAcquaintanceDocPayloadAsync(string docId, CancellationToken ct)
@@ -1340,4 +1390,8 @@ public sealed class PortalService(PortalDbContext db)
         var code = Math.Abs(seed) % 90_000_000 + 10_000_000;
         return code.ToString();
     }
+
+    private sealed record PickedExamSlot(string Id, DateOnly Date, string Time, string Location);
 }
+
+public sealed record PickedCommittee(string? CommitteeId, string? CommitteeName);

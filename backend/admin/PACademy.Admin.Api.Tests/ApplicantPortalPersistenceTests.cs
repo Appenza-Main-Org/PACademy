@@ -103,7 +103,11 @@ public sealed class ApplicantPortalPersistenceTests
             }
         }, TestContext.Current.CancellationToken);
 
-        await service.PickExamDateAsync(applicantId, "2026-07-15", TestContext.Current.CancellationToken);
+        await service.PickExamDateAsync(
+            applicantId,
+            "2026-07-15",
+            new PickedCommittee("CMT-12", "اللجنة الأولى قسم عام"),
+            TestContext.Current.CancellationToken);
 
         var scheduled = await db.ApplicantManagementRecords.SingleAsync(
             row => row.Module == "applicants" && row.Id == applicantId,
@@ -116,6 +120,10 @@ public sealed class ApplicantPortalPersistenceTests
         Assert.Equal(8, scheduledPayload["stage"]?.GetValue<int>());
         Assert.Equal("حجز الاختبارات", scheduledPayload["stageLabel"]?.GetValue<string>());
         Assert.Equal("2026-07-15", scheduledPayload["firstExamDate"]?.GetValue<string>());
+        Assert.Equal("CMT-12", scheduledPayload["assignedCommitteeId"]?.GetValue<string>());
+        Assert.Equal("اللجنة الأولى قسم عام", scheduledPayload["assignedCommitteeName"]?.GetValue<string>());
+        Assert.Equal("CMT-12", scheduledPayload["examSlot"]?["committeeId"]?.GetValue<string>());
+        Assert.Equal("اللجنة الأولى قسم عام", scheduledPayload["examSlot"]?["committeeName"]?.GetValue<string>());
         Assert.Equal(categoryKey, scheduled.CategoryKey);
         Assert.Equal(nationalId, scheduled.NationalId);
     }
@@ -131,7 +139,7 @@ public sealed class ApplicantPortalPersistenceTests
             .ToString("yyyy-MM-dd");
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.PickExamDateAsync(applicantId, expiredDate, TestContext.Current.CancellationToken));
+            service.PickExamDateAsync(applicantId, expiredDate, null, TestContext.Current.CancellationToken));
 
         Assert.Equal("هذا الموعد لم يعد متاحاً للحجز", ex.Message);
         var draft = await service.GetOrCreateDraftAsync(applicantId, TestContext.Current.CancellationToken);

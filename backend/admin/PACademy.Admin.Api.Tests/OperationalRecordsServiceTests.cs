@@ -167,6 +167,117 @@ public sealed class OperationalRecordsServiceTests
         Assert.Equal("كلية الشرطة - مبنى الاختبارات - القاهرة", applicant["examSlot"]?["location"]?.GetValue<string>());
     }
 
+    [Fact]
+    public async Task ApplicantListResolvesOldDateOnlySlotToFirstRealCommittee()
+    {
+        await using var db = CreateDb();
+        var service = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        db.LookupRows.Add(new LookupRowEntity
+        {
+            LookupKey = "committees",
+            Code = "CMT-12",
+            Name = "اللجنة الأولى قسم عام",
+            IsActive = true,
+            PayloadJson = "{}",
+            SourceSystem = "test"
+        });
+        db.LookupRows.Add(new LookupRowEntity
+        {
+            LookupKey = "committees",
+            Code = "CMT-13",
+            Name = "اللجنة الثانية قسم عام",
+            IsActive = true,
+            PayloadJson = "{}",
+            SourceSystem = "test"
+        });
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+        await service.UpsertAsync(
+            "committeeInstances",
+            "CI-GEN-13",
+            new JsonObject
+            {
+                ["id"] = "CI-GEN-13",
+                ["cycleId"] = "CYC-2026",
+                ["categoryKey"] = "officers_general",
+                ["definitionCode"] = "CMT-13",
+                ["date"] = "2026-06-14"
+            },
+            TestContext.Current.CancellationToken);
+        await service.UpsertAsync(
+            "committeeInstances",
+            "CI-GEN-12",
+            new JsonObject
+            {
+                ["id"] = "CI-GEN-12",
+                ["cycleId"] = "CYC-2026",
+                ["categoryKey"] = "officers_general",
+                ["definitionCode"] = "CMT-12",
+                ["date"] = "2026-06-14"
+            },
+            TestContext.Current.CancellationToken);
+        await service.UpsertAsync(
+            "applicants",
+            "APP-DATE-ONLY",
+            new JsonObject
+            {
+                ["id"] = "APP-DATE-ONLY",
+                ["nationalId"] = "30401011234571",
+                ["name"] = "يوسف أحمد محمد",
+                ["gender"] = "male",
+                ["status"] = "exam_scheduled",
+                ["cycleId"] = "CYC-2026",
+                ["categoryKey"] = "officers_general",
+                ["examSlot"] = new JsonObject
+                {
+                    ["slotId"] = "SLT-2026-06-14",
+                    ["date"] = "2026-06-14",
+                    ["time"] = "08:00",
+                    ["location"] = "كلية الشرطة - مبنى الاختبارات - القاهرة"
+                }
+            },
+            TestContext.Current.CancellationToken);
+
+        var applicants = await service.ListAsync("applicants", TestContext.Current.CancellationToken);
+
+        var applicant = Assert.Single(applicants);
+        Assert.Equal("اللجنة الأولى قسم عام", applicant["committeeName"]?.GetValue<string>());
+        Assert.Equal("كلية الشرطة - مبنى الاختبارات - القاهرة", applicant["examSlot"]?["location"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task ApplicantPageReturnsNewestApplicantsFirst()
+    {
+        await using var db = CreateDb();
+        var service = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        for (var i = 1; i <= 3; i++)
+        {
+            await service.UpsertAsync(
+                "applicants",
+                $"APP-{i:D4}",
+                new JsonObject
+                {
+                    ["id"] = $"APP-{i:D4}",
+                    ["nationalId"] = $"3040101123457{i}",
+                    ["name"] = $"Applicant {i}",
+                },
+                TestContext.Current.CancellationToken);
+        }
+
+        var page = await service.PageAsync(
+            "applicants",
+            new QueryCollection(new Dictionary<string, Microsoft.Extensions.Primitives.StringValues>
+            {
+                ["page"] = "1",
+                ["pageSize"] = "2",
+            }),
+            TestContext.Current.CancellationToken);
+        var json = JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(page))!.AsObject();
+        var data = json["data"]!.AsArray();
+
+        Assert.Equal("APP-0003", data[0]?["id"]?.GetValue<string>());
+        Assert.Equal("APP-0002", data[1]?["id"]?.GetValue<string>());
+    }
+
     private static AdminDbContext CreateDb()
     {
         var options = new DbContextOptionsBuilder<AdminDbContext>()

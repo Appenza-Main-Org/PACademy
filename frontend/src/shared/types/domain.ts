@@ -1325,7 +1325,16 @@ export interface ApplicantDraft {
   /** Set after POST /applicant/parents/approve succeeds. */
   parentsApproved?: boolean;
   parentsApprovedAt?: number;
-  examSlot?: { slotId: string; date: string; time: string; location: string };
+  assignedCommitteeId?: string;
+  assignedCommitteeName?: string;
+  examSlot?: {
+    slotId: string;
+    date: string;
+    time: string;
+    location: string;
+    committeeId?: string;
+    committeeName?: string;
+  };
   followUp?: Record<string, PipelineState>;
   acquaintance?: Record<string, unknown>;
 }

@@ -101,7 +101,11 @@ export function Stage8ExamSchedulePage(): JSX.Element {
       toast('اختر تاريخ الإختبار أولاً', 'warning');
       return;
     }
-    await pickMut.mutateAsync({ slotId: picked });
+    await pickMut.mutateAsync({
+      slotId: picked,
+      committeeId: firstCommittee?.committeeId,
+      committeeName: firstCommittee?.committeeName,
+    });
     setFirstExamDate(picked);
     setConfirmOpen(true);
   };

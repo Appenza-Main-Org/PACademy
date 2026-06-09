@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using System.Data;
 using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
@@ -95,6 +96,7 @@ public sealed class OperationalRecordsService(
         if (module == "applicants")
         {
             rows = ApplyApplicantFilters(rows, query);
+            rows = SortApplicantRowsNewestFirst(rows);
         }
         var total = rows.Count;
         var data = rows.Skip((page - 1) * pageSize).Take(pageSize).ToList();
@@ -820,7 +822,45 @@ public sealed class OperationalRecordsService(
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        return matchingCodes.Length == 1 ? matchingCodes[0] : null;
+        if (matchingCodes.Length > 0) return FirstCommitteeCodeByDisplayOrder(matchingCodes, committeeNameByCode);
+        return isFemale.Value ? null : FirstCommitteeCodeByDisplayOrder(committeeCodes, committeeNameByCode);
+    }
+
+    private static string? FirstCommitteeCodeByDisplayOrder(
+        IReadOnlyList<string> committeeCodes,
+        IReadOnlyDictionary<string, string> committeeNameByCode)
+        => committeeCodes
+            .OrderBy(NumericIdTail)
+            .ThenBy(code => committeeNameByCode.TryGetValue(code, out var name) ? name : code, StringComparer.Ordinal)
+            .FirstOrDefault();
+
+    private static List<JsonObject> SortApplicantRowsNewestFirst(IReadOnlyList<JsonObject> rows) =>
+        rows
+            .Select((row, index) => new { Row = row, Index = index })
+            .OrderByDescending(item => ApplicantCreatedAt(item.Row))
+            .ThenByDescending(item => ApplicantIdTail(item.Row))
+            .ThenBy(item => item.Index)
+            .Select(item => item.Row)
+            .ToList();
+
+    private static DateTimeOffset? ApplicantCreatedAt(JsonObject applicant)
+    {
+        var text = FirstString(applicant, "createdAt", "registeredAt");
+        return DateTimeOffset.TryParse(text, out var parsed) ? parsed : null;
+    }
+
+    private static int ApplicantIdTail(JsonObject applicant)
+    {
+        var id = FirstString(applicant, "adminRecordId", "applicantTableId", "id");
+        if (string.IsNullOrWhiteSpace(id)) return -1;
+        var tail = NumericIdTail(id);
+        return tail == int.MaxValue ? -1 : tail;
+    }
+
+    private static int NumericIdTail(string text)
+    {
+        var match = Regex.Match(text, @"(\d+)(?!.*\d)");
+        return match.Success && int.TryParse(match.Value, out var parsed) ? parsed : int.MaxValue;
     }
 
     private static bool? IsFemaleApplicant(JsonObject applicant)
@@ -1493,7 +1533,7 @@ public sealed class OperationalRecordsService(
         projected["paymentStatus"] ??= payment is null ? "pending" : "paid";
         SetNumberIfMissing(projected, "paymentAmount", NumberProp(payment, "amount"));
         SetIfPresent(projected, "firstExamDate", StringProp(examSlot, "date"));
-        SetIfPresent(projected, "committee", StringProp(examSlot, "location"));
+        RemoveVenueCommitteeField(projected, examSlot);
         projected["registeredAt"] ??= identity.CreatedAt;
         projected["createdAt"] ??= identity.CreatedAt;
         projected["updatedAt"] ??= identity.UpdatedAt;
@@ -1502,6 +1542,16 @@ public sealed class OperationalRecordsService(
             : AdminRecordJson.StringProp(projected, "source") ?? identity.Source ?? "api";
 
         return projected;
+    }
+
+    private static void RemoveVenueCommitteeField(JsonObject projected, JsonObject? examSlot)
+    {
+        var venue = StringProp(examSlot, "location");
+        var committee = StringProp(projected, "committee");
+        if (!string.IsNullOrWhiteSpace(venue) && TextEquals(committee, venue))
+        {
+            projected.Remove("committee");
+        }
     }
 
     private static bool HasPortalDraftShape(JsonObject payload) =>

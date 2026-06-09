@@ -312,9 +312,19 @@ public sealed class ApplicantPortalController(
 
         var slotId = body["slotId"]?.GetValue<string>()
             ?? throw new ArgumentException("حقل slotId مطلوب");
+        var committee = PickedCommitteeFrom(body);
 
-        var result = await portal.PickExamDateAsync(applicantId, slotId, ct);
+        var result = await portal.PickExamDateAsync(applicantId, slotId, committee, ct);
         return Ok(new { date = result });
+    }
+
+    private static PickedCommittee? PickedCommitteeFrom(JsonObject body)
+    {
+        var committeeId = body["committeeId"]?.GetValue<string>();
+        var committeeName = body["committeeName"]?.GetValue<string>();
+        return string.IsNullOrWhiteSpace(committeeId) && string.IsNullOrWhiteSpace(committeeName)
+            ? null
+            : new PickedCommittee(committeeId, committeeName);
     }
 
     // ── Follow-up ──────────────────────────────────────────────────────

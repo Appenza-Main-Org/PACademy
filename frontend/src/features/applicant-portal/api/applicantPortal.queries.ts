@@ -237,7 +237,8 @@ export function useApproveParentsMutation(applicantId: string) {
 export function usePickFirstExamDateMutation(applicantId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { slotId: string }) => applicantPortalService.pickFirstExamDate(input),
+    mutationFn: (input: { slotId: string; committeeId?: string; committeeName?: string }) =>
+      applicantPortalService.pickFirstExamDate(input),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: apKeys.draft(applicantId) });
       void qc.invalidateQueries({ queryKey: apKeys.acquaintanceDocStatus(applicantId) });

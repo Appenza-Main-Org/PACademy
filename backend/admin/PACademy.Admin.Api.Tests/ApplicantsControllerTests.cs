@@ -130,7 +130,8 @@ public sealed class ApplicantsControllerTests
         Assert.Equal("paid", row["paymentStatus"]?.GetValue<string>());
         Assert.Equal(250, row["paymentAmount"]?.GetValue<double>());
         Assert.Equal("2026-06-10", row["firstExamDate"]?.GetValue<string>());
-        Assert.Equal("كلية الشرطة - مبنى الاختبارات - القاهرة", row["committee"]?.GetValue<string>());
+        Assert.Equal("كلية الشرطة - مبنى الاختبارات - القاهرة", row["examSlot"]?["location"]?.GetValue<string>());
+        Assert.False(row.ContainsKey("committee"));
         Assert.Equal("محمد إبراهيم سعيد", row["family"]?["father"]?["fullName"]?.GetValue<string>());
         Assert.Equal("مهندس", row["family"]?["father"]?["occupation"]?.GetValue<string>());
         Assert.Equal("أمينة محمد حسن", row["family"]?["paternalGrandmother"]?["fullName"]?.GetValue<string>());

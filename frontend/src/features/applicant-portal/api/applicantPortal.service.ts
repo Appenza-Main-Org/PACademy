@@ -690,7 +690,11 @@ export const applicantPortalService = {
     return { approvedAt };
   },
 
-  async pickFirstExamDate(input: { slotId: string }): Promise<{ date: string }> {
+  async pickFirstExamDate(input: {
+    slotId: string;
+    committeeId?: string;
+    committeeName?: string;
+  }): Promise<{ date: string }> {
     const normalizedInputDate = normalizeExamDateValue(input.slotId);
     if (normalizedInputDate && !isBookableExamDate(normalizedInputDate)) {
       throw new Error('هذا الموعد لم يعد متاحاً للحجز');
@@ -711,7 +715,11 @@ export const applicantPortalService = {
         date,
         time: slot?.time ?? '08:00',
         location: slot?.location ?? 'كلية الشرطة - مبنى الاختبارات - القاهرة',
+        committeeId: input.committeeId,
+        committeeName: input.committeeName,
       },
+      assignedCommitteeId: input.committeeId ?? DRAFT.assignedCommitteeId,
+      assignedCommitteeName: input.committeeName ?? DRAFT.assignedCommitteeName,
       furthestStage: Math.max(DRAFT.furthestStage, 8),
       lastSavedAt: Date.now(),
     };

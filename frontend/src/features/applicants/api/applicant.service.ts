@@ -393,6 +393,46 @@ function matchesApplicantFilters(applicant: Applicant, filters: ApplicantFilters
   return true;
 }
 
+function timestampValue(applicant: Applicant): number | null {
+  const createdAt = (applicant as Applicant & { createdAt?: unknown }).createdAt;
+  if (typeof createdAt !== 'string' || createdAt.trim() === '') return null;
+  const time = Date.parse(createdAt);
+  return Number.isNaN(time) ? null : time;
+}
+
+function numericIdTail(value: string | undefined): number | null {
+  if (!value) return null;
+  const match = value.match(/(\d+)(?!.*\d)/);
+  if (!match) return null;
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function compareNullableDesc(a: number | null, b: number | null): number {
+  if (a !== null && b !== null && a !== b) return b - a;
+  if (a !== null && b === null) return -1;
+  if (a === null && b !== null) return 1;
+  return 0;
+}
+
+function sortApplicantsNewestFirst(applicants: readonly Applicant[]): Applicant[] {
+  return applicants
+    .map((applicant, index) => ({ applicant, index }))
+    .sort((a, b) => {
+      const createdDiff = compareNullableDesc(timestampValue(a.applicant), timestampValue(b.applicant));
+      if (createdDiff !== 0) return createdDiff;
+
+      const idDiff = compareNullableDesc(
+        numericIdTail(a.applicant.adminRecordId ?? a.applicant.applicantTableId ?? a.applicant.id),
+        numericIdTail(b.applicant.adminRecordId ?? b.applicant.applicantTableId ?? b.applicant.id),
+      );
+      if (idDiff !== 0) return idDiff;
+
+      return a.index - b.index;
+    })
+    .map(({ applicant }) => applicant);
+}
+
 function paginateApplicants(
   applicants: readonly Applicant[],
   page = 1,
@@ -489,7 +529,7 @@ export const applicantService = {
     if (hasApplicantFilter(cleaned)) {
       const rows = await listAllApplicantsForClientFilter();
       return paginateApplicants(
-        rows.filter((applicant) => matchesApplicantFilters(applicant, cleaned)),
+        sortApplicantsNewestFirst(rows.filter((applicant) => matchesApplicantFilters(applicant, cleaned))),
         cleaned.page,
         cleaned.pageSize,
       );
