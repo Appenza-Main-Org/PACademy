@@ -2,7 +2,7 @@
  * Data-Exchange service.
  *
  * INTEGRATION CONTRACT (admin backend `:5101`):
- *   GET  /api/admin/data-exchange/export?type=<csv|all>&layout=<single-workbook|file-per-type>&filter=<all|changedAfter|modifiedSinceCreation|sinceLastExport>&changedAfter=<iso>
+ *   GET  /api/admin/data-exchange/export?type=<csv|all>&layout=<single-workbook|file-per-type>&filter=<all|changedAfter|modifiedSinceCreation|sinceLastExport>&changedAfter=<iso>&cycleId=<id>
  *   POST /api/admin/data-exchange/import/preview   body: { sheets: ImportSheetInput[] }
  *   POST /api/admin/data-exchange/import/apply      body: ImportApplyRequest
  *   GET  /api/admin/data-exchange/history
@@ -53,9 +53,12 @@ export interface ExportParams {
    *  export honors the unfiltered booked roster. Only meaningful when the
    *  `Applicants` domain is selected. */
   nationalIds?: readonly string[];
+  /** Optional selected admission cycle. When omitted, the backend scopes
+   *  applicant export/roster data to the active cycle. */
+  cycleId?: string;
 }
 
-function exportQuery({ domains, layout, filter, nationalIds }: ExportParams): Record<string, string> {
+function exportQuery({ domains, layout, filter, nationalIds, cycleId }: ExportParams): Record<string, string> {
   const query: Record<string, string> = {
     type: domains.length === Object.keys(SHEET_NAMES).length ? 'all' : domains.join(','),
     layout,
@@ -70,6 +73,9 @@ function exportQuery({ domains, layout, filter, nationalIds }: ExportParams): Re
   }
   if (nationalIds && nationalIds.length > 0) {
     query.nationalIds = nationalIds.join(',');
+  }
+  if (cycleId) {
+    query.cycleId = cycleId;
   }
   return query;
 }

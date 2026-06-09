@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Modules.AdminRecords;
+using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Admin.Api.Modules.Audit;
 using PACademy.Admin.Api.Modules.DataExchangeAdmin;
 using PACademy.Admin.Api.Modules.Lookups;
@@ -22,6 +23,22 @@ public sealed class DataExchangeServiceTests
 
     private static Task SeedOperationalAsync(AdminDbContext db, string module, string id, string payloadJson)
         => new OperationalRecordStore(db).UpsertAsync(module, id, JsonNode.Parse(payloadJson)!.AsObject(), default);
+
+    private static async Task SeedCycleAsync(AdminDbContext db, string id, bool isActive)
+    {
+        db.AdmissionCycles.Add(new AdmissionCycleEntity
+        {
+            Id = id,
+            NameAr = id,
+            Year = 2026,
+            Status = isActive ? "open" : "closed",
+            IsActive = isActive,
+            PayloadJson = $$"""{"id":"{{id}}","nameAr":"{{id}}","year":2026,"status":"{{(isActive ? "open" : "closed")}}","isActive":{{isActive.ToString().ToLowerInvariant()}}}""",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+    }
 
     private static (DataExchangeService svc, AdminDbContext db) Create()
     {
@@ -416,7 +433,7 @@ public sealed class DataExchangeServiceTests
         await SeedOperationalAsync(db, "applicants", "APP-S",
             """{"id":"APP-S","nationalId":"29801011230002","fullName":"محجوز","status":"exam_scheduled","committeeName":"اللجنة الأولى قسم عام","examSlot":{"slotId":"SLOT-7","date":"2026-06-15","time":"08:00","location":"كلية الشرطة"}}""");
 
-        var roster = await svc.ListBookedApplicantsAsync(default);
+        var roster = await svc.ListBookedApplicantsAsync(null, default);
 
         var row = Assert.Single(roster);
         Assert.Equal("29801011230002", row.NationalId);
@@ -434,7 +451,7 @@ public sealed class DataExchangeServiceTests
         await SeedOperationalAsync(db, "applicants", "APP-S",
             """{"id":"APP-S","nationalId":"29801011230003","fullName":"محجوز","status":"exam_scheduled","assignedCommitteeId":"CMT-LAW-02","committeeName":"كلية الشرطة - مبنى الاختبارات - القاهرة","examSlot":{"slotId":"SLOT-8","date":"2026-06-15","time":"08:00","location":"كلية الشرطة - مبنى الاختبارات - القاهرة"}}""");
 
-        var roster = await svc.ListBookedApplicantsAsync(default);
+        var roster = await svc.ListBookedApplicantsAsync(null, default);
 
         var row = Assert.Single(roster);
         Assert.Equal("اللجنة الثانية ليسانس حقوق", row.CommitteeName);
@@ -466,7 +483,7 @@ public sealed class DataExchangeServiceTests
         await SeedOperationalAsync(db, "applicants", "APP-S",
             """{"id":"APP-S","nationalId":"30501011234568","fullName":"محجوز","status":"exam_scheduled","cycleId":"CYC-2026","categoryKey":"law_bachelor","examSlot":{"slotId":"SLOT-10","date":"2026-06-17","time":"08:00","location":"كلية الشرطة - مبنى الاختبارات - القاهرة"}}""");
 
-        var roster = await svc.ListBookedApplicantsAsync(default);
+        var roster = await svc.ListBookedApplicantsAsync(null, default);
         var export = await svc.ExportAsync([ExchangeDomain.Applicants], "single-workbook", ExportFilter.Default, default);
 
         Assert.Equal("اللجنة الرابعة ليسانس حقوق", Assert.Single(roster).CommitteeName);
@@ -486,7 +503,7 @@ public sealed class DataExchangeServiceTests
         await SeedOperationalAsync(db, "applicants", "APP-S",
             """{"id":"APP-S","nationalId":"30501011234568","fullName":"محجوز","status":"exam_scheduled","cycleId":"CYC-1780758679766","categoryKey":"law_bachelor","examSlot":{"slotId":"CI-LAW-04","date":"2026-06-17","time":"08:00","location":"كلية الشرطة - مبنى الاختبارات - القاهرة"}}""");
 
-        var roster = await svc.ListBookedApplicantsAsync(default);
+        var roster = await svc.ListBookedApplicantsAsync(null, default);
         var export = await svc.ExportAsync([ExchangeDomain.Applicants], "single-workbook", ExportFilter.Default, default);
 
         Assert.Equal("اللجنة الرابعة ليسانس حقوق", Assert.Single(roster).CommitteeName);
@@ -506,7 +523,7 @@ public sealed class DataExchangeServiceTests
         await SeedOperationalAsync(db, "applicants", "APP-S",
             """{"id":"APP-S","nationalId":"30501011234568","fullName":"محجوز","gender":"female","status":"exam_scheduled","cycleId":"CYC-1780758679766","categoryKey":"law_bachelor","examSlot":{"slotId":"SLT-2026-06-14","date":"2026-06-14","time":"08:00","location":"كلية الشرطة - مبنى الاختبارات - القاهرة"}}""");
 
-        var roster = await svc.ListBookedApplicantsAsync(default);
+        var roster = await svc.ListBookedApplicantsAsync(null, default);
         var export = await svc.ExportAsync([ExchangeDomain.Applicants], "single-workbook", ExportFilter.Default, default);
 
         Assert.Equal("اللجنة الأولى ليسانس حقوق (طالبات)", Assert.Single(roster).CommitteeName);
@@ -536,6 +553,51 @@ public sealed class DataExchangeServiceTests
         Assert.Contains("29801011230101", rows);
         Assert.Contains("29801011230103", rows);
         Assert.DoesNotContain("29801011230102", rows);
+    }
+
+    [Fact]
+    public async Task Applicants_roster_export_and_reconciliation_are_scoped_to_active_cycle_categories()
+    {
+        // Regression: Data Exchange leaked booked applicants from inactive cycles
+        // and categories not configured for the active cycle.
+        var (svc, db) = Create();
+        await SeedCycleAsync(db, "CYC-ACTIVE", true);
+        await SeedCycleAsync(db, "CYC-CLOSED", false);
+        await SeedOperationalAsync(db, "committeeInstances", "CI-ACTIVE-LAW",
+            """{"id":"CI-ACTIVE-LAW","cycleId":"CYC-ACTIVE","categoryKey":"law_bachelor","definitionCode":"CMT-LAW","date":"2026-06-17"}""");
+        await SeedOperationalAsync(db, "applicants", "APP-ACTIVE-LAW",
+            """{"id":"APP-ACTIVE-LAW","nationalId":"29801011230201","fullName":"نشط قانون","status":"exam_scheduled","cycleId":"CYC-ACTIVE","categoryKey":"law_bachelor","family":{"father":{"fullName":"والد"}},"followUp":{"TST-01":"passed"}}""");
+        await SeedOperationalAsync(db, "applicants", "APP-ACTIVE-OTHER",
+            """{"id":"APP-ACTIVE-OTHER","nationalId":"29801011230202","fullName":"نشط فئة أخرى","status":"exam_scheduled","cycleId":"CYC-ACTIVE","categoryKey":"specialized_officers","family":{"father":{"fullName":"والد"}},"followUp":{"TST-01":"passed"}}""");
+        await SeedOperationalAsync(db, "applicants", "APP-CLOSED-LAW",
+            """{"id":"APP-CLOSED-LAW","nationalId":"29801011230203","fullName":"دورة مغلقة","status":"exam_scheduled","cycleId":"CYC-CLOSED","categoryKey":"law_bachelor","family":{"father":{"fullName":"والد"}},"followUp":{"TST-01":"passed"}}""");
+
+        var roster = await svc.ListBookedApplicantsAsync(null, default);
+        var export = await svc.ExportAsync(
+            [ExchangeDomain.Applicants, ExchangeDomain.Relatives, ExchangeDomain.ExamResults],
+            "single-workbook",
+            ExportFilter.Default,
+            default);
+        var preview = await svc.PreviewApplicantsReconciliationAsync(
+            new ImportSheetInput("Applicants",
+            [
+                new(StringComparer.Ordinal) { ["nationalId"] = "29801011230201", ["fullName"] = "نشط قانون" },
+                new(StringComparer.Ordinal) { ["nationalId"] = "29801011230203", ["fullName"] = "دورة مغلقة" },
+            ]),
+            default);
+
+        var rosterRow = Assert.Single(roster);
+        Assert.Equal("29801011230201", rosterRow.NationalId);
+
+        var applicantKeys = export.Sheets.Single(s => s.Domain == "Applicants").Rows.Select(r => r["business_key"]).ToHashSet();
+        var applicantKey = Assert.Single(applicantKeys);
+        Assert.Equal("29801011230201", applicantKey);
+        Assert.Single(export.Sheets.Single(s => s.Domain == "Relatives").Rows);
+        Assert.Single(export.Sheets.Single(s => s.Domain == "ExamResults").Rows);
+
+        Assert.Equal(1, preview.Counts["matched"]);
+        Assert.Equal(1, preview.Counts["unmatched"]);
+        Assert.True(preview.Rows.Single(r => r.NationalId == "29801011230203").Unmatched);
     }
 
     [Fact]

@@ -11,8 +11,8 @@ namespace PACademy.Admin.Api.Controllers;
 /// domains with row-level change-detection + a no-duplicate-key guarantee.
 ///
 /// INTEGRATION CONTRACT (mirrored by frontend `dataExchange.service.ts`):
-///   GET  /api/admin/data-exchange/export?type=&layout=&filter=&changedAfter=&nationalIds=
-///   GET  /api/admin/data-exchange/applicants/roster
+///   GET  /api/admin/data-exchange/export?type=&layout=&filter=&changedAfter=&nationalIds=&cycleId=
+///   GET  /api/admin/data-exchange/applicants/roster?cycleId=
 ///   POST /api/admin/data-exchange/applicants/reconcile/preview
 ///   POST /api/admin/data-exchange/applicants/reconcile/commit
 ///   POST /api/admin/data-exchange/import/preview
@@ -32,12 +32,17 @@ public sealed class DataExchangeController(DataExchangeService service) : Contro
         [FromQuery] string? filter,
         [FromQuery] string? changedAfter,
         [FromQuery] string? nationalIds,
+        [FromQuery] string? cycleId,
         CancellationToken ct)
     {
         if (!TryResolveDomains(type, out var domains, out var unknown))
             return Conflict(new { code = ErrorCodes.DataExchangeUnknownDomain, message = $"نطاق غير معروف: {unknown}" });
 
-        var exportFilter = ResolveFilter(filter, changedAfter, ct) with { NationalIds = ParseNationalIds(nationalIds) };
+        var exportFilter = ResolveFilter(filter, changedAfter, ct) with
+        {
+            NationalIds = ParseNationalIds(nationalIds),
+            CycleId = NormalizeCycleId(cycleId),
+        };
         var resolvedLayout = string.Equals(layout, "file-per-type", StringComparison.OrdinalIgnoreCase)
             ? "file-per-type" : "single-workbook";
 
@@ -46,8 +51,10 @@ public sealed class DataExchangeController(DataExchangeService service) : Contro
     }
 
     [HttpGet("applicants/roster")]
-    public async Task<ActionResult<IReadOnlyList<ApplicantRosterRow>>> Roster(CancellationToken ct)
-        => Ok(await service.ListBookedApplicantsAsync(ct));
+    public async Task<ActionResult<IReadOnlyList<ApplicantRosterRow>>> Roster(
+        [FromQuery] string? cycleId,
+        CancellationToken ct)
+        => Ok(await service.ListBookedApplicantsAsync(NormalizeCycleId(cycleId), ct));
 
     [HttpPost("applicants/reconcile/preview")]
     public async Task<ActionResult<ApplicantReconciliationPreview>> ReconcilePreview(
@@ -140,4 +147,7 @@ public sealed class DataExchangeController(DataExchangeService service) : Contro
             set.Add(token);
         return set.Count == 0 ? null : set;
     }
+
+    private static string? NormalizeCycleId(string? raw)
+        => string.IsNullOrWhiteSpace(raw) ? null : raw.Trim();
 }
