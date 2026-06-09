@@ -37,6 +37,7 @@ import {
   useApplicant,
   useApplicantTimeline,
 } from '@/features/applicants';
+import { useCycle } from '@/features/admin/api/cycles.queries';
 import { useAuthStore } from '@/features/auth';
 import { date as fmtDate, num } from '@/shared/lib/format';
 import { ROUTES } from '@/config/routes';
@@ -77,6 +78,7 @@ function applicantCategoryLabel(applicant: Applicant): string {
 export function ApplicantDetailPage(): JSX.Element {
   const { id = '' } = useParams<{ id: string }>();
   const { data: applicant, isLoading, error, refetch } = useApplicant(id);
+  const cycleQuery = useCycle(applicant?.cycleId ?? null);
   const user = useAuthStore((s) => s.user);
 
   if (isLoading) return <LoadingState variant="detail" />;
@@ -100,6 +102,7 @@ export function ApplicantDetailPage(): JSX.Element {
   }
 
   const canEdit = Boolean(user) && user!.role !== 'records_clerk';
+  const cycleName = cycleQuery.data?.nameAr ?? (cycleQuery.isLoading ? 'جار التحميل...' : '—');
 
   return (
     <>
@@ -222,7 +225,7 @@ export function ApplicantDetailPage(): JSX.Element {
               label="فئة التقدم"
               value={applicantCategoryLabel(applicant)}
             />
-            <DefRow label="رقم الدورة" value={applicant.cycleId ?? '—'} />
+            <DefRow label="الدورة" value={cycleName} />
           </SectionCard>
 
           {/* §5 Education */}
