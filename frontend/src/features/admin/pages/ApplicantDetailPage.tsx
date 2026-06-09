@@ -42,8 +42,10 @@ import { useAuthStore } from '@/features/auth';
 import { date as fmtDate, num } from '@/shared/lib/format';
 import { ROUTES } from '@/config/routes';
 import {
+  APPLICANT_CATEGORY_KEYS,
   DEPARTMENT_LABELS,
   type Applicant,
+  type ApplicantCategoryKey,
   type ApplicantEducation,
   type ApplicantFamilyMember,
 } from '@/shared/types/domain';
@@ -69,10 +71,25 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 function applicantCategoryLabel(applicant: Applicant): string {
-  const categoryKey = (applicant as Applicant & { categoryKey?: string }).categoryKey;
+  const categoryKey = applicantCategoryKey(applicant);
   if (categoryKey && CATEGORY_LABELS[categoryKey]) return CATEGORY_LABELS[categoryKey];
   if (applicant.department) return DEPARTMENT_LABELS[applicant.department];
   return '—';
+}
+
+function applicantCategoryKey(applicant: Applicant): ApplicantCategoryKey | null {
+  const categoryKey = (applicant as Applicant & { categoryKey?: string }).categoryKey;
+  if (isApplicantCategoryKey(categoryKey)) return categoryKey;
+  if (applicant.department === 'lawyers') return 'law_bachelor';
+  if (applicant.department === 'masters' || applicant.department === 'doctorate' || applicant.department === 'special') {
+    return 'specialized_officers';
+  }
+  if (applicant.department === 'general_first' || applicant.department === 'general_second') return 'officers_general';
+  return null;
+}
+
+function isApplicantCategoryKey(value: string | undefined): value is ApplicantCategoryKey {
+  return APPLICANT_CATEGORY_KEYS.includes(value as ApplicantCategoryKey);
 }
 
 export function ApplicantDetailPage(): JSX.Element {
@@ -289,7 +306,12 @@ export function ApplicantDetailPage(): JSX.Element {
           )}
 
           {/* Portal exam outcomes — admin-editable (gates وثيقة التعارف) */}
-          <ApplicantPortalExamsCard applicantId={id} canEdit={canEdit} />
+          <ApplicantPortalExamsCard
+            applicantId={id}
+            canEdit={canEdit}
+            categoryKey={applicantCategoryKey(applicant)}
+            cycleId={applicant.cycleId ?? null}
+          />
 
           {/* Investigation */}
           <Card>

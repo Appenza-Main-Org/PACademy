@@ -29,12 +29,14 @@ import {
   toast,
 } from '@/shared/components';
 import {
+  type FollowUpExam,
+  type FollowUpExamPlan,
   useAdminPortalStatus,
+  useFollowUpExamPlan,
   useUpdateFollowUpMutation,
 } from '@/features/applicant-portal';
-import { useLookup } from '@/features/lookups';
 import { useAdminSettings } from '../../api/settings.queries';
-import type { PipelineState } from '@/shared/types/domain';
+import type { ApplicantCategoryKey, PipelineState } from '@/shared/types/domain';
 
 const OUTCOME_OPTIONS: ReadonlyArray<{ value: PipelineState; label: string }> = [
   { value: 'pending', label: 'لم يبدأ' },
@@ -56,19 +58,40 @@ function outcomeLabel(state: PipelineState): string {
   return OUTCOME_OPTIONS.find((o) => o.value === state)?.label ?? state;
 }
 
-function outcomeOf(map: Record<string, PipelineState> | undefined, code: string): PipelineState {
-  return map?.[code] ?? 'pending';
+function outcomeOf(map: Record<string, PipelineState> | undefined, exam: FollowUpExam): PipelineState {
+  return map?.[exam.id] ?? map?.[exam.key] ?? 'pending';
+}
+
+function configuredExams(
+  plan: FollowUpExamPlan | null | undefined,
+  availableExams: readonly FollowUpExam[],
+): Array<{ exam: FollowUpExam; isRequired: boolean }> {
+  if (!plan) return [];
+
+  const examById = new Map(availableExams.map((exam) => [exam.id, exam]));
+  return plan.exams
+    .filter((entry) => entry.isActive !== false && entry.isEnabled !== false && entry.stageIsActive !== false)
+    .filter((entry) => examById.has(entry.examId))
+    .sort((a, b) => a.order - b.order)
+    .map((entry) => ({
+      exam: examById.get(entry.examId)!,
+      isRequired: entry.isRequired,
+    }));
 }
 
 export function ApplicantPortalExamsCard({
   applicantId,
   canEdit,
+  categoryKey,
+  cycleId,
 }: {
   applicantId: string;
   canEdit: boolean;
+  categoryKey: ApplicantCategoryKey | null;
+  cycleId: string | null;
 }): JSX.Element | null {
   const statusQuery = useAdminPortalStatus(applicantId || null);
-  const testsQuery = useLookup('tests');
+  const examPlanQuery = useFollowUpExamPlan(cycleId, categoryKey);
   const settingsQuery = useAdminSettings();
   const mutation = useUpdateFollowUpMutation(applicantId);
 
@@ -81,16 +104,13 @@ export function ApplicantPortalExamsCard({
 
   if (!applicantId) return null;
 
-  const exams = (testsQuery.data ?? [])
-    .filter((t) => t.isActive)
-    .slice()
-    .sort((a, b) => a.order - b.order);
+  const exams = configuredExams(examPlanQuery.data?.plan, examPlanQuery.data?.exams ?? []);
   const openingTestCode = settingsQuery.data?.acquaintanceDocumentsEntryResponsibleTestCode ?? '';
-  const openingExam = exams.find((e) => e.code === openingTestCode);
+  const openingExam = exams.find(({ exam }) => exam.id === openingTestCode || exam.key === openingTestCode)?.exam;
 
   const saved = statusQuery.data?.followUp;
   const hasPortalRecord = statusQuery.data?.hasPortalRecord ?? false;
-  const isDirty = exams.some((e) => outcomeOf(outcomes, e.code) !== outcomeOf(saved, e.code));
+  const isDirty = exams.some(({ exam }) => outcomeOf(outcomes, exam) !== outcomeOf(saved, exam));
 
   function persist(patch: Record<string, PipelineState>) {
     mutation.mutate(patch, {
@@ -104,9 +124,9 @@ export function ApplicantPortalExamsCard({
 
   function handleSave() {
     const patch: Record<string, PipelineState> = {};
-    for (const exam of exams) {
-      if (outcomeOf(outcomes, exam.code) !== outcomeOf(saved, exam.code)) {
-        patch[exam.code] = outcomeOf(outcomes, exam.code);
+    for (const { exam } of exams) {
+      if (outcomeOf(outcomes, exam) !== outcomeOf(saved, exam)) {
+        patch[exam.id] = outcomeOf(outcomes, exam);
       }
     }
     if (Object.keys(patch).length === 0) return;
@@ -115,12 +135,12 @@ export function ApplicantPortalExamsCard({
 
   function handlePassGateExam() {
     if (!openingExam) return;
-    setOutcomes((prev) => ({ ...prev, [openingExam.code]: 'passed' }));
-    persist({ [openingExam.code]: 'passed' });
+    setOutcomes((prev) => ({ ...prev, [openingExam.id]: 'passed' }));
+    persist({ [openingExam.id]: 'passed' });
   }
 
-  const isLoading = statusQuery.isLoading || testsQuery.isLoading;
-  const gatePassed = openingExam ? outcomeOf(saved, openingExam.code) === 'passed' : false;
+  const isLoading = statusQuery.isLoading || examPlanQuery.isLoading;
+  const gatePassed = openingExam ? outcomeOf(saved, openingExam) === 'passed' : false;
 
   return (
     <Card>
@@ -128,7 +148,7 @@ export function ApplicantPortalExamsCard({
         title="نتائج اختبارات بوابة المتقدم"
         subtitle={
           openingExam
-            ? `تحديث النتائج المسجّلة في بوابة المتقدم — اجتياز اختبار «${openingExam.name}» يفتح وثيقة التعارف`
+            ? `تحديث النتائج المسجّلة في بوابة المتقدم — اجتياز اختبار «${openingExam.nameAr}» يفتح وثيقة التعارف`
             : 'تحديث النتائج المسجّلة في بوابة المتقدم'
         }
       />
@@ -149,35 +169,50 @@ export function ApplicantPortalExamsCard({
           >
             لم يبدأ هذا المتقدم التقديم عبر بوابة المتقدم بعد، فلا توجد نتائج اختبارات لتحديثها.
           </div>
+        ) : !cycleId || !categoryKey ? (
+          <div
+            className="rounded-md text-sm text-ink-600"
+            style={{ padding: 12, background: 'var(--surface-muted)' }}
+          >
+            لا يمكن تحديد اختبارات المتقدم لأن الدورة أو فئة التقديم غير مسجلة على الملف.
+          </div>
+        ) : examPlanQuery.isError ? (
+          <div
+            className="rounded-md text-sm text-danger-700"
+            style={{ padding: 12, background: 'var(--surface-muted)' }}
+          >
+            تعذّر تحميل إعدادات اختبارات هذه الفئة. حدّث الصفحة وحاول مرة أخرى.
+          </div>
         ) : exams.length === 0 ? (
           <div
             className="rounded-md text-sm text-ink-600"
             style={{ padding: 12, background: 'var(--surface-muted)' }}
           >
-            لا توجد اختبارات مُفعّلة في قائمة الاختبارات.
+            لا توجد اختبارات مُفعّلة لهذه الفئة في إعدادات القبول.
           </div>
         ) : (
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-3">
-              {exams.map((exam) => {
-                const isGate = exam.code === openingTestCode;
-                const savedOutcome = outcomeOf(saved, exam.code);
+              {exams.map(({ exam, isRequired }) => {
+                const isGate = exam.id === openingTestCode || exam.key === openingTestCode;
+                const savedOutcome = outcomeOf(saved, exam);
                 return (
                   <div
-                    key={exam.code}
+                    key={exam.id}
                     className="flex flex-col gap-2 rounded-md sm:flex-row sm:items-center sm:justify-between"
                     style={{ padding: 12, background: 'var(--surface-muted)' }}
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-medium text-ink-900">{exam.name}</span>
+                      <span className="text-sm font-medium text-ink-900">{exam.nameAr}</span>
                       {isGate && <Badge tone="info">يفتح وثيقة التعارف</Badge>}
+                      {!isRequired && <Badge tone="neutral">تكميلي</Badge>}
                       <Badge tone={OUTCOME_TONE[savedOutcome]}>{outcomeLabel(savedOutcome)}</Badge>
                     </div>
                     <Select
                       options={OUTCOME_OPTIONS}
-                      value={outcomeOf(outcomes, exam.code)}
+                      value={outcomeOf(outcomes, exam)}
                       onChange={(e) =>
-                        setOutcomes((prev) => ({ ...prev, [exam.code]: e.target.value as PipelineState }))
+                        setOutcomes((prev) => ({ ...prev, [exam.id]: e.target.value as PipelineState }))
                       }
                       disabled={!canEdit || mutation.isPending}
                       containerClassName="sm:w-56"
@@ -196,7 +231,7 @@ export function ApplicantPortalExamsCard({
                     onClick={handlePassGateExam}
                     disabled={mutation.isPending || gatePassed}
                   >
-                    {`اجتياز اختبار «${openingExam.name}» (فتح وثيقة التعارف)`}
+                    {`اجتياز اختبار «${openingExam.nameAr}» (فتح وثيقة التعارف)`}
                   </Button>
                 ) : (
                   <span />

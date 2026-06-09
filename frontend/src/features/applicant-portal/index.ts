@@ -36,6 +36,8 @@ export { ApplicantIneligiblePage } from './pages/ApplicantIneligiblePage';
  * applicant's exam outcomes from an admin record (bridged by national ID). */
 export {
   useAdminPortalStatus,
+  useFollowUpExamPlan,
   useUpdateFollowUpMutation,
 } from './api/applicantPortal.queries';
 export type { AdminPortalStatus } from './api/applicantPortal.service';
+export type { FollowUpExam, FollowUpExamPlan } from './lib/follow-up-exam-plan';
