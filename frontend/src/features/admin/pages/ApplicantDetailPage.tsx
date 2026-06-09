@@ -567,6 +567,15 @@ const EDUCATION_EXTRA_LABELS: Record<string, string> = {
   doctorateGrade: 'تقدير الدكتوراه',
 };
 
+const ACADEMIC_DEGREE_LABELS: Record<string, string> = {
+  license: 'ليسانس',
+  bachelor: 'بكالوريوس',
+  master: 'ماجستير',
+  masters: 'ماجستير',
+  doctorate: 'دكتوراه',
+  phd: 'دكتوراه',
+};
+
 const ADDITIONAL_QUALIFICATION_FIELD_KEYS = [
   'postgradDegree',
   'postgradSpecialization',
@@ -625,6 +634,12 @@ function formattedEducationValue(submittedField: unknown): React.ReactNode {
   return String(submittedField);
 }
 
+function lookupEducationValue(submittedField: unknown, labels: Record<string, string>): React.ReactNode {
+  if (!hasSubmittedEducationValue(submittedField)) return '—';
+  const text = String(submittedField);
+  return labels[text] ?? text;
+}
+
 function percentageValue(submittedPercent: unknown): React.ReactNode {
   if (!hasSubmittedEducationValue(submittedPercent)) return '—';
   const text = typeof submittedPercent === 'number' ? num(submittedPercent) : String(submittedPercent);
@@ -681,8 +696,9 @@ function universityEducationRows(
   const universitySpecs: EducationFieldSpec[] = [
     {
       label: 'المؤهل / الدرجة العلمية',
-      keys: ['qualificationLevel', 'academicDegree', 'degree'],
+      keys: ['qualificationLevel', 'academicDegree', 'degree', 'higherSpecialization'],
       fallback: applicantCategoryLabel(fallback),
+      formatter: (submittedField) => lookupEducationValue(submittedField, ACADEMIC_DEGREE_LABELS),
     },
     { label: 'الكلية', keys: ['faculty', 'bachelorFaculty'] },
     { label: 'الجامعة', keys: ['university', 'bachelorUniversity'] },
