@@ -10,6 +10,14 @@ export function num(n: number | string | null | undefined, opts?: Intl.NumberFor
   return new Intl.NumberFormat('en-US', opts).format(value);
 }
 
+export function year(n: number | string | null | undefined): string {
+  if (n === null || n === undefined || n === '') return '—';
+  if (typeof n === 'number') return String(Math.trunc(n));
+  const text = String(n).trim();
+  const ungrouped = text.replace(/[,\s]/g, '');
+  return /^\d{4}$/.test(ungrouped) ? ungrouped : text;
+}
+
 export function date(d: Date | string | number | null | undefined, fmt: 'full' | 'short' | 'time' | 'rel' = 'full'): string {
   if (d === null || d === undefined) return '—';
   const dt = d instanceof Date ? d : new Date(d);

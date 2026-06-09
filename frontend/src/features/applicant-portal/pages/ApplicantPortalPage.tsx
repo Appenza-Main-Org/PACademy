@@ -56,6 +56,7 @@ import {
   type GuardianForm,
   type RelativeKind,
 } from '../lib/familyData';
+import { year as fmtYear } from '@/shared/lib/format';
 
 export function ApplicantPortalPage(): JSX.Element {
   const storePaid = useApplicantPortalStore((s) => s.paid);
@@ -295,7 +296,7 @@ export function ApplicantPortalPage(): JSX.Element {
           ...(profile.bachelorSpecialization ? [{ label: 'التخصص',                        value: profile.bachelorSpecialization }]                       : []),
           ...(typeof profile.bachelorGrade === 'string' && profile.bachelorGrade ? [{ label: 'تقدير الجامعة',                  value: profile.bachelorGrade }] : []),
           ...(profile.bachelorPercentage != null ? [{ label: 'النسبة المئوية للجامعة',     value: `${profile.bachelorPercentage}%`, ltr: true }]           : []),
-          ...(profile.bachelorYear   != null ? [{ label: 'سنة التخرج',                    value: String(profile.bachelorYear), ltr: true }]              : []),
+          ...(profile.bachelorYear   != null ? [{ label: 'سنة التخرج',                    value: fmtYear(profile.bachelorYear), ltr: true }]             : []),
         ];
         if (studyRows.length === 0) return null;
         return (

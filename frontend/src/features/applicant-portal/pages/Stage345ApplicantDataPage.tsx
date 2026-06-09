@@ -112,6 +112,7 @@ import {
   resolveGraduationYearTarget,
 } from '../lib/graduation-year-validation';
 import { summariseCategoryConditions } from '../lib/category-condition-summary';
+import { year as fmtYear } from '@/shared/lib/format';
 
 const APPLICANT_ID = MOI_APPLICANT_SESSION.applicantId;
 const REQUIRED_MESSAGE = 'مطلوب';
@@ -1705,7 +1706,7 @@ function ExternalGradesPanel({ row }: { row: GradeRow }): JSX.Element {
         <ReadOnlyRow label="الشعبة" value={row.branch} />
         {row.school && <ReadOnlyRow label="اسم المدرسة" value={row.school} />}
         {row.graduationYear !== null && (
-          <ReadOnlyRow label="سنة التخرج" value={String(row.graduationYear)} ltr />
+          <ReadOnlyRow label="سنة التخرج" value={fmtYear(row.graduationYear)} ltr />
         )}
         <ReadOnlyRow label="مجموع الثانوية العامة" value={`${row.total} / ${row.importMax}`} ltr />
         <ReadOnlyRow label="النسبة المئوية للثانوية العامة" value={`${percent}%`} ltr />

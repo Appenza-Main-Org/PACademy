@@ -39,7 +39,7 @@ import {
 } from '@/features/applicants';
 import { useCycle } from '@/features/admin/api/cycles.queries';
 import { useAuthStore } from '@/features/auth';
-import { date as fmtDate, num } from '@/shared/lib/format';
+import { date as fmtDate, num, year as fmtYear } from '@/shared/lib/format';
 import { ROUTES } from '@/config/routes';
 import {
   APPLICANT_CATEGORY_KEYS,
@@ -660,10 +660,17 @@ function lookupEducationValue(submittedField: unknown, labels: Record<string, st
 
 function yearValue(submittedYear: unknown): React.ReactNode {
   if (!hasSubmittedEducationValue(submittedYear)) return '—';
-  const text = typeof submittedYear === 'number'
-    ? String(Math.trunc(submittedYear))
+  const text = typeof submittedYear === 'number' || typeof submittedYear === 'string'
+    ? fmtYear(submittedYear)
     : String(submittedYear);
   return <span className="font-mono">{text}</span>;
+}
+
+function isEducationYearKey(key: string): boolean {
+  return key === 'certYear'
+    || key === 'thanawiGradDate'
+    || key === 'graduationYear'
+    || key.endsWith('Year');
 }
 
 function percentageValue(submittedPercent: unknown): React.ReactNode {
@@ -757,12 +764,12 @@ function extraEducationRows(record: EducationRecord, consumedKeys: Set<string>):
           ))
           .map(([childKey, childField]) => ({
             label: EDUCATION_EXTRA_LABELS[childKey] ?? childKey,
-            value: formattedEducationValue(childField),
+            value: isEducationYearKey(childKey) ? yearValue(childField) : formattedEducationValue(childField),
           }));
       }
       return [{
         label: EDUCATION_EXTRA_LABELS[key] ?? key,
-        value: formattedEducationValue(submittedField),
+        value: isEducationYearKey(key) ? yearValue(submittedField) : formattedEducationValue(submittedField),
       }];
     });
 }
