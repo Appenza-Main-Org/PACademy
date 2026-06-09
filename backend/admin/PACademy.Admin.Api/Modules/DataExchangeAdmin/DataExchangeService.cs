@@ -66,7 +66,7 @@ public sealed class DataExchangeService(
         foreach (var domain in domains)
         {
             var spec = DataExchangeRegistry.ByDomain[domain];
-            var rows = ApplyFilter(await LoadAsync(spec, scopedFilter.CycleId, ct), scopedFilter);
+            var rows = ApplyFilter(spec, await LoadAsync(spec, scopedFilter.CycleId, ct), scopedFilter);
             var dataColumns = UnionDataColumns(rows);
             var columns = ComposeColumns(dataColumns);
             var rowDicts = rows.Select(r => ToFullDict(r, dataColumns)).ToList();
@@ -81,7 +81,7 @@ public sealed class DataExchangeService(
         return new ExportResultDto(layout, watermark.ToString("O", CultureInfo.InvariantCulture), total, sheets);
     }
 
-    private static IReadOnlyList<LoadedRow> ApplyFilter(IReadOnlyList<LoadedRow> rows, ExportFilter filter)
+    private static IReadOnlyList<LoadedRow> ApplyFilter(DomainSpec spec, IReadOnlyList<LoadedRow> rows, ExportFilter filter)
     {
         // Date-based / watermark filters first…
         var dateScoped = filter.Kind switch
@@ -94,7 +94,7 @@ public sealed class DataExchangeService(
         };
         // …then the admin's per-row selection (national-id allow-list) when present.
         // BusinessKey for Applicants == nationalId (DataExchangeRegistry / BusinessKeyFields=["nationalId"]).
-        if (!string.IsNullOrWhiteSpace(filter.CycleId))
+        if (CycleScopedDomains.Contains(spec.Domain) && !string.IsNullOrWhiteSpace(filter.CycleId))
         {
             dateScoped = dateScoped.Where(r => LoadedRowMatchesCycle(r, filter.CycleId)).ToList();
         }
@@ -104,6 +104,18 @@ public sealed class DataExchangeService(
         }
         return dateScoped;
     }
+
+    private static readonly IReadOnlySet<ExchangeDomain> CycleScopedDomains = new HashSet<ExchangeDomain>
+    {
+        ExchangeDomain.Applicants,
+        ExchangeDomain.Exams,
+        ExchangeDomain.Relatives,
+        ExchangeDomain.AcquaintanceDocs,
+        ExchangeDomain.Committees,
+        ExchangeDomain.AdmissionConditions,
+        ExchangeDomain.ExamResults,
+        ExchangeDomain.ExamSchedules,
+    };
 
     // ──────────────────────────────────────────────────────────────────────
     // ROSTER (booked applicants — drives the selectable export list)
@@ -844,7 +856,7 @@ public sealed class DataExchangeService(
             ExchangeStorage.Lookups => await LoadLookupsAsync(ct),
             ExchangeStorage.AdmissionRules => await LoadAdmissionRulesAsync(ct),
             ExchangeStorage.Exams => await LoadExamsAsync(ct),
-            ExchangeStorage.ExamSlots => await LoadExamSlotsAsync(ct),
+            ExchangeStorage.ExamSlots => await LoadExamSchedulesAsync(cycleId, ct),
             _ => [],
         },
     };
@@ -1050,7 +1062,7 @@ public sealed class DataExchangeService(
     private static bool LoadedRowMatchesCycle(LoadedRow row, string cycleId)
     {
         var rowCycle = FirstValue(row.Data, "cycleId", "admissionCycleId", "cycle_id");
-        return string.IsNullOrWhiteSpace(rowCycle) || MatchesCycle(rowCycle, cycleId);
+        return MatchesCycle(rowCycle, cycleId);
     }
 
     private static bool MatchesCycle(string? rowCycleId, string? cycleId)
@@ -1135,15 +1147,47 @@ public sealed class DataExchangeService(
         }, x.CreatedAt, x.UpdatedAt, x.RowVersion, x.LastModifiedBy, x.SourceSystem)).ToList();
     }
 
-    private async Task<IReadOnlyList<LoadedRow>> LoadExamSlotsAsync(CancellationToken ct)
+    private async Task<IReadOnlyList<LoadedRow>> LoadExamSchedulesAsync(string? cycleId, CancellationToken ct)
     {
-        var rows = await db.ExamSlots.AsNoTracking().ToListAsync(ct);
-        return rows.Select(x => Loaded(x.Id, x.Id, new Dictionary<string, string?>(StringComparer.Ordinal)
-        {
-            ["date"] = x.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), ["time"] = x.Time,
-            ["location"] = x.Location, ["capacity"] = x.Capacity.ToString(CultureInfo.InvariantCulture),
-            ["reserved"] = x.Reserved.ToString(CultureInfo.InvariantCulture),
-        }, x.CreatedAt, x.UpdatedAt, x.RowVersion, x.LastModifiedBy, x.SourceSystem)).ToList();
+        var rows = new List<JsonObject>();
+        rows.AddRange(await ListOperationalScheduleRowsAsync("committeeInstances", cycleId, ct));
+        rows.AddRange(await ListOperationalScheduleRowsAsync("admissionSetup.examScheduleDays", cycleId, ct));
+        return rows.Select(ToExamScheduleRow).ToList();
+    }
+
+    private async Task<IReadOnlyList<JsonObject>> ListOperationalScheduleRowsAsync(
+        string module,
+        string? cycleId,
+        CancellationToken ct)
+    {
+        IReadOnlyList<JsonObject> rows;
+        try { rows = await records.ListAsync(module, ct); }
+        catch (InvalidOperationException) { return []; }
+        return rows
+            .Where(row => !AdminRecordJson.IsSoftDeleted(row))
+            .Where(row => string.IsNullOrWhiteSpace(cycleId) ||
+                MatchesCycle(FirstString(row, "cycleId", "admissionCycleId", "cycle_id"), cycleId))
+            .ToList();
+    }
+
+    private static LoadedRow ToExamScheduleRow(JsonObject payload)
+    {
+        var data = new Dictionary<string, string?>(StringComparer.Ordinal);
+        foreach (var (key, value) in JsonFlatten.Flatten(payload))
+            if (!NonDataColumns.Contains(key)) data[key] = value;
+        var id = FirstString(payload, "id") ?? FirstString(payload, "dayId") ?? "";
+        var businessKey = string.IsNullOrWhiteSpace(id)
+            ? Compose(FirstString(payload, "cycleId"), FirstString(payload, "date", "day", "examDate"))
+            : id;
+        return Loaded(
+            string.IsNullOrWhiteSpace(id) ? businessKey : id,
+            businessKey,
+            data,
+            ParseDto(payload["createdAt"] ?? payload["created_at"]) ?? default,
+            ParseDto(payload["updatedAt"] ?? payload["updated_at"]) ?? default,
+            [],
+            payload["lastModifiedBy"]?.ToString(),
+            payload["sourceSystem"]?.ToString());
     }
 
     /// <summary>Explodes each booked applicant's `family` payload into per-member
@@ -1171,6 +1215,7 @@ public sealed class DataExchangeService(
 
             var updated = ParseDto(applicant["updatedAt"] ?? applicant["updated_at"]) ?? default;
             var created = ParseDto(applicant["createdAt"] ?? applicant["created_at"]) ?? updated;
+            var applicantCycleId = FirstString(applicant, "cycleId", "admissionCycleId", "cycle_id");
 
             void Emit(string seq, string kinshipKey, JsonObject? member)
             {
@@ -1178,6 +1223,7 @@ public sealed class DataExchangeService(
                 var data = ProjectFamilyMember(member, kinshipKey);
                 if (data.Count == 0) return;
                 data["applicantNationalId"] = nid;
+                data["cycleId"] = applicantCycleId;
                 var bk = $"{nid}|{seq}";
                 result.Add(Loaded(bk, bk, data, created, updated, [], null, "applicant-portal"));
             }
@@ -1266,6 +1312,7 @@ public sealed class DataExchangeService(
 
             var updated = ParseDto(applicant["updatedAt"] ?? applicant["updated_at"]) ?? default;
             var created = ParseDto(applicant["createdAt"] ?? applicant["created_at"]) ?? updated;
+            var applicantCycleId = FirstString(applicant, "cycleId", "admissionCycleId", "cycle_id");
             foreach (var (examCode, node) in followUp)
             {
                 var outcome = node?.ToString();
@@ -1274,6 +1321,7 @@ public sealed class DataExchangeService(
                 var data = new Dictionary<string, string?>(StringComparer.Ordinal)
                 {
                     ["applicantNationalId"] = nid,
+                    ["cycleId"] = applicantCycleId,
                     ["examCode"] = examCode,
                     ["result"] = outcome,
                 };

@@ -601,6 +601,35 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
+    public async Task Cycle_owned_export_sheets_are_strictly_scoped_to_active_cycle()
+    {
+        var (svc, db) = Create();
+        await SeedCycleAsync(db, "CYC-ACTIVE", true);
+        await SeedCycleAsync(db, "CYC-CLOSED", false);
+        await SeedOperationalAsync(db, "committeeInstances", "CI-ACTIVE",
+            """{"id":"CI-ACTIVE","cycleId":"CYC-ACTIVE","categoryKey":"law_bachelor","definitionCode":"CMT-LAW","date":"2026-06-17","capacity":50,"reserved":4}""");
+        await SeedOperationalAsync(db, "committeeInstances", "CI-CLOSED",
+            """{"id":"CI-CLOSED","cycleId":"CYC-CLOSED","categoryKey":"law_bachelor","definitionCode":"CMT-LAW","date":"2026-07-01","capacity":50,"reserved":8}""");
+        await SeedOperationalAsync(db, "committeeInstances", "CI-LEGACY",
+            """{"id":"CI-LEGACY","categoryKey":"law_bachelor","definitionCode":"CMT-LAW","date":"2026-07-02","capacity":50,"reserved":0}""");
+        await SeedOperationalAsync(db, "admissionSetup.examScheduleDays", "DAY-ACTIVE",
+            """{"id":"DAY-ACTIVE","cycleId":"CYC-ACTIVE","categoryKey":"law_bachelor","date":"2026-06-18","kind":"WORKING","capacity":120}""");
+        await SeedOperationalAsync(db, "admissionSetup.examScheduleDays", "DAY-CLOSED",
+            """{"id":"DAY-CLOSED","cycleId":"CYC-CLOSED","categoryKey":"law_bachelor","date":"2026-07-03","kind":"WORKING","capacity":120}""");
+
+        var export = await svc.ExportAsync(
+            [ExchangeDomain.Committees, ExchangeDomain.ExamSchedules],
+            "single-workbook",
+            ExportFilter.Default,
+            default);
+
+        var committeeIds = export.Sheets.Single(s => s.Domain == "Committees").Rows.Select(r => r["business_key"]!).ToArray();
+        var scheduleIds = export.Sheets.Single(s => s.Domain == "ExamSchedules").Rows.Select(r => r["business_key"]!).ToArray();
+        Assert.Equal(["CI-ACTIVE"], committeeIds);
+        Assert.Equal(["CI-ACTIVE", "DAY-ACTIVE"], scheduleIds);
+    }
+
+    [Fact]
     public async Task Applicants_export_excludes_unbooked_and_includes_booked()
     {
         var (svc, db) = Create();
