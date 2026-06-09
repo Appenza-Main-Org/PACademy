@@ -442,6 +442,21 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
+    public async Task Applicants_export_resolves_committee_name_without_location_fallback()
+    {
+        var (svc, db) = Create();
+        await SeedCommitteeLookupAsync(db, "CMT-LAW-03", "اللجنة الثالثة ليسانس حقوق");
+        await SeedOperationalAsync(db, "applicants", "APP-S",
+            """{"id":"APP-S","nationalId":"29801011230004","fullName":"محجوز","status":"exam_scheduled","assignedCommitteeId":"CMT-LAW-03","examSlot":{"slotId":"SLOT-9","date":"2026-06-16","time":"08:00","location":"كلية الشرطة - مبنى الاختبارات - القاهرة"}}""");
+
+        var result = await svc.ExportAsync([ExchangeDomain.Applicants], "single-workbook", ExportFilter.Default, default);
+
+        var row = Assert.Single(result.Sheets[0].Rows);
+        Assert.Equal("اللجنة الثالثة ليسانس حقوق", row["committeeName"]);
+        Assert.Equal("كلية الشرطة - مبنى الاختبارات - القاهرة", row["examSlot.location"]);
+    }
+
+    [Fact]
     public async Task Applicants_export_with_nationalIds_filter_returns_only_selected_rows()
     {
         var (svc, db) = Create();

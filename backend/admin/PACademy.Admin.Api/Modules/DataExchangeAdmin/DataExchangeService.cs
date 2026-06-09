@@ -116,9 +116,7 @@ public sealed class DataExchangeService(
         try { payloads = await records.ListAsync("applicants", ct); }
         catch (InvalidOperationException) { return []; }
 
-        var committeeNameByCode = await db.LookupRows.AsNoTracking()
-            .Where(x => x.LookupKey == "committees")
-            .ToDictionaryAsync(x => x.Code, x => x.Name, StringComparer.OrdinalIgnoreCase, ct);
+        var committeeNameByCode = await LoadCommitteeNameByCodeAsync(ct);
 
         var roster = new List<ApplicantRosterRow>(payloads.Count);
         foreach (var payload in payloads)
@@ -167,6 +165,11 @@ public sealed class DataExchangeService(
             ? mappedName
             : null;
     }
+
+    private Task<Dictionary<string, string>> LoadCommitteeNameByCodeAsync(CancellationToken ct)
+        => db.LookupRows.AsNoTracking()
+            .Where(x => x.LookupKey == "committees")
+            .ToDictionaryAsync(x => x.Code, x => x.Name, StringComparer.OrdinalIgnoreCase, ct);
 
     // ──────────────────────────────────────────────────────────────────────
     // RECONCILIATION (applicants — field-level diff + result writeback)
@@ -759,6 +762,9 @@ public sealed class DataExchangeService(
         IReadOnlyList<JsonObject> payloads;
         try { payloads = await records.ListAsync(spec.DocModule!, ct); }
         catch (InvalidOperationException) { return []; }
+        var committeeNameByCode = spec.Domain == ExchangeDomain.Applicants
+            ? await LoadCommitteeNameByCodeAsync(ct)
+            : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var result = new List<LoadedRow>(payloads.Count);
         foreach (var payload in payloads)
         {
@@ -772,7 +778,7 @@ public sealed class DataExchangeService(
             // Relatives sheet. Also drop the original `profile.*` shape — the
             // projection already lifts those fields to canonical top-level columns.
             var flattenSource = spec.Domain == ExchangeDomain.Applicants
-                ? PruneBranches(payload, ApplicantSheetExcludedBranches)
+                ? PruneBranches(WithResolvedCommitteeName(payload, committeeNameByCode), ApplicantSheetExcludedBranches)
                 : payload;
             var data = new Dictionary<string, string?>(StringComparer.Ordinal);
             foreach (var (k, v) in JsonFlatten.Flatten(flattenSource))
@@ -786,6 +792,17 @@ public sealed class DataExchangeService(
                 payload["lastModifiedBy"]?.ToString(), payload["sourceSystem"]?.ToString()));
         }
         return result;
+    }
+
+    private static JsonObject WithResolvedCommitteeName(
+        JsonObject applicant,
+        IReadOnlyDictionary<string, string> committeeNameByCode)
+    {
+        var committeeName = ResolveCommitteeName(applicant, committeeNameByCode);
+        if (string.IsNullOrWhiteSpace(committeeName)) return applicant;
+        var enriched = AdminRecordJson.Clone(applicant);
+        enriched["committeeName"] = committeeName;
+        return enriched;
     }
 
     /// <summary>
