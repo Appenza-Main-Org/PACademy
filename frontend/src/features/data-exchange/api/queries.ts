@@ -15,7 +15,8 @@ import type {
 export const dataExchangeKeys = {
   all: ['data-exchange'] as const,
   history: () => [...dataExchangeKeys.all, 'history'] as const,
-  applicantsRoster: () => [...dataExchangeKeys.all, 'applicants-roster'] as const,
+  applicantsRoster: (cycleId?: string | null) =>
+    [...dataExchangeKeys.all, 'applicants-roster', cycleId ?? 'active'] as const,
 };
 
 export function useDataExchangeHistory() {
@@ -25,10 +26,10 @@ export function useDataExchangeHistory() {
   });
 }
 
-export function useBookedApplicantsRoster() {
+export function useBookedApplicantsRoster(cycleId?: string | null) {
   return useQuery({
-    queryKey: dataExchangeKeys.applicantsRoster(),
-    queryFn: () => dataExchangeService.listBookedApplicants(),
+    queryKey: dataExchangeKeys.applicantsRoster(cycleId),
+    queryFn: () => dataExchangeService.listBookedApplicants(cycleId),
   });
 }
 
@@ -72,7 +73,7 @@ export function useApplicantsReconciliationCommitMutation() {
       dataExchangeService.commitApplicantsReconciliation(request),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: dataExchangeKeys.history() });
-      void qc.invalidateQueries({ queryKey: dataExchangeKeys.applicantsRoster() });
+      void qc.invalidateQueries({ queryKey: [...dataExchangeKeys.all, 'applicants-roster'] });
     },
   });
 }

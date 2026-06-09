@@ -4,7 +4,7 @@
  * and History. RTL. Composes existing shared primitives only.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   CalendarClock,
@@ -66,7 +66,7 @@ import {
 import { ApplicantRosterPanel } from '../components/ApplicantRosterPanel';
 import { DataExchangePreview } from '../components/DataExchangePreview';
 import { SectionErrorBoundary } from '../components/SectionErrorBoundary';
-import { ApplicationSettingsCycleExportCard } from '@/features/admin/admission-setup';
+import { ApplicationSettingsCycleExportCard, useAdmissionSetupCycle } from '@/features/admin/admission-setup';
 
 type FilterKind = 'all' | 'changedAfter' | 'modifiedSinceCreation' | 'sinceLastExport';
 type ExchangeTab = 'export' | 'import' | 'history';
@@ -163,8 +163,10 @@ export function DataExchangePage(): JSX.Element {
   const [filterKind, setFilterKind] = useState<FilterKind>('all');
   const [changedAfter, setChangedAfter] = useState('');
   const [selectedNationalIds, setSelectedNationalIds] = useState<string[]>([]);
+  const cycleCtx = useAdmissionSetupCycle();
+  const selectedCycleId = cycleCtx.cycle?.id ?? null;
   const exportMutation = useExportMutation();
-  const rosterQuery = useBookedApplicantsRoster();
+  const rosterQuery = useBookedApplicantsRoster(selectedCycleId);
   const testsQuery = useLookup('tests');
 
   /* ── Import state ──────────────────────────────────────────────────── */
@@ -215,6 +217,10 @@ export function DataExchangePage(): JSX.Element {
     if (!next) return;
     setSelected(new Set(next.domains));
   }
+
+  useEffect(() => {
+    setSelectedNationalIds([]);
+  }, [selectedCycleId]);
 
   function setDomainGroup(domains: readonly ExchangeDomain[], shouldSelect: boolean): void {
     setSelected((prev) => {
@@ -270,7 +276,13 @@ export function DataExchangePage(): JSX.Element {
       return;
     }
     try {
-      const result = await exportMutation.mutateAsync({ domains, layout, filter: resolveFilter(), nationalIds });
+      const result = await exportMutation.mutateAsync({
+        domains,
+        layout,
+        filter: resolveFilter(),
+        nationalIds,
+        cycleId: selectedCycleId ?? undefined,
+      });
       const stamp = new Date().toISOString().slice(0, 10);
       if (layout === 'file-per-type') {
         const blobs = await buildPerTypeBlobs(result.sheets);

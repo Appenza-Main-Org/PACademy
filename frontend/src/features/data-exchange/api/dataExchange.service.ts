@@ -3,6 +3,7 @@
  *
  * INTEGRATION CONTRACT (admin backend `:5101`):
  *   GET  /api/admin/data-exchange/export?type=<csv|all>&layout=<single-workbook|file-per-type>&filter=<all|changedAfter|modifiedSinceCreation|sinceLastExport>&changedAfter=<iso>&cycleId=<id>
+ *   GET  /api/admin/data-exchange/applicants/roster?cycleId=<id>
  *   POST /api/admin/data-exchange/import/preview   body: { sheets: ImportSheetInput[] }
  *   POST /api/admin/data-exchange/import/apply      body: ImportApplyRequest
  *   GET  /api/admin/data-exchange/history
@@ -121,9 +122,11 @@ export const dataExchangeService = {
     };
   },
 
-  async listBookedApplicants(): Promise<ApplicantRosterRow[]> {
+  async listBookedApplicants(cycleId?: string | null): Promise<ApplicantRosterRow[]> {
     if (isBackendEnabled()) {
-      return apiClient.get<ApplicantRosterRow[]>(`${BASE}/applicants/roster`);
+      return apiClient.get<ApplicantRosterRow[]>(`${BASE}/applicants/roster`, {
+        query: cycleId ? { cycleId } : undefined,
+      });
     }
     return mockRoster();
   },
