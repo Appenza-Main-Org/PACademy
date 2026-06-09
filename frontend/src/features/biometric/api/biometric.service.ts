@@ -93,7 +93,8 @@ export interface VerifyInput {
   applicantId?: string;
   nationalId?: string;
   barcode?: string;
-  method: VerificationMethod;
+  /** Optional — when omitted the modality is auto-detected from the punch. */
+  method?: VerificationMethod;
   module: VerificationModule;
   operator: string;
   stationCommittee?: string;
@@ -700,7 +701,7 @@ export const biometricService = {
       id: `VER-${String(verifyId++).padStart(5, '0')}`,
       applicantId: applicant.id,
       applicantName: applicant.name,
-      method: input.method,
+      method: input.method ?? 'fingerprint',
       result: status,
       operator: input.operator,
       module: input.module,

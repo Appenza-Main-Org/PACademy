@@ -1,10 +1,17 @@
 import { Outlet } from 'react-router-dom';
-import { Activity, Cpu, DoorClosed, DoorOpen, History, ShieldCheck, UserPlus, Search, Users } from 'lucide-react';
+import { Activity, Cpu, DoorOpen, History, LayoutGrid, ShieldCheck, UserPlus, Search, Users } from 'lucide-react';
 import { AppShell } from '@/app/layouts/AppShell';
 import type { SidebarSection } from '@/app/layouts/Sidebar';
 import { ROUTES } from '@/config/routes';
 
 const SIDEBAR: SidebarSection[] = [
+  {
+    label: 'منظومة ZKBioTime',
+    items: [
+      { key: 'zkDirectory', label: 'الأجهزة والأفراد', icon: <Cpu size={18} />, to: ROUTES.biometric.zkDirectory },
+      { key: 'zkGates', label: 'الأجهزة والبوابات', icon: <LayoutGrid size={18} />, to: ROUTES.biometric.zkGates },
+    ],
+  },
   {
     label: 'الاستعلام والتحقق',
     items: [
@@ -26,13 +33,6 @@ const SIDEBAR: SidebarSection[] = [
     items: [
       { key: 'history',    label: 'سجل التحقق',   icon: <History size={18} />,  to: ROUTES.biometric.history },
       { key: 'monitoring', label: 'المراقبة',     icon: <Activity size={18} />, to: ROUTES.biometric.monitoring },
-    ],
-  },
-  {
-    label: 'منظومة ZKBioTime',
-    items: [
-      { key: 'zkDirectory', label: 'الأجهزة والأفراد', icon: <Cpu size={18} />, to: ROUTES.biometric.zkDirectory },
-      { key: 'zkGates', label: 'الأجهزة والبوابات', icon: <DoorClosed size={18} />, to: ROUTES.biometric.zkGates },
     ],
   },
 ];
