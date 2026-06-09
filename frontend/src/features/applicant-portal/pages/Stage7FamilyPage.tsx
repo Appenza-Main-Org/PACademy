@@ -17,7 +17,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Controller, useForm } from 'react-hook-form';
-import { ArrowRight, Check, Heart, Plus, ShieldCheck, Trash2, Users } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowRight,
+  Check,
+  CheckCircle2,
+  CircleDashed,
+  HelpCircle,
+  Plus,
+  ShieldCheck,
+  Trash2,
+  Users,
+} from 'lucide-react';
 import {
   Button,
   Card,
@@ -63,6 +74,7 @@ import {
   isStrictNationalId,
   validateNationalIdField,
 } from '@/shared/lib/national-id';
+import { cn } from '@/shared/lib/cn';
 
 const MEMBERSHIP_PROFESSIONS = new Set(['police_officer', 'army_officer']);
 const FEMALE_ONLY_PROFESSIONS = new Set([HOUSEWIFE_PROFESSION]);
@@ -92,6 +104,33 @@ type TabKey =
   | 'grandparents'
   | RelativeKind
   | 'guardian';
+
+type FamilySectionStatus = 'complete' | 'missing' | 'optional';
+
+interface FamilySectionNavItem {
+  key: TabKey;
+  label: string;
+  description: string;
+  status: FamilySectionStatus;
+  count?: number;
+  isRequired: boolean;
+}
+
+interface FamilySectionNavInput {
+  savedFather: boolean;
+  savedMother: boolean;
+  savedGrandparents: Record<keyof GrandparentsForm, boolean>;
+  allGrandparentsSaved: boolean;
+  hasFatherWives: boolean;
+  fatherWivesOk: boolean;
+  fatherWivesCount: number;
+  hasMotherHusbands: boolean;
+  motherHusbandsOk: boolean;
+  motherHusbandsCount: number;
+  relatives: Record<RelativeKind, FamilyMemberForm[]>;
+  savedRelatives: Record<RelativeKind, boolean[]>;
+  guardianOk: boolean;
+}
 
 export function Stage7FamilyPage(): JSX.Element {
   const navigate = useNavigate();
@@ -299,6 +338,36 @@ export function Stage7FamilyPage(): JSX.Element {
     relativesOk &&
     guardianOk &&
     canApproveFamilySnapshot(familySnapshot);
+  const sectionNavItems = buildFamilySectionNavItems({
+    savedFather,
+    savedMother,
+    savedGrandparents,
+    allGrandparentsSaved,
+    hasFatherWives,
+    fatherWivesOk,
+    fatherWivesCount: fatherWives.length,
+    hasMotherHusbands,
+    motherHusbandsOk,
+    motherHusbandsCount: motherHusbands.length,
+    relatives,
+    savedRelatives,
+    guardianOk,
+  });
+  const visibleSectionNavItems = sectionNavItems.filter(
+    (item) =>
+      item.status !== 'optional' ||
+      item.count !== 0 ||
+      (item.key !== 'father-wives' && item.key !== 'mother-husbands'),
+  );
+  const requiredSectionCount = sectionNavItems.filter((item) => item.isRequired).length;
+  const completeRequiredSectionCount = sectionNavItems.filter(
+    (item) => item.isRequired && item.status === 'complete',
+  ).length;
+  const completionPercent =
+    requiredSectionCount === 0
+      ? 0
+      : Math.round((completeRequiredSectionCount / requiredSectionCount) * 100);
+  const missingRequiredCount = requiredSectionCount - completeRequiredSectionCount;
 
   /* Snapshot all family state to sessionStorage and persist to the
    * backend, then hand off to the review step for summary + اعتماد. */
@@ -336,69 +405,65 @@ export function Stage7FamilyPage(): JSX.Element {
 
   return (
     <div className="flex flex-col gap-4">
-      <Card>
-        <header className="flex items-start gap-3">
-          <span aria-hidden className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-teal-50 text-teal-700">
+      <Card className="overflow-hidden">
+        <header className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_240px] lg:items-center">
+          <div className="flex items-start gap-3">
+            <span aria-hidden className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-700">
             <Users size={20} strokeWidth={1.75} />
-          </span>
-          <div className="flex-1">
-            <h2 className="font-ar-display text-xl font-bold text-ink-900">بيانات العائلة</h2>
-            <p className="mt-1 text-sm text-ink-500 leading-normal">
-              أدخل بيانات الوالدين والأجداد، ويمكنك إضافة بيانات زوجات الأب وأزواج الأم
-              عند الحاجة. هذه البيانات تخضع لتحرّ مفصّل قبل اعتماد الطلب — لا يمكنك
-              تحديد موعد الإختبار قبل الضغط على «اعتماد» في تبويب «عرض».
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="mb-1 text-2xs font-medium text-teal-700">الخطوة الحالية: بيانات العائلة</p>
+              <h2 className="font-ar-display text-xl font-bold text-ink-900">بيانات العائلة</h2>
+              <p className="mt-1 max-w-[72ch] text-sm leading-normal text-ink-600">
+                ابدأ بالوالدين، ثم الأجداد، ثم أضف الأقارب عند وجودهم. احفظ كل بطاقة بعد إدخالها،
+                ولن تتمكن من الانتقال للمراجعة إلا بعد اكتمال الأقسام المطلوبة.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2 text-2xs">
+                <span className="inline-flex items-center gap-1 rounded-pill bg-teal-50 px-3 py-1 text-teal-700">
+                  <CheckCircle2 size={12} strokeWidth={1.75} aria-hidden />
+                  {completeRequiredSectionCount} من {requiredSectionCount} أقسام مكتملة
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-pill bg-gold-50 px-3 py-1 text-gold-700">
+                  <HelpCircle size={12} strokeWidth={1.75} aria-hidden />
+                  الأقسام الاختيارية تصبح مطلوبة عند إضافة عدد
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-lg border border-border-subtle bg-ink-50 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-2xs font-medium text-ink-600">نسبة الاكتمال</span>
+              <span className="font-numeric text-lg font-bold text-ink-900">{completionPercent}%</span>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-pill bg-ink-100">
+              <div
+                className="h-full rounded-pill bg-teal-500 transition-[width] duration-slow ease-standard"
+                style={{ width: `${completionPercent}%` }}
+              />
+            </div>
+            <p className="mt-2 text-2xs leading-normal text-ink-500">
+              {missingRequiredCount === 0
+                ? 'جاهز للمراجعة والاعتماد.'
+                : `يتبقى ${missingRequiredCount} قسم قبل المراجعة.`}
             </p>
           </div>
         </header>
       </Card>
 
       <Tabs key={formKey} value={tab} onValueChange={(v) => setTab(v as TabKey)}>
-        <Tabs.List>
-          <Tabs.Tab value="father">
-            <TabLabel saved={savedFather}>الأب</TabLabel>
-          </Tabs.Tab>
-          {hasFatherWives && (
-            <Tabs.Tab value="father-wives">
-              <TabLabel saved={fatherWivesOk}>
-                زوجات الأب {fatherWives.length > 0 ? `(${fatherWives.length})` : ''}
-              </TabLabel>
-            </Tabs.Tab>
-          )}
-          <Tabs.Tab value="mother">
-            <TabLabel saved={savedMother}>الأم</TabLabel>
-          </Tabs.Tab>
-          {hasMotherHusbands && (
-            <Tabs.Tab value="mother-husbands">
-              <TabLabel saved={motherHusbandsOk}>
-                أزواج الأم {motherHusbands.length > 0 ? `(${motherHusbands.length})` : ''}
-              </TabLabel>
-            </Tabs.Tab>
-          )}
-          <Tabs.Tab value="grandparents">
-            <TabLabel saved={allGrandparentsSaved}>الأجداد</TabLabel>
-          </Tabs.Tab>
-          {(Object.keys(RELATIVE_LABEL) as RelativeKind[]).map((k) => {
-            const list = relatives[k];
-            const ok = list.length === 0 || savedRelatives[k].every(Boolean);
-            return (
-              <Tabs.Tab key={k} value={k}>
-                <TabLabel saved={ok}>
-                  {RELATIVE_LABEL[k].plural}
-                  {list.length > 0 ? ` (${list.length})` : ''}
-                </TabLabel>
-              </Tabs.Tab>
-            );
-          })}
-          <Tabs.Tab value="guardian">
-            <TabLabel saved={guardianOk}>تحديد ولي الأمر</TabLabel>
-          </Tabs.Tab>
-        </Tabs.List>
+        <FamilySectionNavigator
+          items={visibleSectionNavItems}
+          activeKey={tab}
+          onSelect={setTab}
+        />
 
         <Tabs.Panel value="father">
           <MemberFormCard
             form={father}
             title="بيانات الأب"
             gender="male"
+            isSaved={savedFather}
+            helperText="ابدأ ببيانات الأب كما هي في المستندات الرسمية. الرقم القومي مطلوب لهذا القسم."
             requireNationalId
             childDob={applicantDob}
             onChange={setFather}
@@ -455,6 +520,8 @@ export function Stage7FamilyPage(): JSX.Element {
             form={mother}
             title="بيانات الأم"
             gender="female"
+            isSaved={savedMother}
+            helperText="أدخل بيانات الأم، ويمكن اختيار «ربة منزل» دون وصف تفصيلي للوظيفة."
             requireNationalId
             isProfessionDetailOptional={(values) => values.profession === HOUSEWIFE_PROFESSION}
             childDob={applicantDob}
@@ -563,6 +630,7 @@ export function Stage7FamilyPage(): JSX.Element {
         <Tabs.Panel value="guardian">
           <GuardianFormCard
             value={guardian}
+            isSaved={savedGuardian}
             onChange={setGuardian}
             familyMemberOptions={buildGuardianFamilyMemberOptions({
               father,
@@ -581,9 +649,8 @@ export function Stage7FamilyPage(): JSX.Element {
         </Tabs.Panel>
       </Tabs>
 
-      {/* Footer CTA — bumps the applicant to the dedicated review +
-          اعتماد step. Always enabled; the review page enforces the
-          completeness gate. */}
+      {/* Footer CTA — the current page owns the completeness gate before
+          the dedicated review + اعتماد step. */}
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -593,7 +660,7 @@ export function Stage7FamilyPage(): JSX.Element {
             <p className="mt-1 text-2xs text-ink-500">
               {canApprove
                 ? 'كل البيانات مكتملة — انتقل لعرض الملخّص والاعتماد.'
-                : 'يمكنك الانتقال للمراجعة، وسيظهر الجدول مع تنبيه بأي حقول ناقصة.'}
+                : 'أكمل الأقسام التي تظهر بحالة «ناقص» واحفظها قبل الانتقال للمراجعة.'}
             </p>
           </div>
           <Button
@@ -601,6 +668,7 @@ export function Stage7FamilyPage(): JSX.Element {
             size="lg"
             onClick={onContinueToReview}
             trailingIcon={<ArrowRight size={16} strokeWidth={1.75} />}
+            disabled={!canApprove}
           >
             متابعة للمراجعة
           </Button>
@@ -620,6 +688,8 @@ function MemberFormCard({
   headerExtras,
   gender,
   requireNationalId = false,
+  isSaved = false,
+  helperText,
   isProfessionDetailOptional,
   childDob,
 }: {
@@ -636,6 +706,10 @@ function MemberFormCard({
    *  the applicant must enter a 14-digit NID. Used for الأب + الأم per
    *  client direction 2026-05-21 (parents' NIDs are mandatory). */
   requireNationalId?: boolean;
+  /** Displays the saved/missing badge in the card header. */
+  isSaved?: boolean;
+  /** Short guidance rendered under the title for high-stakes member cards. */
+  helperText?: string;
   /** Optional escape hatch for role-specific profession details, e.g.
    *  mother's "ربة منزل" does not require a job-details description. */
   isProfessionDetailOptional?: (values: FamilyMemberForm) => boolean;
@@ -756,11 +830,21 @@ function MemberFormCard({
   return (
     <Card>
       <header className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-teal-50 text-teal-700">
+        <div className="flex min-w-0 items-start gap-2">
+          <span aria-hidden className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-700">
             <Users size={14} strokeWidth={1.75} />
           </span>
-          <h3 className="font-ar-display text-md font-bold text-ink-900">{title}</h3>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-ar-display text-md font-bold text-ink-900">{title}</h3>
+              <SaveStatusBadge isSaved={isSaved} />
+            </div>
+            {helperText && (
+              <p className="mt-0.5 max-w-[68ch] text-2xs leading-normal text-ink-500">
+                {helperText}
+              </p>
+            )}
+          </div>
         </div>
         {headerExtras}
       </header>
@@ -1072,8 +1156,10 @@ function MultiMemberPanel({
           </button>
           <MemberFormCard
             form={m}
-            title={`${singular} رقم ${i + 1}${savedFlags[i] ? ' — محفوظ' : ''}`}
+            title={`${singular} رقم ${i + 1}`}
             gender={gender}
+            isSaved={Boolean(savedFlags[i])}
+            helperText="احفظ هذه البطاقة قبل الانتقال. يمكنك حذفها إذا أضيفت بالخطأ."
             childDob={childDob}
             onChange={(next) => onChange(i, next)}
             onSave={(values) => onSave(i, values)}
@@ -1131,8 +1217,10 @@ function DynamicRelativePanel({
         <div key={i} className="relative">
           <MemberFormCard
             form={m}
-            title={`${label.singular} رقم ${i + 1}${savedFlags[i] ? ' (محفوظ)' : ''}`}
+            title={`${label.singular} رقم ${i + 1}`}
             gender={gender}
+            isSaved={Boolean(savedFlags[i])}
+            helperText="هذه البطاقة مطلوبة لأنك أدخلت عدداً لهذا القسم."
             onChange={(next) => onChange(i, next)}
             onSave={(values) => onSave(i, values)}
           />
@@ -1214,11 +1302,13 @@ function familyMemberToGuardian(m: FamilyMemberForm): GuardianForm {
 
 function GuardianFormCard({
   value,
+  isSaved,
   onChange,
   onSave,
   familyMemberOptions,
 }: {
   value: GuardianForm;
+  isSaved: boolean;
   onChange: (next: GuardianForm) => void;
   onSave: (values: GuardianForm) => void;
   familyMemberOptions: GuardianMemberOption[];
@@ -1263,11 +1353,21 @@ function GuardianFormCard({
   });
   return (
     <Card>
-      <header className="mb-3 flex items-center gap-2">
-        <span aria-hidden className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-teal-50 text-teal-700">
+      <header className="mb-3 flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-2">
+          <span aria-hidden className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-md bg-teal-50 text-teal-700">
           <ShieldCheck size={14} strokeWidth={1.75} />
-        </span>
-        <h3 className="font-ar-display text-md font-bold text-ink-900">تحديد ولي الأمر</h3>
+          </span>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-ar-display text-md font-bold text-ink-900">تحديد ولي الأمر</h3>
+              <SaveStatusBadge isSaved={isSaved} />
+            </div>
+            <p className="mt-0.5 text-2xs leading-normal text-ink-500">
+              اختر ولي الأمر من فرد عائلة محفوظ أو أدخل بياناته يدوياً.
+            </p>
+          </div>
+        </div>
       </header>
       <form onSubmit={submit} className="grid gap-3 md:grid-cols-2">
         {/* Guardian-source picker — copy from an existing family member
@@ -1427,32 +1527,36 @@ function GrandparentsPanel({
       </Card>
       <MemberFormCard
         form={value.paternalGrandfather}
-        title={`الجد لأب${savedFlags.paternalGrandfather ? ' — محفوظ' : ''}`}
+        title="الجد لأب"
         gender="male"
+        isSaved={savedFlags.paternalGrandfather}
         childDob={fatherDob}
         onChange={(next) => updateOne('paternalGrandfather', next)}
         onSave={(values) => onSaveOne('paternalGrandfather', values)}
       />
       <MemberFormCard
         form={value.paternalGrandmother}
-        title={`الجدة لأب${savedFlags.paternalGrandmother ? ' — محفوظ' : ''}`}
+        title="الجدة لأب"
         gender="female"
+        isSaved={savedFlags.paternalGrandmother}
         childDob={fatherDob}
         onChange={(next) => updateOne('paternalGrandmother', next)}
         onSave={(values) => onSaveOne('paternalGrandmother', values)}
       />
       <MemberFormCard
         form={value.maternalGrandfather}
-        title={`الجد لأم${savedFlags.maternalGrandfather ? ' — محفوظ' : ''}`}
+        title="الجد لأم"
         gender="male"
+        isSaved={savedFlags.maternalGrandfather}
         childDob={motherDob}
         onChange={(next) => updateOne('maternalGrandfather', next)}
         onSave={(values) => onSaveOne('maternalGrandfather', values)}
       />
       <MemberFormCard
         form={value.maternalGrandmother}
-        title={`الجدة لأم${savedFlags.maternalGrandmother ? ' — محفوظ' : ''}`}
+        title="الجدة لأم"
         gender="female"
+        isSaved={savedFlags.maternalGrandmother}
         childDob={motherDob}
         onChange={(next) => updateOne('maternalGrandmother', next)}
         onSave={(values) => onSaveOne('maternalGrandmother', values)}
@@ -1504,18 +1608,258 @@ function isFilled(m: FamilyMemberForm): boolean {
 
 /* ─── small helpers ──────────────────────────────────────────────── */
 
-function TabLabel({ children, saved }: { children: React.ReactNode; saved: boolean }): JSX.Element {
+function buildFamilySectionNavItems(input: FamilySectionNavInput): FamilySectionNavItem[] {
+  return [
+    ...requiredFamilySectionNavItems(input),
+    ...optionalParentSpouseNavItems(input),
+    ...relativeFamilySectionNavItems(input),
+    {
+      key: 'guardian',
+      label: 'ولي الأمر',
+      description: 'مطلوب قبل المراجعة',
+      status: input.guardianOk ? 'complete' : 'missing',
+      isRequired: true,
+    },
+  ];
+}
+
+function requiredFamilySectionNavItems(input: FamilySectionNavInput): FamilySectionNavItem[] {
+  return [
+    {
+      key: 'father',
+      label: 'الأب',
+      description: 'بيانات أساسية',
+      status: input.savedFather ? 'complete' : 'missing',
+      isRequired: true,
+    },
+    {
+      key: 'mother',
+      label: 'الأم',
+      description: 'بيانات أساسية',
+      status: input.savedMother ? 'complete' : 'missing',
+      isRequired: true,
+    },
+    {
+      key: 'grandparents',
+      label: 'الأجداد',
+      description: '٤ بطاقات مطلوبة',
+      status: input.allGrandparentsSaved ? 'complete' : 'missing',
+      count: Object.values(input.savedGrandparents).filter(Boolean).length,
+      isRequired: true,
+    },
+  ];
+}
+
+function optionalParentSpouseNavItems(input: FamilySectionNavInput): FamilySectionNavItem[] {
+  return [
+    {
+      key: 'father-wives',
+      label: 'زوجات الأب',
+      description: input.hasFatherWives ? 'أكمل كل بطاقة مضافة' : 'يظهر عند الحاجة',
+      status: input.hasFatherWives ? (input.fatherWivesOk ? 'complete' : 'missing') : 'optional',
+      count: input.fatherWivesCount,
+      isRequired: input.hasFatherWives,
+    },
+    {
+      key: 'mother-husbands',
+      label: 'أزواج الأم',
+      description: input.hasMotherHusbands ? 'أكمل كل بطاقة مضافة' : 'يظهر عند الحاجة',
+      status: input.hasMotherHusbands ? (input.motherHusbandsOk ? 'complete' : 'missing') : 'optional',
+      count: input.motherHusbandsCount,
+      isRequired: input.hasMotherHusbands,
+    },
+  ];
+}
+
+function relativeFamilySectionNavItems(input: FamilySectionNavInput): FamilySectionNavItem[] {
+  return (Object.keys(RELATIVE_LABEL) as RelativeKind[]).map((kind) => {
+    const members = input.relatives[kind];
+    const savedCount = input.savedRelatives[kind].filter(Boolean).length;
+    const isComplete = members.length === 0 || input.savedRelatives[kind].every(Boolean);
+    return {
+      key: kind,
+      label: RELATIVE_LABEL[kind].plural,
+      description: members.length > 0 ? `${savedCount} من ${members.length} محفوظ` : 'أدخل العدد إن وجد',
+      status: members.length > 0 ? (isComplete ? 'complete' : 'missing') : 'optional',
+      count: members.length,
+      isRequired: members.length > 0,
+    };
+  });
+}
+
+function FamilySectionNavigator({
+  items,
+  activeKey,
+  onSelect,
+}: {
+  items: readonly FamilySectionNavItem[];
+  activeKey: TabKey;
+  onSelect: (key: TabKey) => void;
+}): JSX.Element {
   return (
-    <span className="inline-flex items-center gap-1.5">
-      {children}
-      {saved && (
-        <span aria-hidden className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-teal-100 text-teal-700">
-          <Check size={10} strokeWidth={2} />
-        </span>
+    <Card variant="compact" className="p-3">
+      <FamilySectionNavigatorHeader />
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {items.map((item) => (
+          <FamilySectionNavigatorButton
+            key={item.key}
+            item={item}
+            isActive={activeKey === item.key}
+            onSelect={onSelect}
+          />
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function FamilySectionNavigatorHeader(): JSX.Element {
+  return (
+    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <div>
+        <h3 className="text-sm font-bold text-ink-900">مسار إدخال بيانات العائلة</h3>
+        <p className="mt-0.5 text-2xs text-ink-500">
+          انتقل بين الأقسام، واحفظ كل بطاقة حتى تتحول حالتها إلى «محفوظ».
+        </p>
+      </div>
+      <FamilySectionLegend />
+    </div>
+  );
+}
+
+function FamilySectionLegend(): JSX.Element {
+  return (
+    <div className="flex flex-wrap gap-2 text-2xs">
+      <LegendPill tone="complete" label="محفوظ" icon={<CheckCircle2 size={11} strokeWidth={1.75} aria-hidden />} />
+      <LegendPill tone="missing" label="ناقص" icon={<AlertCircle size={11} strokeWidth={1.75} aria-hidden />} />
+      <LegendPill tone="optional" label="اختياري" icon={<CircleDashed size={11} strokeWidth={1.75} aria-hidden />} />
+    </div>
+  );
+}
+
+function FamilySectionNavigatorButton({
+  item,
+  isActive,
+  onSelect,
+}: {
+  item: FamilySectionNavItem;
+  isActive: boolean;
+  onSelect: (key: TabKey) => void;
+}): JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(item.key)}
+      className={cn(
+        'min-h-10 rounded-md border px-3 py-2 text-start transition-colors duration-fast ease-standard',
+        'focus-visible:outline-none focus-visible:shadow-focus-teal',
+        isActive
+          ? 'border-teal-500 bg-teal-50 text-ink-900'
+          : 'border-border-subtle bg-surface-card text-ink-800 hover:border-border-strong hover:bg-ink-50',
       )}
+      aria-current={isActive ? 'step' : undefined}
+    >
+      <FamilySectionNavigatorButtonBody item={item} />
+    </button>
+  );
+}
+
+function FamilySectionNavigatorButtonBody({ item }: { item: FamilySectionNavItem }): JSX.Element {
+  return (
+    <>
+      <span className="flex items-start justify-between gap-2">
+        <span className="min-w-0">
+          <span className="block text-sm font-bold">{item.label}</span>
+          <span className="mt-0.5 block text-2xs leading-normal text-ink-500">
+            {item.description}
+          </span>
+        </span>
+        <FamilySectionStatusIcon status={item.status} />
+      </span>
+      <span className="mt-2 flex flex-wrap items-center gap-1.5">
+        <RequiredPill isRequired={item.isRequired} />
+        {typeof item.count === 'number' && item.count > 0 && (
+          <span className="rounded-pill bg-surface-card px-2 py-0.5 text-2xs text-ink-600">
+            العدد {item.count}
+          </span>
+        )}
+      </span>
+    </>
+  );
+}
+
+function RequiredPill({ isRequired }: { isRequired: boolean }): JSX.Element {
+  return (
+    <span
+      className={cn(
+        'rounded-pill px-2 py-0.5 text-2xs',
+        isRequired ? 'bg-gold-50 text-gold-700' : 'bg-ink-100 text-ink-600',
+      )}
+    >
+      {isRequired ? 'مطلوب' : 'اختياري'}
     </span>
   );
 }
 
-// avoid "Heart unused" — used in old version, removed cleanly here
-void Heart;
+function LegendPill({
+  tone,
+  label,
+  icon,
+}: {
+  tone: FamilySectionStatus;
+  label: string;
+  icon: React.ReactNode;
+}): JSX.Element {
+  const toneClass = {
+    complete: 'bg-teal-50 text-teal-700',
+    missing: 'bg-danger-bg text-terra-700',
+    optional: 'bg-ink-100 text-ink-600',
+  } satisfies Record<FamilySectionStatus, string>;
+
+  return (
+    <span className={cn('inline-flex items-center gap-1 rounded-pill px-2 py-1', toneClass[tone])}>
+      {icon}
+      {label}
+    </span>
+  );
+}
+
+function FamilySectionStatusIcon({ status }: { status: FamilySectionStatus }): JSX.Element {
+  if (status === 'complete') {
+    return (
+      <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-700">
+        <CheckCircle2 size={14} strokeWidth={1.75} aria-hidden />
+      </span>
+    );
+  }
+  if (status === 'missing') {
+    return (
+      <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-danger-bg text-terra-700">
+        <AlertCircle size={14} strokeWidth={1.75} aria-hidden />
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-ink-100 text-ink-500">
+      <CircleDashed size={14} strokeWidth={1.75} aria-hidden />
+    </span>
+  );
+}
+
+function SaveStatusBadge({ isSaved }: { isSaved: boolean }): JSX.Element {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded-pill px-2 py-0.5 text-2xs font-medium',
+        isSaved ? 'bg-teal-50 text-teal-700' : 'bg-danger-bg text-terra-700',
+      )}
+    >
+      {isSaved ? (
+        <CheckCircle2 size={11} strokeWidth={1.75} aria-hidden />
+      ) : (
+        <AlertCircle size={11} strokeWidth={1.75} aria-hidden />
+      )}
+      {isSaved ? 'محفوظ' : 'غير محفوظ'}
+    </span>
+  );
+}
