@@ -293,7 +293,7 @@ public sealed class ApplicantEligibilityServiceTests
     {
         await using var db = CreateDb();
         await SeedBaseAsync(db, gradeSource: "استيراد خارجي");
-        await SeedGeneralSettingsAsync(db, examDays: 10, selectionWindowDays: 30);
+        await SeedGeneralSettingsAsync(db, examDays: 10, selectionWindowDays: 0);
         var store = new OperationalRecordStore(db);
         var firstDate = IsoDateDaysFromToday(3);
         var secondDate = IsoDateDaysFromToday(5);
@@ -315,27 +315,27 @@ public sealed class ApplicantEligibilityServiceTests
     }
 
     [Fact]
-    public async Task EligibleCommitteeExamDatesRespectGeneralSettingsWindowAndDayLimit()
+    public async Task EligibleCommitteeExamDatesRespectMinimumLeadTimeAndDayLimit()
     {
         await using var db = CreateDb();
         await SeedBaseAsync(db, gradeSource: "استيراد خارجي");
         await SeedGeneralSettingsAsync(db, examDays: 2, selectionWindowDays: 5);
         var store = new OperationalRecordStore(db);
-        var firstDate = IsoDateDaysFromToday(1);
-        var secondDate = IsoDateDaysFromToday(3);
-        var thirdDate = IsoDateDaysFromToday(5);
-        var outsideWindowDate = IsoDateDaysFromToday(6);
-        await store.UpsertAsync("committeeInstances", "ci-1", CommitteeInstance("ci-1", "cycle-2026", "CAT-GEN", "CMT-1", firstDate, capacity: 120, reserved: 7), TestContext.Current.CancellationToken);
-        await store.UpsertAsync("committeeInstances", "ci-2", CommitteeInstance("ci-2", "cycle-2026", "CAT-GEN", "CMT-1", secondDate, capacity: 80, reserved: 3), TestContext.Current.CancellationToken);
-        await store.UpsertAsync("committeeInstances", "ci-3", CommitteeInstance("ci-3", "cycle-2026", "CAT-GEN", "CMT-1", thirdDate, capacity: 60, reserved: 4), TestContext.Current.CancellationToken);
-        await store.UpsertAsync("committeeInstances", "ci-4", CommitteeInstance("ci-4", "cycle-2026", "CAT-GEN", "CMT-1", outsideWindowDate, capacity: 40, reserved: 2), TestContext.Current.CancellationToken);
+        var tooSoonDate = IsoDateDaysFromToday(3);
+        var firstSelectableDate = IsoDateDaysFromToday(5);
+        var secondSelectableDate = IsoDateDaysFromToday(8);
+        var cappedDate = IsoDateDaysFromToday(10);
+        await store.UpsertAsync("committeeInstances", "ci-1", CommitteeInstance("ci-1", "cycle-2026", "CAT-GEN", "CMT-1", tooSoonDate, capacity: 120, reserved: 7), TestContext.Current.CancellationToken);
+        await store.UpsertAsync("committeeInstances", "ci-2", CommitteeInstance("ci-2", "cycle-2026", "CAT-GEN", "CMT-1", firstSelectableDate, capacity: 80, reserved: 3), TestContext.Current.CancellationToken);
+        await store.UpsertAsync("committeeInstances", "ci-3", CommitteeInstance("ci-3", "cycle-2026", "CAT-GEN", "CMT-1", secondSelectableDate, capacity: 60, reserved: 4), TestContext.Current.CancellationToken);
+        await store.UpsertAsync("committeeInstances", "ci-4", CommitteeInstance("ci-4", "cycle-2026", "CAT-GEN", "CMT-1", cappedDate, capacity: 40, reserved: 2), TestContext.Current.CancellationToken);
         var service = CreateService(db);
 
         var response = await service.GetEligibleCategoriesAsync("30001010123457", CancellationToken.None);
 
         var committee = Assert.Single(response.Categories[0].Committees);
-        Assert.Equal([firstDate, secondDate], committee.ExamDates);
-        Assert.Equal([firstDate, secondDate], committee.ExamSlots.Select(x => x.Date).ToArray());
+        Assert.Equal([firstSelectableDate, secondSelectableDate], committee.ExamDates);
+        Assert.Equal([firstSelectableDate, secondSelectableDate], committee.ExamSlots.Select(x => x.Date).ToArray());
     }
 
     [Fact]

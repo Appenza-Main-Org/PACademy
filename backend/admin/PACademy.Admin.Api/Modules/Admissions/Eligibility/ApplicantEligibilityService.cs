@@ -382,10 +382,10 @@ public sealed class ApplicantEligibilityService(
         ExamDateAvailabilitySettings settings)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
-        var openThrough = today.AddDays(settings.SelectionWindowDays);
+        var firstSelectableDate = today.AddDays(settings.MinimumLeadDays);
         var allowedDates = slots
             .Select(slot => TryParseExamDate(slot.Date, out var date) ? date : (DateOnly?)null)
-            .Where(date => date is not null && date >= today && date <= openThrough)
+            .Where(date => date is not null && date >= today && date >= firstSelectableDate)
             .Select(date => date!.Value)
             .Distinct()
             .OrderBy(date => date)
@@ -1051,7 +1051,7 @@ public sealed class ApplicantEligibilityService(
 
     private sealed record ExamDateAvailabilitySettings(
         int ExamDaysPerApplicant,
-        int SelectionWindowDays);
+        int MinimumLeadDays);
 
     private sealed record ActiveEligibilitySnapshot(
         AdmissionCycleEntity ActiveCycle,
