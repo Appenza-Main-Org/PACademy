@@ -23,19 +23,40 @@
  *   - Wizard store (paymentReference, firstExamDate, selectedCategoryKey,
  *                   selectedFaculty, selectedSpecialization, paymentMethod)
  *   - Profile snapshot (Stage345 form values + manualPersonal)
- *   - Family snapshot  (Stage7 family blob)
+ *   - Draft family data (Stage7 family blob) with session snapshot fallback
  */
 
 import { useMemo } from 'react';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import { loadProfileSnapshot } from '../lib/profileData';
 import {
+  EMPTY_GUARDIAN,
+  EMPTY_MEMBER,
   formatMemberName,
   loadFamilySnapshot,
   professionLabel,
+  type GrandparentsForm,
+  type GuardianForm,
   type FamilyMemberForm,
+  type RelativeKind,
 } from '../lib/familyData';
 import type { ApplicantDraft } from '@/shared/types/domain';
+
+const RELATIVE_KINDS: readonly RelativeKind[] = [
+  'brothers',
+  'sisters',
+  'paternal_uncles',
+  'paternal_aunts',
+  'maternal_aunts',
+  'maternal_uncles',
+];
+
+const GRANDPARENT_KEYS: readonly (keyof GrandparentsForm)[] = [
+  'paternalGrandfather',
+  'paternalGrandmother',
+  'maternalGrandfather',
+  'maternalGrandmother',
+];
 
 const MARITAL_LABEL: Record<string, string> = {
   single: 'أعزب',
@@ -60,7 +81,10 @@ export function AdmissionFormSection({
   const selectedFaculty = useApplicantPortalStore((s) => s.selectedFaculty);
 
   const profile = useMemo(() => loadProfileSnapshot(), []);
-  const family = useMemo(() => loadFamilySnapshot(), []);
+  const family = useMemo(
+    () => readDraftFamily(draft?.family) ?? readSessionFamily(),
+    [draft?.family],
+  );
 
   const v = profile?.values ?? null;
   const mp = profile?.manualPersonal ?? null;
@@ -132,17 +156,17 @@ export function AdmissionFormSection({
   const father = family?.father;
   const mother = family?.mother;
   const guardian = family?.guardian;
-  const fatherProfession = father ? professionLabel(father.profession) : '';
-  const motherProfession = mother ? professionLabel(mother.profession) : '';
-  const guardianProfession = guardian?.profession ? professionLabel(guardian.profession) : '';
-  const fatherName = father ? formatMemberName(father) : '';
-  const motherName = mother ? formatMemberName(mother) : '';
-  const guardianName = guardian ? formatMemberName(guardian) : '';
+  const fatherProfession = father ? printProfession(father) : '';
+  const motherProfession = mother ? printProfession(mother) : '';
+  const guardianProfession = guardian ? printGuardianProfession(guardian) : '';
+  const fatherName = father ? printMemberName(father) : '';
+  const motherName = mother ? printMemberName(mother) : '';
+  const guardianName = guardian ? printGuardianName(guardian) : '';
   /* "المؤهل" in the family block prints the dropdown value verbatim
    * — these are free-text fields in Stage 7 so we don't translate. */
-  const fatherQualification = father?.qualification ?? '';
-  const motherQualification = mother?.qualification ?? '';
-  const guardianQualification = guardian?.qualification ?? '';
+  const fatherQualification = father ? printQualification(father) : '';
+  const motherQualification = mother ? printQualification(mother) : '';
+  const guardianQualification = guardian ? printGuardianQualification(guardian) : '';
   /* Same for «عمل / محمول» under the family block — Stage 7 doesn't
    * collect a household work phone or a family mobile separately, so
    * we surface the father's mobile when available. */
@@ -256,7 +280,10 @@ export function AdmissionFormSection({
         title="الجد والجدة للوالد"
         members={
           family
-            ? [family.grandparents.paternalGrandfather, family.grandparents.paternalGrandmother]
+            ? [
+                family.grandparents.paternalGrandfather,
+                family.grandparents.paternalGrandmother,
+              ].filter((member): member is FamilyMemberForm => Boolean(member))
             : []
         }
       />
@@ -266,7 +293,10 @@ export function AdmissionFormSection({
         title="الجد والجدة للوالدة"
         members={
           family
-            ? [family.grandparents.maternalGrandfather, family.grandparents.maternalGrandmother]
+            ? [
+                family.grandparents.maternalGrandfather,
+                family.grandparents.maternalGrandmother,
+              ].filter((member): member is FamilyMemberForm => Boolean(member))
             : []
         }
       />
@@ -363,7 +393,7 @@ interface RelativeTableProps {
 function RelativeTable({ title, members }: RelativeTableProps): JSX.Element {
   /* Filter out members with no name so the printed table doesn't show
    * blank entries from default-initialized grandparent/wife slots. */
-  const rows = members.filter((m) => formatMemberName(m) !== '—' && formatMemberName(m).trim().length > 0);
+  const rows = members.filter((m) => printMemberName(m).length > 0);
 
   return (
     <section className="admission-table">
@@ -384,9 +414,9 @@ function RelativeTable({ title, members }: RelativeTableProps): JSX.Element {
             {rows.map((m, i) => (
               <tr key={`${title}-${i}`}>
                 <td className="col-serial">{toArabicNumeral(i + 1)}</td>
-                <td>{formatMemberName(m)}</td>
-                <td>{professionLabel(m.profession)}</td>
-                <td>{m.qualification || ''}</td>
+                <td>{printMemberName(m)}</td>
+                <td>{printProfession(m)}</td>
+                <td>{printQualification(m)}</td>
               </tr>
             ))}
           </tbody>
@@ -394,6 +424,269 @@ function RelativeTable({ title, members }: RelativeTableProps): JSX.Element {
       )}
     </section>
   );
+}
+
+interface FamilyPrintData {
+  father?: FamilyMemberForm;
+  mother?: FamilyMemberForm;
+  fatherWives: readonly FamilyMemberForm[];
+  motherHusbands: readonly FamilyMemberForm[];
+  grandparents: Partial<Record<keyof GrandparentsForm, FamilyMemberForm>>;
+  relatives: Partial<Record<RelativeKind, readonly FamilyMemberForm[]>>;
+  guardian?: GuardianForm;
+}
+
+function readSessionFamily(): FamilyPrintData | null {
+  const snapshot = loadFamilySnapshot();
+  if (!snapshot) return null;
+  return {
+    father: nonEmptyMember(snapshot.father),
+    mother: nonEmptyMember(snapshot.mother),
+    fatherWives: snapshot.fatherWives.filter(nonEmptyMember),
+    motherHusbands: snapshot.motherHusbands.filter(nonEmptyMember),
+    grandparents: Object.fromEntries(
+      GRANDPARENT_KEYS.flatMap((key) => {
+        const member = nonEmptyMember(snapshot.grandparents[key]);
+        return member ? [[key, member]] : [];
+      }),
+    ) as Partial<Record<keyof GrandparentsForm, FamilyMemberForm>>,
+    relatives: Object.fromEntries(
+      RELATIVE_KINDS.flatMap((kind) => {
+        const members = snapshot.relatives[kind].filter(nonEmptyMember);
+        return members.length > 0 ? [[kind, members]] : [];
+      }),
+    ) as Partial<Record<RelativeKind, readonly FamilyMemberForm[]>>,
+    guardian: nonEmptyGuardian(snapshot.guardian),
+  };
+}
+
+function readDraftFamily(rawFamily: unknown): FamilyPrintData | null {
+  if (!isRecord(rawFamily)) return null;
+  const relatives = readRelatives(rawFamily.relatives);
+  appendFlatSiblings(relatives, rawFamily.siblings);
+  appendFlatRelatives(relatives, rawFamily.relatives);
+  const grandparentsNode = isRecord(rawFamily.grandparents) ? rawFamily.grandparents : rawFamily;
+  const family: FamilyPrintData = {
+    father: readFamilyMember(rawFamily.father),
+    mother: readFamilyMember(rawFamily.mother),
+    fatherWives: readFamilyMemberArray(rawFamily.fatherWives),
+    motherHusbands: readFamilyMemberArray(rawFamily.motherHusbands),
+    grandparents: readGrandparents(grandparentsNode),
+    relatives,
+    guardian: readGuardian(rawFamily.guardian),
+  };
+
+  return hasFamilyData(family) ? family : null;
+}
+
+function appendFlatSiblings(
+  relatives: Partial<Record<RelativeKind, readonly FamilyMemberForm[]>>,
+  rawSiblings: unknown,
+): void {
+  const siblingNodes = Array.isArray(rawSiblings) ? rawSiblings : [];
+  for (const siblingNode of siblingNodes) {
+    const sibling = readFamilyMember(siblingNode);
+    if (!sibling) continue;
+    appendRelative(relatives, siblingRelationKind(siblingNode), sibling);
+  }
+}
+
+function appendFlatRelatives(
+  relatives: Partial<Record<RelativeKind, readonly FamilyMemberForm[]>>,
+  rawRelatives: unknown,
+): void {
+  const relativeNodes = Array.isArray(rawRelatives) ? rawRelatives : [];
+  for (const relativeNode of relativeNodes) {
+    const relative = readFamilyMember(relativeNode);
+    const kind = readRelativeKind(relativeNode);
+    if (!relative || !kind) continue;
+    appendRelative(relatives, kind, relative);
+  }
+}
+
+function appendRelative(
+  relatives: Partial<Record<RelativeKind, readonly FamilyMemberForm[]>>,
+  kind: RelativeKind,
+  member: FamilyMemberForm,
+): void {
+  relatives[kind] = [...(relatives[kind] ?? []), member];
+}
+
+function siblingRelationKind(rawSibling: unknown): RelativeKind {
+  return isRecord(rawSibling) && readString(rawSibling, 'relationshipId') === 'الأخت'
+    ? 'sisters'
+    : 'brothers';
+}
+
+function readGrandparents(value: Record<string, unknown>): Partial<Record<keyof GrandparentsForm, FamilyMemberForm>> {
+  const grandparents: Partial<Record<keyof GrandparentsForm, FamilyMemberForm>> = {};
+  for (const key of GRANDPARENT_KEYS) {
+    const member = readFamilyMember(value[key]);
+    if (member) grandparents[key] = member;
+  }
+  return grandparents;
+}
+
+function readRelatives(rawRelatives: unknown): Partial<Record<RelativeKind, readonly FamilyMemberForm[]>> {
+  if (!isRecord(rawRelatives)) return {};
+  const relatives: Partial<Record<RelativeKind, readonly FamilyMemberForm[]>> = {};
+  for (const kind of RELATIVE_KINDS) {
+    const members = readFamilyMemberArray(rawRelatives[kind]);
+    if (members.length > 0) relatives[kind] = members;
+  }
+  return relatives;
+}
+
+function readRelativeKind(rawRelative: unknown): RelativeKind | null {
+  if (!isRecord(rawRelative)) return null;
+  const relationship = readString(rawRelative, 'relationshipId');
+  if (relationship === 'العم') return 'paternal_uncles';
+  if (relationship === 'العمة') return 'paternal_aunts';
+  if (relationship === 'الخال') return 'maternal_uncles';
+  if (relationship === 'الخالة') return 'maternal_aunts';
+  return null;
+}
+
+function readFamilyMemberArray(rawMembers: unknown): readonly FamilyMemberForm[] {
+  if (!Array.isArray(rawMembers)) return [];
+  return rawMembers
+    .map(readFamilyMember)
+    .filter((member): member is FamilyMemberForm => Boolean(member));
+}
+
+function readFamilyMember(rawMember: unknown): FamilyMemberForm | undefined {
+  if (!isRecord(rawMember)) return undefined;
+  return nonEmptyMember(familyMemberFromRecord(rawMember));
+}
+
+function familyMemberFromRecord(rawMember: Record<string, unknown>): FamilyMemberForm {
+  const fullName = readString(rawMember, 'fullName');
+  const member: FamilyMemberForm = {
+    ...EMPTY_MEMBER,
+    firstName: readString(rawMember, 'firstName') || fullName,
+    secondName: readString(rawMember, 'secondName'),
+    thirdName: readString(rawMember, 'thirdName'),
+    nationalId: readString(rawMember, 'nationalId'),
+    nidUnavailable: readBoolean(rawMember, 'nidUnavailable') ?? false,
+    nidUnavailableReason: readUnavailableReason(rawMember),
+    shuhra: readString(rawMember, 'shuhra'),
+    religion: readString(rawMember, 'religion') === 'مسيحي' ? 'مسيحي' : 'مسلم',
+    dateOfBirth: readString(rawMember, 'dateOfBirth'),
+    birthGovernorate: readString(rawMember, 'birthGovernorate'),
+    birthDistrict: readString(rawMember, 'birthDistrict'),
+    deceased: readBoolean(rawMember, 'deceased') ?? readBoolean(rawMember, 'alive') === false,
+    residenceGovernorate: readString(rawMember, 'residenceGovernorate') || readString(rawMember, 'governorate'),
+    residenceDistrict: readString(rawMember, 'residenceDistrict'),
+    residenceDetail: readString(rawMember, 'residenceDetail'),
+    profession: readString(rawMember, 'profession') || readString(rawMember, 'occupation'),
+    seniorityNumber: readString(rawMember, 'seniorityNumber'),
+    qualification: readString(rawMember, 'qualification') || readString(rawMember, 'education'),
+    qualificationDetail: readString(rawMember, 'qualificationDetail'),
+    professionDetail: readString(rawMember, 'professionDetail'),
+  };
+  return member;
+}
+
+function readGuardian(rawGuardian: unknown): GuardianForm | undefined {
+  if (!isRecord(rawGuardian)) return undefined;
+  const fullName = readString(rawGuardian, 'fullName');
+  const guardian: GuardianForm = {
+    ...EMPTY_GUARDIAN,
+    firstName: readString(rawGuardian, 'firstName') || fullName,
+    secondName: readString(rawGuardian, 'secondName'),
+    thirdName: readString(rawGuardian, 'thirdName'),
+    profession: readString(rawGuardian, 'profession') || readString(rawGuardian, 'occupation'),
+    seniorityNumber: readString(rawGuardian, 'seniorityNumber'),
+    qualification: readString(rawGuardian, 'qualification') || readString(rawGuardian, 'education'),
+    qualificationDetail: readString(rawGuardian, 'qualificationDetail'),
+    professionDetail: readString(rawGuardian, 'professionDetail'),
+    workplaceDetail: readString(rawGuardian, 'workplaceDetail') || readString(rawGuardian, 'governorate'),
+  };
+  return nonEmptyGuardian(guardian);
+}
+
+function hasFamilyData(family: FamilyPrintData): boolean {
+  return Boolean(
+    family.father ||
+      family.mother ||
+      family.fatherWives.length > 0 ||
+      family.motherHusbands.length > 0 ||
+      Object.values(family.grandparents).some(Boolean) ||
+      Object.values(family.relatives).some((rows) => (rows?.length ?? 0) > 0) ||
+      family.guardian,
+  );
+}
+
+function nonEmptyMember(member: FamilyMemberForm): FamilyMemberForm | undefined {
+  return printMemberName(member).length > 0 || member.nationalId.trim().length > 0
+    ? member
+    : undefined;
+}
+
+function nonEmptyGuardian(guardian: GuardianForm): GuardianForm | undefined {
+  return printGuardianName(guardian).length > 0 || guardian.workplaceDetail.trim().length > 0
+    ? guardian
+    : undefined;
+}
+
+function printMemberName(member: FamilyMemberForm): string {
+  const name = formatMemberName(member);
+  return name === '—' ? '' : name;
+}
+
+function printGuardianName(guardian: GuardianForm): string {
+  return [guardian.firstName, guardian.secondName, guardian.thirdName]
+    .map((namePart) => namePart.trim())
+    .filter(Boolean)
+    .join(' ');
+}
+
+function printProfession(member: FamilyMemberForm): string {
+  return labeledOrRaw(member.profession, member.professionDetail);
+}
+
+function printGuardianProfession(guardian: GuardianForm): string {
+  return labeledOrRaw(guardian.profession, guardian.professionDetail);
+}
+
+function printQualification(member: FamilyMemberForm): string {
+  return member.qualificationDetail.trim() || member.qualification.trim();
+}
+
+function printGuardianQualification(guardian: GuardianForm): string {
+  return guardian.qualificationDetail.trim() || guardian.qualification.trim();
+}
+
+function labeledOrRaw(codeOrText: string, detail?: string): string {
+  const detailText = detail?.trim() ?? '';
+  if (detailText) return detailText;
+  const raw = codeOrText.trim();
+  if (!raw) return '';
+  const label = professionLabel(raw);
+  return label === '—' ? raw : label;
+}
+
+function readString(record: Record<string, unknown>, key: string): string {
+  const field = record[key];
+  if (typeof field === 'string') return field.trim();
+  if (typeof field === 'number') return String(field);
+  return '';
+}
+
+function readBoolean(record: Record<string, unknown>, key: string): boolean | undefined {
+  const field = record[key];
+  return typeof field === 'boolean' ? field : undefined;
+}
+
+function readUnavailableReason(
+  record: Record<string, unknown>,
+): FamilyMemberForm['nidUnavailableReason'] {
+  const value = readString(record, 'nidUnavailableReason');
+  return value === 'fallen_record' || value === 'born_abroad' ? value : '';
+}
+
+function isRecord(unknownValue: unknown): unknownValue is Record<string, unknown> {
+  return typeof unknownValue === 'object' && unknownValue !== null;
 }
 
 function StudentNameWatermark({ name }: { name: string }): JSX.Element | null {
