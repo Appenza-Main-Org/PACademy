@@ -150,20 +150,19 @@ public sealed class DataExchangeService(
         JsonObject applicant,
         IReadOnlyDictionary<string, string> committeeNameByCode)
     {
-        var explicitName =
-            AdminRecordJson.StringProp(applicant, "assignedCommitteeName") ??
-            AdminRecordJson.StringProp(applicant, "committeeName") ??
-            AdminRecordJson.StringProp(applicant, "committeeLabelAr");
-        if (!string.IsNullOrWhiteSpace(explicitName)) return explicitName;
-
         var code =
             AdminRecordJson.StringProp(applicant, "assignedCommitteeId") ??
             AdminRecordJson.StringProp(applicant, "committeeId") ??
             AdminRecordJson.StringProp(applicant, "committeeCode") ??
             AdminRecordJson.StringProp(applicant, "definitionCode");
-        return !string.IsNullOrWhiteSpace(code) && committeeNameByCode.TryGetValue(code, out var mappedName)
-            ? mappedName
-            : null;
+        if (!string.IsNullOrWhiteSpace(code) && committeeNameByCode.TryGetValue(code, out var mappedName))
+        {
+            return mappedName;
+        }
+
+        return AdminRecordJson.StringProp(applicant, "assignedCommitteeName") ??
+            AdminRecordJson.StringProp(applicant, "committeeName") ??
+            AdminRecordJson.StringProp(applicant, "committeeLabelAr");
     }
 
     private Task<Dictionary<string, string>> LoadCommitteeNameByCodeAsync(CancellationToken ct)

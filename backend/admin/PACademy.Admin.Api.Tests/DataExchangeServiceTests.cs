@@ -432,7 +432,7 @@ public sealed class DataExchangeServiceTests
         var (svc, db) = Create();
         await SeedCommitteeLookupAsync(db, "CMT-LAW-02", "اللجنة الثانية ليسانس حقوق");
         await SeedOperationalAsync(db, "applicants", "APP-S",
-            """{"id":"APP-S","nationalId":"29801011230003","fullName":"محجوز","status":"exam_scheduled","assignedCommitteeId":"CMT-LAW-02","examSlot":{"slotId":"SLOT-8","date":"2026-06-15","time":"08:00","location":"كلية الشرطة - مبنى الاختبارات - القاهرة"}}""");
+            """{"id":"APP-S","nationalId":"29801011230003","fullName":"محجوز","status":"exam_scheduled","assignedCommitteeId":"CMT-LAW-02","committeeName":"كلية الشرطة - مبنى الاختبارات - القاهرة","examSlot":{"slotId":"SLOT-8","date":"2026-06-15","time":"08:00","location":"كلية الشرطة - مبنى الاختبارات - القاهرة"}}""");
 
         var roster = await svc.ListBookedApplicantsAsync(default);
 
@@ -447,7 +447,7 @@ public sealed class DataExchangeServiceTests
         var (svc, db) = Create();
         await SeedCommitteeLookupAsync(db, "CMT-LAW-03", "اللجنة الثالثة ليسانس حقوق");
         await SeedOperationalAsync(db, "applicants", "APP-S",
-            """{"id":"APP-S","nationalId":"29801011230004","fullName":"محجوز","status":"exam_scheduled","assignedCommitteeId":"CMT-LAW-03","examSlot":{"slotId":"SLOT-9","date":"2026-06-16","time":"08:00","location":"كلية الشرطة - مبنى الاختبارات - القاهرة"}}""");
+            """{"id":"APP-S","nationalId":"29801011230004","fullName":"محجوز","status":"exam_scheduled","assignedCommitteeId":"CMT-LAW-03","committeeName":"كلية الشرطة - مبنى الاختبارات - القاهرة","examSlot":{"slotId":"SLOT-9","date":"2026-06-16","time":"08:00","location":"كلية الشرطة - مبنى الاختبارات - القاهرة"}}""");
 
         var result = await svc.ExportAsync([ExchangeDomain.Applicants], "single-workbook", ExportFilter.Default, default);
 
