@@ -93,7 +93,7 @@ export const dataExchangeService = {
   },
 
   /** Curated full-database snapshot — fixed human-readable columns, cycle-scoped,
-   *  with an `info` block for the ExportInfo sheet. Backs the download button. */
+   *  with an `info` block (cycle name feeds the file name). Backs the download button. */
   async exportSnapshot(params: ExportParams): Promise<ExportResult> {
     if (isBackendEnabled()) {
       return apiClient.get<ExportResult>(`${BASE}/export/snapshot`, { query: exportQuery(params) });
