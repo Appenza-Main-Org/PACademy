@@ -3,26 +3,13 @@
  * Expanded for evaluator credibility per the realism audit.
  */
 
-export const ARABIC_FIRST_NAMES = [
-  'محمد', 'أحمد', 'محمود', 'مصطفى', 'عمر', 'يوسف', 'إبراهيم', 'عبدالله', 'عبدالرحمن',
-  'علي', 'حسن', 'حسين', 'خالد', 'طارق', 'وليد', 'هشام', 'أيمن', 'عماد', 'شريف', 'ياسر',
-  'كريم', 'سامح', 'أسامة', 'حازم', 'فادي', 'بلال', 'زياد', 'رامي', 'مروان', 'ساري',
-  'مازن', 'جمال', 'سعد', 'فتحي', 'عاطف', 'صلاح', 'كمال', 'سيد', 'بدر', 'عبدالناصر',
-  'فهمي', 'رمضان', 'سعيد', 'مكاوي', 'بسيوني',
-] as const;
-
-/** Egyptian father-name-style middle name (يوسف بن أحمد، أحمد بن محمد). */
-export const ARABIC_MIDDLE_NAMES = ARABIC_FIRST_NAMES;
-
-/** Egyptian family / tribal surnames common in Cairo, Delta, Upper Egypt. */
-export const ARABIC_LAST_NAMES = [
-  'الفقي', 'المصري', 'الأنصاري', 'الخطيب', 'الشربيني', 'الديب', 'البنا', 'الجمل',
-  'الزعيم', 'الجوهري', 'الرفاعي', 'الشافعي', 'حافظ', 'رمضان', 'منصور', 'عبدالحليم',
-  'شاكر', 'عبدالباقي', 'صبحي', 'فاروق', 'نصر', 'يحيى', 'زكي', 'شعبان', 'عبدالعزيز',
-  'سعيد', 'حماده', 'الجندي', 'الأشرف', 'الخولي', 'العشماوي', 'مرزوق', 'القاضي',
-  'الكفراوي', 'النحاس', 'الحلبي', 'الشيخ', 'البياضي', 'الدسوقي', 'البدوي', 'القلش',
-  'الطنطاوي', 'الششتاوي', 'النواوي', 'النجار', 'الخواجة',
-] as const;
+/*
+ * Applicant name pools moved to `./arabic-names.ts` — a weighted, gendered,
+ * four-part Egyptian name engine (first + father + grandfather + family)
+ * shared with the backend ArabicNameGenerator mirror. Use
+ * `randomArabicFullName(gender, rng)` for bulk mock rows or
+ * `arabicFullNameForNid(nid, gender)` for NID-deterministic identities.
+ */
 
 /** All 27 Egyptian governorates — exact official Arabic names. */
 export const GOVERNORATES = [
