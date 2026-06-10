@@ -219,8 +219,14 @@ public sealed class ZkBioTimeClient(
         int windowSeconds, string? terminalSn, CancellationToken ct)
     {
         await EnsureConfigAsync(ct);
-        var serverNow = DateTime.UtcNow.AddHours(ServerTimeUtcOffsetHours);
-        var cutoff = serverNow.AddSeconds(-Math.Max(1, windowSeconds));
+        // windowSeconds <= 0 → no absolute-time gate: return the genuinely newest
+        // punch and let the caller judge freshness. The live-listen UI tracks a
+        // baseline upload_time (it only accepts punches that arrive AFTER listening
+        // starts), which is clock-offset-agnostic — it compares server timestamp to
+        // server timestamp. The old absolute window silently returned nothing when
+        // ServerTimeUtcOffsetHours was misconfigured, so verify never resolved.
+        var applyWindow = windowSeconds > 0;
+        var cutoff = DateTime.UtcNow.AddHours(ServerTimeUtcOffsetHours).AddSeconds(-Math.Max(1, windowSeconds));
 
         var url = "/iclock/api/transactions/?ordering=-upload_time&page_size=10";
         if (!string.IsNullOrWhiteSpace(terminalSn))
@@ -232,7 +238,7 @@ public sealed class ZkBioTimeClient(
             .Select(ToTransaction)
             // Defensive client-side filter in case the server ignores terminal_sn.
             .Where(t => string.IsNullOrWhiteSpace(terminalSn) || t.TerminalSn == terminalSn)
-            .FirstOrDefault(t => WithinWindow(t.UploadTime, cutoff));
+            .FirstOrDefault(t => !applyWindow || WithinWindow(t.UploadTime, cutoff));
     }
 
     /// <summary>
