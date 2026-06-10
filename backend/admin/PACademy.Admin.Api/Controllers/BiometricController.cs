@@ -427,6 +427,11 @@ public sealed class BiometricController(BiometricService service, IServiceProvid
     {
         try { return Ok(await service.EnrollAsync(input, ct)); }
         catch (BiometricDeviceException ex) { return DeviceUnavailable(ex); }
+        catch (BiometricAlreadyEnrolledException ex)
+        {
+            return Conflict(new ApiErrorEnvelope(
+                "CONFLICT", ConflictCode: "BIOMETRIC_ALREADY_ENROLLED", Message: ex.Message));
+        }
     }
 
     [HttpPost("api/biometric/enroll/link-previous")]

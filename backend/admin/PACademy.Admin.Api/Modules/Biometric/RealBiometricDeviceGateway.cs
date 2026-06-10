@@ -38,6 +38,9 @@ public sealed class RealBiometricDeviceGateway(HttpClient http, IConfiguration c
         return new BiometricMatchResult(dto.IsMatch, dto.Confidence, dto.Score);
     }
 
+    // The real-SDK stub exposes no personnel directory — never reports a duplicate.
+    public Task<bool> EmployeeExistsAsync(string empCode, CancellationToken ct) => Task.FromResult(false);
+
     private sealed record CaptureDto(
         [property: JsonPropertyName("templateRef")] string TemplateRef,
         [property: JsonPropertyName("quality")] int Quality,

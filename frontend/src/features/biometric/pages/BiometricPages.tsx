@@ -566,13 +566,16 @@ export function BiometricEnrollPage(): JSX.Element {
     staleTime: 60_000,
     retry: false,
   });
-  const deviceOptions = [
-    { value: '', label: 'كل الأجهزة' },
-    ...(devicesQuery.data?.data ?? []).map((d) => ({
-      value: d.sn,
-      label: `${d.terminal_name || d.alias || d.sn}${d.area_name ? ` · ${d.area_name}` : ''}`,
-    })),
-  ];
+  const deviceChoices = (devicesQuery.data?.data ?? []).map((d) => ({
+    value: d.sn,
+    label: `${d.terminal_name || d.alias || d.sn}${d.area_name ? ` · ${d.area_name}` : ''}`,
+  }));
+  const deviceOptions = [{ value: '', label: 'كل الأجهزة' }, ...deviceChoices];
+  // Step 1 creates the employee in the picked terminal's area — selection is
+  // required whenever the ZK directory actually lists devices (in simulated
+  // mode there are none, and creation proceeds without a device).
+  const createDeviceOptions = [{ value: '', label: 'اختر الجهاز…' }, ...deviceChoices];
+  const deviceRequired = deviceChoices.length > 0;
 
   // Live employees on the device — the source of truth for "is this applicant
   // actually created on the device?" (our enrollment record may reference a
@@ -647,6 +650,10 @@ export function BiometricEnrollPage(): JSX.Element {
   // The biometric template itself is captured on the G4 terminal afterwards.
   const createOnDevice = async (retake = false): Promise<void> => {
     if (!lookup) return;
+    if (deviceRequired && !terminalSn) {
+      toast('اختر الجهاز الذي سيُنشأ عليه سجل المتقدم أولاً', 'warning');
+      return;
+    }
     setBusy(true);
     try {
       await biometricService.enroll({
@@ -659,11 +666,14 @@ export function BiometricEnrollPage(): JSX.Element {
         faceCaptured: true,
         fingerprintCaptured: true,
         fingerprintCount: 1,
+        ...(terminalSn ? { terminalSn } : {}),
       });
       toast('تم إنشاء سجل المتقدم على الجهاز — سجّل البصمة على الجهاز ثم اطلب منه البصم للتأكيد', 'success');
       setConfirmResult(null);
       setLookup(await biometricService.getApplicant({ applicantId: lookup.applicant.id }));
       void zkEmployeesQuery.refetch();
+    } catch (error) {
+      toast(error instanceof Error && error.message ? error.message : 'تعذر إنشاء سجل المتقدم على الجهاز', 'danger');
     } finally {
       setBusy(false);
     }
@@ -734,12 +744,27 @@ export function BiometricEnrollPage(): JSX.Element {
               {!lookup ? (
                 <p className="text-sm text-ink-500">ابحث عن المتقدم بالرقم القومي أولاً.</p>
               ) : (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Metric label="اسم المتقدم" value={lookup.applicant.name} />
-                  <Metric label="الرقم القومي" value={lookup.applicant.nationalId} mono />
-                  <Metric label="كود المتقدم على الجهاز (٩ أرقام)" value={deviceEmpCode ?? 'يُنشأ تلقائياً عند الإنشاء'} mono />
-                  <Metric label="معرّف الجهاز (id)" value={lookup.enrollment?.deviceEmpId ?? '—'} mono />
-                </div>
+                <>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Metric label="اسم المتقدم" value={lookup.applicant.name} />
+                    <Metric label="الرقم القومي" value={lookup.applicant.nationalId} mono />
+                    <Metric label="كود المتقدم على الجهاز (الرقم القومي)" value={deviceEmpCode ?? lookup.applicant.nationalId} mono />
+                    <Metric label="معرّف الجهاز (id)" value={lookup.enrollment?.deviceEmpId ?? '—'} mono />
+                  </div>
+                  {deviceRequired && !deviceCreated && (
+                    <div className="mt-3">
+                      <Select
+                        label="جهاز التسجيل"
+                        value={terminalSn}
+                        onChange={(event) => setTerminalSn(event.target.value)}
+                        options={createDeviceOptions}
+                      />
+                      {!terminalSn && (
+                        <p className="mt-1 text-2xs text-ink-500">اختر الجهاز الذي سيُنشأ عليه سجل المتقدم.</p>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
               {deviceCreated && (
                 <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border border-border-subtle bg-surface-card px-3 py-2">
@@ -760,7 +785,7 @@ export function BiometricEnrollPage(): JSX.Element {
                   variant={deviceCreated ? 'secondary' : 'primary'}
                   leadingIcon={deviceCreated ? <CheckCircle2 size={14} /> : <UserPlus size={14} />}
                   onClick={() => void createOnDevice(false)}
-                  disabled={!lookup || deviceCreated}
+                  disabled={!lookup || deviceCreated || (deviceRequired && !terminalSn)}
                   isLoading={busy}
                 >
                   {deviceCreated ? 'تم الإنشاء على الجهاز' : 'إنشاء السجل على الجهاز'}
@@ -775,7 +800,7 @@ export function BiometricEnrollPage(): JSX.Element {
                 <span className="text-sm font-bold text-ink-900">التأكيد الحي على الجهاز (بصمة أو وجه)</span>
               </div>
               <p className="mb-3 text-2xs text-ink-500">
-                بعد تسجيل البصمة/الوجه للمتقدم بكود <b className="font-mono">{deviceEmpCode ?? '—'}</b> على الجهاز،
+                بعد تسجيل البصمة/الوجه للمتقدم بكود <b className="font-mono">{deviceEmpCode ?? lookup?.applicant.nationalId ?? '—'}</b> على الجهاز،
                 اطلب من المتقدم البصم للتأكيد.
               </p>
               <Select

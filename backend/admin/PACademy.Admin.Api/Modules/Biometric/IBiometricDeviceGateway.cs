@@ -15,4 +15,11 @@ public interface IBiometricDeviceGateway
 
     /// <summary>1:1 verify a live capture against a stored template; returns match + confidence.</summary>
     Task<BiometricMatchResult> MatchAsync(BiometricMatchRequest request, CancellationToken ct);
+
+    /// <summary>
+    /// True when an employee record already exists on the device for this
+    /// emp_code — drives the duplicate-enroll guard. Gateways without a
+    /// personnel directory (simulated / real SDK stub) return false.
+    /// </summary>
+    Task<bool> EmployeeExistsAsync(string empCode, CancellationToken ct);
 }

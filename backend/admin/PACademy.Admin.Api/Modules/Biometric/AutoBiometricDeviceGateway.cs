@@ -26,4 +26,9 @@ public sealed class AutoBiometricDeviceGateway(
         => await zkClient.IsConfiguredAsync(ct)
             ? await zk.MatchAsync(request, ct)
             : await fallback.MatchAsync(request, ct);
+
+    public async Task<bool> EmployeeExistsAsync(string empCode, CancellationToken ct)
+        => await zkClient.IsConfiguredAsync(ct)
+            ? await zk.EmployeeExistsAsync(empCode, ct)
+            : await fallback.EmployeeExistsAsync(empCode, ct);
 }

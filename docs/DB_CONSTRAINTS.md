@@ -916,6 +916,25 @@ audit row (attempted / success / fields written / writebacks applied / failed).
 
 ---
 
+## Biometric · Duplicate device enrollment (`POST /api/biometric/enroll`)
+
+### `BIOMETRIC_ALREADY_ENROLLED`
+
+The applicant already has an employee record on the biometric device —
+under the national id (the device emp_code since 2026-06-10) or under a
+legacy 9-digit device code from a pre-NID enrollment. The enroll endpoint
+returns **409** with `ApiErrorEnvelope("CONFLICT", ConflictCode:
+"BIOMETRIC_ALREADY_ENROLLED", Message: <Arabic>)`. A `retake: true`
+enroll bypasses the guard (re-registration flow). The existence check
+runs against the live device directory
+(`IBiometricDeviceGateway.EmployeeExistsAsync`), so a device wipe
+legitimately allows re-creation; simulated mode (no ZK server
+configured) never reports a duplicate. See
+[`BiometricService.cs`](../backend/admin/PACademy.Admin.Api/Modules/Biometric/BiometricService.cs)
+`EnrollAsync`.
+
+---
+
 ## Cross-reference
 
 These constraints are referenced from `CLAUDE.md §6` (mock service
