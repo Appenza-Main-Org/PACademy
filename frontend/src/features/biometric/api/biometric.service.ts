@@ -421,6 +421,8 @@ export interface ZkLastPunch {
 
 /** A single resolved punch in the realtime device feed. */
 export interface ZkRecentPunch {
+  /** ZKBioTime transaction id — stable key for de-duplicating the incremental feed. */
+  id?: number;
   empCode: string;
   deviceName?: string | null;
   verifyType?: number;
@@ -438,6 +440,40 @@ export interface ZkRecentPunch {
 export interface ZkRecentPunchesResponse {
   count: number;
   data: ZkRecentPunch[];
+  /** Newest upload_time in this batch — pass back as `since` on the next poll. */
+  cursor?: string | null;
+}
+
+/** A ZKBioTime area (device zone) — the target of an area transfer. */
+export interface ZkArea {
+  id: number;
+  area_code?: string;
+  area_name?: string;
+  parent_area?: number | null;
+  [key: string]: unknown;
+}
+
+/** A candidate applicant for a bulk area move (PACademy-sourced). */
+export interface AreaMoveCandidate {
+  applicantId: string;
+  name: string;
+  nationalId: string;
+  committee: string;
+  currentExamResult: string;
+  enrollmentStatus: EnrollmentStatus;
+  /** Stored ZKBioTime employee id (null when never enrolled/bound through PACademy). */
+  deviceEmpId: string | null;
+  /** True when a device employee id is already on file (resolved live otherwise). */
+  linked: boolean;
+}
+
+/** Outcome of a bulk area transfer. */
+export interface AdjustAreaResult {
+  ok: boolean;
+  moved: number;
+  /** applicantIds that had no ZKBioTime employee (skipped — enroll them first). */
+  skipped: string[];
+  message?: string;
 }
 
 export const biometricService = {
@@ -468,10 +504,14 @@ export const biometricService = {
     });
   },
 
-  /** Realtime feed of recent device punches, each resolved to an applicant. */
-  async getZkRecentPunches(windowSeconds = 300, limit = 20): Promise<ZkRecentPunchesResponse> {
+  /**
+   * Realtime feed of recent device punches, each resolved to an applicant.
+   * Pass `since` (the previous response's `cursor`) to fetch only newer punches —
+   * a steady poll then transfers just the new arrivals.
+   */
+  async getZkRecentPunches(windowSeconds = 300, limit = 20, since?: string | null): Promise<ZkRecentPunchesResponse> {
     return apiClient.get<ZkRecentPunchesResponse>('/api/biometric/zk/recent-punches', {
-      query: { windowSeconds, limit },
+      query: { windowSeconds, limit, since: since ?? undefined },
     });
   },
 
@@ -495,6 +535,26 @@ export const biometricService = {
   /** Test the live connection to the configured ZKBioTime server. */
   async testZkConnection(): Promise<ZkTestResult> {
     return apiClient.post<ZkTestResult>('/api/biometric/zk/test-connection', {});
+  },
+
+  /** Live list of ZKBioTime areas (device zones) — the area-transfer target picker. */
+  async getZkAreas(): Promise<ZkDirectoryResponse<ZkArea>> {
+    return apiClient.get<ZkDirectoryResponse<ZkArea>>('/api/biometric/zk/areas');
+  },
+
+  /**
+   * Candidate applicants for a bulk area move, optionally filtered by committee
+   * and/or current exam result. PACademy-sourced — works regardless of ZK state.
+   */
+  async getAreaMoveCandidates(filters: { committee?: string; examResult?: string } = {}): Promise<AreaMoveCandidate[]> {
+    return apiClient.get<AreaMoveCandidate[]>('/api/biometric/applicants/for-area-move', {
+      query: { committee: filters.committee, examResult: filters.examResult },
+    });
+  },
+
+  /** Bulk-move the selected applicants to a ZKBioTime area (POST adjust_area). */
+  async adjustZkArea(input: { applicantIds: string[]; areaId: number }): Promise<AdjustAreaResult> {
+    return apiClient.post<AdjustAreaResult>('/api/biometric/zk/adjust-area', input);
   },
 
   async searchApplicants(input: { field: SearchField; query: string }): Promise<BiometricApplicantLookup[]> {

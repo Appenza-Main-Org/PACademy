@@ -140,6 +140,7 @@ import {
   BiometricVerifyPage,
   BiometricZkDirectoryPage,
   BiometricZkGatesPage,
+  BiometricAreaTransferPage,
 } from '@/features/biometric';
 import {
   ExamCreatePage,
@@ -441,6 +442,7 @@ export const routes: RouteObject[] = [
       { path: 'monitoring', element: <BiometricMonitoringPage /> },
       { path: 'zk-directory', element: <BiometricZkDirectoryPage /> },
       { path: 'zk-gates', element: <BiometricZkGatesPage /> },
+      { path: 'zk-area-transfer', element: <BiometricAreaTransferPage /> },
     ],
   },
 

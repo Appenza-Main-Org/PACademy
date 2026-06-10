@@ -83,6 +83,12 @@ public sealed class ZkBioTimeClient(
     private int DefaultDepartmentId => CfgInt("DefaultDepartmentId") ?? 1;
     private int TokenCacheMinutes => CfgInt("TokenCacheMinutes") ?? 50;
     private double ServerTimeUtcOffsetHours => CfgDouble("ServerTimeUtcOffsetHours") ?? 0;
+    // When true, narrow the punch poll server-side with start_time=cursor. Only safe
+    // once it is CONFIRMED that start_time filters upload_time (server clock) and NOT
+    // the device-stamped punch_time (which drifts — a terminal observed stamping 2023
+    // in 2026). Default off: poll the newest page and filter on upload_time client-side.
+    private bool UseUploadTimeServerFilter =>
+        string.Equals(Cfg("UseUploadTimeServerFilter"), "true", StringComparison.OrdinalIgnoreCase);
 
     private string? Cfg(string key) =>
         (_overrides is not null && _overrides.TryGetValue(key, out var ov) && !string.IsNullOrWhiteSpace(ov) ? ov : null)
@@ -246,18 +252,26 @@ public sealed class ZkBioTimeClient(
     /// up to <paramref name="limit"/>. Drives the realtime identify feed.
     /// </summary>
     public async Task<IReadOnlyList<ZkTransaction>> GetRecentPunchesAsync(
-        int windowSeconds, int limit, CancellationToken ct)
+        int windowSeconds, int limit, string? sinceUploadTime, CancellationToken ct)
     {
         await EnsureConfigAsync(ct);
         var serverNow = DateTime.UtcNow.AddHours(ServerTimeUtcOffsetHours);
-        var cutoff = serverNow.AddSeconds(-Math.Max(1, windowSeconds));
+        var windowCutoff = serverNow.AddSeconds(-Math.Max(1, windowSeconds));
+        // Incremental cursor: when the caller passes the newest upload_time it has
+        // already seen, only pull punches at/after it — so a steady poll transfers
+        // (and re-renders) just the new arrivals instead of the whole window.
+        var cutoff = ParseUploadTime(sinceUploadTime) is { } since && since > windowCutoff ? since : windowCutoff;
 
-        var body = await SendAsync(HttpMethod.Get,
-            $"/iclock/api/transactions/?ordering=-upload_time&page_size={Math.Clamp(limit, 1, 100)}",
-            null, ct);
+        var url = $"/iclock/api/transactions/?ordering=-upload_time&page_size={Math.Clamp(limit, 1, 100)}";
+        if (UseUploadTimeServerFilter)
+            url += $"&start_time={Uri.EscapeDataString(cutoff.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture))}";
+
+        var body = await SendAsync(HttpMethod.Get, url, null, ct);
         if (body?["data"] is not JsonArray rows) return [];
         return rows.OfType<JsonObject>()
             .Select(ToTransaction)
+            // Always filter on upload_time client-side — correct whether or not the
+            // optional server-side start_time narrowing is enabled.
             .Where(t => WithinWindow(t.UploadTime, cutoff))
             .ToList();
     }
@@ -272,11 +286,15 @@ public sealed class ZkBioTimeClient(
         r["verify_type_display"]?.GetValue<string>(),
         ReadInt(r["emp"]),
         r["area_alias"]?.GetValue<string>(),
-        r["terminal_alias"]?.GetValue<string>());
+        r["terminal_alias"]?.GetValue<string>(),
+        ReadLong(r["id"]));
+
+    private static DateTime? ParseUploadTime(string? uploadTime) =>
+        DateTime.TryParseExact(uploadTime, "yyyy-MM-dd HH:mm:ss",
+            CultureInfo.InvariantCulture, DateTimeStyles.None, out var t) ? t : null;
 
     private static bool WithinWindow(string? uploadTime, DateTime cutoff) =>
-        DateTime.TryParseExact(uploadTime, "yyyy-MM-dd HH:mm:ss",
-            CultureInfo.InvariantCulture, DateTimeStyles.None, out var t) && t >= cutoff;
+        ParseUploadTime(uploadTime) is { } t && t >= cutoff;
 
     /// <summary>Registered employees (personnel), paged. Returns (rows, totalCount).</summary>
     public async Task<(IReadOnlyList<JsonObject> Rows, int Count)> ListEmployeesAsync(
@@ -287,6 +305,37 @@ public sealed class ZkBioTimeClient(
             null, ct);
         var rows = body?["data"] is JsonArray arr ? arr.OfType<JsonObject>().ToList() : [];
         return (rows, ReadInt(body?["count"]));
+    }
+
+    /* ── Areas ─────────────────────────────────────────────────────── */
+
+    /// <summary>Registered areas (device zones). Drives the area-transfer target picker.</summary>
+    public async Task<IReadOnlyList<JsonObject>> ListAreasAsync(CancellationToken ct)
+    {
+        var body = await SendAsync(HttpMethod.Get, "/personnel/api/areas/?page_size=500", null, ct);
+        return body?["data"] is JsonArray rows ? rows.OfType<JsonObject>().ToList() : [];
+    }
+
+    /// <summary>
+    /// Bulk-reassign employees to one or more areas via the platform's dedicated
+    /// <c>POST /personnel/api/employees/adjust_area/</c> endpoint
+    /// (<c>{ "employees": [ids], "areas": [ids] }</c>) — no full employee schema
+    /// required. <paramref name="employeeIds"/> are device-side employee PKs.
+    /// </summary>
+    public async Task AdjustAreaAsync(
+        IReadOnlyList<int> employeeIds, IReadOnlyList<int> areaIds, CancellationToken ct)
+    {
+        if (employeeIds.Count == 0)
+            throw new BiometricDeviceException("لا يوجد متقدمون قابلون للنقل ضمن التحديد");
+        if (areaIds.Count == 0)
+            throw new BiometricDeviceException("لم يتم اختيار المنطقة المستهدفة");
+
+        var payload = new JsonObject
+        {
+            ["employees"] = new JsonArray(employeeIds.Select(id => (JsonNode)JsonValue.Create(id)).ToArray()),
+            ["areas"] = new JsonArray(areaIds.Select(id => (JsonNode)JsonValue.Create(id)).ToArray()),
+        };
+        await SendAsync(HttpMethod.Post, "/personnel/api/employees/adjust_area/", payload, ct);
     }
 
     /* ── Terminals ─────────────────────────────────────────────────── */
@@ -306,10 +355,17 @@ public sealed class ZkBioTimeClient(
         try { return node.GetValue<int>(); }
         catch (InvalidOperationException) { return int.TryParse(node.ToString(), out var n) ? n : 0; }
     }
+
+    private static long ReadLong(JsonNode? node)
+    {
+        if (node is null) return 0;
+        try { return node.GetValue<long>(); }
+        catch (InvalidOperationException) { return long.TryParse(node.ToString(), out var n) ? n : 0; }
+    }
 }
 
 /// <summary>A single punch from the ZKBioTime transaction stream.</summary>
 public sealed record ZkTransaction(
     string EmpCode, string PunchTime, int VerifyType, string? TerminalSn,
     string? UploadTime = null, string? Name = null, string? VerifyTypeDisplay = null,
-    int Emp = 0, string? AreaName = null, string? TerminalAlias = null);
+    int Emp = 0, string? AreaName = null, string? TerminalAlias = null, long Id = 0);

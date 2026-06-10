@@ -182,6 +182,7 @@ export const ROUTES = {
     monitoring: '/biometric/monitoring',
     zkDirectory: '/biometric/zk-directory',
     zkGates: '/biometric/zk-gates',
+    zkAreaTransfer: '/biometric/zk-area-transfer',
   },
   questionBank: {
     overview: '/question-bank',

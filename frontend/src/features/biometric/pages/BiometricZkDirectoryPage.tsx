@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Cpu, Fingerprint, Pause, Play, Plug, RefreshCw, Server, Users, XCircle } from 'lucide-react';
 import {
@@ -14,7 +14,7 @@ import {
   PageHeader,
   toast,
 } from '@/shared/components';
-import { biometricService, type ZkTestResult } from '../api/biometric.service';
+import { biometricService, type ZkRecentPunch, type ZkTestResult } from '../api/biometric.service';
 
 /**
  * BiometricZkDirectoryPage — live directory pulled straight from the ZKBioTime
@@ -41,15 +41,40 @@ export function BiometricZkDirectoryPage(): JSX.Element {
     void employees.refetch();
   };
 
-  // Realtime identify feed — auto-refreshes every 3s while `live` is on.
+  // Realtime identify feed — auto-refreshes every 3s while `live` is on. Each poll
+  // sends the newest upload_time it already has (`cursor`) so the server returns only
+  // new punches; results accumulate client-side, de-duplicated by transaction id.
   const [live, setLive] = useState(true);
+  const [punches, setPunches] = useState<ZkRecentPunch[]>([]);
+  const cursorRef = useRef<string | null>(null);
+  const seenRef = useRef<Set<string>>(new Set());
+
+  const resetFeed = (): void => {
+    cursorRef.current = null;
+    seenRef.current.clear();
+    setPunches([]);
+  };
+
   const feed = useQuery({
     queryKey: ['biometric', 'zk', 'recent-punches'],
-    queryFn: () => biometricService.getZkRecentPunches(300, 25),
+    queryFn: () => biometricService.getZkRecentPunches(300, 25, cursorRef.current),
     refetchInterval: live ? 3000 : false,
     refetchIntervalInBackground: false,
   });
-  const punches = feed.data?.data ?? [];
+
+  useEffect(() => {
+    const res = feed.data;
+    if (!res) return;
+    if (res.cursor) cursorRef.current = res.cursor;
+    if (!res.data.length) return;
+    const fresh = res.data.filter((p) => {
+      const key = p.id != null ? `id:${p.id}` : `${p.empCode}-${p.uploadTime}`;
+      if (seenRef.current.has(key)) return false;
+      seenRef.current.add(key);
+      return true;
+    });
+    if (fresh.length) setPunches((prev) => [...fresh, ...prev].slice(0, 50));
+  }, [feed.data]);
 
   return (
     <div className="space-y-6">
@@ -57,6 +82,7 @@ export function BiometricZkDirectoryPage(): JSX.Element {
         onSaved={() => {
           void devices.refetch();
           void employees.refetch();
+          resetFeed(); // new server/creds → the cursor + seen-ids no longer apply
           void feed.refetch();
         }}
       />
