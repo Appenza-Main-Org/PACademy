@@ -50,6 +50,37 @@ public sealed class DataExchangeController(DataExchangeService service) : Contro
         return Ok(result);
     }
 
+    /// <summary>
+    /// Curated full-database snapshot export — fixed, human-readable columns per
+    /// sheet, cycle-scoped, with an <c>Info</c> block for the ExportInfo sheet.
+    /// This is what the data-exchange download button calls. Same query contract
+    /// as <see cref="Export"/>.
+    /// </summary>
+    [HttpGet("export/snapshot")]
+    public async Task<ActionResult<ExportResultDto>> ExportSnapshot(
+        [FromQuery] string? type,
+        [FromQuery] string? layout,
+        [FromQuery] string? filter,
+        [FromQuery] string? changedAfter,
+        [FromQuery] string? nationalIds,
+        [FromQuery] string? cycleId,
+        CancellationToken ct)
+    {
+        if (!TryResolveDomains(type, out var domains, out var unknown))
+            return Conflict(new { code = ErrorCodes.DataExchangeUnknownDomain, message = $"نطاق غير معروف: {unknown}" });
+
+        var exportFilter = ResolveFilter(filter, changedAfter, ct) with
+        {
+            NationalIds = ParseNationalIds(nationalIds),
+            CycleId = NormalizeCycleId(cycleId),
+        };
+        var resolvedLayout = string.Equals(layout, "file-per-type", StringComparison.OrdinalIgnoreCase)
+            ? "file-per-type" : "single-workbook";
+
+        var result = await service.ExportSnapshotAsync(domains, resolvedLayout, exportFilter, ct);
+        return Ok(result);
+    }
+
     [HttpGet("applicants/roster")]
     public async Task<ActionResult<IReadOnlyList<ApplicantRosterRow>>> Roster(
         [FromQuery] string? cycleId,

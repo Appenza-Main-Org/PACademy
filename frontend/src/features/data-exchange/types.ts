@@ -5,7 +5,12 @@
  * export workbook writer and the import validator key off.
  */
 
-/** The 9 exchangeable domains → their locked, ASCII, ≤31-char Excel tab names. */
+/**
+ * All locked, ASCII, ≤31-char Excel tab names. The first nine are the historical
+ * round-trip (export+import) domains. The trailing block was added for the
+ * curated full-database snapshot export (export-only). `SHEET_NAMES` is the
+ * import-parser's allow-list; the curated snapshot UI uses `EXPORT_DOMAINS`.
+ */
 export const SHEET_NAMES = {
   Applicants: 'Applicants',
   Exams: 'Exams',
@@ -16,6 +21,15 @@ export const SHEET_NAMES = {
   SystemCodes: 'SystemCodes',
   ExamResults: 'ExamResults',
   ExamSchedules: 'ExamSchedules',
+  // ── curated-snapshot export-only domains ──
+  ApplicantCategories: 'ApplicantCategories',
+  Faculties: 'Faculties',
+  LookupRows: 'LookupRows',
+  GeneralSettings: 'GeneralSettings',
+  Payments: 'Payments',
+  Notifications: 'Notifications',
+  WorkflowRecords: 'WorkflowRecords',
+  AuditEntries: 'AuditEntries',
 } as const;
 
 export type ExchangeDomain = keyof typeof SHEET_NAMES;
@@ -24,16 +38,52 @@ export type ExchangeDomain = keyof typeof SHEET_NAMES;
 export const DOMAIN_TITLES_AR: Record<ExchangeDomain, string> = {
   Applicants: 'المتقدمون',
   Exams: 'الاختبارات',
-  Relatives: 'الأقارب المبدئيون',
+  Relatives: 'الأقارب',
   AcquaintanceDocs: 'وثائق التعارف',
   Committees: 'اللجان',
   AdmissionConditions: 'شروط القبول',
   SystemCodes: 'أكواد النظام والقوائم',
   ExamResults: 'نتائج الاختبارات',
   ExamSchedules: 'مواعيد الاختبارات',
+  ApplicantCategories: 'فئات المتقدمين',
+  Faculties: 'الكليات',
+  LookupRows: 'أكواد القوائم',
+  GeneralSettings: 'الإعدادات العامة',
+  Payments: 'المدفوعات',
+  Notifications: 'الإشعارات',
+  WorkflowRecords: 'سجل سير العمل',
+  AuditEntries: 'سجل التدقيق',
 };
 
+/** Every valid sheet name (export + import). */
 export const EXCHANGE_DOMAINS = Object.keys(SHEET_NAMES) as ExchangeDomain[];
+
+/**
+ * The curated full-database snapshot sheets, in workbook order (after the
+ * client-built `ExportInfo` sheet). Mirrors the backend `CuratedSheets`. This is
+ * the universe the export UI offers — distinct from `SHEET_NAMES`, which also
+ * carries the import-only legacy tabs (`AcquaintanceDocs`, `SystemCodes`).
+ */
+export const EXPORT_DOMAINS: ExchangeDomain[] = [
+  'Applicants',
+  'Relatives',
+  'Exams',
+  'ExamSchedules',
+  'Committees',
+  'ExamResults',
+  'AdmissionConditions',
+  'ApplicantCategories',
+  'Faculties',
+  'LookupRows',
+  'GeneralSettings',
+  'Payments',
+  'Notifications',
+  'WorkflowRecords',
+  'AuditEntries',
+];
+
+/** Reserved tab name for the workbook's leading metadata sheet. */
+export const EXPORT_INFO_SHEET_NAME = 'ExportInfo';
 
 export type ExportLayout = 'single-workbook' | 'file-per-type';
 
@@ -81,11 +131,24 @@ export interface ExportSheet {
   rows: ExchangeCellMap[];
 }
 
+/** Backend-known metadata for the workbook's leading `ExportInfo` sheet.
+ *  Mirrors backend `ExportInfoDto`. The frontend augments this with the in-browser
+ *  full URL + route. Populated by the curated snapshot export only. */
+export interface ExportInfo {
+  cycleId: string | null;
+  cycleName: string | null;
+  exportDate: string;
+  exportedBy: string;
+  environment: string;
+}
+
 export interface ExportResult {
   layout: string;
   watermark: string;
   totalRows: number;
   sheets: ExportSheet[];
+  /** Present for the curated snapshot export; absent for the legacy round-trip export. */
+  info?: ExportInfo | null;
 }
 
 export interface ImportSheetInput {

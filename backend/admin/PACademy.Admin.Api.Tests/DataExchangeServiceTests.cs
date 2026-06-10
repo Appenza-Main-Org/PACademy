@@ -1,6 +1,8 @@
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Hosting;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Admin.Api.Modules.Audit;
@@ -18,7 +20,15 @@ public sealed class DataExchangeServiceTests
     {
         var sink = new DbAuditSink(db);
         var records = new OperationalRecordsService(db, new HttpContextAccessor(), sink, new OperationalRecordStore(db));
-        return new DataExchangeService(db, records, sink, new SystemActorProvider());
+        return new DataExchangeService(db, records, sink, new SystemActorProvider(), new TestHostEnvironment());
+    }
+
+    private sealed class TestHostEnvironment : IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = "Testing";
+        public string ApplicationName { get; set; } = "PACademy.Admin.Api.Tests";
+        public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
 
     private static Task SeedOperationalAsync(AdminDbContext db, string module, string id, string payloadJson)
@@ -901,5 +911,150 @@ public sealed class DataExchangeServiceTests
 
         var row = Assert.Single(result.Sheets[0].Rows);
         Assert.Equal("academic-grades|TOUCHED", row["business_key"]);
+    }
+
+    // ── Curated snapshot export (fixed columns, cycle-scoped, ExportInfo) ────
+
+    [Fact]
+    public async Task Snapshot_applicants_emit_fixed_clean_columns_and_respect_booked_gate()
+    {
+        var (svc, db) = Create();
+        await SeedOperationalAsync(db, "applicants", "APP-1",
+            """{"id":"APP-1","nationalId":"29801011234567","fullName":"متقدم","gender":"male","phoneNumber":"01000000000","email":"a@x.com","birthDate":"1998-01-01","birthGovernorate":"القاهرة","status":"exam_scheduled"}""");
+        await SeedOperationalAsync(db, "applicants", "APP-DRAFT",
+            """{"id":"APP-DRAFT","nationalId":"29801011230000","fullName":"مسودة","status":"draft"}""");
+
+        var result = await svc.ExportSnapshotAsync([ExchangeDomain.Applicants], "single-workbook", ExportFilter.Default, default);
+        var sheet = Assert.Single(result.Sheets);
+
+        Assert.Equal(
+            new[] { "applicant_id", "national_id", "full_name", "gender", "phone_number", "email", "date_of_birth", "birth_governorate", "category", "cycle_id", "status" },
+            sheet.Columns);
+        var row = Assert.Single(sheet.Rows); // draft withheld by the booked gate
+        Assert.Equal("29801011234567", row["national_id"]);
+        Assert.Equal("متقدم", row["full_name"]);
+        Assert.Equal("a@x.com", row["email"]);
+        Assert.DoesNotContain("business_key", sheet.Columns);
+        Assert.DoesNotContain("checksum", sheet.Columns);
+    }
+
+    [Fact]
+    public async Task Snapshot_empty_domain_emits_header_only()
+    {
+        var (svc, _) = Create();
+        var result = await svc.ExportSnapshotAsync([ExchangeDomain.Faculties], "single-workbook", ExportFilter.Default, default);
+        var sheet = Assert.Single(result.Sheets);
+        Assert.Equal(new[] { "faculty_code", "faculty_name", "is_active" }, sheet.Columns);
+        Assert.Empty(sheet.Rows);
+    }
+
+    [Fact]
+    public async Task Snapshot_faculties_and_lookuprows_split_cleanly()
+    {
+        var (svc, db) = Create();
+        await SeedLookupAsync(db, "faculties", "FAC-01", "كلية الحقوق");
+        await SeedLookupAsync(db, "governorates", "GOV-01", "القاهرة");
+
+        var fac = await svc.ExportSnapshotAsync([ExchangeDomain.Faculties], "single-workbook", ExportFilter.Default, default);
+        var lk = await svc.ExportSnapshotAsync([ExchangeDomain.LookupRows], "single-workbook", ExportFilter.Default, default);
+
+        var facRow = Assert.Single(fac.Sheets[0].Rows);
+        Assert.Equal("FAC-01", facRow["faculty_code"]);
+        Assert.Equal("كلية الحقوق", facRow["faculty_name"]);
+        Assert.Equal(2, lk.Sheets[0].Rows.Count); // every lookup row, faculties included
+    }
+
+    [Fact]
+    public async Task Snapshot_relatives_emit_curated_relation_columns()
+    {
+        var (svc, db) = Create();
+        await SeedOperationalAsync(db, "applicants", "APP-FAM",
+            """{"id":"APP-FAM","nationalId":"29801011235101","status":"exam_scheduled","examSlot":{"date":"2026-06-15"},"family":{"father":{"fullName":"أحمد","nationalId":"27001011235001","occupation":"ضابط","gender":"male"}}}""");
+
+        var result = await svc.ExportSnapshotAsync([ExchangeDomain.Relatives], "single-workbook", ExportFilter.Default, default);
+        var sheet = result.Sheets[0];
+        Assert.Equal(
+            new[] { "applicant_id", "relation_type", "relation_label", "full_name", "national_id", "gender", "qualification", "occupation", "phone", "governorate", "address" },
+            sheet.Columns);
+        var row = Assert.Single(sheet.Rows);
+        Assert.Equal("29801011235101", row["applicant_id"]);
+        Assert.Equal("father", row["relation_type"]);
+        Assert.Equal("الأب", row["relation_label"]);
+        Assert.Equal("أحمد", row["full_name"]);
+    }
+
+    [Fact]
+    public async Task Snapshot_payments_project_typed_columns_from_operational_table()
+    {
+        var (svc, db) = Create();
+        await SeedCycleAsync(db, "CYC-ACTIVE", true);
+        db.PaymentRecords.Add(new PaymentRecordEntity
+        {
+            Module = "payments", Id = "PAY-1", ApplicantId = "APP-1", NationalId = "29801011234567",
+            CycleId = "CYC-ACTIVE", Status = "paid",
+            PayloadJson = """{"amount":"500","paidAt":"2026-06-01"}""",
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+
+        var result = await svc.ExportSnapshotAsync([ExchangeDomain.Payments], "single-workbook", ExportFilter.Default, default);
+        var row = Assert.Single(result.Sheets[0].Rows);
+        Assert.Equal("PAY-1", row["payment_id"]);
+        Assert.Equal("500", row["amount"]);
+        Assert.Equal("paid", row["payment_status"]);
+        Assert.Equal("CYC-ACTIVE", row["cycle_id"]);
+    }
+
+    [Fact]
+    public async Task Snapshot_info_carries_cycle_name_and_environment()
+    {
+        var (svc, db) = Create();
+        await SeedCycleAsync(db, "CYC-ACTIVE", true);
+        var result = await svc.ExportSnapshotAsync(
+            [ExchangeDomain.LookupRows], "single-workbook",
+            ExportFilter.Default with { CycleId = "CYC-ACTIVE" }, default);
+
+        Assert.NotNull(result.Info);
+        Assert.Equal("CYC-ACTIVE", result.Info!.CycleId);
+        Assert.Equal("CYC-ACTIVE", result.Info.CycleName); // SeedCycleAsync sets NameAr == id
+        Assert.Equal("Testing", result.Info.Environment);
+    }
+
+    [Fact]
+    public async Task Snapshot_admission_conditions_are_withheld_for_non_active_cycle()
+    {
+        var (svc, db) = Create();
+        var now = DateTimeOffset.UtcNow;
+        await SeedCycleAsync(db, "CYC-ACTIVE", true);
+        await SeedCycleAsync(db, "CYC-CLOSED", false);
+        db.ApplicationSettingsCategoryConfigs.Add(new ApplicationSettingsCategoryConfigEntity
+        {
+            Id = "CFG-1", CategoryId = "law_bachelor", IsActive = true, SortOrder = 0, CreatedAt = now, UpdatedAt = now,
+        });
+        db.ApplicationSettingsCategorySpecializations.Add(new ApplicationSettingsCategorySpecializationEntity
+        {
+            Id = "SP-1", ConfigId = "CFG-1", SpecializationId = "SPC-1", IsActive = true, CreatedAt = now, UpdatedAt = now,
+        });
+        db.ApplicationSettingsGraduationYears.Add(new ApplicationSettingsGraduationYearEntity
+        {
+            Id = "YR-1", CategorySpecializationId = "SP-1",
+            GraduationYearsJson = "[2026]", GenderTypesJson = "[\"male\"]", MaritalStatusCodesJson = "[]",
+            AgeMin = 20, MaxAge = 28, DivisionCodesJson = "[]", SchoolCategoryCodesJson = "[]",
+            ApplicationStartDate = new DateOnly(2026, 6, 1), ApplicationEndDate = new DateOnly(2026, 6, 30),
+            AgeReferenceDate = new DateOnly(2026, 6, 1), IsActive = true, GradeKind = "GRADES", MinPercentage = 65m,
+            CreatedAt = now, UpdatedAt = now,
+        });
+        await db.SaveChangesAsync();
+
+        var active = await svc.ExportSnapshotAsync(
+            [ExchangeDomain.AdmissionConditions], "single-workbook", ExportFilter.Default with { CycleId = "CYC-ACTIVE" }, default);
+        var closed = await svc.ExportSnapshotAsync(
+            [ExchangeDomain.AdmissionConditions], "single-workbook", ExportFilter.Default with { CycleId = "CYC-CLOSED" }, default);
+
+        var activeRow = Assert.Single(active.Sheets[0].Rows);
+        Assert.Equal("law_bachelor", activeRow["category"]);
+        Assert.Equal("2026", activeRow["graduation_year"]);
+        Assert.Equal("65", activeRow["min_percentage"]);
+        Assert.Empty(closed.Sheets[0].Rows); // normalized settings belong to the active cycle only
     }
 }

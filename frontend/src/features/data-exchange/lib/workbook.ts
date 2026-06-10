@@ -7,30 +7,89 @@
  * sheets are matched back to domains by tab name on import.
  */
 
-import type { ExchangeCellMap, ExportSheet, ImportSheetInput } from '../types';
-import { SHEET_NAMES } from '../types';
+import type { ExportInfo, ExchangeCellMap, ExportSheet, ImportSheetInput } from '../types';
+import { EXPORT_INFO_SHEET_NAME, SHEET_NAMES } from '../types';
 
 const VALID_SHEET_NAMES = new Set<string>(Object.values(SHEET_NAMES));
 
-/** Build a single .xlsx Blob with one sheet per domain under the locked names. */
-export async function buildWorkbookBlob(sheets: ExportSheet[]): Promise<Blob> {
-  const XLSX = await import('xlsx');
-  const wb = XLSX.utils.book_new();
-  for (const sheet of sheets) {
-    const aoa: unknown[][] = [sheet.columns];
-    for (const row of sheet.rows) {
-      aoa.push(sheet.columns.map((c) => row[c] ?? ''));
-    }
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-    XLSX.utils.book_append_sheet(wb, ws, sheet.sheetName);
-  }
-  const bin = XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
-  return new Blob([bin], {
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  });
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+/**
+ * Workbook-level metadata for the curated snapshot export. The backend supplies
+ * `info` (cycle name, environment, export date, actor); the browser supplies the
+ * URL/route it owns. When present, an `ExportInfo` sheet is written first.
+ */
+export interface WorkbookMeta {
+  info?: ExportInfo | null;
+  fullUrl?: string;
+  sourceRoute?: string;
+  sourceModule?: string;
+  /** Preferred display name for "Exported By" (falls back to `info.exportedBy`). */
+  exportedByName?: string;
 }
 
-/** Build one Blob per sheet (file-per-type layout). */
+type XlsxModule = typeof import('xlsx');
+
+/** Per-column width hints (auto-fit, clamped). SheetJS community supports `!cols`. */
+function autoColumnWidths(aoa: unknown[][]): Array<{ wch: number }> {
+  const widths: number[] = [];
+  for (const row of aoa) {
+    row.forEach((cell, i) => {
+      const len = cell == null ? 0 : String(cell).length;
+      if (len > (widths[i] ?? 0)) widths[i] = len;
+    });
+  }
+  return widths.map((w) => ({ wch: Math.min(60, Math.max(10, (w || 0) + 2)) }));
+}
+
+/** Append one data sheet: header row + data, auto-fit columns, header autofilter. */
+function appendDataSheet(XLSX: XlsxModule, wb: ReturnType<XlsxModule['utils']['book_new']>, sheet: ExportSheet): void {
+  const aoa: unknown[][] = [sheet.columns, ...sheet.rows.map((row) => sheet.columns.map((c) => row[c] ?? ''))];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = autoColumnWidths(aoa);
+  // Header autofilter (community-writable) — keeps the header anchored + filterable,
+  // standing in for frozen panes (Pro-only on write in SheetJS 0.18).
+  ws['!autofilter'] = {
+    ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(0, sheet.rows.length), c: Math.max(0, sheet.columns.length - 1) } }),
+  };
+  XLSX.utils.book_append_sheet(wb, ws, sheet.sheetName);
+}
+
+/** Append the leading ExportInfo metadata sheet (property/value). */
+function appendInfoSheet(XLSX: XlsxModule, wb: ReturnType<XlsxModule['utils']['book_new']>, meta: WorkbookMeta): void {
+  const info = meta.info;
+  const pairs: Array<[string, string]> = [
+    ['Source Module', meta.sourceModule ?? 'Data Exchange'],
+    ['Source Route', meta.sourceRoute ?? '/admin/data-exchange'],
+    ['Full URL', meta.fullUrl ?? ''],
+    ['Cycle ID', info?.cycleId ?? ''],
+    ['Cycle Name', info?.cycleName ?? ''],
+    ['Export Date', info?.exportDate ?? new Date().toISOString()],
+    ['Exported By', meta.exportedByName ?? info?.exportedBy ?? ''],
+    ['Environment', info?.environment ?? ''],
+  ];
+  const aoa: unknown[][] = [['Property', 'Value'], ...pairs];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = autoColumnWidths(aoa);
+  XLSX.utils.book_append_sheet(wb, ws, EXPORT_INFO_SHEET_NAME);
+}
+
+/**
+ * Build a single .xlsx Blob: optional `ExportInfo` sheet first, then one sheet
+ * per domain under the locked tab names. Workbook is right-to-left (Arabic),
+ * columns auto-fit, headers carry an autofilter. Empty sheets keep their header.
+ */
+export async function buildWorkbookBlob(sheets: ExportSheet[], meta?: WorkbookMeta): Promise<Blob> {
+  const XLSX = await import('xlsx');
+  const wb = XLSX.utils.book_new();
+  wb.Workbook = { Views: [{ RTL: true }] }; // workbook-level RTL → <DisplayRightToLeft/>
+  if (meta && (meta.info || meta.fullUrl)) appendInfoSheet(XLSX, wb, meta);
+  for (const sheet of sheets) appendDataSheet(XLSX, wb, sheet);
+  const bin = XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
+  return new Blob([bin], { type: XLSX_MIME });
+}
+
+/** Build one Blob per sheet (file-per-type layout) — RTL + auto-fit, no info sheet. */
 export async function buildPerTypeBlobs(sheets: ExportSheet[]): Promise<Array<{ sheetName: string; blob: Blob }>> {
   const out: Array<{ sheetName: string; blob: Blob }> = [];
   for (const sheet of sheets) {

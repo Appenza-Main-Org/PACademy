@@ -43,6 +43,17 @@ export function useExportMutation() {
   });
 }
 
+/** Curated full-database snapshot export (the download button). */
+export function useExportSnapshotMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (params: ExportParams) => dataExchangeService.exportSnapshot(params),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: dataExchangeKeys.history() });
+    },
+  });
+}
+
 export function usePreviewMutation() {
   return useMutation({
     mutationFn: (sheets: ImportSheetInput[]) => dataExchangeService.previewImport(sheets),
