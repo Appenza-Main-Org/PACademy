@@ -683,7 +683,10 @@ public sealed class OperationalRecordsService(
         if (applicants.Count == 0) return applicants;
 
         var directory = await LoadCommitteeDirectoryAsync(ct);
-        var committeeInstances = await operationalRecords.ListAsync("committeeInstances", ct);
+        // Normalized-aware read — the raw operationalRecords store only sees the
+        // legacy committee_records table, which no longer receives instance rows
+        // since the NormalizeCommitteeInstances migration.
+        var committeeInstances = await ListAsync("committeeInstances", ct);
         foreach (var applicant in applicants)
         {
             var committeeName = ResolveCommitteeName(applicant, directory, committeeInstances);
@@ -773,7 +776,7 @@ public sealed class OperationalRecordsService(
             }
         }
 
-        foreach (var committee in await operationalRecords.ListAsync("committees", ct))
+        foreach (var committee in await ListAsync("committees", ct))
         {
             var code = FirstString(committee, "id", "code", "definitionCode", "committeeId");
             if (string.IsNullOrWhiteSpace(code)) continue;
