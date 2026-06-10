@@ -2220,16 +2220,18 @@ public sealed class DataExchangeService(
         IReadOnlyDictionary<string, string> CategoryNames);
 
     /// <summary>
-    /// Admission conditions live on TWO planes and the export surfaces both —
-    /// mirroring exactly what the eligibility engine enforces
-    /// (<see cref="Admissions.Eligibility.ApplicantEligibilityService"/>):
-    ///  1. The normalized application-settings tables (category configs →
-    ///     specializations → graduation-year rows). Active-cycle only — the
-    ///     tables carry no cycle column (single-active-cycle invariant).
-    ///  2. The admission-setup wizard cycle-draft
+    /// Admission conditions live on TWO planes (the same two the eligibility
+    /// engine reads — <see cref="Admissions.Eligibility.ApplicantEligibilityService"/>):
+    ///  1. The admission-setup wizard cycle-draft
     ///     (`admissionSetup.applicationSettings.{cycleId}`, `approved` +
     ///     `local` buckets) — where the «شروط اللجنة» rows are authored.
-    ///     Reading only plane 1 exported categories with empty condition cells.
+    ///     This is the ONLY cycle-scoped source, so when the selected cycle
+    ///     has a draft it is exported alone.
+    ///  2. The normalized application-settings tables (category configs →
+    ///     specializations → graduation-year rows). They carry no cycle
+    ///     column and accumulate rows across cycles, so they are a fallback
+    ///     for active/unspecified cycles with no draft — exporting them next
+    ///     to a draft duplicated categories with stale old-cycle conditions.
     /// Lookup codes (marital status, school category, division, grades,
     /// degrees, excellence criteria, exam rounds, committees) resolve to their
     /// Arabic names; unknown codes pass through as-is.
@@ -2248,15 +2250,45 @@ public sealed class DataExchangeService(
         }
         var names = new ConditionNames(byLookupKey, categoryLookups, categoryNames);
 
-        var rows = new List<CuratedRow>();
+        // cycleId arrives pre-resolved: ResolveCycleIdAsync defaults a blank
+        // request to the active cycle, so blank here means "no active cycle".
+        var draftRows = await LoadDraftConditionRowsAsync(cycleId, names, ctx, ct);
+        if (draftRows.Count > 0)
+        {
+            var rows = new List<CuratedRow>(draftRows);
+            rows.AddRange(await LoadCategoryBaselineRowsAsync(names, draftRows, ctx, ct));
+            return rows;
+        }
+
         var includeNormalized = string.IsNullOrWhiteSpace(cycleId)
             || string.IsNullOrWhiteSpace(ctx.ActiveCycleId)
             || string.Equals(cycleId, ctx.ActiveCycleId, StringComparison.OrdinalIgnoreCase);
-        if (includeNormalized)
+        return includeNormalized ? await LoadNormalizedConditionRowsAsync(names, ct) : [];
+    }
+
+    /// <summary>A configured category with no authored condition row still
+    /// surfaces (empty condition cells) so the sheet lists every category in
+    /// the cycle's scope — without dragging in old-cycle graduation-year rows
+    /// from the cycle-less normalized tables.</summary>
+    private async Task<IReadOnlyList<CuratedRow>> LoadCategoryBaselineRowsAsync(
+        ConditionNames names, IReadOnlyList<CuratedRow> draftRows, CuratedContext ctx, CancellationToken ct)
+    {
+        var covered = new HashSet<string>(
+            draftRows.Select(r => r.Cells.GetValueOrDefault("category")).OfType<string>(),
+            StringComparer.OrdinalIgnoreCase);
+        var configs = await db.ApplicationSettingsCategoryConfigs.AsNoTracking().ToListAsync(ct);
+        var rows = new List<CuratedRow>();
+        foreach (var config in configs.OrderBy(c => c.SortOrder))
         {
-            rows.AddRange(await LoadNormalizedConditionRowsAsync(names, ct));
+            if (covered.Contains(config.CategoryId)) continue;
+            if (ctx.ActiveCategoryKeys is not null && !ctx.ActiveCategoryKeys.Contains(config.CategoryId)) continue;
+            rows.Add(new CuratedRow(Cells(
+                ("category", config.CategoryId),
+                ("category_name", names.CategoryNames.GetValueOrDefault(config.CategoryId)),
+                ("excellence_criterion", ResolveCategoryExcellence(config.CategoryId, names)),
+                ("condition_status", "معتمد"),
+                ("is_active", config.IsActive ? "true" : "false")), config.CreatedAt, config.UpdatedAt, null));
         }
-        rows.AddRange(await LoadDraftConditionRowsAsync(cycleId, names, ctx, ct));
         return rows;
     }
 
