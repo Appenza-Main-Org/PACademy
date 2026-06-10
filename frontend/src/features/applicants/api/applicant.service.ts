@@ -55,6 +55,7 @@ export interface ApplicantFilters {
   religion?: string | 'all';
   source?: string | 'all';
   birthGovernorate?: string | 'all';
+  cycleId?: string | 'all';
 }
 
 export interface ApplicantStatusOption {
@@ -333,6 +334,7 @@ function compactApplicantFilters(filters: ApplicantFilters): ApplicantFilters {
   if (filters.gender && filters.gender !== 'all') out.gender = filters.gender;
   if (filters.religion && filters.religion !== 'all') out.religion = filters.religion;
   if (filters.source && filters.source !== 'all') out.source = filters.source;
+  if (filters.cycleId && filters.cycleId !== 'all') out.cycleId = filters.cycleId;
   return out;
 }
 
@@ -345,7 +347,8 @@ function hasApplicantFilter(filters: ApplicantFilters): boolean {
       || filters.certType
       || filters.gender
       || filters.religion
-      || filters.source,
+      || filters.source
+      || filters.cycleId,
   );
 }
 
@@ -390,6 +393,7 @@ function matchesApplicantFilters(applicant: Applicant, filters: ApplicantFilters
   if (filters.gender && applicant.gender !== filters.gender) return false;
   if (filters.religion && !normalizedEquals(applicant.religion, filters.religion)) return false;
   if (filters.source && applicant.source !== filters.source) return false;
+  if (filters.cycleId && applicant.cycleId !== filters.cycleId) return false;
   return true;
 }
 

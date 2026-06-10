@@ -16,7 +16,7 @@ import {
 import type { DataTableColumn, ListActionsConfig, SearchSelectOption } from '@/shared/components';
 import { PaymentBadge } from '@/shared/components/StatusBadge';
 import { useApplicants, useApplicantStatusOptions } from '@/features/applicants/api/applicant.queries';
-import { useActiveCycle } from '@/features/admin/api/cycles.queries';
+import { useActiveCycle, useCycles } from '@/features/admin/api/cycles.queries';
 import { useLookup } from '@/features/lookups';
 import { ApplicantRowActions } from '@/features/admin/components/applicants/ApplicantRowActions';
 import { buildApplicantsWorkbookSheets, fetchApplicantsForExport } from '@/features/admin/lib/applicants-export';
@@ -86,8 +86,10 @@ export function ApplicantsPage(): JSX.Element {
   const [gender, setGender] = useState<'male' | 'female' | 'all'>('all');
   const [religion, setReligion] = useState<string>('all');
   const [source, setSource] = useState<string>('all');
+  const [cycleId, setCycleId] = useState<string>('all');
   const governoratesQuery = useLookup('governorates');
   const activeCycleQuery = useActiveCycle();
+  const cyclesQuery = useCycles();
   const statusOptionsQuery = useApplicantStatusOptions();
   const statusOptions = useMemo(
     () => (statusOptionsQuery.data ?? []).map((item) => ({ value: item.value, label: item.label })),
@@ -104,6 +106,13 @@ export function ApplicantsPage(): JSX.Element {
         .map((row) => ({ value: row.name, label: row.name })),
     [governoratesQuery.data],
   );
+  const cycleOptions = useMemo(() => {
+    const activeId = activeCycleQuery.data?.id;
+    return (cyclesQuery.data ?? []).map((cycle) => ({
+      value: cycle.id,
+      label: cycle.id === activeId ? `${cycle.nameAr} (النشطة)` : cycle.nameAr,
+    }));
+  }, [cyclesQuery.data, activeCycleQuery.data?.id]);
 
   const { data, isLoading } = useApplicants({
     page,
@@ -116,6 +125,7 @@ export function ApplicantsPage(): JSX.Element {
     gender,
     religion,
     source,
+    cycleId,
   });
 
   const hasActiveFilters =
@@ -126,7 +136,8 @@ export function ApplicantsPage(): JSX.Element {
     || certType !== 'all'
     || gender !== 'all'
     || religion !== 'all'
-    || source !== 'all';
+    || source !== 'all'
+    || cycleId !== 'all';
 
   const resetFilters = (): void => {
     setSearch('');
@@ -137,6 +148,7 @@ export function ApplicantsPage(): JSX.Element {
     setGender('all');
     setReligion('all');
     setSource('all');
+    setCycleId('all');
     setPage(1);
   };
 
@@ -316,6 +328,7 @@ export function ApplicantsPage(): JSX.Element {
             gender,
             religion,
             source,
+            cycleId,
           }),
         xlsxSheets: buildApplicantsWorkbookSheets,
         columns: [
@@ -337,6 +350,7 @@ export function ApplicantsPage(): JSX.Element {
           { key: 'email', labelAr: 'البريد الإلكتروني' },
           { key: 'governorate', labelAr: 'محافظة الإقامة' },
           { key: 'certType', labelAr: 'نوع الشهادة' },
+          { key: 'cycleId', labelAr: 'دورة القبول' },
           { key: 'source', labelAr: 'مصدر السجل' },
           { key: 'certPercent', labelAr: 'النسبة المئوية' },
           {
@@ -377,6 +391,7 @@ export function ApplicantsPage(): JSX.Element {
       activeCycleQuery.data?.id,
       birthGovernorate,
       certType,
+      cycleId,
       gender,
       governorate,
       religion,
@@ -508,6 +523,20 @@ export function ApplicantsPage(): JSX.Element {
               options={[
                 { value: 'all', label: 'كل المصادر' },
                 ...SOURCE_OPTIONS,
+              ]}
+              className={FILTER_TRIGGER_CLASS}
+              containerClassName={FILTER_CONTAINER_CLASS}
+            />
+            <Select
+              label="دورة القبول"
+              aria-label="تصفية حسب دورة القبول"
+              value={cycleId}
+              onChange={(e) => { setCycleId(e.target.value); setPage(1); }}
+              disabled={cyclesQuery.isLoading}
+              helper={cyclesQuery.isError ? 'تعذر تحميل الدورات من الخادم' : undefined}
+              options={[
+                { value: 'all', label: 'كل الدورات' },
+                ...cycleOptions,
               ]}
               className={FILTER_TRIGGER_CLASS}
               containerClassName={FILTER_CONTAINER_CLASS}

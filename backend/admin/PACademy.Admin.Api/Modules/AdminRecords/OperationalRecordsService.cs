@@ -886,7 +886,8 @@ public sealed class OperationalRecordsService(
                 && ApplicantGenderMatches(row, query["gender"])
                 && StringFilterMatches(FirstString(row, "religion"), query["religion"])
                 && StringFilterMatches(FirstString(row, "source"), query["source"])
-                && StringFilterMatches(FirstString(row, "birthGovernorate"), query["birthGovernorate"]))
+                && StringFilterMatches(FirstString(row, "birthGovernorate"), query["birthGovernorate"])
+                && StringFilterMatches(FirstString(row, "cycleId", "admissionCycleId", "cycle_id"), query["cycleId"]))
             .ToList();
     }
 
