@@ -159,8 +159,12 @@ public sealed class ReportsController(
     {
         var applicants = await records.ListAsync("applicants", ct);
         var total = Math.Max(1, applicants.Count);
+        // Group directly on the emitted category key — grouping on raw
+        // department/certType strings and slugging afterwards collapsed
+        // distinct groups onto the same key (every unknown raw value slugs to
+        // officers_general), emitting duplicate rows per key downstream.
         var byDepartment = applicants
-            .GroupBy(x => AdminRecordJson.StringProp(x, "department") ?? AdminRecordJson.StringProp(x, "certType") ?? "officers_general")
+            .GroupBy(CategoryKeyOf)
             .Select(g =>
             {
                 var passed = g.Count(x => AdminRecordJson.StringProp(x, "status") is "approved" or "under-review");
@@ -168,8 +172,8 @@ public sealed class ReportsController(
                 var pending = g.Count() - passed - failed;
                 return new
                 {
-                    key = Slug(g.Key),
-                    labelAr = g.Key,
+                    key = g.Key,
+                    labelAr = CategoryLabels.TryGetValue(g.Key, out var label) ? label : g.Key,
                     total = g.Count(),
                     percentOfTotal = Percent(g.Count(), total),
                     eligibilityPassed = passed,
@@ -314,17 +318,33 @@ public sealed class ReportsController(
     private static DateTimeOffset? ParseDate(string? value) =>
         DateTimeOffset.TryParse(value, out var parsed) ? parsed : null;
 
-    private static string Slug(string value)
+    private static readonly IReadOnlyDictionary<string, string> CategoryLabels = new Dictionary<string, string>
     {
-        var known = new Dictionary<string, string>
+        ["officers_general"] = "قسم الضباط (قسم عام)",
+        ["law_bachelor"] = "ليسانس حقوق",
+        ["physical_education_bachelor"] = "بكالوريوس تربية رياضية",
+        ["specialized_officers"] = "الضباط المتخصصون"
+    };
+
+    /// <summary>Canonical category key for an applicant: the stored category
+    /// key when it is one of the RFP categories, else the legacy
+    /// department/certType string mapped through <see cref="Slug"/>.</summary>
+    private static string CategoryKeyOf(JsonObject applicant)
+    {
+        var category = AdminRecordJson.StringProp(applicant, "categoryKey")
+            ?? AdminRecordJson.StringProp(applicant, "categoryId")
+            ?? AdminRecordJson.StringProp(applicant, "applicantCategory");
+        if (!string.IsNullOrWhiteSpace(category))
         {
-            ["قسم الضباط (قسم عام)"] = "officers_general",
-            ["ليسانس حقوق"] = "law_bachelor",
-            ["بكالوريوس تربية رياضية"] = "physical_education_bachelor",
-            ["الضباط المتخصصون"] = "specialized_officers"
-        };
-        return known.TryGetValue(value, out var key) ? key : "officers_general";
+            return CategoryLabels.ContainsKey(category) ? category : Slug(category);
+        }
+        return Slug(AdminRecordJson.StringProp(applicant, "department")
+            ?? AdminRecordJson.StringProp(applicant, "certType")
+            ?? string.Empty);
     }
+
+    private static string Slug(string value)
+        => CategoryLabels.FirstOrDefault(pair => pair.Value == value).Key ?? "officers_general";
 
     private static bool IsHighSensitivity(string value) =>
         value.Contains("اعتماد", StringComparison.OrdinalIgnoreCase) ||
