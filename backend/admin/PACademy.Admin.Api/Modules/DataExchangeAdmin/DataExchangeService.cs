@@ -110,6 +110,12 @@ public sealed class DataExchangeService(
         return dateScoped;
     }
 
+    // Legacy round-trip cycle-owned config sheets: a row without a matching cycle is
+    // intentionally excluded (legacy/no-cycle rows don't belong to a live export).
+    // People-derived sheets (Applicants, Relatives, ExamResults, AcquaintanceDocs)
+    // are deliberately NOT here — they are scoped leniently at load time so a
+    // booked applicant is never silently dropped just because their record carries
+    // a blank or stale cycle id. See IsApplicantInCycleScope / BelongsToDifferentCycle.
     private static readonly IReadOnlySet<ExchangeDomain> LegacyCycleScopedDomains = new HashSet<ExchangeDomain>
     {
         ExchangeDomain.Exams,
