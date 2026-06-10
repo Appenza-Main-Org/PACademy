@@ -10,8 +10,38 @@ public sealed class OperationalRecordStore(IOperationalRecordsDbContext db)
 
     public bool Supports(string module) => BucketFor(module) is not null;
 
-    public async Task<IReadOnlyList<JsonObject>> ListAsync(string module, CancellationToken ct)
+    /// <summary>
+    /// Modules promoted to normalized typed tables no longer receive rows in
+    /// the legacy JSON buckets this store reads — accessing them here returns
+    /// a silently frozen snapshot (the «غير مسجل» committee-name bug,
+    /// 2026-06-10). Such access throws unless the caller explicitly marks it
+    /// as a deliberate legacy fallback (<c>allowNormalizedModule: true</c>),
+    /// which only <c>OperationalRecordsService</c> — the normalized-aware
+    /// wrapper that owns the fallback semantics — should do. On
+    /// non-relational providers (tests) the typed tables don't exist and this
+    /// store is the only storage, so the guard stays inactive.
+    /// </summary>
+    internal static bool IsStaleNormalizedModuleAccess(
+        string module,
+        bool isRelational,
+        bool allowNormalizedModule) =>
+        !allowNormalizedModule && isRelational && NormalizedOperationalModules.Contains(module);
+
+    private void EnsureNotStaleNormalizedModuleAccess(string module, bool allowNormalizedModule)
     {
+        var isRelational = db is DbContext context && context.Database.IsRelational();
+        if (!IsStaleNormalizedModuleAccess(module, isRelational, allowNormalizedModule)) return;
+        throw new InvalidOperationException(
+            $"Module '{module}' lives in a normalized table; the legacy JSON bucket no longer receives its rows. " +
+            "Go through OperationalRecordsService instead, or pass allowNormalizedModule: true for a deliberate legacy fallback.");
+    }
+
+    public async Task<IReadOnlyList<JsonObject>> ListAsync(
+        string module,
+        CancellationToken ct,
+        bool allowNormalizedModule = false)
+    {
+        EnsureNotStaleNormalizedModuleAccess(module, allowNormalizedModule);
         var rows = await Query(module)
             .AsNoTracking()
             .Where(x => x.Module == module)
@@ -32,14 +62,25 @@ public sealed class OperationalRecordStore(IOperationalRecordsDbContext db)
         return rows.Select(ToJson).ToList();
     }
 
-    public async Task<JsonObject?> GetAsync(string module, string id, CancellationToken ct)
+    public async Task<JsonObject?> GetAsync(
+        string module,
+        string id,
+        CancellationToken ct,
+        bool allowNormalizedModule = false)
     {
+        EnsureNotStaleNormalizedModuleAccess(module, allowNormalizedModule);
         var row = await FindAsync(module, id, tracking: false, ct);
         return row is null ? null : ToJson(row);
     }
 
-    public async Task<JsonObject> UpsertAsync(string module, string id, JsonObject payload, CancellationToken ct)
+    public async Task<JsonObject> UpsertAsync(
+        string module,
+        string id,
+        JsonObject payload,
+        CancellationToken ct,
+        bool allowNormalizedModule = false)
     {
+        EnsureNotStaleNormalizedModuleAccess(module, allowNormalizedModule);
         var now = DateTimeOffset.UtcNow;
         var row = await FindAsync(module, id, tracking: true, ct);
         var next = payload.DeepClone().AsObject();

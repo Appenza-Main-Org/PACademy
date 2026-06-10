@@ -144,8 +144,8 @@ public sealed class OperationalRecordsService(
         }
 
         var now = DateTimeOffset.UtcNow;
-        var isCreate = await operationalRecords.GetAsync(module, id, ct) is null;
-        var next = await operationalRecords.UpsertAsync(module, id, payload, ct);
+        var isCreate = await operationalRecords.GetAsync(module, id, ct, allowNormalizedModule: true) is null;
+        var next = await operationalRecords.UpsertAsync(module, id, payload, ct, allowNormalizedModule: true);
         await EmitAuditAsync(module, isCreate ? "create" : "update", id, payload, now, ct);
         return next;
     }
@@ -337,7 +337,7 @@ public sealed class OperationalRecordsService(
             }
         }
 
-        var payload = await operationalRecords.GetAsync(module, id, ct);
+        var payload = await operationalRecords.GetAsync(module, id, ct, allowNormalizedModule: true);
         if (payload is null) return false;
         var now = DateTimeOffset.UtcNow;
         await operationalRecords.DeleteAsync(module, id, ct);
@@ -673,7 +673,9 @@ public sealed class OperationalRecordsService(
 
     private async Task<JsonObject?> GetDocumentAsync(string module, string id, CancellationToken ct)
     {
-        return await operationalRecords.GetAsync(module, id, ct);
+        // Deliberate legacy fallback: a normalized Get miss may still resolve
+        // against a pre-migration leftover row in the JSON bucket.
+        return await operationalRecords.GetAsync(module, id, ct, allowNormalizedModule: true);
     }
 
     private async Task<IReadOnlyList<JsonObject>> EnrichApplicantCommitteeNamesAsync(
@@ -1064,30 +1066,8 @@ public sealed class OperationalRecordsService(
         && context.Database.IsRelational()
         && NormalizedModuleKind(module) is not null;
 
-    private static string? NormalizedModuleKind(string module)
-    {
-        return module switch
-        {
-            "applicants" => "applicants",
-            "grades" => "grades",
-            "cycles" => "cycles",
-            "categories" => "categories",
-            "committeeInstances" => "committeeInstances",
-            "payments" => "payments",
-            "exam-committee-users" => "examCommitteeUsers",
-            "exam-devices" => "examDevices",
-            "examResults" => "examResults",
-            "exam-results" => "examAttemptResults",
-            "biometric-enrollments" => "biometricEnrollments",
-            "notifications" => "notifications",
-            "examPlans" => "examPlans",
-            "committeeResults" => "committeeResults",
-            "workflows" => "workflows",
-            "applicantWorkflowProgress" => "applicantWorkflowProgress",
-            "committees" => "committees",
-            _ => null
-        };
-    }
+    private static string? NormalizedModuleKind(string module) =>
+        NormalizedOperationalModules.KindFor(module);
 
     private async Task<IReadOnlyList<JsonObject>?> ListNormalizedAsync(string module, CancellationToken ct)
     {
@@ -2137,7 +2117,7 @@ public sealed class OperationalRecordsService(
         DateTimeOffset now,
         CancellationToken ct)
     {
-        await operationalRecords.UpsertAsync(module, id, payload, ct);
+        await operationalRecords.UpsertAsync(module, id, payload, ct, allowNormalizedModule: true);
     }
 
     private async Task<IReadOnlyList<JsonObject>> QueryPayloadRowsAsync(
