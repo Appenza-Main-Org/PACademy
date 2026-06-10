@@ -1,5 +1,5 @@
 import { Outlet } from 'react-router-dom';
-import { Activity, Cpu, DoorOpen, History, LayoutGrid, ShieldCheck, UserPlus, Search, Users } from 'lucide-react';
+import { Activity, Cpu, DoorOpen, History, LayoutGrid, MoveRight, ShieldCheck, UserPlus, Search, Users } from 'lucide-react';
 import { AppShell } from '@/app/layouts/AppShell';
 import type { SidebarSection } from '@/app/layouts/Sidebar';
 import { ROUTES } from '@/config/routes';
@@ -10,6 +10,7 @@ const SIDEBAR: SidebarSection[] = [
     items: [
       { key: 'zkDirectory', label: 'الأجهزة والأفراد', icon: <Cpu size={18} />, to: ROUTES.biometric.zkDirectory },
       { key: 'zkGates', label: 'الأجهزة والبوابات', icon: <LayoutGrid size={18} />, to: ROUTES.biometric.zkGates },
+      { key: 'zkAreaTransfer', label: 'نقل بين المناطق', icon: <MoveRight size={18} />, to: ROUTES.biometric.zkAreaTransfer },
     ],
   },
   {

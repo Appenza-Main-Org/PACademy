@@ -50,6 +50,82 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
         return matches.Take(25).Select(a => BuildLookup(a, enrollments, verifications, gateLogs)).ToList();
     }
 
+    /* ── Area transfer (ZKBioTime) ─────────────────────────────────── */
+
+    /// <summary>
+    /// Candidate applicants for a bulk ZKBioTime area move, optionally filtered by
+    /// committee and current exam result. Each row carries the stored
+    /// <c>deviceEmpId</c> (the ZKBioTime employee PK captured at enrollment) and a
+    /// <c>linked</c> flag; the controller resolves any missing id live before the
+    /// move. Pure PACademy data — works whether or not ZKBioTime is configured.
+    /// </summary>
+    public async Task<IReadOnlyList<JsonObject>> ListApplicantsForAreaMoveAsync(
+        string? committee, string? examResult, CancellationToken ct)
+    {
+        var applicants = await records.ListAsync("applicants", ct);
+        var enrollments = await records.ListAsync(EnrollmentsModule, ct);
+
+        var rows = new List<JsonObject>();
+        foreach (var a in applicants)
+        {
+            var applicantId = AdminRecordJson.StringProp(a, "id") ?? "";
+            var committeeName = AdminRecordJson.StringProp(a, "committeeName");
+            var examLocation = AdminRecordJson.StringProp(a, "committee");
+            var resolvedCommittee = !string.IsNullOrWhiteSpace(committeeName) ? committeeName : (examLocation ?? "");
+            var resolvedResult = AdminRecordJson.StringProp(a, "currentExamResult") ?? "لم تظهر";
+
+            if (!string.IsNullOrWhiteSpace(committee) && resolvedCommittee != committee) continue;
+            if (!string.IsNullOrWhiteSpace(examResult) && resolvedResult != examResult) continue;
+
+            var enrollment = LatestEnrollment(enrollments, applicantId);
+            var deviceEmpId = enrollment is not null ? AdminRecordJson.StringProp(enrollment, "deviceEmpId") : null;
+            rows.Add(new JsonObject
+            {
+                ["applicantId"] = applicantId,
+                ["name"] = ApplicantName(a),
+                ["nationalId"] = AdminRecordJson.StringProp(a, "nationalId") ?? "",
+                ["committee"] = resolvedCommittee,
+                ["currentExamResult"] = resolvedResult,
+                ["enrollmentStatus"] = enrollment is not null
+                    ? AdminRecordJson.StringProp(enrollment, "status") ?? "not_enrolled"
+                    : "not_enrolled",
+                ["deviceEmpId"] = deviceEmpId,
+                ["linked"] = !string.IsNullOrWhiteSpace(deviceEmpId),
+            });
+        }
+        return rows;
+    }
+
+    /// <summary>
+    /// For the selected applicant ids, return <c>(applicantId, nationalId, deviceEmpId)</c>
+    /// — <c>deviceEmpId</c> is the stored ZKBioTime PK (string) or null when the
+    /// applicant was never enrolled/bound through PACademy. The caller resolves
+    /// nulls live by <c>emp_code</c> (= national id) before moving.
+    /// </summary>
+    public async Task<IReadOnlyList<JsonObject>> GetAreaMoveTargetsAsync(
+        IReadOnlyCollection<string> applicantIds, CancellationToken ct)
+    {
+        if (applicantIds.Count == 0) return [];
+        var ids = new HashSet<string>(applicantIds, StringComparer.Ordinal);
+        var applicants = await records.ListAsync("applicants", ct);
+        var enrollments = await records.ListAsync(EnrollmentsModule, ct);
+
+        return applicants
+            .Where(a => ids.Contains(AdminRecordJson.StringProp(a, "id") ?? ""))
+            .Select(a =>
+            {
+                var applicantId = AdminRecordJson.StringProp(a, "id") ?? "";
+                var enrollment = LatestEnrollment(enrollments, applicantId);
+                return new JsonObject
+                {
+                    ["applicantId"] = applicantId,
+                    ["nationalId"] = AdminRecordJson.StringProp(a, "nationalId") ?? "",
+                    ["deviceEmpId"] = enrollment is not null ? AdminRecordJson.StringProp(enrollment, "deviceEmpId") : null,
+                };
+            })
+            .ToList();
+    }
+
     public async Task<JsonObject?> GetApplicantAsync(string? applicantId, string? nationalId, string? barcode, CancellationToken ct)
     {
         var applicants = await records.ListAsync("applicants", ct);

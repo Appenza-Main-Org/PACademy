@@ -91,19 +91,22 @@ public sealed class BiometricController(BiometricService service, IServiceProvid
     /// </summary>
     [HttpGet("api/biometric/zk/recent-punches")]
     public async Task<ActionResult<object>> ZkRecentPunches(
-        [FromQuery] int windowSeconds = 300, [FromQuery] int limit = 20, CancellationToken ct = default)
+        [FromQuery] int windowSeconds = 300, [FromQuery] int limit = 20,
+        [FromQuery] string? since = null, CancellationToken ct = default)
     {
         var client = sp.GetService<ZkBioTimeClient>();
         if (client is null || !await client.IsConfiguredAsync(ct)) return ZkInactive();
         try
         {
-            var punches = await client.GetRecentPunchesAsync(windowSeconds, limit, ct);
+            // `since` = newest upload_time the client already has → only new punches come back.
+            var punches = await client.GetRecentPunchesAsync(windowSeconds, limit, since, ct);
             var map = await service.ResolvePunchesAsync(punches.Select(p => (p.Emp, p.EmpCode)), ct);
             var data = punches.Select(p =>
             {
                 map.TryGetValue(p.EmpCode, out var applicant);
                 return new
                 {
+                    id = p.Id,
                     empCode = p.EmpCode,
                     deviceName = p.Name,
                     verifyType = p.VerifyType,
@@ -118,7 +121,14 @@ public sealed class BiometricController(BiometricService service, IServiceProvid
                     applicantName = applicant is null ? null : AdminRecordJson.StringProp(applicant, "name"),
                 };
             });
-            return Ok(new { count = punches.Count, data });
+            // Advance the cursor to the newest upload_time we saw (or echo the incoming
+            // one when nothing new), so the next poll asks only for later punches.
+            var cursor = punches
+                .Select(p => p.UploadTime)
+                .Where(u => !string.IsNullOrEmpty(u))
+                .DefaultIfEmpty(since)
+                .Max();
+            return Ok(new { count = punches.Count, data, cursor });
         }
         catch (BiometricDeviceException ex) { return DeviceUnavailable(ex); }
     }
@@ -226,6 +236,101 @@ public sealed class BiometricController(BiometricService service, IServiceProvid
         {
             return NotFound(new ApiErrorEnvelope("NOT_FOUND", Message: ex.Message));
         }
+    }
+
+    /* ── ZKBioTime area transfer (bulk move applicants between areas) ──── */
+
+    /// <summary>Registered ZKBioTime areas (device zones) — the move target picker.</summary>
+    [HttpGet("api/biometric/zk/areas")]
+    public async Task<ActionResult<object>> ZkAreas(CancellationToken ct)
+    {
+        var client = sp.GetService<ZkBioTimeClient>();
+        if (client is null || !await client.IsConfiguredAsync(ct)) return ZkInactive();
+        try
+        {
+            var rows = await client.ListAreasAsync(ct);
+            return Ok(new { mode = "zkbiotime", count = rows.Count, data = rows });
+        }
+        catch (BiometricDeviceException ex) { return DeviceUnavailable(ex); }
+    }
+
+    /// <summary>
+    /// Candidate applicants for a bulk area move, filtered by committee and/or
+    /// current exam result. PACademy-sourced (works without ZKBioTime); each row
+    /// carries the stored device employee id + a <c>linked</c> flag.
+    /// </summary>
+    [HttpGet("api/biometric/applicants/for-area-move")]
+    public async Task<ActionResult<IReadOnlyList<JsonObject>>> AreaMoveCandidates(
+        [FromQuery] string? committee, [FromQuery] string? examResult, CancellationToken ct)
+        => Ok(await service.ListApplicantsForAreaMoveAsync(committee, examResult, ct));
+
+    /// <summary>
+    /// Bulk-move the selected applicants to a ZKBioTime area. Resolves each
+    /// applicant's device employee id — stored id first, else a live
+    /// <c>emp_code</c> (= national id) lookup — then calls the platform's
+    /// <c>adjust_area</c>. Applicants with no ZKBioTime employee are reported as
+    /// skipped (enroll them first).
+    /// </summary>
+    [HttpPost("api/biometric/zk/adjust-area")]
+    [RequireBearerAuth]
+    public async Task<ActionResult<object>> ZkAdjustArea([FromBody] JsonObject input, CancellationToken ct)
+    {
+        var client = sp.GetService<ZkBioTimeClient>();
+        if (client is null || !await client.IsConfiguredAsync(ct)) return ZkInactive();
+
+        var areaId = AdminRecordJson.NumberProp(input, "areaId") is { } a ? (int)a : 0;
+        if (areaId <= 0)
+            return BadRequest(new ApiErrorEnvelope("VALIDATION", Message: "لم يتم اختيار المنطقة المستهدفة"));
+
+        var applicantIds = (input["applicantIds"] as JsonArray)?
+            .Select(n => n?.ToString())
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => s!)
+            .ToList() ?? [];
+        if (applicantIds.Count == 0)
+            return BadRequest(new ApiErrorEnvelope("VALIDATION", Message: "لم يتم تحديد أي متقدم"));
+
+        try
+        {
+            var selectedIds = applicantIds.Distinct().ToList();
+            var targets = (await service.GetAreaMoveTargetsAsync(selectedIds, ct))
+                .GroupBy(t => AdminRecordJson.StringProp(t, "applicantId") ?? "")
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+
+            // Iterate the SELECTION (not just resolved targets) so every applicant is
+            // accounted for — moved or skipped, never silently dropped.
+            var employeeIds = new List<int>();
+            var movedApplicantIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var applicantId in selectedIds)
+            {
+                targets.TryGetValue(applicantId, out var target);
+                var stored = target is null ? null : AdminRecordJson.StringProp(target, "deviceEmpId");
+                var nationalId = target is null ? null : AdminRecordJson.StringProp(target, "nationalId");
+
+                var employeeId = int.TryParse(stored, out var storedId) && storedId > 0 ? storedId : 0;
+                // Fallback: resolve the device employee live by emp_code (= national id).
+                if (employeeId == 0 && !string.IsNullOrWhiteSpace(nationalId)
+                    && await client.FindEmployeeAsync(nationalId, ct) is { } emp
+                    && int.TryParse(emp["id"]?.ToString(), out var liveId) && liveId > 0)
+                {
+                    employeeId = liveId;
+                }
+
+                if (employeeId > 0)
+                {
+                    employeeIds.Add(employeeId);
+                    movedApplicantIds.Add(applicantId);
+                }
+            }
+            var skipped = selectedIds.Where(id => !movedApplicantIds.Contains(id)).ToList();
+
+            if (employeeIds.Count == 0)
+                return Ok(new { ok = false, moved = 0, skipped, message = "لا يوجد متقدمون مسجّلون على المنظومة ضمن التحديد — سجّل البصمة أولاً" });
+
+            await client.AdjustAreaAsync(employeeIds, [areaId], ct);
+            return Ok(new { ok = true, moved = employeeIds.Count, skipped });
+        }
+        catch (BiometricDeviceException ex) { return DeviceUnavailable(ex); }
     }
 
     /* ── ZKBioTime connection config (set from the admin screen) ───────── */
