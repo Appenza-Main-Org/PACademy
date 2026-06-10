@@ -128,12 +128,12 @@ const EXPORT_PRESETS: Array<{ value: ExportPreset; label: string; domains: Excha
   {
     value: 'applicants',
     label: 'ملف المتقدمين',
-    domains: ['Applicants', 'Relatives', 'ExamResults', 'Payments'],
+    domains: ['Applicants', 'Relatives', 'ExamReservations', 'ExamResults', 'AcquaintanceDocs', 'Payments'],
   },
   {
     value: 'operations',
     label: 'الاختبارات واللجان',
-    domains: ['Exams', 'ExamSchedules', 'ExamResults', 'Committees'],
+    domains: ['Exams', 'ExamSchedules', 'ExamReservations', 'ExamResults', 'Committees'],
   },
   {
     value: 'configuration',
@@ -145,11 +145,11 @@ const EXPORT_PRESETS: Array<{ value: ExportPreset; label: string; domains: Excha
 const DOMAIN_GROUPS: Array<{ label: string; domains: ExchangeDomain[] }> = [
   {
     label: 'بيانات المتقدم',
-    domains: ['Applicants', 'Relatives', 'ExamResults', 'Payments'],
+    domains: ['Applicants', 'Relatives', 'ExamReservations', 'ExamResults', 'AcquaintanceDocs', 'Payments'],
   },
   {
     label: 'التشغيل والاختبارات',
-    domains: ['Exams', 'ExamSchedules', 'ExamResults', 'Committees'],
+    domains: ['Exams', 'ExamSchedules', 'ExamReservations', 'ExamResults', 'Committees'],
   },
   {
     label: 'الإعدادات المرجعية',

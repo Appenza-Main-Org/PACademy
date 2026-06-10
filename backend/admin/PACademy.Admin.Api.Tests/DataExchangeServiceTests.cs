@@ -920,7 +920,7 @@ public sealed class DataExchangeServiceTests
     {
         var (svc, db) = Create();
         await SeedOperationalAsync(db, "applicants", "APP-1",
-            """{"id":"APP-1","nationalId":"29801011234567","fullName":"متقدم","gender":"male","phoneNumber":"01000000000","email":"a@x.com","birthDate":"1998-01-01","birthGovernorate":"القاهرة","status":"exam_scheduled"}""");
+            """{"id":"APP-1","nationalId":"29801011234567","fullName":"متقدم","gender":"male","phoneNumber":"01000000000","email":"a@x.com","birthDate":"1998-01-01","birthGovernorate":"القاهرة","status":"exam_scheduled","certType":"مؤهل جامعي","education":{"kind":"higher","university":"جامعة القاهرة","faculty":"كلية الحقوق","specialization":"القانون العام","graduationYear":2024,"grade":"جيد جداً","percentage":82.5,"secondary":{"schoolName":"مدرسة النصر الثانوية","schoolCategory":"علمي علوم","totalScore":390,"percentage":95.1,"graduationYear":2020}}}""");
         await SeedOperationalAsync(db, "applicants", "APP-DRAFT",
             """{"id":"APP-DRAFT","nationalId":"29801011230000","fullName":"مسودة","status":"draft"}""");
 
@@ -928,14 +928,57 @@ public sealed class DataExchangeServiceTests
         var sheet = Assert.Single(result.Sheets);
 
         Assert.Equal(
-            new[] { "applicant_id", "national_id", "full_name", "gender", "phone_number", "email", "date_of_birth", "birth_governorate", "category", "cycle_id", "status" },
+            new[]
+            {
+                "applicant_id", "national_id", "full_name", "gender", "phone_number", "email", "date_of_birth", "birth_governorate",
+                "qualification_type", "university", "faculty", "specialization", "graduation_year", "grade", "percentage",
+                "school_name", "school_category", "secondary_total_score", "secondary_percentage", "secondary_graduation_year",
+                "category", "cycle_id", "status",
+            },
             sheet.Columns);
         var row = Assert.Single(sheet.Rows); // draft withheld by the booked gate
         Assert.Equal("29801011234567", row["national_id"]);
         Assert.Equal("متقدم", row["full_name"]);
         Assert.Equal("a@x.com", row["email"]);
+        Assert.Equal("مؤهل جامعي", row["qualification_type"]);
+        Assert.Equal("جامعة القاهرة", row["university"]);
+        Assert.Equal("كلية الحقوق", row["faculty"]);
+        Assert.Equal("القانون العام", row["specialization"]);
+        Assert.Equal("2024", row["graduation_year"]);
+        Assert.Equal("جيد جداً", row["grade"]);
+        Assert.Equal("82.5", row["percentage"]);
+        Assert.Equal("مدرسة النصر الثانوية", row["school_name"]);
+        Assert.Equal("علمي علوم", row["school_category"]);
+        Assert.Equal("390", row["secondary_total_score"]);
+        Assert.Equal("95.1", row["secondary_percentage"]);
+        Assert.Equal("2020", row["secondary_graduation_year"]);
         Assert.DoesNotContain("business_key", sheet.Columns);
         Assert.DoesNotContain("checksum", sheet.Columns);
+    }
+
+    [Fact]
+    public async Task Snapshot_applicants_fall_back_to_raw_profile_education_fields()
+    {
+        var (svc, db) = Create();
+        // Payload shape without the projected `education` object — only the raw
+        // portal-draft `profile` fields. Every applicant must still export education.
+        await SeedOperationalAsync(db, "applicants", "APP-RAW",
+            """{"id":"APP-RAW","nationalId":"29801011234568","fullName":"متقدم خام","status":"exam_scheduled","profile":{"qualificationLevel":"license","bachelorUniversity":"جامعة عين شمس","bachelorFaculty":"كلية الحقوق","bachelorSpecialization":"القانون الجنائي","bachelorYear":2023,"bachelorGrade":"جيد","bachelorPercentage":75,"schoolNameAr":"مدرسة التحرير","thanawiType":"أدبي","thanawiTotal":380,"thanawiPercentage":92.6,"thanawiGradDate":"2019-07-01"}}""");
+
+        var result = await svc.ExportSnapshotAsync([ExchangeDomain.Applicants], "single-workbook", ExportFilter.Default, default);
+        var row = Assert.Single(result.Sheets[0].Rows);
+
+        Assert.Equal("جامعة عين شمس", row["university"]);
+        Assert.Equal("كلية الحقوق", row["faculty"]);
+        Assert.Equal("القانون الجنائي", row["specialization"]);
+        Assert.Equal("2023", row["graduation_year"]);
+        Assert.Equal("جيد", row["grade"]);
+        Assert.Equal("75", row["percentage"]);
+        Assert.Equal("مدرسة التحرير", row["school_name"]);
+        Assert.Equal("أدبي", row["school_category"]);
+        Assert.Equal("380", row["secondary_total_score"]);
+        Assert.Equal("92.6", row["secondary_percentage"]);
+        Assert.Equal("2019", row["secondary_graduation_year"]);
     }
 
     [Fact]
@@ -1056,5 +1099,121 @@ public sealed class DataExchangeServiceTests
         Assert.Equal("2026", activeRow["graduation_year"]);
         Assert.Equal("65", activeRow["min_percentage"]);
         Assert.Empty(closed.Sheets[0].Rows); // normalized settings belong to the active cycle only
+    }
+
+    [Fact]
+    public async Task Snapshot_admission_conditions_include_categories_without_condition_rows()
+    {
+        var (svc, db) = Create();
+        var now = DateTimeOffset.UtcNow;
+        await SeedLookupAsync(db, "specializations", "SPC-1", "القانون العام");
+        db.ApplicantCategories.Add(new ApplicantCategoryEntity
+        {
+            Key = "law_bachelor", LabelAr = "حملة ليسانس الحقوق", IsOpen = true,
+            PayloadJson = "{}", CreatedAt = now, UpdatedAt = now,
+        });
+        // Configured category whose specialization has NO graduation-year rows yet.
+        db.ApplicationSettingsCategoryConfigs.Add(new ApplicationSettingsCategoryConfigEntity
+        {
+            Id = "CFG-1", CategoryId = "law_bachelor", IsActive = true, SortOrder = 0, CreatedAt = now, UpdatedAt = now,
+        });
+        db.ApplicationSettingsCategorySpecializations.Add(new ApplicationSettingsCategorySpecializationEntity
+        {
+            Id = "SP-1", ConfigId = "CFG-1", SpecializationId = "SPC-1", IsActive = true, CreatedAt = now, UpdatedAt = now,
+        });
+        // Configured category with no attached specializations at all.
+        db.ApplicationSettingsCategoryConfigs.Add(new ApplicationSettingsCategoryConfigEntity
+        {
+            Id = "CFG-2", CategoryId = "officers_general", IsActive = true, SortOrder = 1, CreatedAt = now, UpdatedAt = now,
+        });
+        await db.SaveChangesAsync();
+
+        var result = await svc.ExportSnapshotAsync(
+            [ExchangeDomain.AdmissionConditions], "single-workbook", ExportFilter.Default, default);
+        var rows = result.Sheets[0].Rows;
+
+        Assert.Equal(2, rows.Count);
+        var lawRow = rows.Single(r => r["category"] == "law_bachelor");
+        Assert.Equal("حملة ليسانس الحقوق", lawRow["category_name"]);
+        Assert.Equal("القانون العام", lawRow["specialization"]); // resolved Arabic name, not the code
+        Assert.Equal("true", lawRow["is_active"]);
+        Assert.Null(lawRow["graduation_year"]); // no conditions authored yet — still exported
+        var generalRow = rows.Single(r => r["category"] == "officers_general");
+        Assert.Null(generalRow["specialization"]);
+    }
+
+    [Fact]
+    public async Task Snapshot_exam_reservations_link_applicant_to_slot_committee_and_exam()
+    {
+        var (svc, db) = Create();
+        await SeedCommitteeLookupAsync(db, "COM-01", "اللجنة الأولى قسم عام");
+        await SeedOperationalAsync(db, "committeeInstances", "CI-1",
+            """{"id":"CI-1","definitionCode":"COM-01","categoryKey":"officers_general","cycleId":"CYC-1","date":"2026-06-15","examPlanName":"اختبار الهيئة والقوام","capacity":30,"reserved":12}""");
+        await SeedOperationalAsync(db, "applicants", "APP-1",
+            """{"id":"APP-1","nationalId":"29801011234567","fullName":"متقدم","categoryKey":"officers_general","cycleId":"CYC-1","status":"exam_scheduled","examSlot":{"slotId":"CI-1","date":"2026-06-15","time":"09:30","location":"كلية الشرطة - القاهرة"}}""");
+        await SeedOperationalAsync(db, "applicants", "APP-DRAFT",
+            """{"id":"APP-DRAFT","nationalId":"29801011230000","fullName":"مسودة","status":"draft"}""");
+
+        var result = await svc.ExportSnapshotAsync(
+            [ExchangeDomain.ExamReservations], "single-workbook", ExportFilter.Default, default);
+        var sheet = Assert.Single(result.Sheets);
+
+        var row = Assert.Single(sheet.Rows); // unbooked draft never emits a reservation
+        Assert.Equal("29801011234567", row["applicant_national_id"]);
+        Assert.Equal("CI-1", row["slot_id"]);
+        Assert.Equal("اختبار الهيئة والقوام", row["exam_name"]);
+        Assert.Equal("2026-06-15", row["appointment_date"]);
+        Assert.Equal("09:30", row["appointment_time"]);
+        Assert.Equal("اللجنة الأولى قسم عام", row["committee_name"]);
+        Assert.Equal("محجوز", row["reservation_status"]);
+        Assert.Equal("exam_scheduled", row["applicant_status"]);
+    }
+
+    [Fact]
+    public async Task Snapshot_acquaintance_docs_emit_sections_and_revision_history()
+    {
+        var (svc, db) = Create();
+        var now = DateTimeOffset.UtcNow;
+        await SeedOperationalAsync(db, "applicants", "APP-1",
+            """{"id":"APP-1","nationalId":"29801011234567","fullName":"متقدم","status":"exam_scheduled","examSlot":{"date":"2026-06-15"}}""");
+        db.ApplicantAcquaintanceDocs.Add(new ApplicantAcquaintanceDocEntity
+        {
+            Id = "DOC-1", CycleId = "CYC-1", ApplicantId = "APP-1", Status = "open",
+            OpenedAt = now, Version = 3, CreatedAt = now, UpdatedAt = now,
+        });
+        db.ApplicantAcquaintanceDocSections.Add(new ApplicantAcquaintanceDocSectionEntity
+        {
+            Id = "SEC-1", AcquaintanceDocId = "DOC-1", SectionKey = "personal",
+            DataJson = """{"fullName":"متقدم"}""", CreatedAt = now, UpdatedAt = now,
+        });
+        db.ApplicantAcquaintanceDocSections.Add(new ApplicantAcquaintanceDocSectionEntity
+        {
+            Id = "SEC-2", AcquaintanceDocId = "DOC-1", SectionKey = "residence",
+            DataJson = """{"governorate":"القاهرة"}""", CreatedAt = now, UpdatedAt = now,
+        });
+        db.ApplicantAcquaintanceDocRevisions.Add(new ApplicantAcquaintanceDocRevisionEntity
+        {
+            Id = "REV-1", AcquaintanceDocId = "DOC-1", Version = 2, ChangeKind = "autosave",
+            ChangedSectionKeysJson = """["personal"]""", CreatedAt = now,
+        });
+        db.ApplicantAcquaintanceDocRevisions.Add(new ApplicantAcquaintanceDocRevisionEntity
+        {
+            Id = "REV-2", AcquaintanceDocId = "DOC-1", Version = 3, ChangeKind = "submit",
+            ChangedSectionKeysJson = """["residence"]""", CreatedAt = now,
+        });
+        await db.SaveChangesAsync();
+
+        var result = await svc.ExportSnapshotAsync(
+            [ExchangeDomain.AcquaintanceDocs], "single-workbook", ExportFilter.Default, default);
+        var sheet = Assert.Single(result.Sheets);
+
+        Assert.Equal(2, sheet.Rows.Count); // one row per section
+        var personal = sheet.Rows.Single(r => r["section_key"] == "personal");
+        Assert.Equal("29801011234567", personal["applicant_national_id"]);
+        Assert.Equal("open", personal["doc_status"]);
+        Assert.Equal("3", personal["version"]);
+        Assert.Contains("متقدم", personal["section_data"]);
+        Assert.Equal("2", personal["revision_count"]);
+        Assert.Equal("submit", personal["last_revision_kind"]); // latest version wins
     }
 }

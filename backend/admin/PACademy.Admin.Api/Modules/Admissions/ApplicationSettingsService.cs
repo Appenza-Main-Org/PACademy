@@ -10,7 +10,7 @@ namespace PACademy.Admin.Api.Modules.Admissions;
 
 public sealed class ApplicationSettingsService(IAdmissionsDbContext db)
 {
-    private const string ImplicitDefaultSpecCode = "__default__";
+    internal const string ImplicitDefaultSpecCode = "__default__";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly ApplicationSettingsAttachSpecializationValidator AttachValidator = new();
     private static readonly ApplicationSettingsYearValidator YearValidator = new();
