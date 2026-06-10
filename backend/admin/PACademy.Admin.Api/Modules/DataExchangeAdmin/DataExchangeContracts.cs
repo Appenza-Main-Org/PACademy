@@ -1,10 +1,17 @@
 namespace PACademy.Admin.Api.Modules.DataExchangeAdmin;
 
 /// <summary>
-/// The 9 exchangeable sheets. <see cref="SheetName"/> is the LOCKED, ASCII,
+/// The exchangeable sheets. <see cref="SheetName"/> is the LOCKED, ASCII,
 /// ≤31-char Excel tab name — the single contract both the export writer and the
 /// import validator key off (mirrored verbatim by the frontend `SHEET_NAMES`).
 /// Arabic lives in the title/header row and column labels, never the tab name.
+///
+/// The first nine values are the historical round-trip (export+import) domains.
+/// The trailing block (ApplicantCategories … AuditEntries) was added for the
+/// curated full-database snapshot export — they are EXPORT-ONLY (their import
+/// upsert is read-only; see <see cref="DataExchangeService"/>). The curated
+/// snapshot export is driven by <see cref="CuratedSheetSpec"/>, not by this
+/// enum's storage binding.
 /// </summary>
 public enum ExchangeDomain
 {
@@ -17,6 +24,15 @@ public enum ExchangeDomain
     SystemCodes,
     ExamResults,
     ExamSchedules,
+    // ── curated-snapshot export-only domains (2026-06-10) ──
+    ApplicantCategories,
+    Faculties,
+    LookupRows,
+    GeneralSettings,
+    Payments,
+    Notifications,
+    WorkflowRecords,
+    AuditEntries,
 }
 
 /// <summary>How a domain's rows are physically stored in the admin DB.</summary>
@@ -32,6 +48,8 @@ public enum ExchangeStorage
     Exams,
     /// <summary>exam_slots table.</summary>
     ExamSlots,
+    /// <summary>Export-only operational/typed tables — import is read-only.</summary>
+    ReadOnlyExport,
 }
 
 /// <summary>Per-domain binding: sheet name, Arabic title, storage, and business key.</summary>
@@ -62,6 +80,15 @@ public static class DataExchangeRegistry
         new(ExchangeDomain.SystemCodes,         "SystemCodes",         "أكواد النظام والقوائم", ExchangeStorage.Lookups,        null,          []),
         new(ExchangeDomain.ExamResults,         "ExamResults",         "نتائج الاختبارات",      ExchangeStorage.DocStore,       "examResults", []),
         new(ExchangeDomain.ExamSchedules,       "ExamSchedules",       "مواعيد الاختبارات",     ExchangeStorage.ExamSlots,      null,          []),
+        // ── curated-snapshot export-only domains (read-only on import) ──
+        new(ExchangeDomain.ApplicantCategories, "ApplicantCategories", "فئات المتقدمين",        ExchangeStorage.ReadOnlyExport, null,          []),
+        new(ExchangeDomain.Faculties,           "Faculties",           "الكليات",               ExchangeStorage.ReadOnlyExport, null,          []),
+        new(ExchangeDomain.LookupRows,          "LookupRows",          "أكواد القوائم",         ExchangeStorage.ReadOnlyExport, null,          []),
+        new(ExchangeDomain.GeneralSettings,     "GeneralSettings",     "الإعدادات العامة",      ExchangeStorage.ReadOnlyExport, null,          []),
+        new(ExchangeDomain.Payments,            "Payments",            "المدفوعات",             ExchangeStorage.ReadOnlyExport, null,          []),
+        new(ExchangeDomain.Notifications,       "Notifications",       "الإشعارات",             ExchangeStorage.ReadOnlyExport, null,          []),
+        new(ExchangeDomain.WorkflowRecords,     "WorkflowRecords",     "سجل سير العمل",         ExchangeStorage.ReadOnlyExport, null,          []),
+        new(ExchangeDomain.AuditEntries,        "AuditEntries",        "سجل التدقيق",           ExchangeStorage.ReadOnlyExport, null,          []),
     ];
 
     public static readonly IReadOnlyDictionary<string, DomainSpec> BySheetName =
@@ -90,11 +117,44 @@ public sealed record ExportSheetDto(
     IReadOnlyList<string> Columns,
     IReadOnlyList<IReadOnlyDictionary<string, string?>> Rows);
 
+/// <summary>
+/// Backend-known metadata for the workbook's first <c>ExportInfo</c> sheet.
+/// The frontend augments this with the in-browser full URL + route (which it
+/// owns) and renders the property/value sheet. <see cref="CycleName"/> drives
+/// the <c>data-exchange-{cycle-name}.xlsx</c> file name.
+/// </summary>
+public sealed record ExportInfoDto(
+    string? CycleId,
+    string? CycleName,
+    string ExportDate,
+    string ExportedBy,
+    string Environment);
+
 public sealed record ExportResultDto(
     string Layout,
     string Watermark,
     int TotalRows,
-    IReadOnlyList<ExportSheetDto> Sheets);
+    IReadOnlyList<ExportSheetDto> Sheets,
+    /// <summary>Populated by the curated snapshot export; null for the legacy
+    /// round-trip export.</summary>
+    ExportInfoDto? Info = null);
+
+/// <summary>
+/// Curated full-database-snapshot sheet binding. Unlike <see cref="DomainSpec"/>
+/// (whose columns are the data-driven union of flattened keys), a curated sheet
+/// has a FIXED, ordered, human-readable column list. The matching loader emits
+/// rows whose cells are keyed exactly by <see cref="Columns"/> — no flattened
+/// dotted keys, no tracking/checksum noise. Empty domains still emit the header
+/// row. <see cref="CycleScoped"/> rows are filtered to the selected cycle;
+/// <see cref="PersonScoped"/> rows honor the applicant national-id allow-list.
+/// </summary>
+public sealed record CuratedSheetSpec(
+    ExchangeDomain Domain,
+    string SheetName,
+    string TitleAr,
+    IReadOnlyList<string> Columns,
+    bool CycleScoped,
+    bool PersonScoped);
 
 // ── Import preview / apply ──────────────────────────────────────────────
 public sealed record ImportSheetInput(

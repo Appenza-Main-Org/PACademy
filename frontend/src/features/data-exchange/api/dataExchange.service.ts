@@ -39,6 +39,7 @@ import {
   type ImportRowOutcome,
   type ImportSheetInput,
   DOMAIN_TITLES_AR,
+  EXPORT_DOMAINS,
   SHEET_NAMES,
 } from '../types';
 
@@ -61,7 +62,7 @@ export interface ExportParams {
 
 function exportQuery({ domains, layout, filter, nationalIds, cycleId }: ExportParams): Record<string, string> {
   const query: Record<string, string> = {
-    type: domains.length === Object.keys(SHEET_NAMES).length ? 'all' : domains.join(','),
+    type: domains.length >= EXPORT_DOMAINS.length ? 'all' : domains.join(','),
     layout,
   };
   if (filter === 'all' || filter === 'modifiedSinceCreation' || filter === 'sinceLastExport') {
@@ -82,9 +83,20 @@ function exportQuery({ domains, layout, filter, nationalIds, cycleId }: ExportPa
 }
 
 export const dataExchangeService = {
+  /** Legacy round-trip export — flattened columns + tracking/checksum, used by
+   *  the import-template path. Prefer {@link exportSnapshot} for the download. */
   async exportData(params: ExportParams): Promise<ExportResult> {
     if (isBackendEnabled()) {
       return apiClient.get<ExportResult>(`${BASE}/export`, { query: exportQuery(params) });
+    }
+    return mockExport(params);
+  },
+
+  /** Curated full-database snapshot — fixed human-readable columns, cycle-scoped,
+   *  with an `info` block for the ExportInfo sheet. Backs the download button. */
+  async exportSnapshot(params: ExportParams): Promise<ExportResult> {
+    if (isBackendEnabled()) {
+      return apiClient.get<ExportResult>(`${BASE}/export/snapshot`, { query: exportQuery(params) });
     }
     return mockExport(params);
   },
@@ -172,6 +184,14 @@ function mockColumns(domain: ExchangeDomain): string[] {
     SystemCodes: ['lookup_key', 'code', 'name', 'is_active'],
     ExamResults: ['applicantNationalId', 'examId', 'result'],
     ExamSchedules: ['date', 'time', 'location', 'capacity', 'reserved'],
+    ApplicantCategories: ['category_key', 'category_name', 'is_open', 'cycle_id'],
+    Faculties: ['faculty_code', 'faculty_name', 'is_active'],
+    LookupRows: ['lookup_key', 'code', 'name', 'is_active'],
+    GeneralSettings: ['exam_days_per_applicant', 'exam_slot_selection_window_days'],
+    Payments: ['applicant_id', 'payment_id', 'amount', 'payment_status', 'cycle_id'],
+    Notifications: ['notification_id', 'applicant_id', 'type', 'title', 'status'],
+    WorkflowRecords: ['applicant_id', 'workflow_step', 'status', 'cycle_id'],
+    AuditEntries: ['entity', 'entity_id', 'action', 'actor_name'],
   };
   return ['id', 'business_key', ...data[domain], ...TRACKING];
 }

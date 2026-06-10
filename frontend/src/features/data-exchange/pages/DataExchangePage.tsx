@@ -47,7 +47,7 @@ import {
   type ImportPreview,
   type ImportSheetInput,
   DOMAIN_TITLES_AR,
-  EXCHANGE_DOMAINS,
+  EXPORT_DOMAINS,
   SHEET_NAMES,
 } from '../types';
 import {
@@ -56,7 +56,7 @@ import {
   useApplyMutation,
   useBookedApplicantsRoster,
   useDataExchangeHistory,
-  useExportMutation,
+  useExportSnapshotMutation,
   usePreviewMutation,
 } from '../api/queries';
 import { buildPerTypeBlobs, buildWorkbookBlob, downloadBlob, parseWorkbook } from '../lib/workbook';
@@ -80,6 +80,13 @@ function toIsoOrNull(dateStr: string): string | null {
   const ms = Date.parse(dateStr);
   if (Number.isNaN(ms)) return null;
   return new Date(ms).toISOString();
+}
+
+/** Trims a value into a safe file-name fragment (keeps Arabic + alphanumerics,
+ *  collapses everything else to a single hyphen). */
+function sanitizeFileLabel(raw: string): string {
+  const cleaned = raw.trim().replace(/[\\/:*?"<>|\s]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  return cleaned.length > 0 ? cleaned : 'export';
 }
 
 const LAYOUT_OPTIONS: Array<{ value: ExportLayout; label: string }> = [
@@ -116,12 +123,12 @@ const EXPORT_PRESETS: Array<{ value: ExportPreset; label: string; domains: Excha
   {
     value: 'all',
     label: 'كل النطاقات',
-    domains: [...EXCHANGE_DOMAINS],
+    domains: [...EXPORT_DOMAINS],
   },
   {
     value: 'applicants',
     label: 'ملف المتقدمين',
-    domains: ['Applicants', 'Relatives', 'AcquaintanceDocs'],
+    domains: ['Applicants', 'Relatives', 'ExamResults', 'Payments'],
   },
   {
     value: 'operations',
@@ -131,14 +138,14 @@ const EXPORT_PRESETS: Array<{ value: ExportPreset; label: string; domains: Excha
   {
     value: 'configuration',
     label: 'الإعدادات والأكواد',
-    domains: ['AdmissionConditions', 'SystemCodes'],
+    domains: ['AdmissionConditions', 'ApplicantCategories', 'Faculties', 'LookupRows', 'GeneralSettings'],
   },
 ];
 
 const DOMAIN_GROUPS: Array<{ label: string; domains: ExchangeDomain[] }> = [
   {
     label: 'بيانات المتقدم',
-    domains: ['Applicants', 'Relatives', 'AcquaintanceDocs'],
+    domains: ['Applicants', 'Relatives', 'ExamResults', 'Payments'],
   },
   {
     label: 'التشغيل والاختبارات',
@@ -146,7 +153,11 @@ const DOMAIN_GROUPS: Array<{ label: string; domains: ExchangeDomain[] }> = [
   },
   {
     label: 'الإعدادات المرجعية',
-    domains: ['AdmissionConditions', 'SystemCodes'],
+    domains: ['AdmissionConditions', 'ApplicantCategories', 'Faculties', 'LookupRows', 'GeneralSettings'],
+  },
+  {
+    label: 'السجلات والتدقيق',
+    domains: ['Notifications', 'WorkflowRecords', 'AuditEntries'],
   },
 ];
 
@@ -158,14 +169,15 @@ export function DataExchangePage(): JSX.Element {
   const [historyPageSize, setHistoryPageSize] = useState(25);
 
   /* ── Export state ──────────────────────────────────────────────────── */
-  const [selected, setSelected] = useState<Set<ExchangeDomain>>(new Set(EXCHANGE_DOMAINS));
+  const [selected, setSelected] = useState<Set<ExchangeDomain>>(new Set(EXPORT_DOMAINS));
   const [layout, setLayout] = useState<ExportLayout>('single-workbook');
   const [filterKind, setFilterKind] = useState<FilterKind>('all');
   const [changedAfter, setChangedAfter] = useState('');
   const [selectedNationalIds, setSelectedNationalIds] = useState<string[]>([]);
   const cycleCtx = useAdmissionSetupCycle();
   const selectedCycleId = cycleCtx.cycle?.id ?? null;
-  const exportMutation = useExportMutation();
+  const exportMutation = useExportSnapshotMutation();
+  const exportedByName = useAuthStore((s) => s.user?.name);
   const rosterQuery = useBookedApplicantsRoster(selectedCycleId);
   const testsQuery = useLookup('tests');
 
@@ -180,7 +192,7 @@ export function DataExchangePage(): JSX.Element {
   const reconcileCommitMutation = useApplicantsReconciliationCommitMutation();
 
   const historyQuery = useDataExchangeHistory();
-  const selectedDomains = EXCHANGE_DOMAINS.filter((domain) => selected.has(domain));
+  const selectedDomains = EXPORT_DOMAINS.filter((domain) => selected.has(domain));
   const historyRows = historyQuery.data ?? [];
   const testNameByCode = useMemo(
     () => new Map((testsQuery.data ?? []).map((test) => [test.code, test.name])),
@@ -253,7 +265,7 @@ export function DataExchangePage(): JSX.Element {
   }
 
   async function handleExport(): Promise<void> {
-    const domains = EXCHANGE_DOMAINS.filter((d) => selected.has(d));
+    const domains = EXPORT_DOMAINS.filter((d) => selected.has(d));
     if (domains.length === 0) {
       toast('اختر نطاقًا واحدًا على الأقل للتصدير.', 'warning');
       return;
@@ -284,12 +296,24 @@ export function DataExchangePage(): JSX.Element {
         cycleId: selectedCycleId ?? undefined,
       });
       const stamp = new Date().toISOString().slice(0, 10);
+      // `data-exchange-{cycle}.xlsx` — prefer the cycle year (clean ASCII), then the
+      // backend's cycle name, then the cycle id, then the date stamp.
+      const cycleLabel = sanitizeFileLabel(
+        String(cycleCtx.cycle?.year ?? result.info?.cycleName ?? selectedCycleId ?? stamp),
+      );
+      const meta = {
+        info: result.info ?? null,
+        fullUrl: window.location.href,
+        sourceRoute: '/admin/data-exchange',
+        sourceModule: 'Data Exchange',
+        exportedByName: exportedByName ?? undefined,
+      };
       if (layout === 'file-per-type') {
         const blobs = await buildPerTypeBlobs(result.sheets);
-        for (const { sheetName, blob } of blobs) downloadBlob(blob, `data-exchange-${sheetName}-${stamp}.xlsx`);
+        for (const { sheetName, blob } of blobs) downloadBlob(blob, `data-exchange-${sheetName}-${cycleLabel}.xlsx`);
       } else {
-        const blob = await buildWorkbookBlob(result.sheets);
-        downloadBlob(blob, `data-exchange-${stamp}.xlsx`);
+        const blob = await buildWorkbookBlob(result.sheets, meta);
+        downloadBlob(blob, `data-exchange-${cycleLabel}.xlsx`);
       }
       emitAudit({
         action: 'entity_exported',
