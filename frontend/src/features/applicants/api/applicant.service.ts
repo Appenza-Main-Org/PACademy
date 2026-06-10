@@ -626,7 +626,12 @@ export const applicantService = {
   },
 
   async getProgress(id: string): Promise<ApplicantWorkflowProgress | null> {
-    return apiClient.get(`/api/v1/applicants/${encodeURIComponent(id)}/workflow-progress`);
+    // "No progress row" serializes as 204 No Content → undefined; coalesce
+    // so the query resolves (TanStack treats undefined data as an error).
+    const progress = await apiClient.get<ApplicantWorkflowProgress | null | undefined>(
+      `/api/v1/applicants/${encodeURIComponent(id)}/workflow-progress`,
+    );
+    return progress ?? null;
   },
 
   async getWorkflowTransitions(id: string): Promise<WorkflowTransitionEvent[]> {
@@ -634,7 +639,10 @@ export const applicantService = {
   },
 
   async getActiveWorkflowFor(id: string): Promise<DepartmentWorkflow | null> {
-    return apiClient.get(`/api/v1/applicants/${encodeURIComponent(id)}/active-workflow`);
+    const workflow = await apiClient.get<DepartmentWorkflow | null | undefined>(
+      `/api/v1/applicants/${encodeURIComponent(id)}/active-workflow`,
+    );
+    return workflow ?? null;
   },
 
   async getAuditTrail(id: string): Promise<AuditEntry[]> {

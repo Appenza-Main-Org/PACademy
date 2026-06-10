@@ -16,7 +16,12 @@ export const admissionRulesService = {
   },
 
   async getCurrent(cycleId: string): Promise<AdmissionRule | null> {
-    return apiClient.get(`/api/admission-rules/${encodeURIComponent(cycleId)}/current`);
+    // "No rule for cycle" serializes as 204 No Content → undefined; coalesce
+    // so the query resolves (TanStack treats undefined data as an error).
+    const rule = await apiClient.get<AdmissionRule | null | undefined>(
+      `/api/admission-rules/${encodeURIComponent(cycleId)}/current`,
+    );
+    return rule ?? null;
   },
 
   async save(payload: Omit<AdmissionRule, 'id' | 'version' | 'effectiveAt'> & { effectiveAt?: string }): Promise<AdmissionRule> {
