@@ -47,9 +47,15 @@ import {
   EMPTY_MEMBER,
   DUPLICATE_FAMILY_NATIONAL_ID_MESSAGE,
   formatMemberName,
+  GRANDPARENT_GENDER,
+  genderByRelativeKind,
   HOUSEWIFE_PROFESSION,
   hasDuplicateFamilyNationalId,
   isBirthLocalityRequired,
+  isFamilyMemberComplete,
+  isGuardianComplete,
+  isMotherComplete,
+  MEMBERSHIP_PROFESSIONS,
   PROFESSION_OPTIONS,
   RELATIVE_LABEL,
   canApproveFamilySnapshot,
@@ -57,6 +63,7 @@ import {
   sanitizeFamilyMemberForBirthplace,
   type FamilyDataSnapshot,
   type FamilyMemberForm,
+  type FamilyMemberGender,
   type GrandparentsForm,
   type GuardianForm,
   type RelativeKind,
@@ -65,7 +72,7 @@ import { useApplicantPortalStore } from '../store/applicantPortal.store';
 import { validateParentDob } from '../lib/validateParentDob';
 import { applicantPortalService } from '../api/applicantPortal.service';
 import { MOI_APPLICANT_SESSION } from '../lib/moi-session.mock';
-import { useDraft } from '../api/applicantPortal.queries';
+import { useDraft, useSaveDraft } from '../api/applicantPortal.queries';
 import { useLookup } from '@/features/lookups/api/lookups.queries';
 import type { GovernorateRow, PoliceStationRow } from '@/features/lookups';
 import {
@@ -73,15 +80,12 @@ import {
   resolveGovernorateRow,
 } from '../lib/governorateLookup';
 import {
-  analyseNationalId,
   validateNationalIdGenderField,
   validateNationalIdField,
 } from '@/shared/lib/national-id';
 import { cn } from '@/shared/lib/cn';
 
-const MEMBERSHIP_PROFESSIONS = new Set(['police_officer', 'army_officer']);
 const FEMALE_ONLY_PROFESSIONS = new Set([HOUSEWIFE_PROFESSION]);
-type FamilyMemberGender = 'male' | 'female';
 type FamilyDraftPatch = Partial<Pick<
   FamilyDataSnapshot,
   'father' | 'mother' | 'fatherWives' | 'motherHusbands' | 'grandparents' | 'relatives' | 'guardian'
@@ -123,11 +127,15 @@ interface FamilySectionNavItem {
   isRequired: boolean;
 }
 
+/* Every "complete" input below is the saved flag AND'ed with live field
+ * validity (`isFamilyMemberComplete`) — the same definition the اعتماد
+ * gate uses — so the nav badges, the progress bar, and the متابعة button
+ * can never disagree. */
 interface FamilySectionNavInput {
-  savedFather: boolean;
-  savedMother: boolean;
-  savedGrandparents: Record<keyof GrandparentsForm, boolean>;
-  allGrandparentsSaved: boolean;
+  fatherComplete: boolean;
+  motherComplete: boolean;
+  grandparentsComplete: Record<keyof GrandparentsForm, boolean>;
+  allGrandparentsComplete: boolean;
   hasFatherWives: boolean;
   fatherWivesOk: boolean;
   fatherWivesCount: number;
@@ -135,7 +143,7 @@ interface FamilySectionNavInput {
   motherHusbandsOk: boolean;
   motherHusbandsCount: number;
   relatives: Record<RelativeKind, FamilyMemberForm[]>;
-  savedRelatives: Record<RelativeKind, boolean[]>;
+  relativesComplete: Record<RelativeKind, boolean[]>;
   guardianOk: boolean;
 }
 
@@ -149,7 +157,8 @@ export function Stage7FamilyPage(): JSX.Element {
   const moiSession = useApplicantPortalStore((s) => s.moiSession);
   const applicantDob = moiSession?.dateOfBirth;
   const applicantId = moiSession?.applicantId ?? MOI_APPLICANT_SESSION.applicantId;
-  const { data: draft } = useDraft(applicantId);
+  const { data: draft, isFetchedAfterMount } = useDraft(applicantId);
+  const saveDraftMut = useSaveDraft(applicantId);
 
   const [tab, setTab] = useState<TabKey>('father');
   const [father, setFather] = useState<FamilyMemberForm>(EMPTY_MEMBER);
@@ -178,11 +187,6 @@ export function Stage7FamilyPage(): JSX.Element {
     maternalGrandfather: false,
     maternalGrandmother: false,
   });
-  const allGrandparentsSaved =
-    savedGrandparents.paternalGrandfather &&
-    savedGrandparents.paternalGrandmother &&
-    savedGrandparents.maternalGrandfather &&
-    savedGrandparents.maternalGrandmother;
   const [savedFatherWives, setSavedFatherWives] = useState<boolean[]>([]);
   const [savedMotherHusbands, setSavedMotherHusbands] = useState<boolean[]>([]);
 
@@ -227,19 +231,23 @@ export function Stage7FamilyPage(): JSX.Element {
   /* Guardian — ولي الأمر */
   const [guardian, setGuardian] = useState<GuardianForm>(EMPTY_GUARDIAN);
   const [savedGuardian, setSavedGuardian] = useState(false);
-  const guardianOk =
-    savedGuardian &&
-    guardian.firstName.length >= 2 &&
-    analyseNationalId(guardian.nationalId ?? '').valid &&
-    guardian.profession.length > 0 &&
-    guardian.qualification.length > 0;
+  const guardianOk = savedGuardian && isGuardianComplete(guardian);
 
-  /* For relatives: a kind is OK if either the count is 0 OR every added
-   * card has been saved. */
-  const relativesOk = (Object.keys(relatives) as RelativeKind[]).every((k) => {
-    const list = savedRelatives[k];
-    return list.length === 0 || list.every(Boolean);
-  });
+  /* Per-member effective completion: the explicit «حفظ» flag AND'ed with
+   * live field validity, so a member edited into an invalid state after
+   * saving (or restored half-empty from an old draft) drops back to
+   * «ناقص» instead of silently passing. A relative kind is OK if either
+   * the count is 0 OR every added card is complete. */
+  const relativesComplete = Object.fromEntries(
+    (Object.keys(relatives) as RelativeKind[]).map((kind) => [
+      kind,
+      relatives[kind].map(
+        (m, i) =>
+          savedRelatives[kind][i] === true &&
+          isFamilyMemberComplete(m, genderByRelativeKind(kind)),
+      ),
+    ]),
+  ) as Record<RelativeKind, boolean[]>;
 
   /* Optional sections — the tabs only render when the applicant opts in
    * via the checkboxes on the intro card. When off we clear the entries
@@ -264,13 +272,21 @@ export function Stage7FamilyPage(): JSX.Element {
     }
   };
 
-  /* Restore family data from the backend draft on first load. Fires once
-   * when the draft query resolves and has a `family` block. Incrementing
-   * `formKey` forces every MemberFormCard to unmount + remount so their
-   * internal useForm picks up the hydrated defaultValues. */
+  /* Restore family data from the backend draft on first load. The draft
+   * query serves the cached value instantly and refetches in the
+   * background (`refetchOnMount: 'always'`), so hydration must wait for
+   * `isFetchedAfterMount` — hydrating from the cached value used to lock
+   * `hasHydrated` on stale data and silently discard the fresh response,
+   * leaving members saved on a previous visit marked «غير محفوظ». Once
+   * the post-mount fetch settles we hydrate exactly once; later cache
+   * writes from this page's own saves must not re-trigger a remount.
+   * Incrementing `formKey` forces every MemberFormCard to unmount +
+   * remount so their internal useForm picks up the hydrated
+   * defaultValues. */
   useEffect(() => {
-    if (!draft?.family || hasHydrated.current) return;
+    if (hasHydrated.current || !isFetchedAfterMount) return;
     hasHydrated.current = true;
+    if (!draft?.family) return;
 
     const f = draft.family as {
       father?: FamilyMemberForm;
@@ -314,13 +330,32 @@ export function Stage7FamilyPage(): JSX.Element {
     if (f.guardian?.firstName) { setGuardian({ ...EMPTY_GUARDIAN, ...f.guardian }); setSavedGuardian(true); }
 
     setFormKey((k) => k + 1);
-  }, [draft]);
+  }, [draft, isFetchedAfterMount]);
 
+  const fatherComplete = savedFather && isFamilyMemberComplete(father, 'male');
+  const motherComplete = savedMother && isMotherComplete(mother);
+  const grandparentsComplete: Record<keyof GrandparentsForm, boolean> = {
+    paternalGrandfather:
+      savedGrandparents.paternalGrandfather &&
+      isFamilyMemberComplete(grandparents.paternalGrandfather, GRANDPARENT_GENDER.paternalGrandfather),
+    paternalGrandmother:
+      savedGrandparents.paternalGrandmother &&
+      isFamilyMemberComplete(grandparents.paternalGrandmother, GRANDPARENT_GENDER.paternalGrandmother),
+    maternalGrandfather:
+      savedGrandparents.maternalGrandfather &&
+      isFamilyMemberComplete(grandparents.maternalGrandfather, GRANDPARENT_GENDER.maternalGrandfather),
+    maternalGrandmother:
+      savedGrandparents.maternalGrandmother &&
+      isFamilyMemberComplete(grandparents.maternalGrandmother, GRANDPARENT_GENDER.maternalGrandmother),
+  };
+  const allGrandparentsComplete = Object.values(grandparentsComplete).every(Boolean);
   const fatherWivesOk = !hasFatherWives || (
-    fatherWives.length > 0 && savedFatherWives.every(Boolean)
+    fatherWives.length > 0 &&
+    fatherWives.every((m, i) => savedFatherWives[i] === true && isFamilyMemberComplete(m, 'female'))
   );
   const motherHusbandsOk = !hasMotherHusbands || (
-    motherHusbands.length > 0 && savedMotherHusbands.every(Boolean)
+    motherHusbands.length > 0 &&
+    motherHusbands.every((m, i) => savedMotherHusbands[i] === true && isFamilyMemberComplete(m, 'male'))
   );
   const familySnapshot: FamilyDataSnapshot = {
     father,
@@ -341,18 +376,15 @@ export function Stage7FamilyPage(): JSX.Element {
     hasMotherHusbands,
   };
   const duplicateNationalId = hasDuplicateFamilyNationalId(familySnapshot);
-  const canApprove =
-    fatherWivesOk &&
-    motherHusbandsOk &&
-    relativesOk &&
-    guardianOk &&
-    !duplicateNationalId &&
-    canApproveFamilySnapshot(familySnapshot);
+  /* `canApproveFamilySnapshot` recomputes the same per-member completeness
+   * the nav/progress indicators use (plus the duplicate-NID check), so the
+   * متابعة gate and the visible section states stay in lockstep. */
+  const canApprove = canApproveFamilySnapshot(familySnapshot);
   const sectionNavItems = buildFamilySectionNavItems({
-    savedFather,
-    savedMother,
-    savedGrandparents,
-    allGrandparentsSaved,
+    fatherComplete,
+    motherComplete,
+    grandparentsComplete,
+    allGrandparentsComplete,
     hasFatherWives,
     fatherWivesOk,
     fatherWivesCount: fatherWives.length,
@@ -360,7 +392,7 @@ export function Stage7FamilyPage(): JSX.Element {
     motherHusbandsOk,
     motherHusbandsCount: motherHusbands.length,
     relatives,
-    savedRelatives,
+    relativesComplete,
     guardianOk,
   });
   const visibleSectionNavItems = sectionNavItems.filter(
@@ -391,15 +423,21 @@ export function Stage7FamilyPage(): JSX.Element {
       return;
     }
     saveFamilySnapshot(familySnapshot);
-    void applicantPortalService.saveDraft(applicantId, {
+    saveDraftMut.mutate({
       family: { father, mother, fatherWives, motherHusbands, grandparents, relatives, guardian },
-    } as Parameters<typeof applicantPortalService.saveDraft>[1]);
+    } as Parameters<typeof applicantPortalService.saveDraft>[1], {
+      onError: () => toast('تعذر حفظ بيانات العائلة على الخادم — أعد المحاولة', 'danger'),
+    });
     navigate(ROUTES.applicantFamilyReview);
   };
 
-  /* Persist the complete family snapshot to the backend. Takes an optional
-   * per-member override so callers can supply the just-submitted values
-   * directly from react-hook-form (bypassing React's async state batching). */
+  /* Persist the complete family snapshot to the backend through the
+   * draft mutation — its onSuccess writes the merged PATCH response back
+   * into the `useDraft` cache, so the wizard chrome and a later remount
+   * of this page see the saved data instead of a stale cache entry.
+   * Takes an optional per-member override so callers can supply the
+   * just-submitted values directly from react-hook-form (bypassing
+   * React's async state batching). */
   const persistFamily = (patch: {
     father?: FamilyMemberForm;
     mother?: FamilyMemberForm;
@@ -409,12 +447,14 @@ export function Stage7FamilyPage(): JSX.Element {
     relatives?: Record<RelativeKind, FamilyMemberForm[]>;
     guardian?: GuardianForm;
   } = {}): void => {
-    void applicantPortalService.saveDraft(applicantId, {
+    saveDraftMut.mutate({
       family: {
         father, mother, fatherWives, motherHusbands, grandparents, relatives, guardian,
         ...patch,
       },
-    } as Parameters<typeof applicantPortalService.saveDraft>[1]);
+    } as Parameters<typeof applicantPortalService.saveDraft>[1], {
+      onError: () => toast('تعذر حفظ بيانات العائلة على الخادم — أعد المحاولة', 'danger'),
+    });
   };
   const rejectDuplicateNationalId = (patch: FamilyDraftPatch): boolean => {
     if (!hasDuplicateFamilyNationalId({ ...familySnapshot, ...patch })) return false;
@@ -813,12 +853,15 @@ function MemberFormCard({
       .map((ps: PoliceStationRow) => ({ value: ps.name, label: ps.name }));
   }, [residenceGovernorateRow, policeStationsQuery.data]);
 
-  /* Reset district when governorate changes so stale values don't persist.
-   * Mount guards skip the first run so hydrated district values are preserved. */
-  const birthGovMounted = useRef(false);
-  const residenceGovMounted = useRef(false);
+  /* Reset district when governorate actually CHANGES so stale values don't
+   * persist. Tracked via previous-value refs (not run-once mount guards):
+   * StrictMode double-invokes mount effects, which made the old guard fire
+   * the reset on a hydrated mount and silently blank the restored district. */
+  const prevBirthGov = useRef(birthGov);
+  const prevResidenceGov = useRef(residenceGov);
   useEffect(() => {
-    if (!birthGovMounted.current) { birthGovMounted.current = true; return; }
+    if (prevBirthGov.current === birthGov) return;
+    prevBirthGov.current = birthGov;
     setValue('birthDistrict', '');
   }, [birthGov, setValue]);
   useEffect(() => {
@@ -832,7 +875,8 @@ function MemberFormCard({
     setValue('professionDetail', '');
   }, [gender, profession, setValue]);
   useEffect(() => {
-    if (!residenceGovMounted.current) { residenceGovMounted.current = true; return; }
+    if (prevResidenceGov.current === residenceGov) return;
+    prevResidenceGov.current = residenceGov;
     setValue('residenceDistrict', '');
   }, [residenceGov, setValue]);
 
@@ -1261,12 +1305,6 @@ function DynamicRelativePanel({
   );
 }
 
-function genderByRelativeKind(kind: RelativeKind): FamilyMemberGender {
-  return kind === 'brothers' || kind === 'paternal_uncles' || kind === 'maternal_uncles'
-    ? 'male'
-    : 'female';
-}
-
 /* ─── Guardian form (ولي الأمر) ────────────────────────────────────── */
 
 /* Build the "اختر ولي الأمر من أفراد الأسرة" picker options from every
@@ -1553,10 +1591,10 @@ function GrandparentsPanel({
   };
 
   const allFilled =
-    isFilled(value.paternalGrandfather, 'male') &&
-    isFilled(value.paternalGrandmother, 'female') &&
-    isFilled(value.maternalGrandfather, 'male') &&
-    isFilled(value.maternalGrandmother, 'female');
+    isFamilyMemberComplete(value.paternalGrandfather, 'male') &&
+    isFamilyMemberComplete(value.paternalGrandmother, 'female') &&
+    isFamilyMemberComplete(value.maternalGrandfather, 'male') &&
+    isFamilyMemberComplete(value.maternalGrandmother, 'female');
 
   return (
     <div className="flex flex-col gap-3">
@@ -1623,41 +1661,6 @@ function GrandparentsPanel({
   );
 }
 
-function isFilled(m: FamilyMemberForm, expectedGender?: FamilyMemberGender): boolean {
-  const birthLocalityOk =
-    !isBirthLocalityRequired(m) ||
-    (m.birthGovernorate.length > 0 && m.birthDistrict.length > 0);
-  const nationalIdOk = isFamilyMemberNationalIdOk(m, expectedGender);
-  const baseOk =
-    m.firstName.length >= 2 &&
-    nationalIdOk &&
-    m.dateOfBirth.length > 0 &&
-    birthLocalityOk &&
-    m.profession.length > 0 &&
-    m.qualification.length > 0 &&
-    m.professionDetail.trim().length > 0 &&
-    m.qualificationDetail.trim().length > 0 &&
-    (!MEMBERSHIP_PROFESSIONS.has(m.profession) || (m.seniorityNumber ?? '').length > 0);
-  if (!baseOk) return false;
-  /* Residence is now required for every member (even deceased — last
-   * known address). */
-  return (
-    m.residenceGovernorate.length > 0 &&
-    m.residenceDistrict.length > 0 &&
-    m.residenceDetail.length >= 5
-  );
-}
-
-function isFamilyMemberNationalIdOk(
-  member: Pick<FamilyMemberForm, 'nationalId' | 'nidUnavailable' | 'nidUnavailableReason'>,
-  expectedGender?: FamilyMemberGender,
-): boolean {
-  if (member.nidUnavailable) return member.nidUnavailableReason.length > 0;
-  const analysis = analyseNationalId(member.nationalId);
-  if (!analysis.valid) return false;
-  return expectedGender ? analysis.gender === expectedGender : true;
-}
-
 /* ─── small helpers ──────────────────────────────────────────────── */
 
 function buildFamilySectionNavItems(input: FamilySectionNavInput): FamilySectionNavItem[] {
@@ -1681,22 +1684,22 @@ function requiredFamilySectionNavItems(input: FamilySectionNavInput): FamilySect
       key: 'father',
       label: 'الأب',
       description: 'بيانات أساسية',
-      status: input.savedFather ? 'complete' : 'missing',
+      status: input.fatherComplete ? 'complete' : 'missing',
       isRequired: true,
     },
     {
       key: 'mother',
       label: 'الأم',
       description: 'بيانات أساسية',
-      status: input.savedMother ? 'complete' : 'missing',
+      status: input.motherComplete ? 'complete' : 'missing',
       isRequired: true,
     },
     {
       key: 'grandparents',
       label: 'الأجداد',
       description: '٤ بطاقات مطلوبة',
-      status: input.allGrandparentsSaved ? 'complete' : 'missing',
-      count: Object.values(input.savedGrandparents).filter(Boolean).length,
+      status: input.allGrandparentsComplete ? 'complete' : 'missing',
+      count: Object.values(input.grandparentsComplete).filter(Boolean).length,
       isRequired: true,
     },
   ];
@@ -1726,8 +1729,8 @@ function optionalParentSpouseNavItems(input: FamilySectionNavInput): FamilySecti
 function relativeFamilySectionNavItems(input: FamilySectionNavInput): FamilySectionNavItem[] {
   return (Object.keys(RELATIVE_LABEL) as RelativeKind[]).map((kind) => {
     const members = input.relatives[kind];
-    const savedCount = input.savedRelatives[kind].filter(Boolean).length;
-    const isComplete = members.length === 0 || input.savedRelatives[kind].every(Boolean);
+    const savedCount = input.relativesComplete[kind].filter(Boolean).length;
+    const isComplete = members.length === 0 || input.relativesComplete[kind].every(Boolean);
     return {
       key: kind,
       label: RELATIVE_LABEL[kind].plural,

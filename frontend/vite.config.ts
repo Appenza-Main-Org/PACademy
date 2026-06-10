@@ -22,6 +22,16 @@ export default defineConfig(({ mode }) => {
           target: applicantProxyTarget,
           changeOrigin: true,
         },
+        /* The applicant API also serves un-prefixed routes (/applicant/auth,
+         * /applicant/draft, …) which collide with the SPA's /applicant pages.
+         * Proxy fetch/JSON traffic to the backend but let browser navigations
+         * (Accept: text/html) fall through to the SPA so deep links keep
+         * working in dev. */
+        '/applicant': {
+          target: applicantProxyTarget,
+          changeOrigin: true,
+          bypass: (req) => (req.headers.accept?.includes('text/html') ? '/index.html' : undefined),
+        },
         '/api': {
           target: adminProxyTarget,
           changeOrigin: true,

@@ -1,11 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { applicantPortalService } from './applicantPortal.service';
+import { applicantPortalService, resolveApplicantId } from './applicantPortal.service';
 import { noServerStateCacheOptions } from '@/shared/lib/query-options';
 import type { ApplicantDraft } from '@/shared/types/domain';
 
 export const apKeys = {
   all: ['applicant-portal'] as const,
-  draft: (applicantId: string) => [...apKeys.all, 'draft', applicantId] as const,
+  /* The draft key resolves the passed id the same way the service does
+   * (auth-store GUID when the backend is on). Callers pass a mix of the
+   * legacy "APP-2026000" constant and the live MOI applicantId — without
+   * resolution they'd hold separate cache entries for the same backend
+   * row, and mutations would invalidate only the entry matching their
+   * own constant (seen as stale step/progress indicators on the family
+   * step). */
+  draft: (applicantId: string) => [...apKeys.all, 'draft', resolveApplicantId(applicantId)] as const,
   slots: () => [...apKeys.all, 'exam-slots'] as const,
   followUp: (applicantId: string) => [...apKeys.all, 'follow-up', applicantId] as const,
   acquaintanceDoc: (applicantId: string) => [...apKeys.all, 'acquaintance-doc', applicantId] as const,
@@ -44,7 +51,10 @@ export function useSaveDraft(applicantId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (partial: Partial<ApplicantDraft>) => applicantPortalService.saveDraft(applicantId, partial),
-    onSuccess: () => qc.invalidateQueries({ queryKey: apKeys.draft(applicantId) }),
+    /* The PATCH response is the authoritative merged draft — write it
+     * into the cache directly so consumers (and rehydration on remount)
+     * see the saved data without waiting for a refetch. */
+    onSuccess: (result) => qc.setQueryData(apKeys.draft(applicantId), result),
   });
 }
 
