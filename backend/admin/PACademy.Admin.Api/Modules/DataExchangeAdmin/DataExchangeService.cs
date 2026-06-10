@@ -213,7 +213,9 @@ public sealed class DataExchangeService(
     public async Task<IReadOnlyList<ApplicantRosterRow>> ListBookedApplicantsAsync(string? cycleId, CancellationToken ct)
     {
         IReadOnlyList<JsonObject> payloads;
-        try { payloads = await records.ListAsync("applicants", ct); }
+        // Skip list-level committee enrichment — this method resolves committee
+        // names itself against the directory + instances it loads below.
+        try { payloads = await records.ListAsync("applicants", enrichApplicantCommitteeNames: false, ct); }
         catch (InvalidOperationException) { return []; }
 
         var resolvedCycleId = await ResolveCycleIdAsync(cycleId, ct);
@@ -1656,11 +1658,23 @@ public sealed class DataExchangeService(
         DateTimeOffset UpdatedAt,
         string? PersonKey);
 
+    /// <summary>Per-export shared state. Applicant payloads and the exam
+    /// resolver are memoized lazies — six sheets read applicants and two
+    /// resolve exams, and re-running those loads per sheet dominated export
+    /// latency (each applicants load is the normalized UNION query). Loaders
+    /// resolve committee names themselves, so the applicants load skips
+    /// enrichment (identical output, three queries cheaper).</summary>
     private sealed record CuratedContext(
         CommitteeDirectory CommitteeDirectory,
         IReadOnlyList<JsonObject> CommitteeInstances,
         IReadOnlySet<string>? ActiveCategoryKeys,
-        string? ActiveCycleId);
+        string? ActiveCycleId,
+        Lazy<Task<IReadOnlyList<JsonObject>>> ApplicantsLazy,
+        Lazy<Task<CuratedExamResolver>> ExamResolverLazy)
+    {
+        public Task<IReadOnlyList<JsonObject>> ApplicantsAsync() => ApplicantsLazy.Value;
+        public Task<CuratedExamResolver> ExamResolverAsync() => ExamResolverLazy.Value;
+    }
 
     /// <summary>Locked curated-snapshot sheet registry. The order here is the
     /// workbook sheet order (after the frontend-built ExportInfo sheet). Columns
@@ -1724,7 +1738,39 @@ public sealed class DataExchangeService(
             await records.LoadCommitteeDirectoryAsync(ct),
             await LoadCommitteeInstancesAsync(ct),
             await LoadCycleCategoryKeysAsync(cycleId, ct),
-            await db.AdmissionCycles.AsNoTracking().Where(c => c.IsActive).Select(c => c.Id).FirstOrDefaultAsync(ct));
+            await db.AdmissionCycles.AsNoTracking().Where(c => c.IsActive).Select(c => c.Id).FirstOrDefaultAsync(ct),
+            new(() => LoadApplicantsUnenrichedAsync(ct)),
+            new(() => BuildCuratedExamResolverAsync(cycleId, ct)));
+
+    private async Task<IReadOnlyList<JsonObject>> LoadApplicantsUnenrichedAsync(CancellationToken ct)
+    {
+        try { return await records.ListAsync("applicants", enrichApplicantCommitteeNames: false, ct); }
+        catch (InvalidOperationException) { return []; }
+    }
+
+    /// <summary>Ctx-backed mirror of <see cref="LoadApplicantNidByRecordIdAsync"/>
+    /// for curated loaders: same booked + cycle scoping, but reads the export's
+    /// memoized applicant list instead of re-querying (the cycleId reaching
+    /// curated loaders is already resolved).</summary>
+    private static async Task<IReadOnlyDictionary<string, string>> BuildApplicantNidByRecordIdAsync(
+        string? cycleId, CuratedContext ctx)
+    {
+        var nidById = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var payload in await ctx.ApplicantsAsync())
+        {
+            if (AdminRecordJson.IsSoftDeleted(payload)) continue;
+            if (!IsApplicantInCycleScope(payload, cycleId, ctx.ActiveCategoryKeys)) continue;
+            if (!IsApplicantBooked(payload)) continue;
+            var nid = payload["nationalId"]?.ToString();
+            if (string.IsNullOrWhiteSpace(nid)) continue;
+
+            var tableId = payload["applicantTableId"]?.ToString();
+            if (!string.IsNullOrWhiteSpace(tableId)) nidById[tableId] = nid;
+            var id = payload["id"]?.ToString();
+            if (!string.IsNullOrWhiteSpace(id)) nidById[id] = nid;
+        }
+        return nidById;
+    }
 
     private Task<IReadOnlyList<CuratedRow>> LoadCuratedAsync(
         CuratedSheetSpec spec, string? cycleId, CuratedContext ctx, CancellationToken ct) => spec.Domain switch
@@ -1735,20 +1781,17 @@ public sealed class DataExchangeService(
         ExchangeDomain.ExamSchedules       => LoadCuratedExamSchedulesAsync(cycleId, ctx, ct),
         ExchangeDomain.ExamReservations    => LoadCuratedExamReservationsAsync(cycleId, ctx, ct),
         ExchangeDomain.ExamResults         => LoadCuratedExamResultsAsync(cycleId, ctx, ct),
-        ExchangeDomain.AcquaintanceDocs    => LoadCuratedAcquaintanceDocsAsync(cycleId, ct),
+        ExchangeDomain.AcquaintanceDocs    => LoadCuratedAcquaintanceDocsAsync(cycleId, ctx, ct),
         ExchangeDomain.AdmissionConditions => LoadCuratedAdmissionConditionsAsync(cycleId, ctx, ct),
         ExchangeDomain.LookupRows          => LoadCuratedLookupRowsAsync(ct),
         ExchangeDomain.GeneralSettings     => LoadCuratedGeneralSettingsAsync(ct),
-        ExchangeDomain.Payments            => LoadCuratedPaymentsAsync(cycleId, ct),
+        ExchangeDomain.Payments            => LoadCuratedPaymentsAsync(cycleId, ctx, ct),
         _ => Task.FromResult<IReadOnlyList<CuratedRow>>([]),
     };
 
     private async Task<IReadOnlyList<CuratedRow>> LoadCuratedApplicantsAsync(string? cycleId, CuratedContext ctx, CancellationToken ct)
     {
-        IReadOnlyList<JsonObject> payloads;
-        try { payloads = await records.ListAsync("applicants", ct); }
-        catch (InvalidOperationException) { return []; }
-
+        var payloads = await ctx.ApplicantsAsync();
         var rows = new List<CuratedRow>(payloads.Count);
         foreach (var p in payloads)
         {
@@ -1796,10 +1839,7 @@ public sealed class DataExchangeService(
 
     private async Task<IReadOnlyList<CuratedRow>> LoadCuratedRelativesAsync(string? cycleId, CuratedContext ctx, CancellationToken ct)
     {
-        IReadOnlyList<JsonObject> applicants;
-        try { applicants = await records.ListAsync("applicants", ct); }
-        catch (InvalidOperationException) { return []; }
-
+        var applicants = await ctx.ApplicantsAsync();
         var rows = new List<CuratedRow>();
         foreach (var a in applicants)
         {
@@ -1869,7 +1909,7 @@ public sealed class DataExchangeService(
 
     private async Task<IReadOnlyList<CuratedRow>> LoadCuratedExamSchedulesAsync(string? cycleId, CuratedContext ctx, CancellationToken ct)
     {
-        var resolver = await BuildCuratedExamResolverAsync(cycleId, ct);
+        var resolver = await ctx.ExamResolverAsync();
         var rows = new List<CuratedRow>();
         foreach (var inst in ctx.CommitteeInstances)
         {
@@ -1970,11 +2010,8 @@ public sealed class DataExchangeService(
     private async Task<IReadOnlyList<CuratedRow>> LoadCuratedExamReservationsAsync(
         string? cycleId, CuratedContext ctx, CancellationToken ct)
     {
-        IReadOnlyList<JsonObject> applicants;
-        try { applicants = await records.ListAsync("applicants", ct); }
-        catch (InvalidOperationException) { return []; }
-
-        var resolver = await BuildCuratedExamResolverAsync(cycleId, ct);
+        var applicants = await ctx.ApplicantsAsync();
+        var resolver = await ctx.ExamResolverAsync();
         var rows = new List<CuratedRow>();
         foreach (var a in applicants)
         {
@@ -2039,10 +2076,7 @@ public sealed class DataExchangeService(
 
     private async Task<IReadOnlyList<CuratedRow>> LoadCuratedExamResultsAsync(string? cycleId, CuratedContext ctx, CancellationToken ct)
     {
-        IReadOnlyList<JsonObject> applicants;
-        try { applicants = await records.ListAsync("applicants", ct); }
-        catch (InvalidOperationException) { return []; }
-
+        var applicants = await ctx.ApplicantsAsync();
         var examNameByCode = await LoadExamNameByCodeAsync(ct);
         var rows = new List<CuratedRow>();
         foreach (var a in applicants)
@@ -2080,7 +2114,7 @@ public sealed class DataExchangeService(
     /// so the submitted section data ships alongside the workflow lifecycle.
     /// Documents with no sections still emit one row (lifecycle only). The
     /// revision columns summarize the doc's change history (count + latest).</summary>
-    private async Task<IReadOnlyList<CuratedRow>> LoadCuratedAcquaintanceDocsAsync(string? cycleId, CancellationToken ct)
+    private async Task<IReadOnlyList<CuratedRow>> LoadCuratedAcquaintanceDocsAsync(string? cycleId, CuratedContext ctx, CancellationToken ct)
     {
         var docs = await db.ApplicantAcquaintanceDocs.AsNoTracking().ToListAsync(ct);
         if (docs.Count == 0) return [];
@@ -2092,7 +2126,7 @@ public sealed class DataExchangeService(
         var revisionsByDoc = revisions
             .GroupBy(r => r.AcquaintanceDocId, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.Version).ToList(), StringComparer.Ordinal);
-        var nidById = await LoadApplicantNidByRecordIdAsync(cycleId, ct);
+        var nidById = await BuildApplicantNidByRecordIdAsync(cycleId, ctx);
 
         var rows = new List<CuratedRow>();
         foreach (var doc in docs)
@@ -2531,7 +2565,7 @@ public sealed class DataExchangeService(
     /// dedupes by applicant. Cycle scoping is lenient — a payment whose
     /// applicant carries no cycle id is never dropped.
     /// </summary>
-    private async Task<IReadOnlyList<CuratedRow>> LoadCuratedPaymentsAsync(string? cycleId, CancellationToken ct)
+    private async Task<IReadOnlyList<CuratedRow>> LoadCuratedPaymentsAsync(string? cycleId, CuratedContext ctx, CancellationToken ct)
     {
         var rows = new List<CuratedRow>(
             await LoadCuratedOperationalAsync(db.PaymentRecords, cycleId, ProjectPaymentRow, ct));
@@ -2544,9 +2578,7 @@ public sealed class DataExchangeService(
             .OfType<string>()
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        IReadOnlyList<JsonObject> applicants;
-        try { applicants = await records.ListAsync("applicants", ct); }
-        catch (InvalidOperationException) { applicants = []; }
+        var applicants = await ctx.ApplicantsAsync();
         var applicantByKey = new Dictionary<string, JsonObject>(StringComparer.OrdinalIgnoreCase);
         foreach (var applicant in applicants)
         {

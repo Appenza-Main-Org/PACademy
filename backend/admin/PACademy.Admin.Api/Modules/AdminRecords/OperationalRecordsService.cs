@@ -73,21 +73,31 @@ public sealed class OperationalRecordsService(
     {
     }
 
-    public async Task<IReadOnlyList<JsonObject>> ListAsync(string module, CancellationToken ct)
+    public Task<IReadOnlyList<JsonObject>> ListAsync(string module, CancellationToken ct)
+        => ListAsync(module, enrichApplicantCommitteeNames: true, ct);
+
+    /// <summary>Pass <paramref name="enrichApplicantCommitteeNames"/> = false when
+    /// the caller resolves committee names itself via
+    /// <see cref="ResolveCommitteeName"/> (data-exchange export, roster) —
+    /// enrichment costs a committee-directory + committee-instances load plus a
+    /// per-applicant resolution pass, and resolving on a raw row returns the
+    /// same value as resolving on an enriched one.</summary>
+    public async Task<IReadOnlyList<JsonObject>> ListAsync(string module, bool enrichApplicantCommitteeNames, CancellationToken ct)
     {
+        var enrich = module == "applicants" && enrichApplicantCommitteeNames;
         if (CanUseNormalizedTables(module))
         {
             var normalizedRows = await ListNormalizedAsync(module, ct);
             if (normalizedRows is not null)
             {
-                return module == "applicants"
+                return enrich
                     ? await EnrichApplicantCommitteeNamesAsync(normalizedRows, ct)
                     : normalizedRows;
             }
         }
 
         var documentRows = await ListDocumentAsync(module, ct);
-        return module == "applicants"
+        return enrich
             ? await EnrichApplicantCommitteeNamesAsync(documentRows, ct)
             : documentRows;
     }
