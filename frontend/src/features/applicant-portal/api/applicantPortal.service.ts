@@ -494,12 +494,19 @@ export const applicantPortalService = {
 
   async getPublishedDeclaration(input: PublishedDeclarationInput = {}): Promise<PublishedDeclaration | null> {
     if (isBackendEnabled()) {
-      return adminApiClient.get<PublishedDeclaration | null>('/api/admission-setup/declaration/published', {
-        query: {
-          cycleId: input.cycleId,
-          categoryKey: input.categoryKey,
+      // The backend serializes "no published declaration" as 204 No Content,
+      // which parses to undefined — coalesce to null so the query resolves
+      // (TanStack Query treats undefined data as an error).
+      const declaration = await adminApiClient.get<PublishedDeclaration | null | undefined>(
+        '/api/admission-setup/declaration/published',
+        {
+          query: {
+            cycleId: input.cycleId,
+            categoryKey: input.categoryKey,
+          },
         },
-      });
+      );
+      return declaration ?? null;
     }
 
     await simulateLatency(100, 200);

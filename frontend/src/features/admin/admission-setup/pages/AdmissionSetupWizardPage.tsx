@@ -372,16 +372,18 @@ export function AdmissionSetupWizardPage(): JSX.Element {
       return;
     }
     if (!gateState.canGoNext || !gateState.nextKey) {
-      toast('أكمل بيانات الخطوة الحالية واحفظها قبل المتابعة.', 'warning');
-      return;
-    }
-    if (isFinalConfigStep) {
-      const status = computeStepStatus(activeKey as AdmissionSetupStepKey, statusInputs);
-      if (status !== 'complete') {
-        toast('يجب إدخال نص الإقرار أو رفع ملف PDF قبل إرسال الدورة للاعتماد', 'warning');
+      if (isFinalConfigStep) {
+        /* The declaration step counts as complete only once published —
+         * authored-but-unpublished content needs the «نشر» click. */
+        toast(
+          statusByKey[activeKey] === 'in_progress'
+            ? 'يجب نشر الإقرار الإلكتروني للمتقدمين قبل إرسال الدورة للاعتماد'
+            : 'يجب إدخال نص الإقرار أو رفع ملف PDF قبل إرسال الدورة للاعتماد',
+          'warning',
+        );
         return;
       }
-      goTo(gateState.nextKey as WizardStepKey);
+      toast('أكمل بيانات الخطوة الحالية واحفظها قبل المتابعة.', 'warning');
       return;
     }
     goTo(gateState.nextKey as WizardStepKey);
