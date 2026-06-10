@@ -946,6 +946,19 @@ public sealed class OperationalRecordsService(
             "grades" => "grades",
             "cycles" => "cycles",
             "categories" => "categories",
+            "committeeInstances" => "committeeInstances",
+            "payments" => "payments",
+            "exam-committee-users" => "examCommitteeUsers",
+            "exam-devices" => "examDevices",
+            "examResults" => "examResults",
+            "exam-results" => "examAttemptResults",
+            "biometric-enrollments" => "biometricEnrollments",
+            "notifications" => "notifications",
+            "examPlans" => "examPlans",
+            "committeeResults" => "committeeResults",
+            "workflows" => "workflows",
+            "applicantWorkflowProgress" => "applicantWorkflowProgress",
+            "committees" => "committees",
             _ => null
         };
     }
@@ -1039,6 +1052,58 @@ public sealed class OperationalRecordsService(
                 ct),
             "categories" => await QueryPayloadRowsAsync(
                 $"SELECT [payload_json], [key] AS [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("applicant_categories")} ORDER BY [key]",
+                "id",
+                ct),
+            "committeeInstances" => await QueryPayloadRowsAsync(
+                $"SELECT [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("committee_instances")} ORDER BY [date], [id]",
+                "id",
+                ct),
+            "payments" => await QueryPayloadRowsAsync(
+                $"SELECT [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("payment_ledger")} ORDER BY [last_sync_at] DESC, [id]",
+                "id",
+                ct),
+            "examCommitteeUsers" => await QueryPayloadRowsAsync(
+                $"SELECT [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("exam_committee_users")} ORDER BY [id]",
+                "id",
+                ct),
+            "examDevices" => await QueryPayloadRowsAsync(
+                $"SELECT [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("exam_devices")} ORDER BY [id]",
+                "id",
+                ct),
+            "examResults" => await QueryPayloadRowsAsync(
+                $"SELECT [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("exam_results")} ORDER BY [received_at] DESC, [id]",
+                "id",
+                ct),
+            "examAttemptResults" => await QueryPayloadRowsAsync(
+                $"SELECT [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("exam_attempt_results")} ORDER BY [submitted_at] DESC, [id]",
+                "id",
+                ct),
+            "notifications" => await QueryPayloadRowsAsync(
+                $"SELECT [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("notifications_master")} ORDER BY [publish_at] DESC, [id]",
+                "id",
+                ct),
+            "examPlans" => await QueryPayloadRowsAsync(
+                $"SELECT [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("exam_plans")} ORDER BY [id]",
+                "id",
+                ct),
+            "committeeResults" => await QueryPayloadRowsAsync(
+                $"SELECT [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("committee_results")} ORDER BY [entered_at] DESC, [id]",
+                "id",
+                ct),
+            "workflows" => await QueryPayloadRowsAsync(
+                $"SELECT [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("workflows")} ORDER BY [department], [id]",
+                "id",
+                ct),
+            "applicantWorkflowProgress" => await QueryPayloadRowsAsync(
+                $"SELECT [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("applicant_workflow_progress")} ORDER BY [id]",
+                "id",
+                ct),
+            "committees" => await QueryPayloadRowsAsync(
+                $"SELECT [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("committees")} ORDER BY [id]",
+                "id",
+                ct),
+            "biometricEnrollments" => await QueryPayloadRowsAsync(
+                $"SELECT [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("biometric_enrollments")} ORDER BY [enrolled_at] DESC, [id]",
                 "id",
                 ct),
             "questions" => await QueryPayloadRowsAsync(
@@ -1147,6 +1212,71 @@ public sealed class OperationalRecordsService(
                 "id",
                 ct,
                 command => AddParameter(command, "@id", id)),
+            "committeeInstances" => await QueryPayloadRowsAsync(
+                $"SELECT TOP (1) [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("committee_instances")} WHERE [id] = @id",
+                "id",
+                ct,
+                command => AddParameter(command, "@id", id)),
+            "payments" => await QueryPayloadRowsAsync(
+                $"SELECT TOP (1) [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("payment_ledger")} WHERE [id] = @id OR [fawry_reference] = @id",
+                "id",
+                ct,
+                command => AddParameter(command, "@id", id)),
+            "examCommitteeUsers" => await QueryPayloadRowsAsync(
+                $"SELECT TOP (1) [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("exam_committee_users")} WHERE [id] = @id",
+                "id",
+                ct,
+                command => AddParameter(command, "@id", id)),
+            "examDevices" => await QueryPayloadRowsAsync(
+                $"SELECT TOP (1) [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("exam_devices")} WHERE [id] = @id",
+                "id",
+                ct,
+                command => AddParameter(command, "@id", id)),
+            "examResults" => await QueryPayloadRowsAsync(
+                $"SELECT TOP (1) [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("exam_results")} WHERE [id] = @id",
+                "id",
+                ct,
+                command => AddParameter(command, "@id", id)),
+            "examAttemptResults" => await QueryPayloadRowsAsync(
+                $"SELECT TOP (1) [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("exam_attempt_results")} WHERE [id] = @id",
+                "id",
+                ct,
+                command => AddParameter(command, "@id", id)),
+            "notifications" => await QueryPayloadRowsAsync(
+                $"SELECT TOP (1) [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("notifications_master")} WHERE [id] = @id",
+                "id",
+                ct,
+                command => AddParameter(command, "@id", id)),
+            "examPlans" => await QueryPayloadRowsAsync(
+                $"SELECT TOP (1) [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("exam_plans")} WHERE [id] = @id",
+                "id",
+                ct,
+                command => AddParameter(command, "@id", id)),
+            "committeeResults" => await QueryPayloadRowsAsync(
+                $"SELECT TOP (1) [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("committee_results")} WHERE [id] = @id",
+                "id",
+                ct,
+                command => AddParameter(command, "@id", id)),
+            "workflows" => await QueryPayloadRowsAsync(
+                $"SELECT TOP (1) [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("workflows")} WHERE [id] = @id",
+                "id",
+                ct,
+                command => AddParameter(command, "@id", id)),
+            "applicantWorkflowProgress" => await QueryPayloadRowsAsync(
+                $"SELECT TOP (1) [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("applicant_workflow_progress")} WHERE [id] = @id OR [applicant_id] = @id",
+                "id",
+                ct,
+                command => AddParameter(command, "@id", id)),
+            "committees" => await QueryPayloadRowsAsync(
+                $"SELECT TOP (1) [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("committees")} WHERE [id] = @id",
+                "id",
+                ct,
+                command => AddParameter(command, "@id", id)),
+            "biometricEnrollments" => await QueryPayloadRowsAsync(
+                $"SELECT TOP (1) [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("biometric_enrollments")} WHERE [id] = @id",
+                "id",
+                ct,
+                command => AddParameter(command, "@id", id)),
             "questions" => await QueryPayloadRowsAsync(
                 $"SELECT TOP (1) [payload_json], [id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("exam_questions")} WHERE [id] = @id",
                 "id",
@@ -1171,9 +1301,37 @@ public sealed class OperationalRecordsService(
         return rows?.FirstOrDefault();
     }
 
+    /// <summary>
+    /// Kinds whose buckets historically lived in the JSON OperationalRecordStore,
+    /// whose <c>UpsertAsync</c> has merge/patch semantics (provided keys overwrite,
+    /// missing keys survive). Callers (committee-instances PATCH, notifications
+    /// publish/soft-delete, exams committee-users/devices PATCH) send partial
+    /// payloads relying on that — so these kinds merge over the existing payload
+    /// before the SQL MERGE. Pre-existing kinds (applicants/grades/cycles/…)
+    /// keep their long-running replace behavior untouched.
+    /// </summary>
+    private static readonly HashSet<string> PatchMergedKinds = new(StringComparer.Ordinal)
+    {
+        "committeeInstances", "payments", "examCommitteeUsers", "examDevices",
+        "examResults", "examAttemptResults", "biometricEnrollments", "notifications",
+        "examPlans", "committeeResults", "workflows", "applicantWorkflowProgress", "committees"
+    };
+
     private async Task<JsonObject?> UpsertNormalizedAsync(string module, string id, JsonObject payload, CancellationToken ct)
     {
         var kind = NormalizedModuleKind(module);
+        if (kind is not null && PatchMergedKinds.Contains(kind))
+        {
+            var existing = await GetNormalizedAsync(module, id, ct);
+            if (existing is not null)
+            {
+                foreach (var item in payload)
+                {
+                    existing[item.Key] = item.Value?.DeepClone();
+                }
+                payload = existing;
+            }
+        }
         payload["id"] ??= id;
         if (kind == "applicants")
         {
@@ -1270,6 +1428,431 @@ public sealed class OperationalRecordsService(
                         (N'settings', TRY_CONVERT(int, JSON_VALUE(@payload, '$.examDaysPerApplicant')), TRY_CONVERT(int, JSON_VALUE(@payload, '$.examSlotSelectionWindowDays')), @payload, @now, @now);
                     """, command =>
                 {
+                    AddParameter(command, "@payload", payloadJson);
+                    AddParameter(command, "@now", now);
+                }, ct);
+                return await GetNormalizedAsync(module, id, ct);
+
+            case "committeeInstances":
+                await ExecuteNormalizedNonQueryAsync($"""
+                    MERGE {AdminDbContext.QualifiedTableName("committee_instances")} WITH (HOLDLOCK) AS target
+                    USING (SELECT @id AS [id]) AS source
+                    ON target.[id] = source.[id]
+                    WHEN MATCHED THEN UPDATE SET
+                        [definition_code] = COALESCE(NULLIF(JSON_VALUE(@payload, '$.definitionCode'), N''), [definition_code]),
+                        [cycle_id] = COALESCE(NULLIF(JSON_VALUE(@payload, '$.cycleId'), N''), [cycle_id]),
+                        [category_key] = COALESCE(NULLIF(JSON_VALUE(@payload, '$.categoryKey'), N''), [category_key]),
+                        [date] = COALESCE(TRY_CONVERT(date, JSON_VALUE(@payload, '$.date')), [date]),
+                        [capacity] = COALESCE(TRY_CONVERT(int, JSON_VALUE(@payload, '$.capacity')), 0),
+                        [reserved] = COALESCE(TRY_CONVERT(int, JSON_VALUE(@payload, '$.reserved')), 0),
+                        [reserved_refreshed_at] = TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.reservedRefreshedAt')),
+                        [payload_json] = @payload,
+                        [updated_at] = @now
+                    WHEN NOT MATCHED THEN INSERT
+                        ([id], [definition_code], [cycle_id], [category_key], [date], [capacity], [reserved], [reserved_refreshed_at], [payload_json], [created_at], [updated_at])
+                    VALUES
+                        (@id, JSON_VALUE(@payload, '$.definitionCode'), JSON_VALUE(@payload, '$.cycleId'), JSON_VALUE(@payload, '$.categoryKey'),
+                         TRY_CONVERT(date, JSON_VALUE(@payload, '$.date')), COALESCE(TRY_CONVERT(int, JSON_VALUE(@payload, '$.capacity')), 0),
+                         COALESCE(TRY_CONVERT(int, JSON_VALUE(@payload, '$.reserved')), 0), TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.reservedRefreshedAt')),
+                         @payload, @now, @now);
+                    """, command =>
+                {
+                    AddParameter(command, "@id", id);
+                    AddParameter(command, "@payload", payloadJson);
+                    AddParameter(command, "@now", now);
+                }, ct);
+                return await GetNormalizedAsync(module, id, ct);
+
+            case "payments":
+                await ExecuteNormalizedNonQueryAsync($"""
+                    MERGE {AdminDbContext.QualifiedTableName("payment_ledger")} WITH (HOLDLOCK) AS target
+                    USING (SELECT @id AS [id]) AS source
+                    ON target.[id] = source.[id]
+                    WHEN MATCHED THEN UPDATE SET
+                        [applicant_id] = JSON_VALUE(@payload, '$.applicantId'),
+                        [applicant_name] = JSON_VALUE(@payload, '$.applicantName'),
+                        [national_id] = JSON_VALUE(@payload, '$.nationalId'),
+                        [cycle_id] = JSON_VALUE(@payload, '$.cycleId'),
+                        [fawry_reference] = COALESCE(NULLIF(JSON_VALUE(@payload, '$.fawryReference'), N''), @id),
+                        [amount] = COALESCE(TRY_CONVERT(decimal(10,2), JSON_VALUE(@payload, '$.amount')), 0),
+                        [status] = COALESCE(NULLIF(JSON_VALUE(@payload, '$.status'), N''), N'pending'),
+                        [last_sync_at] = TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.lastSyncAt')),
+                        [paid_at] = TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.paidAt')),
+                        [deleted_at] = TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.deletedAt')),
+                        [deleted_by] = JSON_VALUE(@payload, '$.deletedBy'),
+                        [delete_reason] = JSON_VALUE(@payload, '$.deleteReason'),
+                        [payload_json] = @payload,
+                        [updated_at] = @now
+                    WHEN NOT MATCHED THEN INSERT
+                        ([id], [applicant_id], [applicant_name], [national_id], [cycle_id], [fawry_reference], [amount], [status], [last_sync_at], [paid_at], [deleted_at], [deleted_by], [delete_reason], [payload_json], [created_at], [updated_at])
+                    VALUES
+                        (@id, JSON_VALUE(@payload, '$.applicantId'), JSON_VALUE(@payload, '$.applicantName'), JSON_VALUE(@payload, '$.nationalId'), JSON_VALUE(@payload, '$.cycleId'),
+                         COALESCE(NULLIF(JSON_VALUE(@payload, '$.fawryReference'), N''), @id), COALESCE(TRY_CONVERT(decimal(10,2), JSON_VALUE(@payload, '$.amount')), 0),
+                         COALESCE(NULLIF(JSON_VALUE(@payload, '$.status'), N''), N'pending'), TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.lastSyncAt')), TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.paidAt')),
+                         TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.deletedAt')), JSON_VALUE(@payload, '$.deletedBy'), JSON_VALUE(@payload, '$.deleteReason'), @payload, @now, @now);
+                    """, command =>
+                {
+                    AddParameter(command, "@id", id);
+                    AddParameter(command, "@payload", payloadJson);
+                    AddParameter(command, "@now", now);
+                }, ct);
+                return await GetNormalizedAsync(module, id, ct);
+
+            case "examCommitteeUsers":
+                await ExecuteNormalizedNonQueryAsync($"""
+                    MERGE {AdminDbContext.QualifiedTableName("exam_committee_users")} WITH (HOLDLOCK) AS target
+                    USING (SELECT @id AS [id]) AS source
+                    ON target.[id] = source.[id]
+                    WHEN MATCHED THEN UPDATE SET
+                        [full_name] = JSON_VALUE(@payload, '$.fullName'),
+                        [username] = JSON_VALUE(@payload, '$.username'),
+                        [permission] = JSON_VALUE(@payload, '$.permission'),
+                        [exam_type] = JSON_VALUE(@payload, '$.examType'),
+                        [status] = COALESCE(NULLIF(JSON_VALUE(@payload, '$.status'), N''), N'active'),
+                        [authorized_device_id] = JSON_VALUE(@payload, '$.authorizedDeviceId'),
+                        [authorized_ip] = JSON_VALUE(@payload, '$.authorizedIp'),
+                        [payload_json] = @payload,
+                        [updated_at] = @now
+                    WHEN NOT MATCHED THEN INSERT
+                        ([id], [full_name], [username], [permission], [exam_type], [status], [authorized_device_id], [authorized_ip], [payload_json], [created_at], [updated_at])
+                    VALUES
+                        (@id, JSON_VALUE(@payload, '$.fullName'), JSON_VALUE(@payload, '$.username'), JSON_VALUE(@payload, '$.permission'), JSON_VALUE(@payload, '$.examType'),
+                         COALESCE(NULLIF(JSON_VALUE(@payload, '$.status'), N''), N'active'), JSON_VALUE(@payload, '$.authorizedDeviceId'), JSON_VALUE(@payload, '$.authorizedIp'), @payload, @now, @now);
+                    """, command =>
+                {
+                    AddParameter(command, "@id", id);
+                    AddParameter(command, "@payload", payloadJson);
+                    AddParameter(command, "@now", now);
+                }, ct);
+                return await GetNormalizedAsync(module, id, ct);
+
+            case "examDevices":
+                await ExecuteNormalizedNonQueryAsync($"""
+                    MERGE {AdminDbContext.QualifiedTableName("exam_devices")} WITH (HOLDLOCK) AS target
+                    USING (SELECT @id AS [id]) AS source
+                    ON target.[id] = source.[id]
+                    WHEN MATCHED THEN UPDATE SET
+                        [label] = JSON_VALUE(@payload, '$.label'),
+                        [mac_address] = JSON_VALUE(@payload, '$.macAddress'),
+                        [ip_address] = JSON_VALUE(@payload, '$.ipAddress'),
+                        [status] = COALESCE(NULLIF(JSON_VALUE(@payload, '$.status'), N''), N'active'),
+                        [allowed_from] = JSON_VALUE(@payload, '$.allowedFrom'),
+                        [allowed_to] = JSON_VALUE(@payload, '$.allowedTo'),
+                        [exam_id] = JSON_VALUE(@payload, '$.examId'),
+                        [payload_json] = @payload,
+                        [updated_at] = @now
+                    WHEN NOT MATCHED THEN INSERT
+                        ([id], [label], [mac_address], [ip_address], [status], [allowed_from], [allowed_to], [exam_id], [payload_json], [created_at], [updated_at])
+                    VALUES
+                        (@id, JSON_VALUE(@payload, '$.label'), JSON_VALUE(@payload, '$.macAddress'), JSON_VALUE(@payload, '$.ipAddress'),
+                         COALESCE(NULLIF(JSON_VALUE(@payload, '$.status'), N''), N'active'), JSON_VALUE(@payload, '$.allowedFrom'), JSON_VALUE(@payload, '$.allowedTo'),
+                         JSON_VALUE(@payload, '$.examId'), @payload, @now, @now);
+                    """, command =>
+                {
+                    AddParameter(command, "@id", id);
+                    AddParameter(command, "@payload", payloadJson);
+                    AddParameter(command, "@now", now);
+                }, ct);
+                return await GetNormalizedAsync(module, id, ct);
+
+            case "examResults":
+                await ExecuteNormalizedNonQueryAsync($"""
+                    MERGE {AdminDbContext.QualifiedTableName("exam_results")} WITH (HOLDLOCK) AS target
+                    USING (SELECT @id AS [id]) AS source
+                    ON target.[id] = source.[id]
+                    WHEN MATCHED THEN UPDATE SET
+                        [cycle_id] = JSON_VALUE(@payload, '$.cycleId'),
+                        [exam_id] = JSON_VALUE(@payload, '$.examId'),
+                        [applicant_id] = JSON_VALUE(@payload, '$.applicantId'),
+                        [national_id] = JSON_VALUE(@payload, '$.nationalId'),
+                        [status] = COALESCE(NULLIF(JSON_VALUE(@payload, '$.status'), N''), N'draft'),
+                        [received_at] = TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.receivedAt')),
+                        [payload_json] = @payload,
+                        [updated_at] = @now
+                    WHEN NOT MATCHED THEN INSERT
+                        ([id], [cycle_id], [exam_id], [applicant_id], [national_id], [status], [received_at], [payload_json], [created_at], [updated_at])
+                    VALUES
+                        (@id, JSON_VALUE(@payload, '$.cycleId'), JSON_VALUE(@payload, '$.examId'), JSON_VALUE(@payload, '$.applicantId'), JSON_VALUE(@payload, '$.nationalId'),
+                         COALESCE(NULLIF(JSON_VALUE(@payload, '$.status'), N''), N'draft'), TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.receivedAt')), @payload, @now, @now);
+                    """, command =>
+                {
+                    AddParameter(command, "@id", id);
+                    AddParameter(command, "@payload", payloadJson);
+                    AddParameter(command, "@now", now);
+                }, ct);
+                return await GetNormalizedAsync(module, id, ct);
+
+            case "workflows":
+                await ExecuteNormalizedNonQueryAsync($"""
+                    MERGE {AdminDbContext.QualifiedTableName("workflows")} WITH (HOLDLOCK) AS target
+                    USING (SELECT @id AS [id]) AS source
+                    ON target.[id] = source.[id]
+                    WHEN MATCHED THEN UPDATE SET
+                        [department] = JSON_VALUE(@payload, '$.department'),
+                        [name] = JSON_VALUE(@payload, '$.name'),
+                        [cycle_id] = JSON_VALUE(@payload, '$.cycleId'),
+                        [is_active] = COALESCE(TRY_CONVERT(bit, JSON_VALUE(@payload, '$.isActive')), 0),
+                        [version] = COALESCE(TRY_CONVERT(int, JSON_VALUE(@payload, '$.version')), 1),
+                        [updated_by] = JSON_VALUE(@payload, '$.updatedBy'),
+                        [payload_json] = @payload,
+                        [updated_at] = @now
+                    WHEN NOT MATCHED THEN INSERT
+                        ([id], [department], [name], [cycle_id], [is_active], [version], [updated_by], [payload_json], [created_at], [updated_at])
+                    VALUES
+                        (@id, JSON_VALUE(@payload, '$.department'), JSON_VALUE(@payload, '$.name'), JSON_VALUE(@payload, '$.cycleId'),
+                         COALESCE(TRY_CONVERT(bit, JSON_VALUE(@payload, '$.isActive')), 0), COALESCE(TRY_CONVERT(int, JSON_VALUE(@payload, '$.version')), 1),
+                         JSON_VALUE(@payload, '$.updatedBy'), @payload, @now, @now);
+                    DELETE FROM {AdminDbContext.QualifiedTableName("workflow_stage_tests")} WHERE [workflow_id] = @id;
+                    DELETE FROM {AdminDbContext.QualifiedTableName("workflow_stages")} WHERE [workflow_id] = @id;
+                    INSERT INTO {AdminDbContext.QualifiedTableName("workflow_stages")} ([workflow_id], [stage_order], [stage_id], [name], [status_on_enter], [allowed_next_statuses_json])
+                    SELECT @id,
+                           COALESCE(TRY_CONVERT(int, JSON_VALUE(s.[value], '$.order')), TRY_CONVERT(int, s.[key])),
+                           COALESCE(JSON_VALUE(s.[value], '$.id'), CONVERT(nvarchar(96), s.[key])),
+                           JSON_VALUE(s.[value], '$.name'),
+                           JSON_VALUE(s.[value], '$.statusOnEnter'),
+                           JSON_QUERY(s.[value], '$.allowedNextStatuses')
+                    FROM OPENJSON(@payload, '$.stages') AS s;
+                    INSERT INTO {AdminDbContext.QualifiedTableName("workflow_stage_tests")} ([workflow_id], [stage_id], [test_order], [test_id], [name], [kind], [required], [pass_criterion_json], [owner_app])
+                    SELECT @id,
+                           COALESCE(JSON_VALUE(s.[value], '$.id'), CONVERT(nvarchar(96), s.[key])),
+                           TRY_CONVERT(int, t.[key]),
+                           JSON_VALUE(t.[value], '$.id'),
+                           JSON_VALUE(t.[value], '$.name'),
+                           JSON_VALUE(t.[value], '$.kind'),
+                           COALESCE(TRY_CONVERT(bit, JSON_VALUE(t.[value], '$.required')), 0),
+                           JSON_QUERY(t.[value], '$.passCriterion'),
+                           JSON_VALUE(t.[value], '$.ownerApp')
+                    FROM OPENJSON(@payload, '$.stages') AS s
+                    CROSS APPLY OPENJSON(s.[value], '$.tests') AS t;
+                    """, command =>
+                {
+                    AddParameter(command, "@id", id);
+                    AddParameter(command, "@payload", payloadJson);
+                    AddParameter(command, "@now", now);
+                }, ct);
+                return await GetNormalizedAsync(module, id, ct);
+
+            case "applicantWorkflowProgress":
+                await ExecuteNormalizedNonQueryAsync($"""
+                    MERGE {AdminDbContext.QualifiedTableName("applicant_workflow_progress")} WITH (HOLDLOCK) AS target
+                    USING (SELECT @id AS [id]) AS source
+                    ON target.[id] = source.[id]
+                    WHEN MATCHED THEN UPDATE SET
+                        [applicant_id] = COALESCE(JSON_VALUE(@payload, '$.applicantId'), @id),
+                        [workflow_id] = JSON_VALUE(@payload, '$.workflowId'),
+                        [workflow_version] = COALESCE(TRY_CONVERT(int, JSON_VALUE(@payload, '$.workflowVersion')), 1),
+                        [current_stage_id] = JSON_VALUE(@payload, '$.currentStageId'),
+                        [completed_stage_ids_json] = JSON_QUERY(@payload, '$.completedStageIds'),
+                        [payload_json] = @payload,
+                        [updated_at] = @now
+                    WHEN NOT MATCHED THEN INSERT
+                        ([id], [applicant_id], [workflow_id], [workflow_version], [current_stage_id], [completed_stage_ids_json], [payload_json], [created_at], [updated_at])
+                    VALUES
+                        (@id, COALESCE(JSON_VALUE(@payload, '$.applicantId'), @id), JSON_VALUE(@payload, '$.workflowId'),
+                         COALESCE(TRY_CONVERT(int, JSON_VALUE(@payload, '$.workflowVersion')), 1), JSON_VALUE(@payload, '$.currentStageId'),
+                         JSON_QUERY(@payload, '$.completedStageIds'), @payload, @now, @now);
+                    DELETE FROM {AdminDbContext.QualifiedTableName("applicant_workflow_test_results")} WHERE [progress_id] = @id;
+                    INSERT INTO {AdminDbContext.QualifiedTableName("applicant_workflow_test_results")} ([progress_id], [stage_id], [test_id], [outcome], [score], [recorded_at], [recorded_by])
+                    SELECT @id,
+                           JSON_VALUE([value], '$.stageId'),
+                           JSON_VALUE([value], '$.testId'),
+                           JSON_VALUE([value], '$.outcome'),
+                           TRY_CONVERT(decimal(10,2), JSON_VALUE([value], '$.score')),
+                           TRY_CONVERT(datetimeoffset, JSON_VALUE([value], '$.recordedAt')),
+                           JSON_VALUE([value], '$.recordedBy')
+                    FROM OPENJSON(@payload, '$.testResults')
+                    WHERE JSON_VALUE([value], '$.stageId') IS NOT NULL AND JSON_VALUE([value], '$.testId') IS NOT NULL;
+                    """, command =>
+                {
+                    AddParameter(command, "@id", id);
+                    AddParameter(command, "@payload", payloadJson);
+                    AddParameter(command, "@now", now);
+                }, ct);
+                return await GetNormalizedAsync(module, id, ct);
+
+            case "committees":
+                await ExecuteNormalizedNonQueryAsync($"""
+                    MERGE {AdminDbContext.QualifiedTableName("committees")} WITH (HOLDLOCK) AS target
+                    USING (SELECT @id AS [id]) AS source
+                    ON target.[id] = source.[id]
+                    WHEN MATCHED THEN UPDATE SET
+                        [name] = JSON_VALUE(@payload, '$.name'),
+                        [category_key] = JSON_VALUE(@payload, '$.categoryKey'),
+                        [grade_type] = JSON_VALUE(@payload, '$.gradeType'),
+                        [grade_min] = TRY_CONVERT(decimal(7,2), JSON_VALUE(@payload, '$.gradeMin')),
+                        [grade_max] = TRY_CONVERT(decimal(7,2), JSON_VALUE(@payload, '$.gradeMax')),
+                        [capacity] = COALESCE(TRY_CONVERT(int, JSON_VALUE(@payload, '$.capacity')), 0),
+                        [gender] = JSON_VALUE(@payload, '$.gender'),
+                        [status] = JSON_VALUE(@payload, '$.status'),
+                        [head_user_id] = JSON_VALUE(@payload, '$.headUserId'),
+                        [academic_year_id] = JSON_VALUE(@payload, '$.academicYearId'),
+                        [linked_cycle_id] = JSON_VALUE(@payload, '$.linkedCycleId'),
+                        [payload_json] = @payload,
+                        [updated_at] = @now
+                    WHEN NOT MATCHED THEN INSERT
+                        ([id], [name], [category_key], [grade_type], [grade_min], [grade_max], [capacity], [gender], [status], [head_user_id], [academic_year_id], [linked_cycle_id], [payload_json], [created_at], [updated_at])
+                    VALUES
+                        (@id, JSON_VALUE(@payload, '$.name'), JSON_VALUE(@payload, '$.categoryKey'), JSON_VALUE(@payload, '$.gradeType'),
+                         TRY_CONVERT(decimal(7,2), JSON_VALUE(@payload, '$.gradeMin')), TRY_CONVERT(decimal(7,2), JSON_VALUE(@payload, '$.gradeMax')),
+                         COALESCE(TRY_CONVERT(int, JSON_VALUE(@payload, '$.capacity')), 0), JSON_VALUE(@payload, '$.gender'), JSON_VALUE(@payload, '$.status'),
+                         JSON_VALUE(@payload, '$.headUserId'), JSON_VALUE(@payload, '$.academicYearId'), JSON_VALUE(@payload, '$.linkedCycleId'), @payload, @now, @now);
+                    """, command =>
+                {
+                    AddParameter(command, "@id", id);
+                    AddParameter(command, "@payload", payloadJson);
+                    AddParameter(command, "@now", now);
+                }, ct);
+                return await GetNormalizedAsync(module, id, ct);
+
+            case "notifications":
+                await ExecuteNormalizedNonQueryAsync($"""
+                    MERGE {AdminDbContext.QualifiedTableName("notifications_master")} WITH (HOLDLOCK) AS target
+                    USING (SELECT @id AS [id]) AS source
+                    ON target.[id] = source.[id]
+                    WHEN MATCHED THEN UPDATE SET
+                        [type] = JSON_VALUE(@payload, '$.type'),
+                        [title_ar] = JSON_VALUE(@payload, '$.titleAr'),
+                        [status] = COALESCE(NULLIF(JSON_VALUE(@payload, '$.status'), N''), N'draft'),
+                        [publish_at] = TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.publishAt')),
+                        [expire_at] = TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.expireAt')),
+                        [created_by] = JSON_VALUE(@payload, '$.createdBy'),
+                        [deleted_at] = TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.deletedAt')),
+                        [payload_json] = @payload,
+                        [updated_at] = @now
+                    WHEN NOT MATCHED THEN INSERT
+                        ([id], [type], [title_ar], [status], [publish_at], [expire_at], [created_by], [deleted_at], [payload_json], [created_at], [updated_at])
+                    VALUES
+                        (@id, JSON_VALUE(@payload, '$.type'), JSON_VALUE(@payload, '$.titleAr'), COALESCE(NULLIF(JSON_VALUE(@payload, '$.status'), N''), N'draft'),
+                         TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.publishAt')), TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.expireAt')),
+                         JSON_VALUE(@payload, '$.createdBy'), TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.deletedAt')), @payload, @now, @now);
+                    DELETE FROM {AdminDbContext.QualifiedTableName("notification_audience")} WHERE [notification_id] = @id;
+                    INSERT INTO {AdminDbContext.QualifiedTableName("notification_audience")} ([notification_id], [audience_order], [kind], [target_json])
+                    SELECT @id, TRY_CONVERT(int, [key]), JSON_VALUE([value], '$.type'), CONVERT(nvarchar(max), [value])
+                    FROM OPENJSON(@payload, '$.audience');
+                    """, command =>
+                {
+                    AddParameter(command, "@id", id);
+                    AddParameter(command, "@payload", payloadJson);
+                    AddParameter(command, "@now", now);
+                }, ct);
+                return await GetNormalizedAsync(module, id, ct);
+
+            case "examPlans":
+                await ExecuteNormalizedNonQueryAsync($"""
+                    MERGE {AdminDbContext.QualifiedTableName("exam_plans")} WITH (HOLDLOCK) AS target
+                    USING (SELECT @id AS [id]) AS source
+                    ON target.[id] = source.[id]
+                    WHEN MATCHED THEN UPDATE SET
+                        [cycle_id] = JSON_VALUE(@payload, '$.cycleId'),
+                        [category_id] = COALESCE(JSON_VALUE(@payload, '$.categoryId'), JSON_VALUE(@payload, '$.categoryKey')),
+                        [payload_json] = @payload,
+                        [updated_at] = @now
+                    WHEN NOT MATCHED THEN INSERT
+                        ([id], [cycle_id], [category_id], [payload_json], [created_at], [updated_at])
+                    VALUES
+                        (@id, JSON_VALUE(@payload, '$.cycleId'), COALESCE(JSON_VALUE(@payload, '$.categoryId'), JSON_VALUE(@payload, '$.categoryKey')), @payload, @now, @now);
+                    DELETE FROM {AdminDbContext.QualifiedTableName("exam_plan_exams")} WHERE [plan_id] = @id;
+                    INSERT INTO {AdminDbContext.QualifiedTableName("exam_plan_exams")} ([plan_id], [exam_order], [exam_id], [fee], [is_required])
+                    SELECT @id,
+                           COALESCE(TRY_CONVERT(int, JSON_VALUE([value], '$.order')), TRY_CONVERT(int, [key])),
+                           JSON_VALUE([value], '$.examId'),
+                           TRY_CONVERT(decimal(10,2), JSON_VALUE([value], '$.fee')),
+                           COALESCE(TRY_CONVERT(bit, JSON_VALUE([value], '$.isRequired')), 0)
+                    FROM OPENJSON(@payload, '$.exams');
+                    """, command =>
+                {
+                    AddParameter(command, "@id", id);
+                    AddParameter(command, "@payload", payloadJson);
+                    AddParameter(command, "@now", now);
+                }, ct);
+                return await GetNormalizedAsync(module, id, ct);
+
+            case "committeeResults":
+                await ExecuteNormalizedNonQueryAsync($"""
+                    MERGE {AdminDbContext.QualifiedTableName("committee_results")} WITH (HOLDLOCK) AS target
+                    USING (SELECT @id AS [id]) AS source
+                    ON target.[id] = source.[id]
+                    WHEN MATCHED THEN UPDATE SET
+                        [committee_id] = JSON_VALUE(@payload, '$.committeeId'),
+                        [applicant_id] = JSON_VALUE(@payload, '$.applicantId'),
+                        [phase] = JSON_VALUE(@payload, '$.phase'),
+                        [pass_fail] = JSON_VALUE(@payload, '$.passFail'),
+                        [entered_by] = JSON_VALUE(@payload, '$.enteredBy'),
+                        [entered_at] = TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.enteredAt')),
+                        [approved_by] = JSON_VALUE(@payload, '$.approvedBy'),
+                        [approved_at] = TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.approvedAt')),
+                        [payload_json] = @payload,
+                        [updated_at] = @now
+                    WHEN NOT MATCHED THEN INSERT
+                        ([id], [committee_id], [applicant_id], [phase], [pass_fail], [entered_by], [entered_at], [approved_by], [approved_at], [payload_json], [created_at], [updated_at])
+                    VALUES
+                        (@id, JSON_VALUE(@payload, '$.committeeId'), JSON_VALUE(@payload, '$.applicantId'), JSON_VALUE(@payload, '$.phase'), JSON_VALUE(@payload, '$.passFail'),
+                         JSON_VALUE(@payload, '$.enteredBy'), TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.enteredAt')), JSON_VALUE(@payload, '$.approvedBy'),
+                         TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.approvedAt')), @payload, @now, @now);
+                    DELETE FROM {AdminDbContext.QualifiedTableName("committee_result_scores")} WHERE [result_id] = @id;
+                    INSERT INTO {AdminDbContext.QualifiedTableName("committee_result_scores")} ([result_id], [score_key], [score_value])
+                    SELECT @id, [key], TRY_CONVERT(decimal(10,2), [value])
+                    FROM OPENJSON(@payload, '$.scores')
+                    WHERE TRY_CONVERT(decimal(10,2), [value]) IS NOT NULL;
+                    """, command =>
+                {
+                    AddParameter(command, "@id", id);
+                    AddParameter(command, "@payload", payloadJson);
+                    AddParameter(command, "@now", now);
+                }, ct);
+                return await GetNormalizedAsync(module, id, ct);
+
+            case "examAttemptResults":
+                await ExecuteNormalizedNonQueryAsync($"""
+                    MERGE {AdminDbContext.QualifiedTableName("exam_attempt_results")} WITH (HOLDLOCK) AS target
+                    USING (SELECT @id AS [id]) AS source
+                    ON target.[id] = source.[id]
+                    WHEN MATCHED THEN UPDATE SET
+                        [exam_id] = JSON_VALUE(@payload, '$.examId'),
+                        [attempt_id] = JSON_VALUE(@payload, '$.attemptId'),
+                        [applicant_id] = JSON_VALUE(@payload, '$.applicantId'),
+                        [status] = COALESCE(NULLIF(JSON_VALUE(@payload, '$.status'), N''), N'draft'),
+                        [pass_fail] = JSON_VALUE(@payload, '$.passFail'),
+                        [submitted_at] = TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.submittedAt')),
+                        [payload_json] = @payload,
+                        [updated_at] = @now
+                    WHEN NOT MATCHED THEN INSERT
+                        ([id], [exam_id], [attempt_id], [applicant_id], [status], [pass_fail], [submitted_at], [payload_json], [created_at], [updated_at])
+                    VALUES
+                        (@id, JSON_VALUE(@payload, '$.examId'), JSON_VALUE(@payload, '$.attemptId'), JSON_VALUE(@payload, '$.applicantId'),
+                         COALESCE(NULLIF(JSON_VALUE(@payload, '$.status'), N''), N'draft'), JSON_VALUE(@payload, '$.passFail'),
+                         TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.submittedAt')), @payload, @now, @now);
+                    """, command =>
+                {
+                    AddParameter(command, "@id", id);
+                    AddParameter(command, "@payload", payloadJson);
+                    AddParameter(command, "@now", now);
+                }, ct);
+                return await GetNormalizedAsync(module, id, ct);
+
+            case "biometricEnrollments":
+                await ExecuteNormalizedNonQueryAsync($"""
+                    MERGE {AdminDbContext.QualifiedTableName("biometric_enrollments")} WITH (HOLDLOCK) AS target
+                    USING (SELECT @id AS [id]) AS source
+                    ON target.[id] = source.[id]
+                    WHEN MATCHED THEN UPDATE SET
+                        [applicant_id] = JSON_VALUE(@payload, '$.applicantId'),
+                        [national_id] = JSON_VALUE(@payload, '$.nationalId'),
+                        [cycle_id] = JSON_VALUE(@payload, '$.cycleId'),
+                        [status] = JSON_VALUE(@payload, '$.status'),
+                        [enrolled_at] = TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.enrolledAt')),
+                        [enrolled_by] = JSON_VALUE(@payload, '$.enrolledBy'),
+                        [device_emp_code] = JSON_VALUE(@payload, '$.deviceEmpCode'),
+                        [payload_json] = @payload,
+                        [updated_at] = @now
+                    WHEN NOT MATCHED THEN INSERT
+                        ([id], [applicant_id], [national_id], [cycle_id], [status], [enrolled_at], [enrolled_by], [device_emp_code], [payload_json], [created_at], [updated_at])
+                    VALUES
+                        (@id, JSON_VALUE(@payload, '$.applicantId'), JSON_VALUE(@payload, '$.nationalId'), JSON_VALUE(@payload, '$.cycleId'), JSON_VALUE(@payload, '$.status'),
+                         TRY_CONVERT(datetimeoffset, JSON_VALUE(@payload, '$.enrolledAt')), JSON_VALUE(@payload, '$.enrolledBy'), JSON_VALUE(@payload, '$.deviceEmpCode'), @payload, @now, @now);
+                    """, command =>
+                {
+                    AddParameter(command, "@id", id);
                     AddParameter(command, "@payload", payloadJson);
                     AddParameter(command, "@now", now);
                 }, ct);
@@ -2159,6 +2742,74 @@ public sealed class OperationalRecordsService(
             "settings" => await ExecuteNormalizedNonQueryWithCountAsync(
                 $"DELETE FROM {AdminDbContext.QualifiedTableName("admin_settings")} WHERE [id] = N'settings'",
                 _ => { },
+                ct),
+            "committeeInstances" => await ExecuteNormalizedNonQueryWithCountAsync(
+                $"DELETE FROM {AdminDbContext.QualifiedTableName("committee_instances")} WHERE [id] = @id",
+                command => AddParameter(command, "@id", id),
+                ct),
+            "payments" => await ExecuteNormalizedNonQueryWithCountAsync(
+                $"DELETE FROM {AdminDbContext.QualifiedTableName("payment_ledger")} WHERE [id] = @id OR [fawry_reference] = @id",
+                command => AddParameter(command, "@id", id),
+                ct),
+            "examCommitteeUsers" => await ExecuteNormalizedNonQueryWithCountAsync(
+                $"DELETE FROM {AdminDbContext.QualifiedTableName("exam_committee_users")} WHERE [id] = @id",
+                command => AddParameter(command, "@id", id),
+                ct),
+            "examDevices" => await ExecuteNormalizedNonQueryWithCountAsync(
+                $"DELETE FROM {AdminDbContext.QualifiedTableName("exam_devices")} WHERE [id] = @id",
+                command => AddParameter(command, "@id", id),
+                ct),
+            "examResults" => await ExecuteNormalizedNonQueryWithCountAsync(
+                $"DELETE FROM {AdminDbContext.QualifiedTableName("exam_results")} WHERE [id] = @id",
+                command => AddParameter(command, "@id", id),
+                ct),
+            "examAttemptResults" => await ExecuteNormalizedNonQueryWithCountAsync(
+                $"DELETE FROM {AdminDbContext.QualifiedTableName("exam_attempt_results")} WHERE [id] = @id",
+                command => AddParameter(command, "@id", id),
+                ct),
+            "notifications" => await ExecuteNormalizedNonQueryWithCountAsync(
+                $"""
+                DELETE FROM {AdminDbContext.QualifiedTableName("notification_audience")} WHERE [notification_id] = @id;
+                DELETE FROM {AdminDbContext.QualifiedTableName("notifications_master")} WHERE [id] = @id;
+                """,
+                command => AddParameter(command, "@id", id),
+                ct),
+            "examPlans" => await ExecuteNormalizedNonQueryWithCountAsync(
+                $"""
+                DELETE FROM {AdminDbContext.QualifiedTableName("exam_plan_exams")} WHERE [plan_id] = @id;
+                DELETE FROM {AdminDbContext.QualifiedTableName("exam_plans")} WHERE [id] = @id;
+                """,
+                command => AddParameter(command, "@id", id),
+                ct),
+            "committeeResults" => await ExecuteNormalizedNonQueryWithCountAsync(
+                $"""
+                DELETE FROM {AdminDbContext.QualifiedTableName("committee_result_scores")} WHERE [result_id] = @id;
+                DELETE FROM {AdminDbContext.QualifiedTableName("committee_results")} WHERE [id] = @id;
+                """,
+                command => AddParameter(command, "@id", id),
+                ct),
+            "workflows" => await ExecuteNormalizedNonQueryWithCountAsync(
+                $"""
+                DELETE FROM {AdminDbContext.QualifiedTableName("workflow_stage_tests")} WHERE [workflow_id] = @id;
+                DELETE FROM {AdminDbContext.QualifiedTableName("workflow_stages")} WHERE [workflow_id] = @id;
+                DELETE FROM {AdminDbContext.QualifiedTableName("workflows")} WHERE [id] = @id;
+                """,
+                command => AddParameter(command, "@id", id),
+                ct),
+            "applicantWorkflowProgress" => await ExecuteNormalizedNonQueryWithCountAsync(
+                $"""
+                DELETE FROM {AdminDbContext.QualifiedTableName("applicant_workflow_test_results")} WHERE [progress_id] = @id;
+                DELETE FROM {AdminDbContext.QualifiedTableName("applicant_workflow_progress")} WHERE [id] = @id;
+                """,
+                command => AddParameter(command, "@id", id),
+                ct),
+            "committees" => await ExecuteNormalizedNonQueryWithCountAsync(
+                $"DELETE FROM {AdminDbContext.QualifiedTableName("committees")} WHERE [id] = @id",
+                command => AddParameter(command, "@id", id),
+                ct),
+            "biometricEnrollments" => await ExecuteNormalizedNonQueryWithCountAsync(
+                $"DELETE FROM {AdminDbContext.QualifiedTableName("biometric_enrollments")} WHERE [id] = @id",
+                command => AddParameter(command, "@id", id),
                 ct),
             "cycleApplicationSettings" => await ExecuteNormalizedNonQueryWithCountAsync(
                 $"""

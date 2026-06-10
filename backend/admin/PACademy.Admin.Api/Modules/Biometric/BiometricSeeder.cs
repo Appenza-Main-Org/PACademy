@@ -34,7 +34,11 @@ public sealed class BiometricSeeder(ILogger<BiometricSeeder> logger)
 
     public async Task SeedAsync(AdminDbContext db, CancellationToken ct = default)
     {
-        var store = new OperationalRecordStore(db);
+        // Route through OperationalRecordsService so the normalized bucket
+        // (biometric-enrollments) lands in its typed table via the runtime MERGE;
+        // JSON buckets (verifications, gate-logs, audit) fall through to the
+        // operational store. NullAuditSink keeps seeding out of audit_entries.
+        var store = new OperationalRecordsService(db, new HttpContextAccessor(), new PACademy.Shared.Audit.NullAuditSink());
         var hasEnrollments = (await store.ListAsync(BiometricService.EnrollmentsModule, ct)).Count > 0;
         var hasVerifications = (await store.ListAsync(BiometricService.VerificationsModule, ct)).Count > 0;
         var hasGateLogs = (await store.ListAsync(BiometricService.GateLogsModule, ct)).Count > 0;

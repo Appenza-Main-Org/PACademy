@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PACademy.Admin.Api.Persistence;
 
@@ -11,9 +12,11 @@ using PACademy.Admin.Api.Persistence;
 namespace PACademy.Admin.Api.Persistence.Migrations
 {
     [DbContext(typeof(AdminDbContext))]
-    partial class AdminDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260610082508_NormalizeExamBiometricFlatDomains")]
+    partial class NormalizeExamBiometricFlatDomains
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -739,202 +742,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                     b.ToTable("committee_instances", "dbo");
                 });
 
-            modelBuilder.Entity("PACademy.Admin.Api.Modules.Committees.CommitteeMasterEntity", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("id");
-
-                    b.Property<string>("AcademicYearId")
-                        .HasMaxLength(96)
-                        .HasColumnType("nvarchar(96)")
-                        .HasColumnName("academic_year_id");
-
-                    b.Property<int>("Capacity")
-                        .HasColumnType("int")
-                        .HasColumnName("capacity");
-
-                    b.Property<string>("CategoryKey")
-                        .HasMaxLength(96)
-                        .HasColumnType("nvarchar(96)")
-                        .HasColumnName("category_key");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("Gender")
-                        .HasMaxLength(24)
-                        .HasColumnType("nvarchar(24)")
-                        .HasColumnName("gender");
-
-                    b.Property<decimal?>("GradeMax")
-                        .HasPrecision(7, 2)
-                        .HasColumnType("decimal(7,2)")
-                        .HasColumnName("grade_max");
-
-                    b.Property<decimal?>("GradeMin")
-                        .HasPrecision(7, 2)
-                        .HasColumnType("decimal(7,2)")
-                        .HasColumnName("grade_min");
-
-                    b.Property<string>("GradeType")
-                        .HasMaxLength(48)
-                        .HasColumnType("nvarchar(48)")
-                        .HasColumnName("grade_type");
-
-                    b.Property<string>("HeadUserId")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("head_user_id");
-
-                    b.Property<string>("LinkedCycleId")
-                        .HasMaxLength(96)
-                        .HasColumnType("nvarchar(96)")
-                        .HasColumnName("linked_cycle_id");
-
-                    b.Property<string>("Name")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
-                        .HasColumnName("name");
-
-                    b.Property<string>("PayloadJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("payload_json");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion")
-                        .HasColumnName("row_version");
-
-                    b.Property<string>("Status")
-                        .HasMaxLength(48)
-                        .HasColumnType("nvarchar(48)")
-                        .HasColumnName("status");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CategoryKey")
-                        .HasDatabaseName("ix_committees_category_key");
-
-                    b.HasIndex("LinkedCycleId")
-                        .HasDatabaseName("ix_committees_linked_cycle_id");
-
-                    b.HasIndex("Status")
-                        .HasDatabaseName("ix_committees_status");
-
-                    b.ToTable("committees", "dbo");
-                });
-
-            modelBuilder.Entity("PACademy.Admin.Api.Modules.Committees.CommitteeResultEntity", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("id");
-
-                    b.Property<string>("ApplicantId")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("applicant_id");
-
-                    b.Property<DateTimeOffset?>("ApprovedAt")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("approved_at");
-
-                    b.Property<string>("ApprovedBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("approved_by");
-
-                    b.Property<string>("CommitteeId")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("committee_id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("created_at");
-
-                    b.Property<DateTimeOffset?>("EnteredAt")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("entered_at");
-
-                    b.Property<string>("EnteredBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("entered_by");
-
-                    b.Property<string>("PassFail")
-                        .HasMaxLength(24)
-                        .HasColumnType("nvarchar(24)")
-                        .HasColumnName("pass_fail");
-
-                    b.Property<string>("PayloadJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("payload_json");
-
-                    b.Property<string>("Phase")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
-                        .HasColumnName("phase");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion")
-                        .HasColumnName("row_version");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ApplicantId")
-                        .HasDatabaseName("ix_committee_results_applicant_id");
-
-                    b.HasIndex("CommitteeId")
-                        .HasDatabaseName("ix_committee_results_committee_id");
-
-                    b.HasIndex("Phase")
-                        .HasDatabaseName("ix_committee_results_phase");
-
-                    b.ToTable("committee_results", "dbo");
-                });
-
-            modelBuilder.Entity("PACademy.Admin.Api.Modules.Committees.CommitteeResultScoreEntity", b =>
-                {
-                    b.Property<string>("ResultId")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("result_id");
-
-                    b.Property<string>("ScoreKey")
-                        .HasMaxLength(96)
-                        .HasColumnType("nvarchar(96)")
-                        .HasColumnName("score_key");
-
-                    b.Property<decimal>("ScoreValue")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)")
-                        .HasColumnName("score_value");
-
-                    b.HasKey("ResultId", "ScoreKey");
-
-                    b.ToTable("committee_result_scores", "dbo");
-                });
-
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Exams.ExamAssignmentEntity", b =>
                 {
                     b.Property<string>("ExamId")
@@ -1286,84 +1093,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .HasDatabaseName("ix_exams_status");
 
                     b.ToTable("exams", "dbo");
-                });
-
-            modelBuilder.Entity("PACademy.Admin.Api.Modules.Exams.ExamPlanEntity", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("id");
-
-                    b.Property<string>("CategoryId")
-                        .HasMaxLength(96)
-                        .HasColumnType("nvarchar(96)")
-                        .HasColumnName("category_id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("CycleId")
-                        .HasMaxLength(96)
-                        .HasColumnType("nvarchar(96)")
-                        .HasColumnName("cycle_id");
-
-                    b.Property<string>("PayloadJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("payload_json");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion")
-                        .HasColumnName("row_version");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CycleId", "CategoryId")
-                        .HasDatabaseName("ix_exam_plans_cycle_category");
-
-                    b.ToTable("exam_plans", "dbo");
-                });
-
-            modelBuilder.Entity("PACademy.Admin.Api.Modules.Exams.ExamPlanExamEntity", b =>
-                {
-                    b.Property<string>("PlanId")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("plan_id");
-
-                    b.Property<int>("ExamOrder")
-                        .HasColumnType("int")
-                        .HasColumnName("exam_order");
-
-                    b.Property<string>("ExamId")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("exam_id");
-
-                    b.Property<decimal?>("Fee")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)")
-                        .HasColumnName("fee");
-
-                    b.Property<bool>("IsRequired")
-                        .HasColumnType("bit")
-                        .HasColumnName("is_required");
-
-                    b.HasKey("PlanId", "ExamOrder");
-
-                    b.HasIndex("ExamId")
-                        .HasDatabaseName("ix_exam_plan_exams_exam_id");
-
-                    b.ToTable("exam_plan_exams", "dbo");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Exams.ExamQuestionEntity", b =>
@@ -1867,105 +1596,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .HasDatabaseName("ix_lookup_rows_lookup_key");
 
                     b.ToTable("lookup_rows", "dbo");
-                });
-
-            modelBuilder.Entity("PACademy.Admin.Api.Modules.Notifications.NotificationAudienceEntity", b =>
-                {
-                    b.Property<string>("NotificationId")
-                        .HasMaxLength(96)
-                        .HasColumnType("nvarchar(96)")
-                        .HasColumnName("notification_id");
-
-                    b.Property<int>("AudienceOrder")
-                        .HasColumnType("int")
-                        .HasColumnName("audience_order");
-
-                    b.Property<string>("Kind")
-                        .HasMaxLength(48)
-                        .HasColumnType("nvarchar(48)")
-                        .HasColumnName("kind");
-
-                    b.Property<string>("TargetJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("target_json");
-
-                    b.HasKey("NotificationId", "AudienceOrder");
-
-                    b.HasIndex("Kind")
-                        .HasDatabaseName("ix_notification_audience_kind");
-
-                    b.ToTable("notification_audience", "dbo");
-                });
-
-            modelBuilder.Entity("PACademy.Admin.Api.Modules.Notifications.NotificationMasterEntity", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasMaxLength(96)
-                        .HasColumnType("nvarchar(96)")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("CreatedBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("created_by");
-
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<DateTimeOffset?>("ExpireAt")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("expire_at");
-
-                    b.Property<string>("PayloadJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("payload_json");
-
-                    b.Property<DateTimeOffset?>("PublishAt")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("publish_at");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion")
-                        .HasColumnName("row_version");
-
-                    b.Property<string>("Status")
-                        .HasMaxLength(48)
-                        .HasColumnType("nvarchar(48)")
-                        .HasColumnName("status");
-
-                    b.Property<string>("TitleAr")
-                        .HasMaxLength(512)
-                        .HasColumnType("nvarchar(512)")
-                        .HasColumnName("title_ar");
-
-                    b.Property<string>("Type")
-                        .HasMaxLength(48)
-                        .HasColumnType("nvarchar(48)")
-                        .HasColumnName("type");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PublishAt")
-                        .HasDatabaseName("ix_notifications_master_publish_at");
-
-                    b.HasIndex("Status")
-                        .HasDatabaseName("ix_notifications_master_status");
-
-                    b.ToTable("notifications_master", "dbo");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Modules.OperationalRecords.AdmissionSetupRecordEntity", b =>
@@ -3126,265 +2756,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                     b.ToTable("general_settings", "dbo");
                 });
 
-            modelBuilder.Entity("PACademy.Admin.Api.Modules.Workflows.ApplicantWorkflowProgressEntity", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("id");
-
-                    b.Property<string>("ApplicantId")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("applicant_id");
-
-                    b.Property<string>("CompletedStageIdsJson")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("completed_stage_ids_json");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("CurrentStageId")
-                        .HasMaxLength(96)
-                        .HasColumnType("nvarchar(96)")
-                        .HasColumnName("current_stage_id");
-
-                    b.Property<string>("PayloadJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("payload_json");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion")
-                        .HasColumnName("row_version");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("WorkflowId")
-                        .HasMaxLength(96)
-                        .HasColumnType("nvarchar(96)")
-                        .HasColumnName("workflow_id");
-
-                    b.Property<int>("WorkflowVersion")
-                        .HasColumnType("int")
-                        .HasColumnName("workflow_version");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ApplicantId")
-                        .HasDatabaseName("ix_applicant_workflow_progress_applicant_id");
-
-                    b.HasIndex("WorkflowId")
-                        .HasDatabaseName("ix_applicant_workflow_progress_workflow_id");
-
-                    b.ToTable("applicant_workflow_progress", "dbo");
-                });
-
-            modelBuilder.Entity("PACademy.Admin.Api.Modules.Workflows.ApplicantWorkflowTestResultEntity", b =>
-                {
-                    b.Property<string>("ProgressId")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("progress_id");
-
-                    b.Property<string>("StageId")
-                        .HasMaxLength(96)
-                        .HasColumnType("nvarchar(96)")
-                        .HasColumnName("stage_id");
-
-                    b.Property<string>("TestId")
-                        .HasMaxLength(96)
-                        .HasColumnType("nvarchar(96)")
-                        .HasColumnName("test_id");
-
-                    b.Property<string>("Outcome")
-                        .HasMaxLength(48)
-                        .HasColumnType("nvarchar(48)")
-                        .HasColumnName("outcome");
-
-                    b.Property<DateTimeOffset?>("RecordedAt")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("recorded_at");
-
-                    b.Property<string>("RecordedBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("recorded_by");
-
-                    b.Property<decimal?>("Score")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)")
-                        .HasColumnName("score");
-
-                    b.HasKey("ProgressId", "StageId", "TestId");
-
-                    b.ToTable("applicant_workflow_test_results", "dbo");
-                });
-
-            modelBuilder.Entity("PACademy.Admin.Api.Modules.Workflows.WorkflowEntity", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasMaxLength(96)
-                        .HasColumnType("nvarchar(96)")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("CycleId")
-                        .HasMaxLength(96)
-                        .HasColumnType("nvarchar(96)")
-                        .HasColumnName("cycle_id");
-
-                    b.Property<string>("Department")
-                        .HasMaxLength(48)
-                        .HasColumnType("nvarchar(48)")
-                        .HasColumnName("department");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit")
-                        .HasColumnName("is_active");
-
-                    b.Property<string>("Name")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
-                        .HasColumnName("name");
-
-                    b.Property<string>("PayloadJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("payload_json");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion")
-                        .HasColumnName("row_version");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("datetimeoffset")
-                        .HasColumnName("updated_at");
-
-                    b.Property<string>("UpdatedBy")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)")
-                        .HasColumnName("updated_by");
-
-                    b.Property<int>("Version")
-                        .HasColumnType("int")
-                        .HasColumnName("version");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CycleId")
-                        .HasDatabaseName("ix_workflows_cycle_id");
-
-                    b.HasIndex("Department")
-                        .HasDatabaseName("ix_workflows_department");
-
-                    b.HasIndex("IsActive")
-                        .HasDatabaseName("ix_workflows_is_active");
-
-                    b.ToTable("workflows", "dbo");
-                });
-
-            modelBuilder.Entity("PACademy.Admin.Api.Modules.Workflows.WorkflowStageEntity", b =>
-                {
-                    b.Property<string>("WorkflowId")
-                        .HasMaxLength(96)
-                        .HasColumnType("nvarchar(96)")
-                        .HasColumnName("workflow_id");
-
-                    b.Property<int>("StageOrder")
-                        .HasColumnType("int")
-                        .HasColumnName("stage_order");
-
-                    b.Property<string>("AllowedNextStatusesJson")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("allowed_next_statuses_json");
-
-                    b.Property<string>("Name")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
-                        .HasColumnName("name");
-
-                    b.Property<string>("StageId")
-                        .IsRequired()
-                        .HasMaxLength(96)
-                        .HasColumnType("nvarchar(96)")
-                        .HasColumnName("stage_id");
-
-                    b.Property<string>("StatusOnEnter")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)")
-                        .HasColumnName("status_on_enter");
-
-                    b.HasKey("WorkflowId", "StageOrder");
-
-                    b.HasIndex("StageId")
-                        .HasDatabaseName("ix_workflow_stages_stage_id");
-
-                    b.ToTable("workflow_stages", "dbo");
-                });
-
-            modelBuilder.Entity("PACademy.Admin.Api.Modules.Workflows.WorkflowStageTestEntity", b =>
-                {
-                    b.Property<string>("WorkflowId")
-                        .HasMaxLength(96)
-                        .HasColumnType("nvarchar(96)")
-                        .HasColumnName("workflow_id");
-
-                    b.Property<string>("StageId")
-                        .HasMaxLength(96)
-                        .HasColumnType("nvarchar(96)")
-                        .HasColumnName("stage_id");
-
-                    b.Property<int>("TestOrder")
-                        .HasColumnType("int")
-                        .HasColumnName("test_order");
-
-                    b.Property<string>("Kind")
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)")
-                        .HasColumnName("kind");
-
-                    b.Property<string>("Name")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)")
-                        .HasColumnName("name");
-
-                    b.Property<string>("OwnerApp")
-                        .HasMaxLength(48)
-                        .HasColumnType("nvarchar(48)")
-                        .HasColumnName("owner_app");
-
-                    b.Property<string>("PassCriterionJson")
-                        .HasColumnType("nvarchar(max)")
-                        .HasColumnName("pass_criterion_json");
-
-                    b.Property<bool>("Required")
-                        .HasColumnType("bit")
-                        .HasColumnName("required");
-
-                    b.Property<string>("TestId")
-                        .HasMaxLength(96)
-                        .HasColumnType("nvarchar(96)")
-                        .HasColumnName("test_id");
-
-                    b.HasKey("WorkflowId", "StageId", "TestOrder");
-
-                    b.ToTable("workflow_stage_tests", "dbo");
-                });
-
             modelBuilder.Entity("PACademy.Admin.Api.Persistence.AcquaintanceDocSettingsEntity", b =>
                 {
                     b.Property<string>("Id")
@@ -3731,29 +3102,11 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                     b.ToTable("exam_slots", "dbo");
                 });
 
-            modelBuilder.Entity("PACademy.Admin.Api.Modules.Committees.CommitteeResultScoreEntity", b =>
-                {
-                    b.HasOne("PACademy.Admin.Api.Modules.Committees.CommitteeResultEntity", null)
-                        .WithMany("Scores")
-                        .HasForeignKey("ResultId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Exams.ExamAssignmentEntity", b =>
                 {
                     b.HasOne("PACademy.Admin.Api.Modules.Exams.ExamEntity", null)
                         .WithMany("Assignments")
                         .HasForeignKey("ExamId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("PACademy.Admin.Api.Modules.Exams.ExamPlanExamEntity", b =>
-                {
-                    b.HasOne("PACademy.Admin.Api.Modules.Exams.ExamPlanEntity", null)
-                        .WithMany("Exams")
-                        .HasForeignKey("PlanId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -3794,42 +3147,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("PACademy.Admin.Api.Modules.Notifications.NotificationAudienceEntity", b =>
-                {
-                    b.HasOne("PACademy.Admin.Api.Modules.Notifications.NotificationMasterEntity", null)
-                        .WithMany("Audience")
-                        .HasForeignKey("NotificationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("PACademy.Admin.Api.Modules.Workflows.ApplicantWorkflowTestResultEntity", b =>
-                {
-                    b.HasOne("PACademy.Admin.Api.Modules.Workflows.ApplicantWorkflowProgressEntity", null)
-                        .WithMany("TestResults")
-                        .HasForeignKey("ProgressId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("PACademy.Admin.Api.Modules.Workflows.WorkflowStageEntity", b =>
-                {
-                    b.HasOne("PACademy.Admin.Api.Modules.Workflows.WorkflowEntity", null)
-                        .WithMany("Stages")
-                        .HasForeignKey("WorkflowId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("PACademy.Admin.Api.Modules.Workflows.WorkflowStageTestEntity", b =>
-                {
-                    b.HasOne("PACademy.Admin.Api.Modules.Workflows.WorkflowEntity", null)
-                        .WithMany("Tests")
-                        .HasForeignKey("WorkflowId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("PACademy.Admin.Api.Persistence.ApplicantAcquaintanceDocRevisionEntity", b =>
                 {
                     b.HasOne("PACademy.Admin.Api.Persistence.ApplicantAcquaintanceDocEntity", null)
@@ -3848,11 +3165,6 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("PACademy.Admin.Api.Modules.Committees.CommitteeResultEntity", b =>
-                {
-                    b.Navigation("Scores");
-                });
-
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Exams.ExamEntity", b =>
                 {
                     b.Navigation("Assignments");
@@ -3862,33 +3174,11 @@ namespace PACademy.Admin.Api.Persistence.Migrations
                     b.Navigation("Rules");
                 });
 
-            modelBuilder.Entity("PACademy.Admin.Api.Modules.Exams.ExamPlanEntity", b =>
-                {
-                    b.Navigation("Exams");
-                });
-
             modelBuilder.Entity("PACademy.Admin.Api.Modules.Exams.ExamQuestionEntity", b =>
                 {
                     b.Navigation("MatchingPairs");
 
                     b.Navigation("Options");
-                });
-
-            modelBuilder.Entity("PACademy.Admin.Api.Modules.Notifications.NotificationMasterEntity", b =>
-                {
-                    b.Navigation("Audience");
-                });
-
-            modelBuilder.Entity("PACademy.Admin.Api.Modules.Workflows.ApplicantWorkflowProgressEntity", b =>
-                {
-                    b.Navigation("TestResults");
-                });
-
-            modelBuilder.Entity("PACademy.Admin.Api.Modules.Workflows.WorkflowEntity", b =>
-                {
-                    b.Navigation("Stages");
-
-                    b.Navigation("Tests");
                 });
 
             modelBuilder.Entity("PACademy.Admin.Api.Persistence.ApplicantAcquaintanceDocEntity", b =>

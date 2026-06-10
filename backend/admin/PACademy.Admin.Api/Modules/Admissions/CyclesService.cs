@@ -9,7 +9,11 @@ using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Modules.Admissions;
 
-public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink, OperationalRecordStore operationalRecords)
+// operationalRecords is the OperationalRecordsService seam (NOT the raw JSON store):
+// the dependency counts below cover modules that are normalized into typed tables
+// (committees, committeeInstances, examPlans, workflows) — a raw-store read would
+// see drained JSON buckets and let cycle deletion through with live dependents.
+public sealed class CyclesService(IAdmissionsDbContext db, IAuditSink auditSink, OperationalRecordsService operationalRecords)
 {
     public async Task<IReadOnlyList<JsonObject>> ListAsync(bool includeDeleted, CancellationToken ct)
     {

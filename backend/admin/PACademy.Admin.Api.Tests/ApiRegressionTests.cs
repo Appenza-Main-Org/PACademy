@@ -129,7 +129,7 @@ public sealed class ApiRegressionTests
     public async Task CyclePublishSwapLeavesExactlyOneActiveCycle()
     {
         await using var db = CreateDb();
-        var service = new CyclesService(db, new NullAuditSink(), new OperationalRecordStore(db));
+        var service = new CyclesService(db, new NullAuditSink(), new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink()));
 
         _ = await service.CreateAsync(CyclePayload("CYC-A", "دورة أولى", isActive: true), TestContext.Current.CancellationToken);
         _ = await service.CreateAsync(CyclePayload("CYC-B", "دورة ثانية", isActive: true), TestContext.Current.CancellationToken, swap: true);
@@ -146,7 +146,7 @@ public sealed class ApiRegressionTests
     public async Task CyclePublishWithoutSwapRejectsSecondActiveCycle()
     {
         await using var db = CreateDb();
-        var service = new CyclesService(db, new NullAuditSink(), new OperationalRecordStore(db));
+        var service = new CyclesService(db, new NullAuditSink(), new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink()));
 
         _ = await service.CreateAsync(CyclePayload("CYC-A", "دورة أولى", isActive: true), TestContext.Current.CancellationToken);
 

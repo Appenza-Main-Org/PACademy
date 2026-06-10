@@ -28,6 +28,11 @@ public sealed class AdminRecordsSeeder(IWebHostEnvironment environment, ILogger<
 
         var store = new OperationalRecordStore(db);
         await RemoveMockSeedRecordsAsync(store, ct);
+        // Seed writes route through OperationalRecordsService so normalized modules
+        // (applicants, payments, committeeInstances, …) land in their typed tables
+        // via the same MERGE the runtime uses; JSON modules fall through to the
+        // operational store. NullAuditSink keeps seeding out of audit_entries.
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new PACademy.Shared.Audit.NullAuditSink());
         var path = Path.Combine(environment.ContentRootPath, "SeedData", "admin-records.seed.json");
         await using var stream = File.OpenRead(path);
         using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
@@ -42,7 +47,7 @@ public sealed class AdminRecordsSeeder(IWebHostEnvironment environment, ILogger<
             {
                 var obj = JsonNode.Parse(row.GetRawText())!.AsObject();
                 var id = ResolveId(module, obj);
-                await store.UpsertAsync(module, id, obj, ct);
+                await records.UpsertAsync(module, id, obj, ct);
                 count++;
             }
         }
@@ -51,7 +56,7 @@ public sealed class AdminRecordsSeeder(IWebHostEnvironment environment, ILogger<
         {
             if (!root.TryGetProperty(singleton, out var value)) continue;
             var obj = JsonNode.Parse(value.GetRawText())!.AsObject();
-            await store.UpsertAsync(singleton, singleton, obj, ct);
+            await records.UpsertAsync(singleton, singleton, obj, ct);
             count++;
         }
 
@@ -83,15 +88,18 @@ public sealed class AdminRecordsSeeder(IWebHostEnvironment environment, ILogger<
             logger.LogInformation("Removed {Count} legacy seeded audit records; /api/audit now reads durable audit_entries only", rows.Count);
         }
 
-        var store = new OperationalRecordStore(db);
+        // Legacy admin_records rows re-home through the service so rows whose module
+        // is now normalized (payments, committeeInstances, exam-results, …) land in
+        // their typed tables rather than the dead JSON bucket.
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new PACademy.Shared.Audit.NullAuditSink());
         var legacyRows = await db.AdminRecords.ToListAsync(ct);
         foreach (var row in legacyRows)
         {
-            var exists = await store.GetAsync(row.Module, row.Id, ct) is not null;
+            var exists = await records.GetAsync(row.Module, row.Id, ct) is not null;
             if (exists) continue;
             var payload = AdminRecordJson.Parse(row.PayloadJson);
             payload["id"] ??= row.Id;
-            await store.UpsertAsync(row.Module, row.Id, payload, ct);
+            await records.UpsertAsync(row.Module, row.Id, payload, ct);
         }
         db.AdminRecords.RemoveRange(legacyRows);
         if (legacyRows.Count > 0) await db.SaveChangesAsync(ct);
