@@ -42,17 +42,23 @@ public sealed class ApplicantPortalPersistenceTests
         Assert.Equal("applicant-portal", payload["source"]?.GetValue<string>());
     }
 
+    /* The client always suggests CMT-12 (the officers_general committee) —
+     * the booking flow must keep it only for officers_general and re-resolve
+     * a category-matching committee for everyone else. */
     [Theory]
-    [InlineData("officers_general", "30601010103451", "01011111111")]
-    [InlineData("law_bachelor", "30602020103452", "01022222222")]
-    [InlineData("physical_education_bachelor", "30603030103453", "01033333333")]
-    [InlineData("specialized_officers", "30604040103454", "01044444444")]
+    [InlineData("officers_general", "30601010103451", "01011111111", "CMT-12", "اللجنة الأولى قسم عام")]
+    [InlineData("law_bachelor", "30602020103452", "01022222222", "CMT-11", "اللجنة الثانية ليسانس حقوق")]
+    [InlineData("physical_education_bachelor", "30603030103453", "01033333333", "CMT-09", "اللجنة الأولى بكالوريوس تربية رياضية (طالبات)")]
+    [InlineData("specialized_officers", "30604040103454", "01044444444", "CMT-05", "اللجنة الخامسة قسم خاص")]
     public async Task ApplicantJourneyAcrossCategoriesProgressivelyUpdatesManagementRecord(
         string categoryKey,
         string nationalId,
-        string phoneNumber)
+        string phoneNumber,
+        string expectedCommitteeId,
+        string expectedCommitteeName)
     {
         await using var db = CreateDb();
+        await SeedCommitteeSchedule(db, "2026-07-15");
         var service = new PortalService(db);
         var applicantId = Guid.NewGuid().ToString("D");
 
@@ -120,12 +126,93 @@ public sealed class ApplicantPortalPersistenceTests
         Assert.Equal(8, scheduledPayload["stage"]?.GetValue<int>());
         Assert.Equal("حجز الاختبارات", scheduledPayload["stageLabel"]?.GetValue<string>());
         Assert.Equal("2026-07-15", scheduledPayload["firstExamDate"]?.GetValue<string>());
-        Assert.Equal("CMT-12", scheduledPayload["assignedCommitteeId"]?.GetValue<string>());
-        Assert.Equal("اللجنة الأولى قسم عام", scheduledPayload["assignedCommitteeName"]?.GetValue<string>());
-        Assert.Equal("CMT-12", scheduledPayload["examSlot"]?["committeeId"]?.GetValue<string>());
-        Assert.Equal("اللجنة الأولى قسم عام", scheduledPayload["examSlot"]?["committeeName"]?.GetValue<string>());
+        Assert.Equal(expectedCommitteeId, scheduledPayload["assignedCommitteeId"]?.GetValue<string>());
+        Assert.Equal(expectedCommitteeName, scheduledPayload["assignedCommitteeName"]?.GetValue<string>());
+        Assert.Equal(expectedCommitteeId, scheduledPayload["examSlot"]?["committeeId"]?.GetValue<string>());
+        Assert.Equal(expectedCommitteeName, scheduledPayload["examSlot"]?["committeeName"]?.GetValue<string>());
+        Assert.Equal(expectedCommitteeId, scheduled.CommitteeId);
         Assert.Equal(categoryKey, scheduled.CategoryKey);
         Assert.Equal(nationalId, scheduled.NationalId);
+    }
+
+    [Fact]
+    public async Task PickExamDateRejectsDateWithNoCommitteeForCategory()
+    {
+        await using var db = CreateDb();
+        await SeedCommitteeSchedule(db, "2026-07-15");
+        var service = new PortalService(db);
+        var applicantId = Guid.NewGuid().ToString("D");
+
+        await service.SaveDraftAsync(applicantId, new JsonObject
+        {
+            ["cycleId"] = "CYC-2026-M",
+            ["categoryKey"] = "law_bachelor",
+        }, TestContext.Current.CancellationToken);
+
+        var ex = await Assert.ThrowsAsync<PACademy.Shared.Contracts.ConflictException>(() =>
+            service.PickExamDateAsync(applicantId, "2026-07-16", null, TestContext.Current.CancellationToken));
+
+        Assert.Equal("EXAM_DATE_NOT_AVAILABLE_FOR_CATEGORY", ex.ConflictCode);
+    }
+
+    [Fact]
+    public async Task ChangingCategoryClearsBookedCommitteeAndExamSlot()
+    {
+        await using var db = CreateDb();
+        await SeedCommitteeSchedule(db, "2026-07-15");
+        var service = new PortalService(db);
+        var applicantId = Guid.NewGuid().ToString("D");
+
+        await service.SaveDraftAsync(applicantId, new JsonObject
+        {
+            ["cycleId"] = "CYC-2026-M",
+            ["categoryKey"] = "law_bachelor",
+        }, TestContext.Current.CancellationToken);
+        await service.PickExamDateAsync(applicantId, "2026-07-15", null, TestContext.Current.CancellationToken);
+
+        await service.SaveDraftAsync(applicantId, new JsonObject
+        {
+            ["categoryKey"] = "officers_general",
+        }, TestContext.Current.CancellationToken);
+
+        var draft = await service.GetOrCreateDraftAsync(applicantId, TestContext.Current.CancellationToken);
+        Assert.Null(draft["examSlot"]);
+        Assert.Null(draft["assignedCommitteeId"]);
+        Assert.Null(draft["assignedCommitteeName"]);
+        Assert.Null(draft["firstExamDate"]);
+    }
+
+    private static async Task SeedCommitteeSchedule(PortalDbContext db, string isoDate)
+    {
+        var date = DateOnly.Parse(isoDate);
+        var committees = new (string Code, string Name, string CategoryKey)[]
+        {
+            ("CMT-12", "اللجنة الأولى قسم عام", "officers_general"),
+            ("CMT-10", "اللجنة الأولى ليسانس حقوق (طالبات)", "law_bachelor"),
+            ("CMT-11", "اللجنة الثانية ليسانس حقوق", "law_bachelor"),
+            ("CMT-09", "اللجنة الأولى بكالوريوس تربية رياضية (طالبات)", "physical_education_bachelor"),
+            ("CMT-01", "اللجنة الأولى قسم خاص (طالبات)", "specialized_officers"),
+            ("CMT-05", "اللجنة الخامسة قسم خاص", "specialized_officers"),
+        };
+        foreach (var committee in committees)
+        {
+            db.CommitteeLookups.Add(new CommitteeLookupReadEntity
+            {
+                LookupKey = "committees",
+                Code = committee.Code,
+                Name = committee.Name,
+                IsActive = true,
+            });
+            db.CommitteeInstances.Add(new CommitteeInstanceReadEntity
+            {
+                Id = $"CI-{committee.Code}-{isoDate}",
+                DefinitionCode = committee.Code,
+                CycleId = "CYC-2026-M",
+                CategoryKey = committee.CategoryKey,
+                Date = date,
+            });
+        }
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]

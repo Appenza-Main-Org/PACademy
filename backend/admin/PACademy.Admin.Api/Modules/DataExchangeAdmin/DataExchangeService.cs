@@ -218,7 +218,7 @@ public sealed class DataExchangeService(
 
         var resolvedCycleId = await ResolveCycleIdAsync(cycleId, ct);
         var activeCategoryKeys = await LoadCycleCategoryKeysAsync(resolvedCycleId, ct);
-        var committeeNameByCode = await LoadCommitteeNameByCodeAsync(ct);
+        var committeeDirectory = await records.LoadCommitteeDirectoryAsync(ct);
         var committeeInstances = await LoadCommitteeInstancesAsync(ct);
 
         var roster = new List<ApplicantRosterRow>(payloads.Count);
@@ -240,7 +240,7 @@ public sealed class DataExchangeService(
                 Status: payload["status"]?.ToString(),
                 ExamSlotDate: slot?["date"]?.ToString(),
                 ExamSlotTime: slot?["time"]?.ToString(),
-                CommitteeName: ResolveCommitteeName(payload, committeeNameByCode, committeeInstances),
+                CommitteeName: OperationalRecordsService.ResolveCommitteeName(payload, committeeDirectory, committeeInstances),
                 ExamSlotLocation: slot?["location"]?.ToString(),
                 UpdatedAt: ParseDto(payload["updatedAt"] ?? payload["updated_at"])));
         }
@@ -250,114 +250,11 @@ public sealed class DataExchangeService(
             .ToList();
     }
 
-    private static string? ResolveCommitteeName(
-        JsonObject applicant,
-        IReadOnlyDictionary<string, string> committeeNameByCode,
-        IReadOnlyList<JsonObject> committeeInstances)
-    {
-        var code =
-            AdminRecordJson.StringProp(applicant, "assignedCommitteeId") ??
-            AdminRecordJson.StringProp(applicant, "committeeId") ??
-            AdminRecordJson.StringProp(applicant, "committeeCode") ??
-            AdminRecordJson.StringProp(applicant, "definitionCode");
-        if (!string.IsNullOrWhiteSpace(code) && committeeNameByCode.TryGetValue(code, out var mappedName))
-        {
-            return mappedName;
-        }
-
-        var scheduledCode = ResolveCommitteeCodeFromSchedule(applicant, committeeInstances, committeeNameByCode);
-        if (!string.IsNullOrWhiteSpace(scheduledCode) &&
-            committeeNameByCode.TryGetValue(scheduledCode, out var scheduledName))
-        {
-            return scheduledName;
-        }
-
-        return AdminRecordJson.StringProp(applicant, "assignedCommitteeName") ??
-            AdminRecordJson.StringProp(applicant, "committeeName") ??
-            AdminRecordJson.StringProp(applicant, "committeeLabelAr");
-    }
-
-    private Task<Dictionary<string, string>> LoadCommitteeNameByCodeAsync(CancellationToken ct)
-        => db.LookupRows.AsNoTracking()
-            .Where(x => x.LookupKey == "committees")
-            .ToDictionaryAsync(x => x.Code, x => x.Name, StringComparer.OrdinalIgnoreCase, ct);
-
     private async Task<IReadOnlyList<JsonObject>> LoadCommitteeInstancesAsync(CancellationToken ct)
     {
         try { return await records.ListAsync("committeeInstances", ct); }
         catch (InvalidOperationException) { return []; }
     }
-
-    private static string? ResolveCommitteeCodeFromSchedule(
-        JsonObject applicant,
-        IReadOnlyList<JsonObject> committeeInstances,
-        IReadOnlyDictionary<string, string> committeeNameByCode)
-    {
-        var slotId = FirstString(applicant, "examSlotId", "slotId")
-            ?? NestedStringProp(applicant, "examSlot", "slotId")
-            ?? NestedStringProp(applicant, "examSlot", "id");
-        if (!string.IsNullOrWhiteSpace(slotId))
-        {
-            var exactSlot = committeeInstances.FirstOrDefault(instance =>
-                TextEquals(FirstString(instance, "id", "slotId"), slotId));
-            var exactSlotCode = exactSlot is null ? null : FirstString(exactSlot, "definitionCode", "committeeId", "committeeCode");
-            if (!string.IsNullOrWhiteSpace(exactSlotCode)) return exactSlotCode;
-        }
-
-        var applicantCycleId = FirstString(applicant, "cycleId", "admissionCycleId", "cycle_id");
-        var applicantCategoryKey = FirstString(applicant, "categoryKey", "categoryId", "applicantCategory", "category");
-        var applicantExamDate = FirstString(applicant, "examDate", "date", "scheduledDate", "examSlotDate")
-            ?? NestedStringProp(applicant, "examSlot", "date");
-        if (string.IsNullOrWhiteSpace(applicantCategoryKey) || string.IsNullOrWhiteSpace(applicantExamDate))
-        {
-            return null;
-        }
-
-        var dateKey = DateKey(applicantExamDate);
-        var matchingCodes = committeeInstances
-            .Where(instance => string.IsNullOrWhiteSpace(applicantCycleId) ||
-                TextEquals(FirstString(instance, "cycleId", "admissionCycleId", "cycle_id"), applicantCycleId))
-            .Where(instance => TextEquals(FirstString(instance, "categoryKey", "categoryId", "applicantCategory"), applicantCategoryKey))
-            .Where(instance => TextEquals(DateKey(FirstString(instance, "date", "examDate", "scheduledDate")), dateKey))
-            .Select(instance => FirstString(instance, "definitionCode", "committeeId", "committeeCode"))
-            .Where(code => !string.IsNullOrWhiteSpace(code))
-            .Select(code => code!)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-
-        if (matchingCodes.Length == 1) return matchingCodes[0];
-        return CommitteeCodeByGender(applicant, matchingCodes, committeeNameByCode);
-    }
-
-    private static string? CommitteeCodeByGender(
-        JsonObject applicant,
-        IReadOnlyList<string> committeeCodes,
-        IReadOnlyDictionary<string, string> committeeNameByCode)
-    {
-        if (committeeCodes.Count == 0) return null;
-
-        var isFemale = IsFemaleApplicant(applicant);
-        if (isFemale is null) return null;
-
-        var matchingCodes = committeeCodes
-            .Where(code => committeeNameByCode.TryGetValue(code, out var name) &&
-                IsFemaleCommitteeName(name) == isFemale)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-
-        return matchingCodes.Length == 1 ? matchingCodes[0] : null;
-    }
-
-    private static bool? IsFemaleApplicant(JsonObject applicant)
-    {
-        var gender = FirstString(applicant, "gender") ?? NestedStringProp(applicant, "profile", "gender");
-        if (string.IsNullOrWhiteSpace(gender)) return null;
-
-        return string.Equals(gender, "female", StringComparison.OrdinalIgnoreCase) || gender == "أنثى";
-    }
-
-    private static bool IsFemaleCommitteeName(string committeeName) =>
-        committeeName.Contains("طالبات", StringComparison.Ordinal);
 
     private static string? FirstString(JsonObject payload, params string[] keys)
     {
@@ -976,9 +873,9 @@ public sealed class DataExchangeService(
         IReadOnlyList<JsonObject> payloads;
         try { payloads = await records.ListAsync(spec.DocModule!, ct); }
         catch (InvalidOperationException) { return []; }
-        var committeeNameByCode = spec.Domain == ExchangeDomain.Applicants
-            ? await LoadCommitteeNameByCodeAsync(ct)
-            : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var committeeDirectory = spec.Domain == ExchangeDomain.Applicants
+            ? await records.LoadCommitteeDirectoryAsync(ct)
+            : EmptyCommitteeDirectory;
         var committeeInstances = spec.Domain == ExchangeDomain.Applicants
             ? await LoadCommitteeInstancesAsync(ct)
             : Array.Empty<JsonObject>();
@@ -1000,7 +897,7 @@ public sealed class DataExchangeService(
             // Relatives sheet. Also drop the original `profile.*` shape — the
             // projection already lifts those fields to canonical top-level columns.
             var flattenSource = spec.Domain == ExchangeDomain.Applicants
-                ? PruneBranches(WithResolvedCommitteeName(payload, committeeNameByCode, committeeInstances), ApplicantSheetExcludedBranches)
+                ? PruneBranches(WithResolvedCommitteeName(payload, committeeDirectory, committeeInstances), ApplicantSheetExcludedBranches)
                 : payload;
             var data = new Dictionary<string, string?>(StringComparer.Ordinal);
             foreach (var (k, v) in JsonFlatten.Flatten(flattenSource))
@@ -1016,12 +913,16 @@ public sealed class DataExchangeService(
         return result;
     }
 
+    private static readonly CommitteeDirectory EmptyCommitteeDirectory = new(
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
+
     private static JsonObject WithResolvedCommitteeName(
         JsonObject applicant,
-        IReadOnlyDictionary<string, string> committeeNameByCode,
+        CommitteeDirectory committeeDirectory,
         IReadOnlyList<JsonObject> committeeInstances)
     {
-        var committeeName = ResolveCommitteeName(applicant, committeeNameByCode, committeeInstances);
+        var committeeName = OperationalRecordsService.ResolveCommitteeName(applicant, committeeDirectory, committeeInstances);
         if (string.IsNullOrWhiteSpace(committeeName)) return applicant;
         var enriched = AdminRecordJson.Clone(applicant);
         enriched["committeeName"] = committeeName;
@@ -1756,7 +1657,7 @@ public sealed class DataExchangeService(
         string? PersonKey);
 
     private sealed record CuratedContext(
-        IReadOnlyDictionary<string, string> CommitteeNameByCode,
+        CommitteeDirectory CommitteeDirectory,
         IReadOnlyList<JsonObject> CommitteeInstances,
         IReadOnlySet<string>? ActiveCategoryKeys,
         string? ActiveCycleId);
@@ -1834,7 +1735,7 @@ public sealed class DataExchangeService(
 
     private async Task<CuratedContext> BuildCuratedContextAsync(string? cycleId, CancellationToken ct)
         => new(
-            await LoadCommitteeNameByCodeAsync(ct),
+            await records.LoadCommitteeDirectoryAsync(ct),
             await LoadCommitteeInstancesAsync(ct),
             await LoadCycleCategoryKeysAsync(cycleId, ct),
             await db.AdmissionCycles.AsNoTracking().Where(c => c.IsActive).Select(c => c.Id).FirstOrDefaultAsync(ct));
@@ -1988,7 +1889,7 @@ public sealed class DataExchangeService(
             if (AdminRecordJson.IsSoftDeleted(inst)) continue;
             if (!MatchesCycle(FirstString(inst, "cycleId", "admissionCycleId", "cycle_id"), cycleId)) continue;
             var code = FirstString(inst, "definitionCode", "committeeId", "committeeCode");
-            var committeeName = code is not null && ctx.CommitteeNameByCode.TryGetValue(code, out var n)
+            var committeeName = code is not null && ctx.CommitteeDirectory.NameByCode.TryGetValue(code, out var n)
                 ? n : FirstString(inst, "committeeName", "committeeLabelAr");
             var (created, updated) = Timestamps(inst);
             rows.Add(new CuratedRow(Cells(
@@ -2062,7 +1963,7 @@ public sealed class DataExchangeService(
                 ("exam_name", examName),
                 ("appointment_date", date),
                 ("appointment_time", (slot is null ? null : FirstString(slot, "time")) ?? DefaultExamScheduleTime),
-                ("committee_name", ResolveCommitteeName(a, ctx.CommitteeNameByCode, ctx.CommitteeInstances)),
+                ("committee_name", OperationalRecordsService.ResolveCommitteeName(a, ctx.CommitteeDirectory, ctx.CommitteeInstances)),
                 ("location", slot is null ? null : FirstString(slot, "location")),
                 ("reservation_status", "محجوز"),
                 ("applicant_status", ApplicantField(a, "status")),
@@ -2107,7 +2008,7 @@ public sealed class DataExchangeService(
             if (!MatchesCycle(FirstString(inst, "cycleId", "admissionCycleId", "cycle_id"), cycleId)) continue;
             var code = FirstString(inst, "definitionCode", "committeeId", "committeeCode", "id");
             if (string.IsNullOrWhiteSpace(code) || !seen.Add(code)) continue;
-            var name = ctx.CommitteeNameByCode.TryGetValue(code, out var n)
+            var name = ctx.CommitteeDirectory.NameByCode.TryGetValue(code, out var n)
                 ? n : FirstString(inst, "committeeName", "committeeLabelAr");
             var (created, updated) = Timestamps(inst);
             rows.Add(new CuratedRow(Cells(
@@ -2138,7 +2039,7 @@ public sealed class DataExchangeService(
             if (string.IsNullOrWhiteSpace(nid)) continue;
             if (a["followUp"] is not JsonObject followUp || followUp.Count == 0) continue;
             var (created, updated) = Timestamps(a);
-            var committee = ResolveCommitteeName(a, ctx.CommitteeNameByCode, ctx.CommitteeInstances);
+            var committee = OperationalRecordsService.ResolveCommitteeName(a, ctx.CommitteeDirectory, ctx.CommitteeInstances);
             var examDate = NestedStringProp(a, "examSlot", "date") ?? FirstString(a, "examDate");
             foreach (var (code, node) in followUp)
             {
@@ -2430,7 +2331,7 @@ public sealed class DataExchangeService(
         var committeeCodes = StringItems(row["committees"]);
         if (committeeCodes.Count == 0 && FirstString(row, "committee") is { } single) committeeCodes = [single];
         var committeeNames = committeeCodes
-            .Select(code => ctx.CommitteeNameByCode.GetValueOrDefault(code) ?? ResolveName(names, "committees", code))
+            .Select(code => ctx.CommitteeDirectory.NameByCode.GetValueOrDefault(code) ?? ResolveName(names, "committees", code))
             .OfType<string>().ToList();
 
         var created = ParseDto(row["createdAt"]) ?? draftCreated;

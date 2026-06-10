@@ -101,11 +101,17 @@ export function Stage8ExamSchedulePage(): JSX.Element {
       toast('اختر تاريخ الإختبار أولاً', 'warning');
       return;
     }
-    await pickMut.mutateAsync({
-      slotId: picked,
-      committeeId: firstCommittee?.committeeId,
-      committeeName: firstCommittee?.committeeName,
-    });
+    try {
+      await pickMut.mutateAsync({
+        slotId: picked,
+        committeeId: firstCommittee?.committeeId,
+        committeeName: firstCommittee?.committeeName,
+      });
+    } catch (err) {
+      const message = err instanceof Error && err.message ? err.message : 'تعذّر حجز موعد الاختبار';
+      toast(message, 'danger');
+      return;
+    }
     setFirstExamDate(picked);
     setConfirmOpen(true);
   };

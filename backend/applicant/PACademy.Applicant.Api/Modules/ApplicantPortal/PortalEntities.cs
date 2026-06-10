@@ -43,6 +43,34 @@ public sealed class ExamSlotEntity
     public byte[] RowVersion { get; set; } = [];
 }
 
+/// <summary>
+/// Read-only projection of the admin-owned <c>committee_instances</c> table
+/// (one row per committee definition × cycle × date). Used to validate that
+/// a booked exam date carries a committee that actually serves the
+/// applicant's chosen category.
+/// </summary>
+public sealed class CommitteeInstanceReadEntity
+{
+    public string Id { get; set; } = "";
+    public string DefinitionCode { get; set; } = "";
+    public string CycleId { get; set; } = "";
+    public string CategoryKey { get; set; } = "";
+    public DateOnly Date { get; set; }
+}
+
+/// <summary>
+/// Read-only projection of the admin-owned <c>lookup_rows</c> table scoped
+/// to the <c>committees</c> lookup — resolves committee display names when
+/// the booking flow has to re-pick a committee server-side.
+/// </summary>
+public sealed class CommitteeLookupReadEntity
+{
+    public string LookupKey { get; set; } = "";
+    public string Code { get; set; } = "";
+    public string Name { get; set; } = "";
+    public bool IsActive { get; set; } = true;
+}
+
 public sealed class GeneralSettingsReadEntity
 {
     public string Id { get; set; } = "";
