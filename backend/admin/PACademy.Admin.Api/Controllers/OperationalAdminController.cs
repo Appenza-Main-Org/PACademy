@@ -11,13 +11,16 @@ namespace PACademy.Admin.Api.Controllers;
 
 [ApiController]
 [Route("")]
-public sealed class OperationalAdminController(OperationalRecordsService records, ILookupsDbContext lookups, GeneralSettingsService generalSettings) : ControllerBase
+public sealed class OperationalAdminController(OperationalRecordsService records, ILookupsDbContext lookups, GeneralSettingsService generalSettings, ReservationSweepThrottle reservationSweep) : ControllerBase
 {
     [HttpGet("api/committee-instances")]
     public async Task<ActionResult<IReadOnlyList<JsonObject>>> CommitteeInstances(CancellationToken ct)
     {
         var rows = await ListCommitteeInstancesAsync(null, null, null, ct);
-        await SaveChangedReservationSnapshotsAsync(rows, ct);
+        if (reservationSweep.TryClaim())
+        {
+            await SaveChangedReservationSnapshotsAsync(rows, ct);
+        }
         return Ok(rows);
     }
 

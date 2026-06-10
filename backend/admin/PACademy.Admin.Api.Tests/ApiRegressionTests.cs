@@ -419,7 +419,7 @@ public sealed class ApiRegressionTests
         await records.UpsertAsync("committeeInstances", "CI-ACTIVE", CommitteeInstance("CI-ACTIVE", "CAT-ACTIVE"), TestContext.Current.CancellationToken);
         await records.UpsertAsync("committeeInstances", "CI-INACTIVE", CommitteeInstance("CI-INACTIVE", "CAT-INACTIVE"), TestContext.Current.CancellationToken);
         await records.UpsertAsync("committeeInstances", "CI-DELETED", CommitteeInstance("CI-DELETED", "CAT-DELETED"), TestContext.Current.CancellationToken);
-        var controller = new OperationalAdminController(records, db, new GeneralSettingsService(db));
+        var controller = new OperationalAdminController(records, db, new GeneralSettingsService(db), new ReservationSweepThrottle(TimeSpan.Zero));
 
         var response = await controller.CommitteeInstances(TestContext.Current.CancellationToken);
 
@@ -439,7 +439,7 @@ public sealed class ApiRegressionTests
             "CI-BOOKED",
             CommitteeInstance("CI-BOOKED", "CAT-ACTIVE", reservedCount: 3),
             TestContext.Current.CancellationToken);
-        var controller = new OperationalAdminController(records, db, new GeneralSettingsService(db));
+        var controller = new OperationalAdminController(records, db, new GeneralSettingsService(db), new ReservationSweepThrottle(TimeSpan.Zero));
 
         var ex = await Assert.ThrowsAsync<ConflictException>(() =>
             controller.DeleteCommitteeInstance("CI-BOOKED", TestContext.Current.CancellationToken));
@@ -481,7 +481,7 @@ public sealed class ApiRegressionTests
                 ["committeeId"] = "COM-GEN-01"
             },
             TestContext.Current.CancellationToken);
-        var controller = new OperationalAdminController(records, db, new GeneralSettingsService(db));
+        var controller = new OperationalAdminController(records, db, new GeneralSettingsService(db), new ReservationSweepThrottle(TimeSpan.Zero));
 
         var response = await controller.UpdateCommitteeInstance(
             "CI-ACTIVE",
@@ -522,7 +522,7 @@ public sealed class ApiRegressionTests
                 ["committeeId"] = "COM-GEN-01"
             },
             TestContext.Current.CancellationToken);
-        var controller = new OperationalAdminController(records, db, new GeneralSettingsService(db));
+        var controller = new OperationalAdminController(records, db, new GeneralSettingsService(db), new ReservationSweepThrottle(TimeSpan.Zero));
 
         var response = await controller.CommitteeInstances(TestContext.Current.CancellationToken);
 
@@ -561,7 +561,7 @@ public sealed class ApiRegressionTests
                 ["examSlot"] = new JsonObject { ["date"] = "2026-07-10T08:00:00.000Z" }
             },
             TestContext.Current.CancellationToken);
-        var controller = new OperationalAdminController(records, db, new GeneralSettingsService(db));
+        var controller = new OperationalAdminController(records, db, new GeneralSettingsService(db), new ReservationSweepThrottle(TimeSpan.Zero));
 
         var response = await controller.CommitteeInstances(TestContext.Current.CancellationToken);
 
@@ -569,6 +569,43 @@ public sealed class ApiRegressionTests
         var rows = Assert.IsAssignableFrom<IReadOnlyList<JsonObject>>(ok.Value);
         Assert.Equal(1, Assert.Single(rows, x => x["id"]?.GetValue<string>() == "CI-FIRST-DAY")["reserved"]?.GetValue<int>());
         Assert.Equal(0, Assert.Single(rows, x => x["id"]?.GetValue<string>() == "CI-SECOND-DAY")["reserved"]?.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task ListingCommitteeInstancesSkipsReservationSweepWithinThrottleInterval()
+    {
+        await using var db = CreateDb();
+        SeedLookup(db, "applicant-categories", "CAT-ACTIVE", "فئة نشطة");
+        SeedLookup(db, "committees", "COM-GEN-01", "اللجنة الأولى");
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        await records.UpsertAsync(
+            "committeeInstances",
+            "CI-ACTIVE",
+            CommitteeInstance("CI-ACTIVE", "CAT-ACTIVE"),
+            TestContext.Current.CancellationToken);
+        await records.UpsertAsync(
+            "applicants",
+            "APP-1",
+            new JsonObject { ["id"] = "APP-1", ["committeeId"] = "COM-GEN-01" },
+            TestContext.Current.CancellationToken);
+        var controller = new OperationalAdminController(records, db, new GeneralSettingsService(db), new ReservationSweepThrottle(TimeSpan.FromMinutes(5)));
+
+        var firstResponse = await controller.CommitteeInstances(TestContext.Current.CancellationToken);
+        var firstRow = Assert.Single(Assert.IsAssignableFrom<IReadOnlyList<JsonObject>>(Assert.IsType<OkObjectResult>(firstResponse.Result).Value));
+        Assert.Equal(1, firstRow["reserved"]?.GetValue<int>());
+
+        // A booking lands after the first sweep; the next poll inside the
+        // throttle window serves the persisted count instead of recomputing.
+        await records.UpsertAsync(
+            "applicants",
+            "APP-2",
+            new JsonObject { ["id"] = "APP-2", ["committeeId"] = "COM-GEN-01" },
+            TestContext.Current.CancellationToken);
+
+        var secondResponse = await controller.CommitteeInstances(TestContext.Current.CancellationToken);
+        var secondRow = Assert.Single(Assert.IsAssignableFrom<IReadOnlyList<JsonObject>>(Assert.IsType<OkObjectResult>(secondResponse.Result).Value));
+        Assert.Equal(1, secondRow["reserved"]?.GetValue<int>());
     }
 
     [Fact]
