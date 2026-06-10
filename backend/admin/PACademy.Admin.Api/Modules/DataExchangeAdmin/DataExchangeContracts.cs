@@ -121,11 +121,11 @@ public sealed record ExportSheetDto(
     IReadOnlyList<IReadOnlyDictionary<string, string?>> Rows);
 
 /// <summary>
-/// Backend-known metadata for the workbook's first <c>ExportInfo</c> sheet.
-/// The frontend augments this with the in-browser full URL + route (which it
-/// owns) and renders the property/value sheet. <see cref="CycleName"/> plus the
-/// export watermark drive the unique
-/// <c>data-exchange-{cycle-name}-{yyyyMMdd-HHmmss}.xlsx</c> file name.
+/// Backend-known export metadata. <see cref="CycleName"/> plus the export
+/// watermark drive the unique
+/// <c>data-exchange-{cycle-name}-{yyyyMMdd-HHmmss}.xlsx</c> file name on the
+/// frontend (the workbook itself carries data sheets only — the former
+/// <c>ExportInfo</c> metadata sheet was dropped 2026-06-10).
 /// </summary>
 public sealed record ExportInfoDto(
     string? CycleId,

@@ -63,13 +63,13 @@ export const DOMAIN_TITLES_AR: Record<ExchangeDomain, string> = {
 export const EXCHANGE_DOMAINS = Object.keys(SHEET_NAMES) as ExchangeDomain[];
 
 /**
- * The curated full-database snapshot sheets, in workbook order (after the
- * client-built `ExportInfo` sheet). Mirrors the backend `CuratedSheets`. This is
- * the universe the export UI offers — distinct from `SHEET_NAMES`, which also
- * carries the import-only legacy tabs (`SystemCodes`) and the internal/system
- * sheets dropped from the export on 2026-06-10 (Committees, ApplicantCategories,
- * Faculties, Notifications, WorkflowRecords, AuditEntries — kept in
- * `SHEET_NAMES` only so previously exported workbooks still parse on import).
+ * The curated full-database snapshot sheets, in workbook order. Mirrors the
+ * backend `CuratedSheets`. This is the universe the export UI offers —
+ * distinct from `SHEET_NAMES`, which also carries the import-only legacy tabs
+ * (`SystemCodes`) and the internal/system sheets dropped from the export on
+ * 2026-06-10 (Committees, ApplicantCategories, Faculties, Notifications,
+ * WorkflowRecords, AuditEntries — kept in `SHEET_NAMES` only so previously
+ * exported workbooks still parse on import).
  */
 export const EXPORT_DOMAINS: ExchangeDomain[] = [
   'Applicants',
@@ -84,9 +84,6 @@ export const EXPORT_DOMAINS: ExchangeDomain[] = [
   'GeneralSettings',
   'Payments',
 ];
-
-/** Reserved tab name for the workbook's leading metadata sheet. */
-export const EXPORT_INFO_SHEET_NAME = 'ExportInfo';
 
 export type ExportLayout = 'single-workbook' | 'file-per-type';
 
@@ -134,9 +131,9 @@ export interface ExportSheet {
   rows: ExchangeCellMap[];
 }
 
-/** Backend-known metadata for the workbook's leading `ExportInfo` sheet.
- *  Mirrors backend `ExportInfoDto`. The frontend augments this with the in-browser
- *  full URL + route. Populated by the curated snapshot export only. */
+/** Backend-known export metadata — mirrors backend `ExportInfoDto`. The cycle
+ *  name feeds the `data-exchange-{cycle}-{yyyyMMdd-HHmmss}.xlsx` file name.
+ *  Populated by the curated snapshot export only. */
 export interface ExportInfo {
   cycleId: string | null;
   cycleName: string | null;
