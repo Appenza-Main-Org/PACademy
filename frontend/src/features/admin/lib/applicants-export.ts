@@ -7,7 +7,6 @@ import {
 } from '@/shared/types/domain';
 import { applicantService, type ApplicantFilters } from '@/features/applicants';
 
-const EXPORT_PAGE_SIZE = 500;
 const DETAIL_BATCH_SIZE = 8;
 const JSON_CHUNK_SIZE = 30_000;
 
@@ -166,12 +165,7 @@ function normalizeExportFilters(filters: ApplicantFilters): ApplicantFilters {
 
 export async function fetchApplicantsForExport(filters: ApplicantFilters = {}): Promise<Applicant[]> {
   const cleaned = normalizeExportFilters(filters);
-  const firstPage = await applicantService.list({ ...cleaned, page: 1, pageSize: EXPORT_PAGE_SIZE });
-  const rows = [...firstPage.data];
-  for (let page = 2; page <= firstPage.totalPages; page += 1) {
-    const next = await applicantService.list({ ...cleaned, page, pageSize: EXPORT_PAGE_SIZE });
-    rows.push(...next.data);
-  }
+  const rows = await applicantService.listFiltered(cleaned);
   return hydrateApplicantDetails(rows);
 }
 

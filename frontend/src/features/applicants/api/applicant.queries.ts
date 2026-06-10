@@ -1,6 +1,12 @@
+import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ApplicantStatus } from '@/shared/types/domain';
-import { applicantService, type ApplicantFilters } from './applicant.service';
+import {
+  applicantService,
+  compactApplicantFilters,
+  paginateApplicants,
+  type ApplicantFilters,
+} from './applicant.service';
 import { auditService } from '@/features/audit/api/audit.service';
 import { noServerStateCacheOptions } from '@/shared/lib/query-options';
 import { toast } from '@/shared/components';
@@ -23,11 +29,21 @@ export const applicantKeys = {
 };
 
 export function useApplicants(filters: ApplicantFilters = {}) {
-  return useQuery({
-    queryKey: applicantKeys.list(filters),
-    queryFn: () => applicantService.list(filters),
+  const { page = 1, pageSize = 20, ...rest } = filters;
+  // Key on the compacted filter set (page/pageSize excluded): paging the same
+  // filtered list slices the cached rows instead of re-pulling the full
+  // dataset, and hooks with equivalent filters share one backend round-trip.
+  const compacted = compactApplicantFilters(rest);
+  const query = useQuery({
+    queryKey: applicantKeys.list(compacted),
+    queryFn: () => applicantService.listFiltered(compacted),
     ...noServerStateCacheOptions,
   });
+  const data = useMemo(
+    () => (query.data ? paginateApplicants(query.data, page, pageSize) : undefined),
+    [query.data, page, pageSize],
+  );
+  return { ...query, data };
 }
 
 export function useApplicant(id: string) {
