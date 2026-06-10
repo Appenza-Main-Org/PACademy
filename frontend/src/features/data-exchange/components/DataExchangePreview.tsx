@@ -59,7 +59,7 @@ export function DataExchangePreview({
   const actionableCount = (preview.counts.new ?? 0) + (preview.counts.changed ?? 0);
 
   const columns: DataTableColumn<ImportRowOutcome>[] = [
-    { key: 'sheet', label: 'الورقة', accessor: 'sheetName', width: 160 },
+    { key: 'sheet', label: 'الجدول', accessor: 'sheetName', width: 160 },
     { key: 'row', label: 'الصف', numeric: true, render: (r) => r.rowIndex + 1, width: 70 },
     { key: 'businessKey', label: 'المفتاح', accessor: 'businessKey' },
     {
@@ -142,7 +142,7 @@ export function DataExchangePreview({
         {preview.sheetIssues.length > 0 && (
           <div className="rounded-md border border-terra-300 bg-terra-50 p-3 text-2xs text-terra-700">
             <p className="mb-1 flex items-center gap-1 font-semibold">
-              <AlertTriangle size={14} /> أوراق مرفوضة (أسماء غير معروفة)
+              <AlertTriangle size={14} /> جداول مرفوضة (أسماء غير معروفة)
             </p>
             <ul className="list-disc space-y-0.5 ps-5">
               {preview.sheetIssues.map((issue) => (

@@ -85,7 +85,7 @@ public sealed class DataExchangeService(
         }
 
         var watermark = DateTimeOffset.UtcNow;
-        await EmitAuditAsync("export", $"تصدير {sheets.Count} ورقة · {total} صف", total, 0, 0, 0, 0, ct);
+        await EmitAuditAsync("export", $"تصدير {sheets.Count} جدول · {total} صف", total, 0, 0, 0, 0, ct);
         return new ExportResultDto(layout, watermark.ToString("O", CultureInfo.InvariantCulture), total, sheets);
     }
 
@@ -156,7 +156,7 @@ public sealed class DataExchangeService(
 
         var watermark = DateTimeOffset.UtcNow;
         var info = await BuildExportInfoAsync(cycleId, watermark, ct);
-        await EmitAuditAsync("export", $"تصدير {sheets.Count} ورقة · {total} صف", total, 0, 0, 0, 0, ct);
+        await EmitAuditAsync("export", $"تصدير {sheets.Count} جدول · {total} صف", total, 0, 0, 0, 0, ct);
         return new ExportResultDto(layout, watermark.ToString("O", CultureInfo.InvariantCulture), total, sheets, info);
     }
 
@@ -495,7 +495,7 @@ public sealed class DataExchangeService(
         ApplicantReconciliationCommitRequest request, CancellationToken ct)
     {
         if (!string.Equals(request.Sheet.SheetName, "Applicants", StringComparison.Ordinal))
-            throw new InvalidOperationException("ورقة الاعتماد يجب أن تكون «Applicants».");
+            throw new InvalidOperationException("جدول الاعتماد يجب أن يكون «Applicants».");
 
         // Re-resolve diffs against the LIVE db so a concurrent edit (since the
         // admin's preview) cannot be overwritten without a fresh preview.
@@ -637,7 +637,7 @@ public sealed class DataExchangeService(
             if (!DataExchangeRegistry.BySheetName.TryGetValue(sheet.SheetName, out var spec))
             {
                 sheetIssues.Add(new SheetIssue(sheet.SheetName, "DATA_EXCHANGE_INVALID_WORKBOOK",
-                    $"اسم ورقة غير معروف: {sheet.SheetName}"));
+                    $"اسم جدول غير معروف: {sheet.SheetName}"));
                 continue;
             }
             outcomes.AddRange((await ClassifySheetAsync(spec, sheet, ct)).Outcomes);
@@ -732,7 +732,7 @@ public sealed class DataExchangeService(
             foreach (var sheet in request.Sheets)
             {
                 if (!DataExchangeRegistry.BySheetName.TryGetValue(sheet.SheetName, out var spec))
-                { failed.Add(new ImportFailedRow(-1, sheet.SheetName, ["اسم ورقة غير معروف"])); continue; }
+                { failed.Add(new ImportFailedRow(-1, sheet.SheetName, ["اسم جدول غير معروف"])); continue; }
 
                 var (outcomes, _, dbByKey) = await ClassifySheetAsync(spec, sheet, ct);
                 for (var i = 0; i < sheet.Rows.Count; i++)
@@ -1483,7 +1483,7 @@ public sealed class DataExchangeService(
             case ExchangeStorage.Exams: await UpsertExamAsync(row, ct); break;
             case ExchangeStorage.ExamSlots: await UpsertExamSlotAsync(row, ct); break;
             case ExchangeStorage.ReadOnlyExport:
-                throw Invalid("هذه الورقة للتصدير فقط ولا يمكن استيرادها.");
+                throw Invalid("هذا الجدول للتصدير فقط ولا يمكن استيراده.");
         }
     }
 
