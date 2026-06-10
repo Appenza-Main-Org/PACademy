@@ -9,7 +9,11 @@ using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Modules.Admissions;
 
-public sealed class CategoriesService(IAdmissionsDbContext db, IAuditSink auditSink, OperationalRecordStore operationalRecords)
+// operationalRecords is the OperationalRecordsService seam (NOT the raw JSON store):
+// the dependency counts below cover modules that are normalized into typed tables
+// (examPlans, committeeInstances) — a raw-store read would see drained JSON buckets
+// and let category mutation through with live dependents.
+public sealed class CategoriesService(IAdmissionsDbContext db, IAuditSink auditSink, OperationalRecordsService operationalRecords)
 {
     private static readonly string[] SpecKeys =
     [

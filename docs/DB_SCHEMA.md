@@ -8,6 +8,19 @@
 
 ## Admin Data Map
 
+> **Normalization in flight (2026-06-10, pending deploy).** Five migrations
+> (`NormalizeCommitteeInstances` → `NormalizeWorkflowsCommittees`) convert 13 master-data
+> JSON buckets into typed Shape-A tables: `committee_instances`, `payment_ledger`,
+> `exam_committee_users`, `exam_devices`, `exam_results`, `exam_attempt_results`,
+> `biometric_enrollments`, `notifications_master` (+`notification_audience`),
+> `exam_plans` (+`exam_plan_exams`), `committee_results` (+`committee_result_scores`),
+> `workflows` (+`workflow_stages`, `workflow_stage_tests`), `applicant_workflow_progress`
+> (+`applicant_workflow_test_results`), `committees`. Each keeps a `payload_json` mirror
+> so API shapes are unchanged. Kept as JSON by design: audit/log/cache buckets,
+> `admissionSetup.*`, `biometric-config` (freeform k/v), and `applicant_portal_records`.
+> The tables below describe the live DB **before** these migrations are applied —
+> regenerate this doc (`backups/gen-schema-md.sh`) after deploy.
+
 How the admin application's data is laid out across the database. Admin data uses **four storage shapes**:
 
 | Shape | Pattern | Used for |

@@ -5,6 +5,11 @@ using PACademy.Admin.Api.Modules.Identity;
 using PACademy.Admin.Api.Modules.Lookups;
 using PACademy.Admin.Api.Modules.Audit;
 using PACademy.Admin.Api.Modules.Exams;
+using PACademy.Admin.Api.Modules.Committees;
+using PACademy.Admin.Api.Modules.Payments;
+using PACademy.Admin.Api.Modules.Biometric;
+using PACademy.Admin.Api.Modules.Notifications;
+using PACademy.Admin.Api.Modules.Workflows;
 using PACademy.Admin.Api.Modules.Settings;
 using PACademy.Admin.Api.Modules.OperationalRecords;
 using PACademy.Shared.Persistence.ChangeTracking;
@@ -82,6 +87,25 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
     public DbSet<BiometricRecordEntity> BiometricRecords => Set<BiometricRecordEntity>();
     public DbSet<AdmissionSetupRecordEntity> AdmissionSetupRecords => Set<AdmissionSetupRecordEntity>();
     public DbSet<ReportSnapshotRecordEntity> ReportSnapshotRecords => Set<ReportSnapshotRecordEntity>();
+    public DbSet<CommitteeInstanceEntity> CommitteeInstances => Set<CommitteeInstanceEntity>();
+    public DbSet<PaymentLedgerEntity> PaymentLedger => Set<PaymentLedgerEntity>();
+    public DbSet<ExamCommitteeUserEntity> ExamCommitteeUsers => Set<ExamCommitteeUserEntity>();
+    public DbSet<ExamDeviceEntity> ExamDevices => Set<ExamDeviceEntity>();
+    public DbSet<ExamResultEntity> ExamResults => Set<ExamResultEntity>();
+    public DbSet<ExamAttemptResultEntity> ExamAttemptResults => Set<ExamAttemptResultEntity>();
+    public DbSet<BiometricEnrollmentEntity> BiometricEnrollments => Set<BiometricEnrollmentEntity>();
+    public DbSet<NotificationMasterEntity> NotificationsMaster => Set<NotificationMasterEntity>();
+    public DbSet<NotificationAudienceEntity> NotificationAudience => Set<NotificationAudienceEntity>();
+    public DbSet<ExamPlanEntity> ExamPlans => Set<ExamPlanEntity>();
+    public DbSet<ExamPlanExamEntity> ExamPlanExams => Set<ExamPlanExamEntity>();
+    public DbSet<CommitteeResultEntity> CommitteeResults => Set<CommitteeResultEntity>();
+    public DbSet<CommitteeResultScoreEntity> CommitteeResultScores => Set<CommitteeResultScoreEntity>();
+    public DbSet<WorkflowEntity> Workflows => Set<WorkflowEntity>();
+    public DbSet<WorkflowStageEntity> WorkflowStages => Set<WorkflowStageEntity>();
+    public DbSet<WorkflowStageTestEntity> WorkflowStageTests => Set<WorkflowStageTestEntity>();
+    public DbSet<ApplicantWorkflowProgressEntity> ApplicantWorkflowProgress => Set<ApplicantWorkflowProgressEntity>();
+    public DbSet<ApplicantWorkflowTestResultEntity> ApplicantWorkflowTestResults => Set<ApplicantWorkflowTestResultEntity>();
+    public DbSet<CommitteeMasterEntity> CommitteesMaster => Set<CommitteeMasterEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -163,6 +187,376 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
             entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
             entity.HasIndex(x => new { x.CycleId, x.Version }).IsUnique().HasDatabaseName("ux_admission_rules_cycle_version");
+        });
+
+        modelBuilder.Entity<CommitteeInstanceEntity>(entity =>
+        {
+            entity.ToTable("committee_instances");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(96);
+            entity.Property(x => x.DefinitionCode).HasColumnName("definition_code").HasMaxLength(96);
+            entity.Property(x => x.CycleId).HasColumnName("cycle_id").HasMaxLength(96);
+            entity.Property(x => x.CategoryKey).HasColumnName("category_key").HasMaxLength(96);
+            entity.Property(x => x.Date).HasColumnName("date");
+            entity.Property(x => x.Capacity).HasColumnName("capacity");
+            entity.Property(x => x.Reserved).HasColumnName("reserved");
+            entity.Property(x => x.ReservedRefreshedAt).HasColumnName("reserved_refreshed_at");
+            entity.Property(x => x.PayloadJson).HasColumnName("payload_json");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => x.CycleId).HasDatabaseName("ix_committee_instances_cycle_id");
+            entity.HasIndex(x => x.CategoryKey).HasDatabaseName("ix_committee_instances_category_key");
+            entity.HasIndex(x => x.DefinitionCode).HasDatabaseName("ix_committee_instances_definition_code");
+            entity.HasIndex(x => new { x.CycleId, x.Date }).HasDatabaseName("ix_committee_instances_cycle_date");
+        });
+
+        modelBuilder.Entity<PaymentLedgerEntity>(entity =>
+        {
+            entity.ToTable("payment_ledger");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(96);
+            entity.Property(x => x.ApplicantId).HasColumnName("applicant_id").HasMaxLength(128);
+            entity.Property(x => x.ApplicantName).HasColumnName("applicant_name").HasMaxLength(256);
+            entity.Property(x => x.NationalId).HasColumnName("national_id").HasMaxLength(32);
+            entity.Property(x => x.CycleId).HasColumnName("cycle_id").HasMaxLength(96);
+            entity.Property(x => x.FawryReference).HasColumnName("fawry_reference").HasMaxLength(128);
+            entity.Property(x => x.Amount).HasColumnName("amount").HasPrecision(10, 2);
+            entity.Property(x => x.Status).HasColumnName("status").HasMaxLength(48);
+            entity.Property(x => x.LastSyncAt).HasColumnName("last_sync_at");
+            entity.Property(x => x.PaidAt).HasColumnName("paid_at");
+            entity.Property(x => x.DeletedAt).HasColumnName("deleted_at");
+            entity.Property(x => x.DeletedBy).HasColumnName("deleted_by").HasMaxLength(128);
+            entity.Property(x => x.DeleteReason).HasColumnName("delete_reason").HasMaxLength(512);
+            entity.Property(x => x.PayloadJson).HasColumnName("payload_json");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => x.FawryReference)
+                .IsUnique()
+                .HasFilter("[fawry_reference] IS NOT NULL")
+                .HasDatabaseName("ux_payment_ledger_fawry_reference");
+            entity.HasIndex(x => x.NationalId).HasDatabaseName("ix_payment_ledger_national_id");
+            entity.HasIndex(x => x.CycleId).HasDatabaseName("ix_payment_ledger_cycle_id");
+            entity.HasIndex(x => x.Status).HasDatabaseName("ix_payment_ledger_status");
+        });
+
+        modelBuilder.Entity<ExamCommitteeUserEntity>(entity =>
+        {
+            entity.ToTable("exam_committee_users");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(96);
+            entity.Property(x => x.FullName).HasColumnName("full_name").HasMaxLength(256);
+            entity.Property(x => x.Username).HasColumnName("username").HasMaxLength(128);
+            entity.Property(x => x.Permission).HasColumnName("permission").HasMaxLength(64);
+            entity.Property(x => x.ExamType).HasColumnName("exam_type").HasMaxLength(96);
+            entity.Property(x => x.Status).HasColumnName("status").HasMaxLength(48);
+            entity.Property(x => x.AuthorizedDeviceId).HasColumnName("authorized_device_id").HasMaxLength(96);
+            entity.Property(x => x.AuthorizedIp).HasColumnName("authorized_ip").HasMaxLength(64);
+            entity.Property(x => x.PayloadJson).HasColumnName("payload_json");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => x.Username).HasDatabaseName("ix_exam_committee_users_username");
+            entity.HasIndex(x => x.Status).HasDatabaseName("ix_exam_committee_users_status");
+        });
+
+        modelBuilder.Entity<ExamDeviceEntity>(entity =>
+        {
+            entity.ToTable("exam_devices");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(96);
+            entity.Property(x => x.Label).HasColumnName("label").HasMaxLength(256);
+            entity.Property(x => x.MacAddress).HasColumnName("mac_address").HasMaxLength(64);
+            entity.Property(x => x.IpAddress).HasColumnName("ip_address").HasMaxLength(64);
+            entity.Property(x => x.Status).HasColumnName("status").HasMaxLength(48);
+            entity.Property(x => x.AllowedFrom).HasColumnName("allowed_from").HasMaxLength(64);
+            entity.Property(x => x.AllowedTo).HasColumnName("allowed_to").HasMaxLength(64);
+            entity.Property(x => x.ExamId).HasColumnName("exam_id").HasMaxLength(128);
+            entity.Property(x => x.PayloadJson).HasColumnName("payload_json");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => x.MacAddress).HasDatabaseName("ix_exam_devices_mac_address");
+            entity.HasIndex(x => x.Status).HasDatabaseName("ix_exam_devices_status");
+        });
+
+        modelBuilder.Entity<ExamResultEntity>(entity =>
+        {
+            entity.ToTable("exam_results");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(128);
+            entity.Property(x => x.CycleId).HasColumnName("cycle_id").HasMaxLength(96);
+            entity.Property(x => x.ExamId).HasColumnName("exam_id").HasMaxLength(128);
+            entity.Property(x => x.ApplicantId).HasColumnName("applicant_id").HasMaxLength(128);
+            entity.Property(x => x.NationalId).HasColumnName("national_id").HasMaxLength(32);
+            entity.Property(x => x.Status).HasColumnName("status").HasMaxLength(48);
+            entity.Property(x => x.ReceivedAt).HasColumnName("received_at");
+            entity.Property(x => x.PayloadJson).HasColumnName("payload_json");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => new { x.CycleId, x.ExamId }).HasDatabaseName("ix_exam_results_cycle_exam");
+            entity.HasIndex(x => x.ApplicantId).HasDatabaseName("ix_exam_results_applicant_id");
+            entity.HasIndex(x => x.NationalId).HasDatabaseName("ix_exam_results_national_id");
+            entity.HasIndex(x => x.Status).HasDatabaseName("ix_exam_results_status");
+        });
+
+        modelBuilder.Entity<ExamAttemptResultEntity>(entity =>
+        {
+            entity.ToTable("exam_attempt_results");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(128);
+            entity.Property(x => x.ExamId).HasColumnName("exam_id").HasMaxLength(128);
+            entity.Property(x => x.AttemptId).HasColumnName("attempt_id").HasMaxLength(128);
+            entity.Property(x => x.ApplicantId).HasColumnName("applicant_id").HasMaxLength(128);
+            entity.Property(x => x.Status).HasColumnName("status").HasMaxLength(48);
+            entity.Property(x => x.PassFail).HasColumnName("pass_fail").HasMaxLength(24);
+            entity.Property(x => x.SubmittedAt).HasColumnName("submitted_at");
+            entity.Property(x => x.PayloadJson).HasColumnName("payload_json");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => x.ExamId).HasDatabaseName("ix_exam_attempt_results_exam_id");
+            entity.HasIndex(x => x.ApplicantId).HasDatabaseName("ix_exam_attempt_results_applicant_id");
+            entity.HasIndex(x => x.Status).HasDatabaseName("ix_exam_attempt_results_status");
+        });
+
+        modelBuilder.Entity<BiometricEnrollmentEntity>(entity =>
+        {
+            entity.ToTable("biometric_enrollments");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(96);
+            entity.Property(x => x.ApplicantId).HasColumnName("applicant_id").HasMaxLength(128);
+            entity.Property(x => x.NationalId).HasColumnName("national_id").HasMaxLength(32);
+            entity.Property(x => x.CycleId).HasColumnName("cycle_id").HasMaxLength(96);
+            entity.Property(x => x.Status).HasColumnName("status").HasMaxLength(48);
+            entity.Property(x => x.EnrolledAt).HasColumnName("enrolled_at");
+            entity.Property(x => x.EnrolledBy).HasColumnName("enrolled_by").HasMaxLength(128);
+            entity.Property(x => x.DeviceEmpCode).HasColumnName("device_emp_code").HasMaxLength(64);
+            entity.Property(x => x.PayloadJson).HasColumnName("payload_json");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => x.ApplicantId).HasDatabaseName("ix_biometric_enrollments_applicant_id");
+            entity.HasIndex(x => x.NationalId).HasDatabaseName("ix_biometric_enrollments_national_id");
+            entity.HasIndex(x => x.DeviceEmpCode).HasDatabaseName("ix_biometric_enrollments_device_emp_code");
+        });
+
+        modelBuilder.Entity<NotificationMasterEntity>(entity =>
+        {
+            entity.ToTable("notifications_master");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(96);
+            entity.Property(x => x.Type).HasColumnName("type").HasMaxLength(48);
+            entity.Property(x => x.TitleAr).HasColumnName("title_ar").HasMaxLength(512);
+            entity.Property(x => x.Status).HasColumnName("status").HasMaxLength(48);
+            entity.Property(x => x.PublishAt).HasColumnName("publish_at");
+            entity.Property(x => x.ExpireAt).HasColumnName("expire_at");
+            entity.Property(x => x.CreatedBy).HasColumnName("created_by").HasMaxLength(128);
+            entity.Property(x => x.DeletedAt).HasColumnName("deleted_at");
+            entity.Property(x => x.PayloadJson).HasColumnName("payload_json");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => x.Status).HasDatabaseName("ix_notifications_master_status");
+            entity.HasIndex(x => x.PublishAt).HasDatabaseName("ix_notifications_master_publish_at");
+        });
+
+        modelBuilder.Entity<NotificationAudienceEntity>(entity =>
+        {
+            entity.ToTable("notification_audience");
+            entity.HasKey(x => new { x.NotificationId, x.AudienceOrder });
+            entity.Property(x => x.NotificationId).HasColumnName("notification_id").HasMaxLength(96);
+            entity.Property(x => x.AudienceOrder).HasColumnName("audience_order");
+            entity.Property(x => x.Kind).HasColumnName("kind").HasMaxLength(48);
+            entity.Property(x => x.TargetJson).HasColumnName("target_json");
+            entity.HasOne<NotificationMasterEntity>()
+                .WithMany(x => x.Audience)
+                .HasForeignKey(x => x.NotificationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(x => x.Kind).HasDatabaseName("ix_notification_audience_kind");
+        });
+
+        modelBuilder.Entity<ExamPlanEntity>(entity =>
+        {
+            entity.ToTable("exam_plans");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(128);
+            entity.Property(x => x.CycleId).HasColumnName("cycle_id").HasMaxLength(96);
+            entity.Property(x => x.CategoryId).HasColumnName("category_id").HasMaxLength(96);
+            entity.Property(x => x.PayloadJson).HasColumnName("payload_json");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => new { x.CycleId, x.CategoryId }).HasDatabaseName("ix_exam_plans_cycle_category");
+        });
+
+        modelBuilder.Entity<ExamPlanExamEntity>(entity =>
+        {
+            entity.ToTable("exam_plan_exams");
+            entity.HasKey(x => new { x.PlanId, x.ExamOrder });
+            entity.Property(x => x.PlanId).HasColumnName("plan_id").HasMaxLength(128);
+            entity.Property(x => x.ExamOrder).HasColumnName("exam_order");
+            entity.Property(x => x.ExamId).HasColumnName("exam_id").HasMaxLength(128);
+            entity.Property(x => x.Fee).HasColumnName("fee").HasPrecision(10, 2);
+            entity.Property(x => x.IsRequired).HasColumnName("is_required");
+            entity.HasOne<ExamPlanEntity>()
+                .WithMany(x => x.Exams)
+                .HasForeignKey(x => x.PlanId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(x => x.ExamId).HasDatabaseName("ix_exam_plan_exams_exam_id");
+        });
+
+        modelBuilder.Entity<CommitteeResultEntity>(entity =>
+        {
+            entity.ToTable("committee_results");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(128);
+            entity.Property(x => x.CommitteeId).HasColumnName("committee_id").HasMaxLength(128);
+            entity.Property(x => x.ApplicantId).HasColumnName("applicant_id").HasMaxLength(128);
+            entity.Property(x => x.Phase).HasColumnName("phase").HasMaxLength(64);
+            entity.Property(x => x.PassFail).HasColumnName("pass_fail").HasMaxLength(24);
+            entity.Property(x => x.EnteredBy).HasColumnName("entered_by").HasMaxLength(128);
+            entity.Property(x => x.EnteredAt).HasColumnName("entered_at");
+            entity.Property(x => x.ApprovedBy).HasColumnName("approved_by").HasMaxLength(128);
+            entity.Property(x => x.ApprovedAt).HasColumnName("approved_at");
+            entity.Property(x => x.PayloadJson).HasColumnName("payload_json");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => x.CommitteeId).HasDatabaseName("ix_committee_results_committee_id");
+            entity.HasIndex(x => x.ApplicantId).HasDatabaseName("ix_committee_results_applicant_id");
+            entity.HasIndex(x => x.Phase).HasDatabaseName("ix_committee_results_phase");
+        });
+
+        modelBuilder.Entity<CommitteeResultScoreEntity>(entity =>
+        {
+            entity.ToTable("committee_result_scores");
+            entity.HasKey(x => new { x.ResultId, x.ScoreKey });
+            entity.Property(x => x.ResultId).HasColumnName("result_id").HasMaxLength(128);
+            entity.Property(x => x.ScoreKey).HasColumnName("score_key").HasMaxLength(96);
+            entity.Property(x => x.ScoreValue).HasColumnName("score_value").HasPrecision(10, 2);
+            entity.HasOne<CommitteeResultEntity>()
+                .WithMany(x => x.Scores)
+                .HasForeignKey(x => x.ResultId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<WorkflowEntity>(entity =>
+        {
+            entity.ToTable("workflows");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(96);
+            entity.Property(x => x.Department).HasColumnName("department").HasMaxLength(48);
+            entity.Property(x => x.Name).HasColumnName("name").HasMaxLength(256);
+            entity.Property(x => x.CycleId).HasColumnName("cycle_id").HasMaxLength(96);
+            entity.Property(x => x.IsActive).HasColumnName("is_active");
+            entity.Property(x => x.Version).HasColumnName("version");
+            entity.Property(x => x.UpdatedBy).HasColumnName("updated_by").HasMaxLength(128);
+            entity.Property(x => x.PayloadJson).HasColumnName("payload_json");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => x.Department).HasDatabaseName("ix_workflows_department");
+            entity.HasIndex(x => x.CycleId).HasDatabaseName("ix_workflows_cycle_id");
+            entity.HasIndex(x => x.IsActive).HasDatabaseName("ix_workflows_is_active");
+        });
+
+        modelBuilder.Entity<WorkflowStageEntity>(entity =>
+        {
+            entity.ToTable("workflow_stages");
+            entity.HasKey(x => new { x.WorkflowId, x.StageOrder });
+            entity.Property(x => x.WorkflowId).HasColumnName("workflow_id").HasMaxLength(96);
+            entity.Property(x => x.StageOrder).HasColumnName("stage_order");
+            entity.Property(x => x.StageId).HasColumnName("stage_id").HasMaxLength(96);
+            entity.Property(x => x.Name).HasColumnName("name").HasMaxLength(256);
+            entity.Property(x => x.StatusOnEnter).HasColumnName("status_on_enter").HasMaxLength(64);
+            entity.Property(x => x.AllowedNextStatusesJson).HasColumnName("allowed_next_statuses_json");
+            entity.HasOne<WorkflowEntity>()
+                .WithMany(x => x.Stages)
+                .HasForeignKey(x => x.WorkflowId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(x => x.StageId).HasDatabaseName("ix_workflow_stages_stage_id");
+        });
+
+        modelBuilder.Entity<WorkflowStageTestEntity>(entity =>
+        {
+            entity.ToTable("workflow_stage_tests");
+            entity.HasKey(x => new { x.WorkflowId, x.StageId, x.TestOrder });
+            entity.Property(x => x.WorkflowId).HasColumnName("workflow_id").HasMaxLength(96);
+            entity.Property(x => x.StageId).HasColumnName("stage_id").HasMaxLength(96);
+            entity.Property(x => x.TestOrder).HasColumnName("test_order");
+            entity.Property(x => x.TestId).HasColumnName("test_id").HasMaxLength(96);
+            entity.Property(x => x.Name).HasColumnName("name").HasMaxLength(256);
+            entity.Property(x => x.Kind).HasColumnName("kind").HasMaxLength(32);
+            entity.Property(x => x.Required).HasColumnName("required");
+            entity.Property(x => x.PassCriterionJson).HasColumnName("pass_criterion_json");
+            entity.Property(x => x.OwnerApp).HasColumnName("owner_app").HasMaxLength(48);
+            entity.HasOne<WorkflowEntity>()
+                .WithMany(x => x.Tests)
+                .HasForeignKey(x => x.WorkflowId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ApplicantWorkflowProgressEntity>(entity =>
+        {
+            entity.ToTable("applicant_workflow_progress");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(128);
+            entity.Property(x => x.ApplicantId).HasColumnName("applicant_id").HasMaxLength(128);
+            entity.Property(x => x.WorkflowId).HasColumnName("workflow_id").HasMaxLength(96);
+            entity.Property(x => x.WorkflowVersion).HasColumnName("workflow_version");
+            entity.Property(x => x.CurrentStageId).HasColumnName("current_stage_id").HasMaxLength(96);
+            entity.Property(x => x.CompletedStageIdsJson).HasColumnName("completed_stage_ids_json");
+            entity.Property(x => x.PayloadJson).HasColumnName("payload_json");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => x.ApplicantId).HasDatabaseName("ix_applicant_workflow_progress_applicant_id");
+            entity.HasIndex(x => x.WorkflowId).HasDatabaseName("ix_applicant_workflow_progress_workflow_id");
+        });
+
+        modelBuilder.Entity<ApplicantWorkflowTestResultEntity>(entity =>
+        {
+            entity.ToTable("applicant_workflow_test_results");
+            entity.HasKey(x => new { x.ProgressId, x.StageId, x.TestId });
+            entity.Property(x => x.ProgressId).HasColumnName("progress_id").HasMaxLength(128);
+            entity.Property(x => x.StageId).HasColumnName("stage_id").HasMaxLength(96);
+            entity.Property(x => x.TestId).HasColumnName("test_id").HasMaxLength(96);
+            entity.Property(x => x.Outcome).HasColumnName("outcome").HasMaxLength(48);
+            entity.Property(x => x.Score).HasColumnName("score").HasPrecision(10, 2);
+            entity.Property(x => x.RecordedAt).HasColumnName("recorded_at");
+            entity.Property(x => x.RecordedBy).HasColumnName("recorded_by").HasMaxLength(128);
+            entity.HasOne<ApplicantWorkflowProgressEntity>()
+                .WithMany(x => x.TestResults)
+                .HasForeignKey(x => x.ProgressId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<CommitteeMasterEntity>(entity =>
+        {
+            entity.ToTable("committees");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(128);
+            entity.Property(x => x.Name).HasColumnName("name").HasMaxLength(256);
+            entity.Property(x => x.CategoryKey).HasColumnName("category_key").HasMaxLength(96);
+            entity.Property(x => x.GradeType).HasColumnName("grade_type").HasMaxLength(48);
+            entity.Property(x => x.GradeMin).HasColumnName("grade_min").HasPrecision(7, 2);
+            entity.Property(x => x.GradeMax).HasColumnName("grade_max").HasPrecision(7, 2);
+            entity.Property(x => x.Capacity).HasColumnName("capacity");
+            entity.Property(x => x.Gender).HasColumnName("gender").HasMaxLength(24);
+            entity.Property(x => x.Status).HasColumnName("status").HasMaxLength(48);
+            entity.Property(x => x.HeadUserId).HasColumnName("head_user_id").HasMaxLength(128);
+            entity.Property(x => x.AcademicYearId).HasColumnName("academic_year_id").HasMaxLength(96);
+            entity.Property(x => x.LinkedCycleId).HasColumnName("linked_cycle_id").HasMaxLength(96);
+            entity.Property(x => x.PayloadJson).HasColumnName("payload_json");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => x.CategoryKey).HasDatabaseName("ix_committees_category_key");
+            entity.HasIndex(x => x.Status).HasDatabaseName("ix_committees_status");
+            entity.HasIndex(x => x.LinkedCycleId).HasDatabaseName("ix_committees_linked_cycle_id");
         });
 
         modelBuilder.Entity<ApplicationSettingsCategoryConfigEntity>(entity =>

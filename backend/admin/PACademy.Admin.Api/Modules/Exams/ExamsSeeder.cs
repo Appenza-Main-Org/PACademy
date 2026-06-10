@@ -157,17 +157,22 @@ public sealed class ExamsSeeder(IWebHostEnvironment environment, ILogger<ExamsSe
 
     private static async Task<int> SeedOperationalBucketsAsync(AdminDbContext db, JsonElement root, CancellationToken ct)
     {
-        var store = new OperationalRecordStore(db);
+        // Route through OperationalRecordsService so normalized buckets
+        // (exam-committee-users, exam-devices, exam-results) land in their typed
+        // tables via the same MERGE the runtime uses; JSON buckets (exam-audit)
+        // fall through to the operational store. NullAuditSink keeps seeding
+        // out of audit_entries.
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new PACademy.Shared.Audit.NullAuditSink());
         var inserted = 0;
         foreach (var (jsonKey, module) in OperationalBuckets)
         {
-            if ((await store.ListAsync(module, ct)).Count > 0) continue;
+            if ((await records.ListAsync(module, ct)).Count > 0) continue;
             if (!root.TryGetProperty(jsonKey, out var rows) || rows.ValueKind != JsonValueKind.Array) continue;
             foreach (var row in rows.EnumerateArray())
             {
                 var obj = JsonNode.Parse(row.GetRawText())!.AsObject();
                 var id = AdminRecordJson.StringProp(obj, "id") ?? $"{module}-{Guid.NewGuid():N}".ToUpperInvariant();
-                await store.UpsertAsync(module, id, obj, ct);
+                await records.UpsertAsync(module, id, obj, ct);
                 inserted++;
             }
         }
