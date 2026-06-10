@@ -162,8 +162,9 @@ export function AdmissionFormSection({
   const fatherName = father ? printMemberName(father) : '';
   const motherName = mother ? printMemberName(mother) : '';
   const guardianName = guardian ? printGuardianName(guardian) : '';
-  /* "المؤهل" in the family block prints the dropdown value verbatim
-   * — these are free-text fields in Stage 7 so we don't translate. */
+  /* "المؤهل" / "الوظيفة" in the family block print the selected/stored
+   * value first. The detail fields describe workplace / specialization
+   * and must not replace the applicant's actual selected values. */
   const fatherQualification = father ? printQualification(father) : '';
   const motherQualification = mother ? printQualification(mother) : '';
   const guardianQualification = guardian ? printGuardianQualification(guardian) : '';
@@ -643,28 +644,31 @@ function printGuardianName(guardian: GuardianForm): string {
 }
 
 function printProfession(member: FamilyMemberForm): string {
-  return labeledOrRaw(member.profession, member.professionDetail);
+  return selectedLabelOrFallback(member.profession, member.professionDetail);
 }
 
 function printGuardianProfession(guardian: GuardianForm): string {
-  return labeledOrRaw(guardian.profession, guardian.professionDetail);
+  return selectedLabelOrFallback(guardian.profession, guardian.professionDetail);
 }
 
 function printQualification(member: FamilyMemberForm): string {
-  return member.qualificationDetail.trim() || member.qualification.trim();
+  return selectedOrFallback(member.qualification, member.qualificationDetail);
 }
 
 function printGuardianQualification(guardian: GuardianForm): string {
-  return guardian.qualificationDetail.trim() || guardian.qualification.trim();
+  return selectedOrFallback(guardian.qualification, guardian.qualificationDetail);
 }
 
-function labeledOrRaw(codeOrText: string, detail?: string): string {
-  const detailText = detail?.trim() ?? '';
-  if (detailText) return detailText;
-  const raw = codeOrText.trim();
+function selectedLabelOrFallback(selectedValue: string, fallback?: string): string {
+  const raw = selectedOrFallback(selectedValue, fallback);
   if (!raw) return '';
   const label = professionLabel(raw);
   return label === '—' ? raw : label;
+}
+
+function selectedOrFallback(selectedValue: string, fallback?: string): string {
+  const raw = selectedValue.trim();
+  return raw || fallback?.trim() || '';
 }
 
 function readString(record: Record<string, unknown>, key: string): string {
