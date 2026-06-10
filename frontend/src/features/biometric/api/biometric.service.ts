@@ -442,8 +442,9 @@ export interface ZkRecentPunchesResponse {
 
 export const biometricService = {
   /**
-   * Live list of ZKBioTime terminals (devices). Requires Biometric:Mode=zkbiotime
-   * on the backend; otherwise the API returns 409 ZK_MODE_INACTIVE.
+   * Live list of ZKBioTime terminals (devices). Active once a server connection
+   * is saved from the admin screen (or set in appsettings); otherwise the API
+   * returns 409 ZK_MODE_INACTIVE.
    */
   async getZkDevices(): Promise<ZkDirectoryResponse<ZkDevice>> {
     return apiClient.get<ZkDirectoryResponse<ZkDevice>>('/api/biometric/zk/devices');
