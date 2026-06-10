@@ -185,7 +185,7 @@ function normalizePositiveInteger(value: unknown): number | null {
   return n >= 1 ? n : null;
 }
 
-function normalizeActiveCycle(value: AdmissionCycle | AdmissionCycle[] | null): AdmissionCycle | null {
+function normalizeActiveCycle(value: AdmissionCycle | AdmissionCycle[] | null | undefined): AdmissionCycle | null {
   const rows = Array.isArray(value) ? value : value ? [value] : [];
   return (
     rows.find((cycle) => cycle.status === 'active' || cycle.status === 'open' || cycle.status === 'extended') ??
@@ -637,7 +637,8 @@ export const applicantPortalService = {
 
   async getPaymentConfig(): Promise<ApplicantPaymentConfig> {
     if (isBackendEnabled()) {
-      const active = await adminApiClient.get<AdmissionCycle | AdmissionCycle[] | null>('/api/cycles/active');
+      // GET /api/cycles/active serializes "no active cycle" as 204 → undefined.
+      const active = await adminApiClient.get<AdmissionCycle | AdmissionCycle[] | null | undefined>('/api/cycles/active');
       return cycleToPaymentConfig(normalizeActiveCycle(active));
     }
     await simulateLatency(80, 200);

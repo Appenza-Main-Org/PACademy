@@ -38,9 +38,12 @@ export const testScheduleService = {
   async current(applicantId: string): Promise<TestSchedule | null> {
     if (isBackendEnabled()) {
       const id = resolveApplicantId(applicantId);
-      return applicantApiClient.get<TestSchedule | null>(
+      // "No current test" serializes as 204 No Content → undefined; coalesce
+      // so the query resolves (TanStack treats undefined data as an error).
+      const current = await applicantApiClient.get<TestSchedule | null | undefined>(
         `/api/applicant/${encodeURIComponent(id)}/tests/current`,
       );
+      return current ?? null;
     }
     await simulateLatency(120, 240);
     const all = MOCK.testSchedules.filter((t) => t.applicantId === applicantId);
