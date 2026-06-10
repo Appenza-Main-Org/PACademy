@@ -263,11 +263,22 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
         else
         {
             var preMatched = BoolProp(input, "biometricMatched");
+            // ZK terminals cap emp_code at 9 digits, so device punches carry the
+            // device-assigned emp_code (captured at enrollment as deviceEmpCode), NOT
+            // the 14-digit national id. Query the punch stream by that bound code so
+            // verify-by-NID resolves; fall back to the national id only for legacy
+            // short codes / non-ZK gateways.
+            var deviceEmpCode = lookup["enrollment"] is JsonObject enrollmentRow
+                ? AdminRecordJson.StringProp(enrollmentRow, "deviceEmpCode")
+                : null;
+            var matchEmpCode = !string.IsNullOrWhiteSpace(deviceEmpCode)
+                ? deviceEmpCode
+                : AdminRecordJson.StringProp(applicant, "nationalId");
             var match = preMatched
                 ? new BiometricMatchResult(IsMatch: true, Confidence: 100, Score: 100)
                 : await device.MatchAsync(new BiometricMatchRequest(
                     applicantId, method, AdminRecordJson.StringProp(lookup, "barcode"), null,
-                    EmpCode: AdminRecordJson.StringProp(applicant, "nationalId"),
+                    EmpCode: matchEmpCode,
                     TerminalSn: AdminRecordJson.StringProp(input, "terminalSn")), ct);
             confidence = match.Confidence;
             status = match.Score >= 88 ? "match" : match.Score >= 76 ? "manual_review_required" : "no_match";
@@ -394,11 +405,18 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
         var daily = new List<object>();
         for (var i = 6; i >= 0; i--)
         {
-            var dayStart = nowMs - i * day;
-            var rows = verifications.Where(v => Math.Abs((AdminRecordJson.NumberProp(v, "timestamp") ?? 0) - dayStart) < day).ToList();
+            var dayEnd = nowMs - i * day;
+            // Non-overlapping 24h window per day so a punch counts for exactly one
+            // day (the previous Math.Abs(...) < day window double-counted, making
+            // adjacent days show identical totals).
+            var rows = verifications.Where(v =>
+            {
+                var ts = AdminRecordJson.NumberProp(v, "timestamp") ?? 0;
+                return ts > dayEnd - day && ts <= dayEnd;
+            }).ToList();
             daily.Add(new
             {
-                label = DateTimeOffset.FromUnixTimeMilliseconds(dayStart).ToString("ddd"),
+                label = DateTimeOffset.FromUnixTimeMilliseconds(dayEnd).ToString("ddd"),
                 total = rows.Count,
                 matched = rows.Count(r => AdminRecordJson.StringProp(r, "result") == "match"),
                 failed = rows.Count(r => AdminRecordJson.StringProp(r, "result") != "match"),

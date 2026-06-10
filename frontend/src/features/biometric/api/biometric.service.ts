@@ -800,10 +800,11 @@ export const biometricService = {
     }
     await simulateLatency();
     const days = Array.from({ length: 7 }, (_, i) => {
-      const dayStart = Date.now() - i * 24 * 3600_000;
-      const rows = VERIFY_STATE.filter((v) => Math.abs(v.timestamp - dayStart) < 24 * 3600_000);
+      const dayEnd = Date.now() - i * 24 * 3600_000;
+      // Non-overlapping 24h window per day so a punch counts for exactly one day.
+      const rows = VERIFY_STATE.filter((v) => v.timestamp > dayEnd - 24 * 3600_000 && v.timestamp <= dayEnd);
       return {
-        label: new Date(dayStart).toLocaleDateString('ar-EG', { weekday: 'short' }),
+        label: new Date(dayEnd).toLocaleDateString('ar-EG', { weekday: 'short' }),
         total: rows.length,
         matched: rows.filter((r) => r.result === 'match').length,
         failed: rows.filter((r) => r.result !== 'match').length,
@@ -834,11 +835,6 @@ export const biometricService = {
     }
     await simulateLatency();
     return buildPresence();
-  },
-
-  async exportReport(format: ExportFormat): Promise<{ fileName: string }> {
-    await simulateLatency(350, 700);
-    return { fileName: `biometric-report.${format === 'excel' ? 'xlsx' : format === 'word' ? 'docx' : 'pdf'}` };
   },
 
   async monitoring(): Promise<{
