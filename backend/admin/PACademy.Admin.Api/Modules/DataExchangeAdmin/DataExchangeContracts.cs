@@ -123,8 +123,9 @@ public sealed record ExportSheetDto(
 /// <summary>
 /// Backend-known metadata for the workbook's first <c>ExportInfo</c> sheet.
 /// The frontend augments this with the in-browser full URL + route (which it
-/// owns) and renders the property/value sheet. <see cref="CycleName"/> drives
-/// the <c>data-exchange-{cycle-name}.xlsx</c> file name.
+/// owns) and renders the property/value sheet. <see cref="CycleName"/> plus the
+/// export watermark drive the unique
+/// <c>data-exchange-{cycle-name}-{yyyyMMdd-HHmmss}.xlsx</c> file name.
 /// </summary>
 public sealed record ExportInfoDto(
     string? CycleId,

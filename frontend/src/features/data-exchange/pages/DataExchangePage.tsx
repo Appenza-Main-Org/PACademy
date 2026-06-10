@@ -292,11 +292,22 @@ export function DataExchangePage(): JSX.Element {
         cycleId: selectedCycleId ?? undefined,
       });
       const stamp = new Date().toISOString().slice(0, 10);
-      // `data-exchange-{cycle}.xlsx` — prefer the cycle year (clean ASCII), then the
-      // backend's cycle name, then the cycle id, then the date stamp.
+      // `data-exchange-{cycle}-{yyyyMMdd-HHmmss}.xlsx` — cycle label prefers the
+      // cycle year (clean ASCII), then the backend's cycle name, then the cycle
+      // id, then the date stamp. The time suffix comes from the backend export
+      // watermark (the same instant written into the ExportInfo sheet) so every
+      // export gets a distinct, sortable file name instead of overwriting the
+      // previous download of the same cycle.
       const cycleLabel = sanitizeFileLabel(
         String(cycleCtx.cycle?.year ?? result.info?.cycleName ?? selectedCycleId ?? stamp),
       );
+      const watermarkDate = new Date(result.watermark);
+      const exportedAt = Number.isNaN(watermarkDate.getTime()) ? new Date() : watermarkDate;
+      const uniqueStamp = exportedAt
+        .toISOString()
+        .replace(/[-:]/g, '')
+        .replace('T', '-')
+        .slice(0, 15);
       const meta = {
         info: result.info ?? null,
         fullUrl: window.location.href,
@@ -306,10 +317,11 @@ export function DataExchangePage(): JSX.Element {
       };
       if (layout === 'file-per-type') {
         const blobs = await buildPerTypeBlobs(result.sheets);
-        for (const { sheetName, blob } of blobs) downloadBlob(blob, `data-exchange-${sheetName}-${cycleLabel}.xlsx`);
+        for (const { sheetName, blob } of blobs)
+          downloadBlob(blob, `data-exchange-${sheetName}-${cycleLabel}-${uniqueStamp}.xlsx`);
       } else {
         const blob = await buildWorkbookBlob(result.sheets, meta);
-        downloadBlob(blob, `data-exchange-${cycleLabel}.xlsx`);
+        downloadBlob(blob, `data-exchange-${cycleLabel}-${uniqueStamp}.xlsx`);
       }
       emitAudit({
         action: 'entity_exported',
