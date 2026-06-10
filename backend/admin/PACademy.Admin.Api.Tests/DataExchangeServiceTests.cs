@@ -1336,6 +1336,58 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
+    public async Task Snapshot_admission_conditions_with_cycle_draft_exclude_normalized_rows_from_other_cycles()
+    {
+        var (svc, db) = Create();
+        var now = DateTimeOffset.UtcNow;
+        await SeedCycleAsync(db, "CYC-ACTIVE", true);
+        // Stale rows in the normalized tables, authored while an OLDER cycle
+        // was active. The tables carry no cycle column, so without draft-first
+        // scoping these leaked into the new cycle's export as duplicates.
+        db.ApplicationSettingsCategoryConfigs.Add(new ApplicationSettingsCategoryConfigEntity
+        {
+            Id = "CFG-OLD", CategoryId = "law_bachelor", IsActive = true, SortOrder = 0, CreatedAt = now, UpdatedAt = now,
+        });
+        db.ApplicationSettingsCategorySpecializations.Add(new ApplicationSettingsCategorySpecializationEntity
+        {
+            Id = "SP-OLD", ConfigId = "CFG-OLD", SpecializationId = "SPC-OLD", IsActive = true, CreatedAt = now, UpdatedAt = now,
+        });
+        db.ApplicationSettingsGraduationYears.Add(new ApplicationSettingsGraduationYearEntity
+        {
+            Id = "YR-OLD", CategorySpecializationId = "SP-OLD",
+            GraduationYearsJson = "[2023]", GenderTypesJson = "[\"male\"]", MaritalStatusCodesJson = "[]",
+            AgeMin = 20, MaxAge = 28, DivisionCodesJson = "[]", SchoolCategoryCodesJson = "[]",
+            ApplicationStartDate = new DateOnly(2025, 6, 1), ApplicationEndDate = new DateOnly(2025, 6, 30),
+            AgeReferenceDate = new DateOnly(2025, 6, 1), IsActive = true, GradeKind = "GRADES", MinPercentage = 55m,
+            CreatedAt = now, UpdatedAt = now,
+        });
+        await db.SaveChangesAsync();
+        await SeedOperationalAsync(db,
+            "admissionSetup.applicationSettings.CYC-ACTIVE", "admissionSetup.applicationSettings.CYC-ACTIVE",
+            """
+            {"id":"admissionSetup.applicationSettings.CYC-ACTIVE","cycleId":"CYC-ACTIVE","version":1,
+             "updatedAt":"2026-06-01T00:00:00Z","headers":{},
+             "approved":[{"id":"ROW-1","kind":"university","categoryCode":"law_bachelor",
+               "type":["male"],"scoreMin":65,"graduationYears":[2026],
+               "header":{"applicationStart":"2026-06-01","applicationEnd":"2026-06-30",
+                 "ageReferenceDate":"2026-05-01","maxAge":28}}],
+             "local":[]}
+            """);
+
+        var result = await svc.ExportSnapshotAsync(
+            [ExchangeDomain.AdmissionConditions], "single-workbook",
+            ExportFilter.Default with { CycleId = "CYC-ACTIVE" }, default);
+        var rows = result.Sheets[0].Rows;
+
+        // Only the selected cycle's draft condition exports — the stale
+        // normalized year row (grad-year 2023, 55%) must not duplicate it.
+        var row = Assert.Single(rows);
+        Assert.Equal("law_bachelor", row["category"]);
+        Assert.Equal("2026", row["graduation_year"]);
+        Assert.Equal("65", row["min_percentage"]);
+    }
+
+    [Fact]
     public async Task Snapshot_admission_conditions_include_cycle_draft_rules()
     {
         var (svc, db) = Create();
