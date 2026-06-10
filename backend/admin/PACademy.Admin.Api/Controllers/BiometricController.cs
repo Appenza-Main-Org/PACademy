@@ -134,7 +134,12 @@ public sealed class BiometricController(BiometricService service, IServiceProvid
     {
         var client = sp.GetService<ZkBioTimeClient>();
         if (client is null || !await client.IsConfiguredAsync(ct)) return ZkInactive();
-        var windowSeconds = AdminRecordJson.NumberProp(input, "windowSeconds") is { } w ? (int)w : 300;
+        // Default 0 = no absolute-time gate: return the newest punch and let the
+        // live-listen UI's baseline cursor decide freshness. This makes verify-live
+        // independent of the ZK server clock offset (a misconfigured
+        // ServerTimeUtcOffsetHours used to silently drop every punch). An explicit
+        // windowSeconds is still honoured if a caller sends one.
+        var windowSeconds = AdminRecordJson.NumberProp(input, "windowSeconds") is { } w ? (int)w : 0;
         var module = AdminRecordJson.StringProp(input, "module") ?? "security-gate";
         var terminalSn = AdminRecordJson.StringProp(input, "terminalSn");
         try
