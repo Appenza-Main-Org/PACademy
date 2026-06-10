@@ -29,6 +29,9 @@ public sealed class SimulatedBiometricDeviceGateway : IBiometricDeviceGateway
         return Task.FromResult(new BiometricMatchResult(IsMatch: score >= 88, Confidence: score, Score: score));
     }
 
+    // No personnel directory in the simulation — never reports a duplicate.
+    public Task<bool> EmployeeExistsAsync(string empCode, CancellationToken ct) => Task.FromResult(false);
+
     private static uint Fnv1a(string value)
     {
         const uint prime = 16777619u;

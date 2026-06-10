@@ -161,9 +161,11 @@ public sealed class ZkBioTimeClient(
     /// Ensure a personnel record exists for the applicant (idempotent). Returns
     /// the existing or newly created employee object. Biometric templates are
     /// NOT pushed here (the API has no template endpoint) — they are captured on
-    /// the terminal against this <c>emp_code</c>.
+    /// the terminal against this <c>emp_code</c>. <paramref name="areaId"/>
+    /// targets a specific device zone; null falls back to <c>DefaultAreaId</c>.
     /// </summary>
-    public async Task<JsonObject> EnsureEmployeeAsync(string empCode, string firstName, CancellationToken ct)
+    public async Task<JsonObject> EnsureEmployeeAsync(
+        string empCode, string firstName, int? areaId, CancellationToken ct)
     {
         if (await FindEmployeeAsync(empCode, ct) is { } existing) return existing;
 
@@ -173,7 +175,7 @@ public sealed class ZkBioTimeClient(
             ["emp_code"] = empCode,
             ["first_name"] = string.IsNullOrWhiteSpace(firstName) ? empCode : firstName,
             ["department"] = DefaultDepartmentId,
-            ["area"] = new JsonArray { DefaultAreaId },
+            ["area"] = new JsonArray { areaId ?? DefaultAreaId },
         };
 
         var created = await SendAsync(HttpMethod.Post, "/personnel/api/employees/", payload, ct) as JsonObject
@@ -345,6 +347,24 @@ public sealed class ZkBioTimeClient(
     {
         var body = await SendAsync(HttpMethod.Get, "/iclock/api/terminals/", null, ct);
         return body?["data"] is JsonArray rows ? rows.OfType<JsonObject>().ToList() : [];
+    }
+
+    /// <summary>
+    /// The area id of the terminal with this serial number, or null when the
+    /// terminal is unknown. Handles both terminal-row shapes the platform
+    /// returns (<c>area</c> as a nested object or as a bare id).
+    /// </summary>
+    public async Task<int?> GetTerminalAreaIdAsync(string terminalSn, CancellationToken ct)
+    {
+        var terminals = await ListTerminalsAsync(ct);
+        var terminal = terminals.FirstOrDefault(t =>
+            string.Equals(t["sn"]?.ToString(), terminalSn, StringComparison.OrdinalIgnoreCase));
+        return terminal?["area"] switch
+        {
+            JsonObject area when ReadInt(area["id"]) > 0 => ReadInt(area["id"]),
+            JsonValue value when ReadInt(value) > 0 => ReadInt(value),
+            _ => null,
+        };
     }
 
     private string Url(string path) => $"{BaseUrl.TrimEnd('/')}{path}";

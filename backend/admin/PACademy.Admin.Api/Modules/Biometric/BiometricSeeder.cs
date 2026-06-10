@@ -31,6 +31,37 @@ public sealed class BiometricSeeder(ILogger<BiometricSeeder> logger)
     private static readonly string[] Methods = ["face", "fingerprint", "barcode"];
     private const string Operator = "U-006";
 
+    /// <summary>
+    /// One-time, idempotent data fix (2026-06-10): the device emp_code moved
+    /// from minted 9-digit codes to the applicant's 14-digit national id (the
+    /// terminal now accepts 14 digits). Rewrites every enrollment whose
+    /// <c>deviceEmpCode</c> differs from its national id, so the national id is
+    /// the device identifier for ALL applicants — legacy rows included. Runs
+    /// unconditionally at startup (not gated by the seed/migrate flags) so
+    /// Staging and Production pick it up; after the first run it is a no-op.
+    /// </summary>
+    public async Task NormalizeDeviceEmpCodesAsync(AdminDbContext db, CancellationToken ct = default)
+    {
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new PACademy.Shared.Audit.NullAuditSink());
+        var enrollments = await records.ListAsync(BiometricService.EnrollmentsModule, ct);
+        var rewritten = 0;
+        foreach (var row in enrollments)
+        {
+            var nationalId = AdminRecordJson.StringProp(row, "nationalId");
+            if (nationalId is not { Length: 14 } || !nationalId.All(char.IsDigit)) continue;
+            if (AdminRecordJson.StringProp(row, "deviceEmpCode") == nationalId) continue;
+            var id = AdminRecordJson.StringProp(row, "id");
+            if (string.IsNullOrWhiteSpace(id)) continue;
+
+            var next = AdminRecordJson.Clone(row);
+            next["deviceEmpCode"] = nationalId;
+            await records.UpsertAsync(BiometricService.EnrollmentsModule, id, next, ct);
+            rewritten++;
+        }
+        if (rewritten > 0)
+            logger.LogInformation("Normalized {Count} biometric device emp_codes to national ids", rewritten);
+    }
+
     public async Task SeedAsync(AdminDbContext db, CancellationToken ct = default)
     {
         // Route through OperationalRecordsService so the normalized bucket

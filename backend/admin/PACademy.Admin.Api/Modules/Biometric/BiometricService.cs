@@ -149,14 +149,35 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
             : 0;
         var retake = BoolProp(input, "retake");
 
-        // The ZK terminal accepts a 9-digit emp_code only (the 14-digit national id
-        // and the 36-char GUID are both rejected at the device). We mint a unique
-        // 9-digit device code per applicant and keep the national id as the identity.
+        // The ZK terminal accepts up to 14-digit emp_codes, so the applicant's
+        // national id is the device identifier. Stored legacy 9-digit codes are
+        // rewritten to the national id at startup (NormalizeDeviceEmpCodesAsync);
+        // old punches still resolve through the stored deviceEmpId.
         var nationalId = AdminRecordJson.StringProp(input, "nationalId");
         if (string.IsNullOrWhiteSpace(nationalId))
             nationalId = await ApplicantNationalIdByIdAsync(applicantId, ct);
+        if (string.IsNullOrWhiteSpace(nationalId))
+            throw new ArgumentException("الرقم القومي مطلوب لإنشاء سجل المتقدم على الجهاز");
         var enrollName = await ApplicantNameByIdAsync(applicantId, ct);
-        var deviceEmpCode = await ResolveOrGenerateDeviceEmpCodeAsync(applicantId, ct);
+        var deviceEmpCode = nationalId;
+        var terminalSn = AdminRecordJson.StringProp(input, "terminalSn");
+
+        // Duplicate guard — block re-creating an applicant who already has an
+        // employee record on the device, whether under the national id or a
+        // legacy 9-digit code from a previous enrollment. Retake bypasses it.
+        if (!retake)
+        {
+            var priorEnrollment = LatestEnrollment(await records.ListAsync(EnrollmentsModule, ct), applicantId);
+            var priorCode = priorEnrollment is null ? null : AdminRecordJson.StringProp(priorEnrollment, "deviceEmpCode");
+            var codesToCheck = new[] { deviceEmpCode, priorCode }
+                .Where(c => IsDeviceCode(c)).Select(c => c!).Distinct();
+            foreach (var code in codesToCheck)
+            {
+                if (await device.EmployeeExistsAsync(code, ct))
+                    throw new BiometricAlreadyEnrolledException(
+                        $"المتقدم مسجل على الجهاز من قبل (كود {code}) — استخدم إعادة التسجيل إذا كنت تريد إعادة الإنشاء");
+            }
+        }
 
         var templateRefs = new List<string>();
         var fingerprintTemplates = new JsonArray();
@@ -166,7 +187,7 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
         if (face)
         {
             var cap = await device.CaptureAsync(new BiometricCaptureRequest(
-                applicantId, "face", null, EmpCode: deviceEmpCode, DisplayName: enrollName), ct);
+                applicantId, "face", null, EmpCode: deviceEmpCode, DisplayName: enrollName, TerminalSn: terminalSn), ct);
             templateRefs.Add(cap.TemplateRef);
             faceTemplateRef = cap.TemplateRef;
             livenessConfirmed = cap.LivenessConfirmed;
@@ -178,7 +199,7 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
             {
                 var modality = fingerprintCount == 1 ? "fingerprint" : $"fingerprint-{index}";
                 var cap = await device.CaptureAsync(new BiometricCaptureRequest(
-                    applicantId, modality, null, EmpCode: deviceEmpCode, DisplayName: enrollName), ct);
+                    applicantId, modality, null, EmpCode: deviceEmpCode, DisplayName: enrollName, TerminalSn: terminalSn), ct);
                 deviceEmpId ??= cap.DeviceEmpId;
                 templateRefs.Add(cap.TemplateRef);
                 fingerprintTemplates.Add(new JsonObject
@@ -339,11 +360,11 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
         else
         {
             var preMatched = BoolProp(input, "biometricMatched");
-            // ZK terminals cap emp_code at 9 digits, so device punches carry the
-            // device-assigned emp_code (captured at enrollment as deviceEmpCode), NOT
-            // the 14-digit national id. Query the punch stream by that bound code so
-            // verify-by-NID resolves; fall back to the national id only for legacy
-            // short codes / non-ZK gateways.
+            // Device punches carry the emp_code bound at enrollment (deviceEmpCode —
+            // the 14-digit national id, or a legacy 9-digit code minted before the
+            // device accepted 14 digits). Query the punch stream by that bound code
+            // so verify resolves for both generations; fall back to the national id
+            // for applicants enrolled outside PACademy / non-ZK gateways.
             var deviceEmpCode = lookup["enrollment"] is JsonObject enrollmentRow
                 ? AdminRecordJson.StringProp(enrollmentRow, "deviceEmpCode")
                 : null;
@@ -732,45 +753,20 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
 
     /// <summary>
     /// The applicant's effective enrollment record. Prefers a device-linked record
-    /// (one carrying a 9-digit device code), then the most recent by enrolledAt.
-    /// Applicant id is matched case-insensitively (GUIDs are stored mixed-case).
+    /// (one carrying a device code — the 14-digit national id, or a legacy 9-digit
+    /// code minted before the device accepted 14 digits), then the most recent by
+    /// enrolledAt. Applicant id is matched case-insensitively (GUIDs are stored
+    /// mixed-case).
     /// </summary>
     private static JsonObject? LatestEnrollment(IReadOnlyList<JsonObject> enrollments, string applicantId) =>
         enrollments
             .Where(e => string.Equals(AdminRecordJson.StringProp(e, "applicantId"), applicantId, StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(e => IsNineDigit(AdminRecordJson.StringProp(e, "deviceEmpCode")) ? 1 : 0)
+            .OrderByDescending(e => IsDeviceCode(AdminRecordJson.StringProp(e, "deviceEmpCode")) ? 1 : 0)
             .ThenByDescending(e => AdminRecordJson.NumberProp(e, "enrolledAt") ?? 0)
             .FirstOrDefault();
 
-    private const long DeviceEmpCodeBase = 100_000_000; // first issued code = 100000001 (9 digits)
-
-    private static bool IsNineDigit(string? code) =>
-        code is { Length: 9 } && code.All(char.IsDigit);
-
-    /// <summary>
-    /// Reuse the applicant's existing 9-digit device code, or mint the next free
-    /// one. ZK terminals cap emp_code at 9 digits, so we cannot use the 14-digit
-    /// national id as the device code — we keep a separate unique device code.
-    /// </summary>
-    private async Task<string> ResolveOrGenerateDeviceEmpCodeAsync(string applicantId, CancellationToken ct)
-    {
-        var enrollments = await records.ListAsync(EnrollmentsModule, ct);
-
-        var mine = LatestEnrollment(enrollments, applicantId);
-        var existing = mine is null ? null : AdminRecordJson.StringProp(mine, "deviceEmpCode");
-        if (IsNineDigit(existing)) return existing!;
-
-        var maxCode = DeviceEmpCodeBase;
-        foreach (var e in enrollments)
-        {
-            var c = AdminRecordJson.StringProp(e, "deviceEmpCode");
-            if (IsNineDigit(c) && long.TryParse(c, out var n) && n > maxCode) maxCode = n;
-        }
-        var next = maxCode + 1;
-        if (next > 999_999_999)
-            throw new InvalidOperationException("نفدت أكواد الموظفين المكوّنة من ٩ أرقام");
-        return next.ToString();
-    }
+    private static bool IsDeviceCode(string? code) =>
+        code is { Length: 9 or 14 } && code.All(char.IsDigit);
 
     /// <summary>
     /// Resolve a device punch to a PACademy applicant id. Linkage precedence:

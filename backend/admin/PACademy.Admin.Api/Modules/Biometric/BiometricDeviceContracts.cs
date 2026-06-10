@@ -11,7 +11,8 @@ public sealed record BiometricCaptureRequest(
     string Modality,        // "face" | "fingerprint"
     string? CaptureToken,   // opaque live-capture handle from the device SDK
     string? EmpCode = null, // device employee code (national id); falls back to ApplicantId
-    string? DisplayName = null); // device first_name; falls back to EmpCode
+    string? DisplayName = null, // device first_name; falls back to EmpCode
+    string? TerminalSn = null); // create the employee in this terminal's area (ZKBioTime)
 
 public sealed record BiometricCaptureResult(
     string TemplateRef,     // stored template reference the device returns on enroll
@@ -34,3 +35,10 @@ public sealed record BiometricMatchResult(
 
 /// <summary>Raised on any device-side failure; mapped to a clean API error.</summary>
 public sealed class BiometricDeviceException(string message) : Exception(message);
+
+/// <summary>
+/// Raised when an enroll would re-create an applicant who already has an
+/// employee record on the device; mapped to a 409 CONFLICT envelope
+/// (conflict code <c>BIOMETRIC_ALREADY_ENROLLED</c>).
+/// </summary>
+public sealed class BiometricAlreadyEnrolledException(string message) : Exception(message);

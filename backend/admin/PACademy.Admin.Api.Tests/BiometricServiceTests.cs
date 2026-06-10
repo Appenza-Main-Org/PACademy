@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Biometric;
 using PACademy.Admin.Api.Persistence;
@@ -174,6 +175,84 @@ public sealed class BiometricServiceTests
 
         Assert.True(await db.BiometricRecords.AnyAsync(TestContext.Current.CancellationToken));
         Assert.False(await db.AdminRecords.AnyAsync(r => r.Module.StartsWith("biometric"), TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task EnrollUsesNationalIdAsDeviceEmpCode()
+    {
+        await using var db = CreateDb();
+        var service = CreateService(db);
+        await SeedApplicantAsync(db, applicantId: "APP-6", nationalId: "29906060606060", committee: "لجنة طلبة 6");
+
+        var record = await service.EnrollAsync(new JsonObject
+        {
+            ["applicantId"] = "APP-6",
+            ["nationalId"] = "29906060606060",
+            ["barcode"] = "26-CAI-00000006",
+            ["cycleId"] = "CYC-2026-M",
+            ["userId"] = "U-006",
+            ["faceCaptured"] = true,
+            ["fingerprintCaptured"] = true
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal("29906060606060", AdminRecordJson.StringProp(record, "deviceEmpCode"));
+    }
+
+    [Fact]
+    public async Task EnrollThrowsWhenApplicantAlreadyOnDeviceUnlessRetake()
+    {
+        await using var db = CreateDb();
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        var service = new BiometricService(records, new AlwaysEnrolledDeviceGateway());
+        await SeedApplicantAsync(db, applicantId: "APP-7", nationalId: "29907070707070", committee: "لجنة طلبة 7");
+
+        JsonObject Input(bool retake) => new()
+        {
+            ["applicantId"] = "APP-7",
+            ["nationalId"] = "29907070707070",
+            ["barcode"] = "26-CAI-00000007",
+            ["cycleId"] = "CYC-2026-M",
+            ["userId"] = "U-006",
+            ["retake"] = retake,
+            ["faceCaptured"] = true,
+            ["fingerprintCaptured"] = true
+        };
+
+        await Assert.ThrowsAsync<BiometricAlreadyEnrolledException>(
+            () => service.EnrollAsync(Input(retake: false), TestContext.Current.CancellationToken));
+
+        var retaken = await service.EnrollAsync(Input(retake: true), TestContext.Current.CancellationToken);
+        Assert.Equal("29907070707070", AdminRecordJson.StringProp(retaken, "deviceEmpCode"));
+    }
+
+    [Fact]
+    public async Task NormalizeDeviceEmpCodesRewritesLegacyCodesToNationalId()
+    {
+        await using var db = CreateDb();
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
+        await records.UpsertAsync(BiometricService.EnrollmentsModule, "BIO-LEGACY", new JsonObject
+        {
+            ["id"] = "BIO-LEGACY",
+            ["applicantId"] = "APP-8",
+            ["nationalId"] = "29908080808080",
+            ["deviceEmpCode"] = "100000004",
+            ["status"] = "enrolled",
+        }, TestContext.Current.CancellationToken);
+
+        var seeder = new BiometricSeeder(NullLogger<BiometricSeeder>.Instance);
+        await seeder.NormalizeDeviceEmpCodesAsync(db, TestContext.Current.CancellationToken);
+
+        var row = await records.GetAsync(BiometricService.EnrollmentsModule, "BIO-LEGACY", TestContext.Current.CancellationToken);
+        Assert.Equal("29908080808080", AdminRecordJson.StringProp(row!, "deviceEmpCode"));
+    }
+
+    /// <summary>Simulated gateway whose device directory always reports the employee as existing.</summary>
+    private sealed class AlwaysEnrolledDeviceGateway : IBiometricDeviceGateway
+    {
+        private readonly SimulatedBiometricDeviceGateway inner = new();
+        public Task<BiometricCaptureResult> CaptureAsync(BiometricCaptureRequest request, CancellationToken ct) => inner.CaptureAsync(request, ct);
+        public Task<BiometricMatchResult> MatchAsync(BiometricMatchRequest request, CancellationToken ct) => inner.MatchAsync(request, ct);
+        public Task<bool> EmployeeExistsAsync(string empCode, CancellationToken ct) => Task.FromResult(true);
     }
 
     private static BiometricService CreateService(AdminDbContext db)

@@ -27,12 +27,17 @@ public sealed class ZkBioTimeBiometricDeviceGateway(ZkBioTimeClient client, ICon
 
     public async Task<BiometricCaptureResult> CaptureAsync(BiometricCaptureRequest request, CancellationToken ct)
     {
-        // Device emp_code must be a short, device-acceptable id (national id) —
-        // a 36-char applicant GUID is rejected by the platform with HTTP 400.
+        // Device emp_code is the applicant's 14-digit national id — a 36-char
+        // applicant GUID is rejected by the platform with HTTP 400.
         var empCode = string.IsNullOrWhiteSpace(request.EmpCode) ? request.ApplicantId : request.EmpCode;
+        // When the operator picked a terminal, create the employee in that
+        // terminal's area so the record syncs to that specific device.
+        var areaId = string.IsNullOrWhiteSpace(request.TerminalSn)
+            ? null
+            : await client.GetTerminalAreaIdAsync(request.TerminalSn, ct);
         // No template-capture endpoint on the platform — ensure the personnel
         // record so the terminal can enroll the biometric against this emp_code.
-        var employee = await client.EnsureEmployeeAsync(empCode, request.DisplayName ?? empCode, ct);
+        var employee = await client.EnsureEmployeeAsync(empCode, request.DisplayName ?? empCode, areaId, ct);
         // The device-assigned `id` is the canonical linkage key (not the national id).
         var deviceEmpId = employee["id"]?.ToString();
         var templateRef = $"zkbio:emp/{empCode}/{request.Modality}";
@@ -60,6 +65,9 @@ public sealed class ZkBioTimeBiometricDeviceGateway(ZkBioTimeClient client, ICon
             ? new BiometricMatchResult(IsMatch: true, Confidence: 100, Score: 100)
             : new BiometricMatchResult(IsMatch: false, Confidence: 0, Score: 0);
     }
+
+    public async Task<bool> EmployeeExistsAsync(string empCode, CancellationToken ct)
+        => await client.FindEmployeeAsync(empCode, ct) is not null;
 
     /// <summary>ZK verify_type codes per modality; null = accept any punch.</summary>
     private static int[]? ExpectedVerifyTypes(string? modality) => modality?.ToLowerInvariant() switch

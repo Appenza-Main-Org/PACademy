@@ -135,6 +135,11 @@ if (!skipMigrationsAndSeed && !skipSeed)
     IdentityApplicantAdminSeeder.MigrateAndSeed(app.Services);
 }
 
+/* One-time data fix: biometric device emp_codes moved to the national id
+ * (2026-06-10). Deliberately OUTSIDE the seed/migrate gates so Staging and
+ * Production (SkipSeed / SkipMigrationsAndSeed) pick it up too. */
+await app.NormalizeBiometricDeviceCodesAsync();
+
 /* ── HTTP pipeline ──────────────────────────────────────────────── */
 app.UsePacademyExceptionHandling();
 

@@ -72,6 +72,8 @@ export interface EnrollInput {
   faceCaptured: boolean;
   fingerprintCaptured: boolean;
   fingerprintCount?: number;
+  /** Create the device employee in this terminal's area (ZKBioTime). */
+  terminalSn?: string;
 }
 
 export interface BiometricEnrollmentRecord extends BiometricEnrollment {
