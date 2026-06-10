@@ -73,6 +73,10 @@ if (app.Configuration.GetValue<bool>("UseInMemoryDatabase"))
 /* Seed exam slots on every startup (idempotent — skips if already seeded). */
 await PortalSeeder.SeedExamSlotsAsync(app.Services);
 
+/* Regenerate retired derive-pool placeholder names for existing applicants
+ * (idempotent — regenerated names can never match the legacy set again). */
+await LegacyNameNormalizer.RegenerateLegacyNamesAsync(app.Services);
+
 /* Exception handler is the FIRST middleware — catches anything
  * downstream and translates to the canonical envelope shape. */
 app.UsePacademyExceptionHandling();

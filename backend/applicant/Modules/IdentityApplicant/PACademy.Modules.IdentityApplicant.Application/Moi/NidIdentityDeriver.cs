@@ -43,7 +43,6 @@ public static class NidIdentityDeriver
         var mm = int.Parse(nationalId.Substring(3, 2), CultureInfo.InvariantCulture);
         var dd = int.Parse(nationalId.Substring(5, 2), CultureInfo.InvariantCulture);
         var gov = nationalId.Substring(7, 2);
-        var sequence = nationalId.Substring(9, 4);
 
         if (mm is < 1 or > 12 || dd is < 1 or > 31) return null;
 
@@ -57,8 +56,7 @@ public static class NidIdentityDeriver
             return null;
         }
 
-        var lastDigit = sequence[^1] - '0';
-        var gender = lastDigit % 2 == 0 ? "female" : "male";
+        var gender = ArabicNameGenerator.GenderFromNid(nationalId);
         // Gender-matched name — the NID's gender digit is authoritative, so
         // a female NID must not get a male name (which would land the applicant in
         // a (طالبات)/(طلاب) committee that contradicts the name).
