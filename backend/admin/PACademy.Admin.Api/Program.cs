@@ -1,3 +1,4 @@
+using PACademy.Admin.Api.Infrastructure;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Admin.Api.Modules.Audit;
@@ -75,6 +76,7 @@ builder.Services.AddReportsModule(builder.Configuration);
 builder.Services.AddSettingsModule(builder.Configuration);
 builder.Services.AddDataExchangeAdminModule(builder.Configuration);
 builder.Services.AddScoped<PaymentsLedgerService>();
+builder.Services.AddSingleton(new ReservationSweepThrottle(TimeSpan.FromSeconds(15)));
 
 /* ── External legacy modules (separate DbContexts + migrations) ─── */
 builder.Services.AddLookupsAdminModule(builder.Configuration);
