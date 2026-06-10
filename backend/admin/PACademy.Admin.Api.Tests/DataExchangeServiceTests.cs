@@ -1216,4 +1216,214 @@ public sealed class DataExchangeServiceTests
         Assert.Equal("2", personal["revision_count"]);
         Assert.Equal("submit", personal["last_revision_kind"]); // latest version wins
     }
+
+    [Fact]
+    public async Task Snapshot_payments_include_successful_portal_payments()
+    {
+        var (svc, db) = Create();
+        var now = DateTimeOffset.UtcNow;
+        await SeedCycleAsync(db, "CYC-ACTIVE", true);
+        await SeedOperationalAsync(db, "applicants", "APP-1",
+            """{"id":"APP-1","nationalId":"29801011234567","fullName":"متقدم مدفوع","cycleId":"CYC-ACTIVE","status":"exam_scheduled"}""");
+        db.ApplicantPortalRecords.Add(new ApplicantPortalRecordEntity
+        {
+            Type = "payment", RecordId = "1234567890", ApplicantId = "APP-1",
+            PayloadJson = """{"refNumber":"1234567890","applicantId":"APP-1","method":"fawry-code","amount":250,"status":"success","paidAt":1750000000000}""",
+            CreatedAt = now, UpdatedAt = now,
+        });
+        // A pending (never-completed) payment attempt must NOT export.
+        db.ApplicantPortalRecords.Add(new ApplicantPortalRecordEntity
+        {
+            Type = "payment", RecordId = "1234567891", ApplicantId = "APP-1",
+            PayloadJson = """{"refNumber":"1234567891","applicantId":"APP-1","method":"fawry-code","amount":250,"status":"pending"}""",
+            CreatedAt = now, UpdatedAt = now,
+        });
+        await db.SaveChangesAsync();
+
+        var result = await svc.ExportSnapshotAsync(
+            [ExchangeDomain.Payments], "single-workbook",
+            ExportFilter.Default with { CycleId = "CYC-ACTIVE" }, default);
+
+        var row = Assert.Single(result.Sheets[0].Rows);
+        Assert.Equal("PAY-1234567890", row["payment_id"]);
+        Assert.Equal("APP-1", row["applicant_id"]);
+        Assert.Equal("29801011234567", row["national_id"]);
+        Assert.Equal("متقدم مدفوع", row["applicant_name"]);
+        Assert.Equal("250", row["amount"]);
+        Assert.Equal("paid", row["payment_status"]);
+        Assert.Equal("fawry-code", row["payment_method"]);
+        Assert.Equal("1234567890", row["fawry_reference"]);
+        Assert.Equal("CYC-ACTIVE", row["cycle_id"]);
+        Assert.NotNull(row["payment_date"]);
+    }
+
+    [Fact]
+    public async Task Snapshot_payments_dedupe_portal_rows_against_durable_ledger_by_reference()
+    {
+        var (svc, db) = Create();
+        var now = DateTimeOffset.UtcNow;
+        await SeedCycleAsync(db, "CYC-ACTIVE", true);
+        db.PaymentRecords.Add(new PaymentRecordEntity
+        {
+            Module = "payments", Id = "PAY-LEDGER", ApplicantId = "APP-1", NationalId = "29801011234567",
+            CycleId = "CYC-ACTIVE", Status = "paid",
+            PayloadJson = """{"amount":"250","fawryReference":"1234567890","paidAt":"2026-06-01"}""",
+            CreatedAt = now, UpdatedAt = now,
+        });
+        db.ApplicantPortalRecords.Add(new ApplicantPortalRecordEntity
+        {
+            Type = "payment", RecordId = "1234567890", ApplicantId = "APP-1",
+            PayloadJson = """{"refNumber":"1234567890","applicantId":"APP-1","amount":250,"status":"success","paidAt":1750000000000}""",
+            CreatedAt = now, UpdatedAt = now,
+        });
+        await db.SaveChangesAsync();
+
+        var result = await svc.ExportSnapshotAsync(
+            [ExchangeDomain.Payments], "single-workbook", ExportFilter.Default, default);
+
+        var row = Assert.Single(result.Sheets[0].Rows); // ledger row wins; portal duplicate dropped
+        Assert.Equal("PAY-LEDGER", row["payment_id"]);
+    }
+
+    [Fact]
+    public async Task Snapshot_payments_fall_back_to_applicant_draft_payment_snapshot()
+    {
+        var (svc, db) = Create();
+        await SeedCycleAsync(db, "CYC-ACTIVE", true);
+        // Paid applicant with NO portal payment record (e.g. record stuck pending
+        // or never written) — the draft's payment snapshot must still export.
+        await SeedOperationalAsync(db, "applicants", "APP-DRAFT-PAID",
+            """{"id":"APP-DRAFT-PAID","nationalId":"29801011234001","fullName":"متقدم بدون سجل دفع","cycleId":"CYC-ACTIVE","paymentStatus":"paid","payment":{"method":"fawry-code","refNumber":"5550001111","fawryCode":"FWR-1","amount":250,"paidAt":1750000000000}}""");
+        // Unpaid applicant — must not export.
+        await SeedOperationalAsync(db, "applicants", "APP-UNPAID",
+            """{"id":"APP-UNPAID","nationalId":"29801011234002","fullName":"متقدم لم يدفع","cycleId":"CYC-ACTIVE","paymentStatus":"pending"}""");
+
+        var result = await svc.ExportSnapshotAsync(
+            [ExchangeDomain.Payments], "single-workbook",
+            ExportFilter.Default with { CycleId = "CYC-ACTIVE" }, default);
+
+        var row = Assert.Single(result.Sheets[0].Rows);
+        Assert.Equal("PAY-5550001111", row["payment_id"]);
+        Assert.Equal("29801011234001", row["national_id"]);
+        Assert.Equal("250", row["amount"]);
+        Assert.Equal("paid", row["payment_status"]);
+        Assert.Equal("5550001111", row["fawry_reference"]);
+    }
+
+    [Fact]
+    public async Task Snapshot_payments_draft_fallback_does_not_duplicate_portal_rows()
+    {
+        var (svc, db) = Create();
+        var now = DateTimeOffset.UtcNow;
+        await SeedCycleAsync(db, "CYC-ACTIVE", true);
+        // Same applicant covered by BOTH a successful portal record and the
+        // draft snapshot (the normal happy path) — exactly one row exports.
+        await SeedOperationalAsync(db, "applicants", "APP-1",
+            """{"id":"APP-1","nationalId":"29801011234567","fullName":"متقدم","cycleId":"CYC-ACTIVE","paymentStatus":"paid","payment":{"method":"fawry-code","refNumber":"1234567890","amount":250,"paidAt":1750000000000}}""");
+        db.ApplicantPortalRecords.Add(new ApplicantPortalRecordEntity
+        {
+            Type = "payment", RecordId = "1234567890", ApplicantId = "APP-1",
+            PayloadJson = """{"refNumber":"1234567890","applicantId":"APP-1","method":"fawry-code","amount":250,"status":"success","paidAt":1750000000000}""",
+            CreatedAt = now, UpdatedAt = now,
+        });
+        await db.SaveChangesAsync();
+
+        var result = await svc.ExportSnapshotAsync(
+            [ExchangeDomain.Payments], "single-workbook", ExportFilter.Default, default);
+
+        var row = Assert.Single(result.Sheets[0].Rows);
+        Assert.Equal("PAY-1234567890", row["payment_id"]);
+    }
+
+    [Fact]
+    public async Task Snapshot_admission_conditions_include_cycle_draft_rules()
+    {
+        var (svc, db) = Create();
+        await SeedCycleAsync(db, "CYC-ACTIVE", true);
+        await SeedLookupAsync(db, "marital-statuses", "MAR-01", "أعزب");
+        await SeedLookupAsync(db, "academic-degrees", "DEG-01", "ليسانس");
+        await SeedLookupAsync(db, "excellence-criteria", "EXC-01", "النسبة المئوية");
+        await SeedCommitteeLookupAsync(db, "COM-01", "لجنة الضباط الأولى");
+        await SeedOperationalAsync(db,
+            "admissionSetup.applicationSettings.CYC-ACTIVE", "admissionSetup.applicationSettings.CYC-ACTIVE",
+            """
+            {"id":"admissionSetup.applicationSettings.CYC-ACTIVE","cycleId":"CYC-ACTIVE","version":1,
+             "updatedAt":"2026-06-01T00:00:00Z","headers":{},
+             "approved":[{"id":"ROW-1","kind":"university","categoryCode":"law_bachelor",
+               "facultyNameAr":"كلية الحقوق","specializationNameAr":"القانون العام",
+               "type":["male"],"maritalStatus":["MAR-01"],"excellenceMode":"EXC-01",
+               "grade":"","gradeMax":"","scoreMin":65,"scoreMax":80,
+               "academicDegrees":["DEG-01"],"committees":["COM-01"],"graduationYears":[2024,2025],
+               "header":{"applicationStart":"2026-06-01","applicationEnd":"2026-06-30",
+                 "ageReferenceDate":"2026-05-01","maritalStatus":["MAR-01"],"maxAge":28}}],
+             "local":[]}
+            """);
+
+        var result = await svc.ExportSnapshotAsync(
+            [ExchangeDomain.AdmissionConditions], "single-workbook",
+            ExportFilter.Default with { CycleId = "CYC-ACTIVE" }, default);
+        var rows = result.Sheets[0].Rows;
+
+        Assert.Equal(2, rows.Count); // fans out one row per graduation year
+        var row = rows.Single(r => r["graduation_year"] == "2024");
+        Assert.Equal("law_bachelor", row["category"]);
+        Assert.Equal("كلية الحقوق", row["faculty"]);
+        Assert.Equal("القانون العام", row["specialization"]);
+        Assert.Equal("male", row["gender"]);
+        Assert.Equal("أعزب", row["marital_status"]);
+        Assert.Equal("ليسانس", row["academic_degree"]);
+        Assert.Equal("لجنة الضباط الأولى", row["committee"]);
+        Assert.Equal("النسبة المئوية", row["excellence_criterion"]);
+        Assert.Equal("65", row["min_percentage"]);
+        Assert.Equal("80", row["max_percentage"]);
+        Assert.Equal("28", row["max_age"]);
+        Assert.Equal("2026-06-01", row["application_start_date"]);
+        Assert.Equal("2026-06-30", row["application_end_date"]);
+        Assert.Equal("2026-05-01", row["age_reference_date"]);
+        Assert.Equal("معتمد", row["condition_status"]);
+    }
+
+    [Fact]
+    public async Task Snapshot_admission_conditions_resolve_year_row_condition_codes_to_names()
+    {
+        var (svc, db) = Create();
+        var now = DateTimeOffset.UtcNow;
+        await SeedCycleAsync(db, "CYC-ACTIVE", true);
+        await SeedLookupAsync(db, "marital-statuses", "MAR-01", "أعزب");
+        await SeedLookupAsync(db, "school-categories", "SCH-01", "مدارس حكومية");
+        await SeedLookupAsync(db, "applicant-divisions", "DIV-01", "علمي علوم");
+        await SeedAcademicGradeLookupAsync(db, "GRD-01", "جيد جداً");
+        db.ApplicationSettingsCategoryConfigs.Add(new ApplicationSettingsCategoryConfigEntity
+        {
+            Id = "CFG-1", CategoryId = "officers_general", IsActive = true, SortOrder = 0, CreatedAt = now, UpdatedAt = now,
+        });
+        db.ApplicationSettingsCategorySpecializations.Add(new ApplicationSettingsCategorySpecializationEntity
+        {
+            Id = "SP-1", ConfigId = "CFG-1", SpecializationId = "__default__", IsActive = true, CreatedAt = now, UpdatedAt = now,
+        });
+        db.ApplicationSettingsGraduationYears.Add(new ApplicationSettingsGraduationYearEntity
+        {
+            Id = "YR-1", CategorySpecializationId = "SP-1",
+            GraduationYearsJson = "[2026]", GenderTypesJson = "[\"male\"]", MaritalStatusCodesJson = "[\"MAR-01\"]",
+            AgeMin = 17, MaxAge = 24, DivisionCodesJson = "[\"DIV-01\"]", SchoolCategoryCodesJson = "[\"SCH-01\"]",
+            ApplicationStartDate = new DateOnly(2026, 6, 1), ApplicationEndDate = new DateOnly(2026, 6, 30),
+            AgeReferenceDate = new DateOnly(2026, 5, 1), IsActive = true, GradeKind = "TAGDIR", AcademicGradeId = "GRD-01",
+            CreatedAt = now, UpdatedAt = now,
+        });
+        await db.SaveChangesAsync();
+
+        var result = await svc.ExportSnapshotAsync(
+            [ExchangeDomain.AdmissionConditions], "single-workbook", ExportFilter.Default, default);
+
+        var row = Assert.Single(result.Sheets[0].Rows);
+        Assert.Equal("أعزب", row["marital_status"]);
+        Assert.Equal("مدارس حكومية", row["school_category"]);
+        Assert.Equal("علمي علوم", row["division"]);
+        Assert.Equal("جيد جداً", row["min_grade"]); // TAGDIR grade resolved, no longer leaked into min_percentage
+        Assert.Null(row["min_percentage"]);
+        Assert.Equal("2026-06-01", row["application_start_date"]);
+        Assert.Equal("2026-06-30", row["application_end_date"]);
+        Assert.Equal("2026-05-01", row["age_reference_date"]);
+        Assert.Equal("معتمد", row["condition_status"]);
+    }
 }
