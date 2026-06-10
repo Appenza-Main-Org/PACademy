@@ -1800,7 +1800,10 @@ public sealed class DataExchangeService(
              "section_key", "section_data", "revision_count", "last_revision_kind", "last_revision_at"],
             CycleScoped: true, PersonScoped: true),
         new(ExchangeDomain.AdmissionConditions, "AdmissionConditions", "شروط القبول",
-            ["category", "category_name", "faculty", "specialization", "graduation_year", "gender", "min_age", "max_age", "min_percentage", "school_category", "exam_round", "is_active"],
+            ["category", "category_name", "faculty", "specialization", "academic_degree", "graduation_year", "gender",
+             "marital_status", "min_age", "max_age", "age_reference_date", "min_percentage", "max_percentage",
+             "min_grade", "max_grade", "division", "school_category", "exam_round", "committee",
+             "excellence_criterion", "application_start_date", "application_end_date", "condition_status", "is_active"],
             CycleScoped: true, PersonScoped: false),
         new(ExchangeDomain.ApplicantCategories, "ApplicantCategories", "فئات المتقدمين",
             ["category_key", "category_name", "is_open", "cycle_id"],
@@ -1815,7 +1818,8 @@ public sealed class DataExchangeService(
             ["exam_days_per_applicant", "exam_slot_selection_window_days", "acquaintance_documents_open_timing", "acquaintance_documents_close_timing"],
             CycleScoped: false, PersonScoped: false),
         new(ExchangeDomain.Payments, "Payments", "المدفوعات",
-            ["applicant_id", "payment_id", "amount", "payment_status", "payment_date", "cycle_id"],
+            ["applicant_id", "payment_id", "national_id", "applicant_name", "amount", "payment_status",
+             "payment_method", "payment_date", "fawry_reference", "cycle_id"],
             CycleScoped: true, PersonScoped: true),
         new(ExchangeDomain.Notifications, "Notifications", "الإشعارات",
             ["notification_id", "applicant_id", "type", "title", "created_at", "status"],
@@ -1851,7 +1855,7 @@ public sealed class DataExchangeService(
         ExchangeDomain.Faculties           => LoadCuratedFacultiesAsync(ct),
         ExchangeDomain.LookupRows          => LoadCuratedLookupRowsAsync(ct),
         ExchangeDomain.GeneralSettings     => LoadCuratedGeneralSettingsAsync(ct),
-        ExchangeDomain.Payments            => LoadCuratedOperationalAsync(db.PaymentRecords, cycleId, ProjectPaymentRow, ct),
+        ExchangeDomain.Payments            => LoadCuratedPaymentsAsync(cycleId, ct),
         ExchangeDomain.Notifications       => LoadCuratedOperationalAsync(db.NotificationRecords, cycleId, ProjectNotificationRow, ct),
         ExchangeDomain.WorkflowRecords     => LoadCuratedOperationalAsync(db.WorkflowRecords, cycleId, ProjectWorkflowRow, ct),
         ExchangeDomain.AuditEntries        => LoadCuratedAuditAsync(ct),
@@ -2206,19 +2210,59 @@ public sealed class DataExchangeService(
         return rows;
     }
 
+    /// <summary>Lookup-resolution maps shared by both condition planes:
+    /// per-lookup-key code→Arabic-name, the applicant-categories lookup
+    /// payloads (excellence criteria, min-age, gender scope), and category
+    /// code→label.</summary>
+    private sealed record ConditionNames(
+        IReadOnlyDictionary<string, Dictionary<string, string>> ByLookupKey,
+        IReadOnlyDictionary<string, JsonObject> CategoryLookups,
+        IReadOnlyDictionary<string, string> CategoryNames);
+
+    /// <summary>
+    /// Admission conditions live on TWO planes and the export surfaces both —
+    /// mirroring exactly what the eligibility engine enforces
+    /// (<see cref="Admissions.Eligibility.ApplicantEligibilityService"/>):
+    ///  1. The normalized application-settings tables (category configs →
+    ///     specializations → graduation-year rows). Active-cycle only — the
+    ///     tables carry no cycle column (single-active-cycle invariant).
+    ///  2. The admission-setup wizard cycle-draft
+    ///     (`admissionSetup.applicationSettings.{cycleId}`, `approved` +
+    ///     `local` buckets) — where the «شروط اللجنة» rows are authored.
+    ///     Reading only plane 1 exported categories with empty condition cells.
+    /// Lookup codes (marital status, school category, division, grades,
+    /// degrees, excellence criteria, exam rounds, committees) resolve to their
+    /// Arabic names; unknown codes pass through as-is.
+    /// </summary>
     private async Task<IReadOnlyList<CuratedRow>> LoadCuratedAdmissionConditionsAsync(
         string? cycleId, CuratedContext ctx, CancellationToken ct)
     {
-        // The normalized application-settings tables carry no cycle column — they
-        // hold the ACTIVE cycle's setup (single-active-cycle invariant). So a
-        // snapshot for any other cycle must not surface them (no cross-cycle leak).
-        if (!string.IsNullOrWhiteSpace(cycleId)
-            && !string.IsNullOrWhiteSpace(ctx.ActiveCycleId)
-            && !string.Equals(cycleId, ctx.ActiveCycleId, StringComparison.OrdinalIgnoreCase))
+        var byLookupKey = await LoadLookupNamesByKeyAsync(ct);
+        var categoryLookups = await LoadCategoryLookupPayloadsAsync(ct);
+        var categoryNames = await db.ApplicantCategories.AsNoTracking()
+            .ToDictionaryAsync(c => c.Key, c => c.LabelAr, StringComparer.OrdinalIgnoreCase, ct);
+        foreach (var (code, payload) in categoryLookups)
         {
-            return [];
+            if (!categoryNames.ContainsKey(code) && AdminRecordJson.StringProp(payload, "name") is { } name)
+                categoryNames[code] = name;
         }
+        var names = new ConditionNames(byLookupKey, categoryLookups, categoryNames);
 
+        var rows = new List<CuratedRow>();
+        var includeNormalized = string.IsNullOrWhiteSpace(cycleId)
+            || string.IsNullOrWhiteSpace(ctx.ActiveCycleId)
+            || string.Equals(cycleId, ctx.ActiveCycleId, StringComparison.OrdinalIgnoreCase);
+        if (includeNormalized)
+        {
+            rows.AddRange(await LoadNormalizedConditionRowsAsync(names, ct));
+        }
+        rows.AddRange(await LoadDraftConditionRowsAsync(cycleId, names, ctx, ct));
+        return rows;
+    }
+
+    private async Task<IReadOnlyList<CuratedRow>> LoadNormalizedConditionRowsAsync(
+        ConditionNames names, CancellationToken ct)
+    {
         var configs = await db.ApplicationSettingsCategoryConfigs.AsNoTracking().ToListAsync(ct);
         if (configs.Count == 0) return [];
         var specs = await db.ApplicationSettingsCategorySpecializations.AsNoTracking().ToListAsync(ct);
@@ -2230,15 +2274,12 @@ public sealed class DataExchangeService(
             .GroupBy(y => y.CategorySpecializationId, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
         var facultyBySpec = await LoadFacultyBySpecializationAsync(ct);
-        var facultyNames = await LoadFacultyNameByCodeAsync(ct);
-        var specializationNames = await LoadSpecializationNameByCodeAsync(ct);
-        var categoryNames = await db.ApplicantCategories.AsNoTracking()
-            .ToDictionaryAsync(c => c.Key, c => c.LabelAr, StringComparer.OrdinalIgnoreCase, ct);
 
         var rows = new List<CuratedRow>();
         foreach (var config in configs.OrderBy(c => c.SortOrder))
         {
-            var categoryName = categoryNames.GetValueOrDefault(config.CategoryId);
+            var categoryName = names.CategoryNames.GetValueOrDefault(config.CategoryId);
+            var excellence = ResolveCategoryExcellence(config.CategoryId, names);
             var attachedSpecs = specsByConfig.TryGetValue(config.Id, out var specList)
                 ? specList : [];
 
@@ -2248,13 +2289,8 @@ public sealed class DataExchangeService(
                 ("category_name", categoryName),
                 ("faculty", facultyName),
                 ("specialization", specName),
-                ("graduation_year", null),
-                ("gender", null),
-                ("min_age", null),
-                ("max_age", null),
-                ("min_percentage", null),
-                ("school_category", null),
-                ("exam_round", null),
+                ("excellence_criterion", excellence),
+                ("condition_status", "معتمد"),
                 ("is_active", isActive ? "true" : "false")), created, updated, null);
 
             // A configured category with no attached specializations (or with
@@ -2271,11 +2307,9 @@ public sealed class DataExchangeService(
             {
                 var isImplicit = string.Equals(
                     spec.SpecializationId, ApplicationSettingsService.ImplicitDefaultSpecCode, StringComparison.Ordinal);
-                var specName = isImplicit
-                    ? null
-                    : specializationNames.GetValueOrDefault(spec.SpecializationId, spec.SpecializationId);
+                var specName = isImplicit ? null : ResolveName(names, "specializations", spec.SpecializationId);
                 var facultyCode = isImplicit ? null : facultyBySpec.GetValueOrDefault(spec.SpecializationId);
-                var facultyName = facultyCode is null ? null : facultyNames.GetValueOrDefault(facultyCode, facultyCode);
+                var facultyName = facultyCode is null ? null : ResolveName(names, "faculties", facultyCode);
                 var specYears = yearsBySpec.TryGetValue(spec.Id, out var yearList) ? yearList : [];
                 if (specYears.Count == 0)
                 {
@@ -2285,11 +2319,7 @@ public sealed class DataExchangeService(
 
                 foreach (var y in specYears)
                 {
-                    var gender = JoinJsonArray(y.GenderTypesJson);
-                    var school = JoinJsonArray(y.SchoolCategoryCodesJson);
-                    var minPercentage = string.Equals(y.GradeKind, "GRADES", StringComparison.OrdinalIgnoreCase)
-                        ? y.MinPercentage?.ToString(CultureInfo.InvariantCulture)
-                        : y.AcademicGradeId;
+                    var isTagdir = string.Equals(y.GradeKind, "TAGDIR", StringComparison.OrdinalIgnoreCase);
                     var gradYears = ParseJsonArrayItems(y.GraduationYearsJson);
                     var perYear = gradYears.Count == 0 ? new List<string?> { null } : gradYears.Cast<string?>().ToList();
                     foreach (var gradYear in perYear)
@@ -2300,12 +2330,19 @@ public sealed class DataExchangeService(
                             ("faculty", facultyName),
                             ("specialization", specName),
                             ("graduation_year", gradYear),
-                            ("gender", gender),
+                            ("gender", JoinJsonArray(y.GenderTypesJson)),
+                            ("marital_status", ResolveNames(names, "marital-statuses", ParseJsonArrayItems(y.MaritalStatusCodesJson))),
                             ("min_age", y.AgeMin?.ToString(CultureInfo.InvariantCulture)),
                             ("max_age", y.MaxAge?.ToString(CultureInfo.InvariantCulture)),
-                            ("min_percentage", minPercentage),
-                            ("school_category", school),
-                            ("exam_round", null),
+                            ("age_reference_date", y.AgeReferenceDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
+                            ("min_percentage", isTagdir ? null : y.MinPercentage?.ToString(CultureInfo.InvariantCulture)),
+                            ("min_grade", isTagdir ? ResolveName(names, "academic-grades", y.AcademicGradeId) : null),
+                            ("division", ResolveNames(names, "applicant-divisions", ParseJsonArrayItems(y.DivisionCodesJson))),
+                            ("school_category", ResolveNames(names, "school-categories", ParseJsonArrayItems(y.SchoolCategoryCodesJson))),
+                            ("excellence_criterion", excellence),
+                            ("application_start_date", y.ApplicationStartDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
+                            ("application_end_date", y.ApplicationEndDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
+                            ("condition_status", "معتمد"),
                             ("is_active", config.IsActive && spec.IsActive && y.IsActive ? "true" : "false")), y.CreatedAt, y.UpdatedAt, null));
                     }
                 }
@@ -2314,9 +2351,149 @@ public sealed class DataExchangeService(
         return rows;
     }
 
-    private Task<Dictionary<string, string>> LoadSpecializationNameByCodeAsync(CancellationToken ct)
-        => db.LookupRows.AsNoTracking().Where(x => x.LookupKey == "specializations")
-            .ToDictionaryAsync(x => x.Code, x => x.Name, StringComparer.OrdinalIgnoreCase, ct);
+    /// <summary>The wizard's authored «شروط اللجنة» rows from the cycle draft.
+    /// `approved` rows are the committed conditions; `local` rows are
+    /// not-yet-approved drafts the eligibility engine also honors — both are
+    /// exported, distinguished by `condition_status`.</summary>
+    private async Task<IReadOnlyList<CuratedRow>> LoadDraftConditionRowsAsync(
+        string? cycleId, ConditionNames names, CuratedContext ctx, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(cycleId)) return [];
+        var module = $"admissionSetup.applicationSettings.{cycleId}";
+        JsonObject? draft;
+        try { draft = await records.GetAsync(module, module, ct); }
+        catch (InvalidOperationException) { return []; }
+        if (draft is null) return [];
+
+        var (draftCreated, draftUpdated) = Timestamps(draft);
+        var rows = new List<CuratedRow>();
+        foreach (var (bucket, statusAr) in new[] { ("approved", "معتمد"), ("local", "مسودة") })
+        {
+            foreach (var row in (draft[bucket] as JsonArray ?? []).OfType<JsonObject>())
+            {
+                rows.AddRange(DraftConditionRows(row, statusAr, names, ctx, draftCreated, draftUpdated));
+            }
+        }
+        return rows;
+    }
+
+    private static IEnumerable<CuratedRow> DraftConditionRows(
+        JsonObject row,
+        string statusAr,
+        ConditionNames names,
+        CuratedContext ctx,
+        DateTimeOffset draftCreated,
+        DateTimeOffset draftUpdated)
+    {
+        var categoryCode = FirstString(row, "categoryCode", "categoryId") ?? "";
+        names.CategoryLookups.TryGetValue(categoryCode, out var categoryLookup);
+        var header = row["header"] as JsonObject ?? [];
+
+        var maritalCodes = StringItems(row["maritalStatus"]);
+        if (maritalCodes.Count == 0) maritalCodes = StringItems(header["maritalStatus"]);
+        // Thanawi rows carry an empty `type` by design — gender comes from the
+        // category's scope, the same fallback the eligibility engine applies.
+        var genderCodes = StringItems(row["type"]);
+        if (genderCodes.Count == 0 && categoryLookup is not null) genderCodes = StringItems(categoryLookup["genderScope"]);
+        var committeeCodes = StringItems(row["committees"]);
+        if (committeeCodes.Count == 0 && FirstString(row, "committee") is { } single) committeeCodes = [single];
+        var committeeNames = committeeCodes
+            .Select(code => ctx.CommitteeNameByCode.GetValueOrDefault(code) ?? ResolveName(names, "committees", code))
+            .OfType<string>().ToList();
+
+        var created = ParseDto(row["createdAt"]) ?? draftCreated;
+        var gradYears = StringItems(row["graduationYears"]);
+        if (gradYears.Count == 0 && FirstString(row, "graduationYear") is { } year) gradYears = [year];
+        var perYear = gradYears.Count == 0 ? [null] : gradYears.Cast<string?>().ToList();
+
+        foreach (var gradYear in perYear)
+        {
+            yield return new CuratedRow(Cells(
+                ("category", categoryCode),
+                ("category_name", names.CategoryNames.GetValueOrDefault(categoryCode)),
+                ("faculty", FirstString(row, "facultyNameAr") ?? ResolveName(names, "faculties", FirstString(row, "facultyCode"))),
+                ("specialization", FirstString(row, "specializationNameAr")
+                    ?? ResolveName(names, "specializations", FirstString(row, "specializationCode"))),
+                ("academic_degree", ResolveNames(names, "academic-degrees", StringItems(row["academicDegrees"]))),
+                ("graduation_year", gradYear),
+                ("gender", JoinItems(genderCodes)),
+                ("marital_status", ResolveNames(names, "marital-statuses", maritalCodes)),
+                ("min_age", categoryLookup is null ? null : AdminRecordJson.StringProp(categoryLookup, "minAge")),
+                ("max_age", FirstString(header, "maxAge")),
+                ("age_reference_date", FirstString(header, "ageReferenceDate")),
+                ("min_percentage", FirstString(row, "scoreMin")),
+                ("max_percentage", FirstString(row, "scoreMax")),
+                ("min_grade", ResolveName(names, "academic-grades", FirstString(row, "grade"))),
+                ("max_grade", ResolveName(names, "academic-grades", FirstString(row, "gradeMax"))),
+                ("school_category", ResolveNames(names, "school-categories", StringItems(row["schoolCategories"]))),
+                ("exam_round", ResolveName(names, "exam-rounds", FirstString(row, "examRound"))),
+                ("committee", JoinItems(committeeNames)),
+                ("excellence_criterion", ResolveName(names, "excellence-criteria", FirstString(row, "excellenceMode"))
+                    ?? ResolveCategoryExcellence(categoryCode, names)),
+                ("application_start_date", FirstString(header, "applicationStart")),
+                ("application_end_date", FirstString(header, "applicationEnd")),
+                ("condition_status", statusAr),
+                ("is_active", "true")), created, draftUpdated, null);
+        }
+    }
+
+    private async Task<IReadOnlyDictionary<string, Dictionary<string, string>>> LoadLookupNamesByKeyAsync(CancellationToken ct)
+    {
+        var rows = await db.LookupRows.AsNoTracking().ToListAsync(ct);
+        var map = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in rows)
+        {
+            if (!map.TryGetValue(row.LookupKey, out var byCode))
+            {
+                byCode = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                map[row.LookupKey] = byCode;
+            }
+            byCode.TryAdd(row.Code, row.Name);
+        }
+        return map;
+    }
+
+    private async Task<IReadOnlyDictionary<string, JsonObject>> LoadCategoryLookupPayloadsAsync(CancellationToken ct)
+    {
+        var rows = await db.LookupRows.AsNoTracking()
+            .Where(x => x.LookupKey == "applicant-categories").ToListAsync(ct);
+        var map = new Dictionary<string, JsonObject>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in rows)
+        {
+            var payload = ParseObject(row.PayloadJson);
+            payload["name"] ??= row.Name;
+            map[row.Code] = payload;
+        }
+        return map;
+    }
+
+    private static string? ResolveCategoryExcellence(string categoryCode, ConditionNames names)
+        => names.CategoryLookups.TryGetValue(categoryCode, out var payload)
+            ? ResolveNames(names, "excellence-criteria", StringItems(payload["excellenceCriterion"]))
+            : null;
+
+    private static string? ResolveName(ConditionNames names, string lookupKey, string? code)
+        => string.IsNullOrWhiteSpace(code)
+            ? null
+            : names.ByLookupKey.TryGetValue(lookupKey, out var byCode) ? byCode.GetValueOrDefault(code, code) : code;
+
+    private static string? ResolveNames(ConditionNames names, string lookupKey, IReadOnlyList<string> codes)
+        => JoinItems(codes.Select(code => ResolveName(names, lookupKey, code)).OfType<string>().ToList());
+
+    private static string? JoinItems(IReadOnlyList<string> items)
+        => items.Count == 0 ? null : string.Join(", ", items);
+
+    private static List<string> StringItems(JsonNode? node)
+    {
+        var result = new List<string>();
+        if (node is not JsonArray array) return result;
+        foreach (var item in array)
+        {
+            var s = item?.ToString();
+            if (!string.IsNullOrWhiteSpace(s)) result.Add(s);
+        }
+        return result;
+    }
 
     private async Task<IReadOnlyList<CuratedRow>> LoadCuratedApplicantCategoriesAsync(string? cycleId, CancellationToken ct)
     {
@@ -2377,10 +2554,165 @@ public sealed class DataExchangeService(
     private static Dictionary<string, string?> ProjectPaymentRow(PaymentRecordEntity x, JsonObject p) => Cells(
         ("applicant_id", x.ApplicantId ?? x.NationalId),
         ("payment_id", x.Id),
+        ("national_id", x.NationalId ?? AdminRecordJson.StringProp(p, "nationalId")),
+        ("applicant_name", FirstString(p, "applicantName", "name", "fullName")),
         ("amount", AdminRecordJson.StringProp(p, "amount") ?? AdminRecordJson.StringProp(p, "value")),
         ("payment_status", x.Status ?? AdminRecordJson.StringProp(p, "status")),
+        ("payment_method", FirstString(p, "method", "paymentMethod")),
         ("payment_date", DtoString(x.OccurredAt) ?? AdminRecordJson.StringProp(p, "paidAt") ?? AdminRecordJson.StringProp(p, "date")),
+        ("fawry_reference", FirstString(p, "fawryReference", "refNumber")),
         ("cycle_id", x.CycleId));
+
+    /// <summary>
+    /// Payments merge THREE sources so every paid applicant exports exactly once:
+    ///  1. The durable operational `payments` rows (admin ledger mutations).
+    ///  2. The applicant-portal payment records (`applicant_portal_records`,
+    ///     type = 'payment', successful only) — the same merge the
+    ///     /admin/payments ledger renders (<see cref="Payments.PaymentsLedgerService"/>).
+    ///     Real applicant payments are written here; reading the durable table
+    ///     alone exported an empty sheet.
+    ///  3. The applicant draft's `payment` snapshot — fallback for applicants
+    ///     whose draft says paid but whose portal payment record is missing or
+    ///     stuck `pending` (ConfirmPayment updates the FIRST record by
+    ///     applicant, so an older attempt can shadow the confirmed one).
+    /// Rows dedupe by Fawry reference across all sources; source 3 additionally
+    /// dedupes by applicant. Cycle scoping is lenient — a payment whose
+    /// applicant carries no cycle id is never dropped.
+    /// </summary>
+    private async Task<IReadOnlyList<CuratedRow>> LoadCuratedPaymentsAsync(string? cycleId, CancellationToken ct)
+    {
+        var rows = new List<CuratedRow>(
+            await LoadCuratedOperationalAsync(db.PaymentRecords, cycleId, ProjectPaymentRow, ct));
+        var seenReferences = rows
+            .Select(r => r.Cells.GetValueOrDefault("fawry_reference") ?? r.Cells.GetValueOrDefault("payment_id"))
+            .OfType<string>()
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var seenApplicants = rows
+            .SelectMany(r => new[] { r.Cells.GetValueOrDefault("applicant_id"), r.Cells.GetValueOrDefault("national_id") })
+            .OfType<string>()
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        IReadOnlyList<JsonObject> applicants;
+        try { applicants = await records.ListAsync("applicants", ct); }
+        catch (InvalidOperationException) { applicants = []; }
+        var applicantByKey = new Dictionary<string, JsonObject>(StringComparer.OrdinalIgnoreCase);
+        foreach (var applicant in applicants)
+        {
+            foreach (var key in (string[])["id", "applicantId", "nationalId"])
+            {
+                var value = FirstString(applicant, key);
+                if (value is not null) applicantByKey[value] = applicant;
+            }
+        }
+
+        var portalPayments = await db.ApplicantPortalRecords.AsNoTracking()
+            .Where(x => x.Type == "payment")
+            .OrderByDescending(x => x.UpdatedAt)
+            .ToListAsync(ct);
+        foreach (var record in portalPayments)
+        {
+            var payload = ParseObject(record.PayloadJson);
+            var status = FirstString(payload, "status");
+            var isPaid = string.Equals(status, "success", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(status, "paid", StringComparison.OrdinalIgnoreCase);
+            if (!isPaid) continue;
+
+            var reference = FirstString(payload, "refNumber") ?? record.RecordId;
+            if (!seenReferences.Add(reference)) continue;
+
+            var applicantId = FirstString(payload, "applicantId") ?? record.ApplicantId;
+            applicantByKey.TryGetValue(applicantId, out var applicant);
+            var rowCycle = applicant is null ? null : FirstString(applicant, "cycleId", "admissionCycleId");
+            if (CycleMismatch(rowCycle, cycleId)) continue;
+            var nationalId = applicant is null ? null : FirstString(applicant, "nationalId");
+            seenApplicants.Add(applicantId);
+            if (nationalId is not null) seenApplicants.Add(nationalId);
+
+            rows.Add(new CuratedRow(Cells(
+                ("applicant_id", applicantId),
+                ("payment_id", $"PAY-{reference}"),
+                ("national_id", nationalId ?? applicantId),
+                ("applicant_name", applicant is null ? null : FirstString(applicant, "fullName", "name", "applicantName")),
+                ("amount", FirstString(payload, "amount")),
+                ("payment_status", "paid"),
+                ("payment_method", FirstString(payload, "method")),
+                ("payment_date", DtoString(UnixOrIsoInstant(payload, "paidAt")) ?? DtoString(record.UpdatedAt)),
+                ("fawry_reference", reference),
+                ("cycle_id", rowCycle)), record.CreatedAt, record.UpdatedAt, nationalId ?? applicantId));
+        }
+
+        foreach (var applicant in applicants)
+        {
+            var row = DraftPaymentRow(applicant, cycleId, seenReferences, seenApplicants);
+            if (row is null) continue;
+            rows.Add(row);
+            if (row.Cells.GetValueOrDefault("fawry_reference") is { } reference) seenReferences.Add(reference);
+            if (row.Cells.GetValueOrDefault("applicant_id") is { } id) seenApplicants.Add(id);
+            if (row.Cells.GetValueOrDefault("national_id") is { } nid) seenApplicants.Add(nid);
+        }
+
+        return rows;
+    }
+
+    /// <summary>Source-3 fallback row off the applicant draft's `payment`
+    /// snapshot. Pure query — returns null when the applicant isn't paid, is
+    /// already covered by a ledger/portal row, or falls outside the cycle
+    /// scope; the caller registers the emitted row's dedup keys.</summary>
+    private static CuratedRow? DraftPaymentRow(
+        JsonObject applicant, string? cycleId, IReadOnlySet<string> seenReferences, IReadOnlySet<string> seenApplicants)
+    {
+        if (AdminRecordJson.IsSoftDeleted(applicant)) return null;
+        var payment = applicant["payment"] as JsonObject;
+        var isPaid = payment is not null
+            || string.Equals(FirstString(applicant, "paymentStatus"), "paid", StringComparison.OrdinalIgnoreCase);
+        if (!isPaid) return null;
+
+        var applicantId = FirstString(applicant, "id", "applicantId");
+        var nationalId = FirstString(applicant, "nationalId");
+        var personKey = nationalId ?? applicantId;
+        if (personKey is null) return null;
+        if (applicantId is not null && seenApplicants.Contains(applicantId)) return null;
+        if (nationalId is not null && seenApplicants.Contains(nationalId)) return null;
+
+        var reference = payment is null ? null : FirstString(payment, "refNumber", "fawryCode");
+        if (reference is not null && seenReferences.Contains(reference)) return null;
+
+        var rowCycle = FirstString(applicant, "cycleId", "admissionCycleId");
+        if (CycleMismatch(rowCycle, cycleId)) return null;
+
+        var (created, updated) = Timestamps(applicant);
+        return new CuratedRow(Cells(
+            ("applicant_id", applicantId ?? nationalId),
+            ("payment_id", $"PAY-{reference ?? personKey}"),
+            ("national_id", personKey),
+            ("applicant_name", FirstString(applicant, "fullName", "name", "applicantName")),
+            ("amount", payment is null ? null : FirstString(payment, "amount")),
+            ("payment_status", "paid"),
+            ("payment_method", payment is null ? null : FirstString(payment, "method")),
+            ("payment_date", payment is null ? null : DtoString(UnixOrIsoInstant(payment, "paidAt"))),
+            ("fawry_reference", reference),
+            ("cycle_id", rowCycle)), created, updated, personKey);
+    }
+
+    /// <summary>Lenient cycle scope: only a row that names a DIFFERENT cycle is
+    /// excluded — blank/unknown cycle ids stay in so no payment is dropped.</summary>
+    private static bool CycleMismatch(string? rowCycle, string? cycleId)
+        => !string.IsNullOrWhiteSpace(cycleId)
+            && !string.IsNullOrWhiteSpace(rowCycle)
+            && !string.Equals(rowCycle, cycleId, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Portal payment timestamps are Unix-milliseconds numbers; durable
+    /// rows carry ISO strings. Accepts both.</summary>
+    private static DateTimeOffset? UnixOrIsoInstant(JsonObject payload, string key)
+    {
+        if (!payload.TryGetPropertyValue(key, out var node) || node is null) return null;
+        if (node is JsonValue value && value.TryGetValue<long>(out var ms) && ms > 0)
+        {
+            try { return DateTimeOffset.FromUnixTimeMilliseconds(ms); }
+            catch (ArgumentOutOfRangeException) { return null; }
+        }
+        return ParseDto(node);
+    }
 
     private static Dictionary<string, string?> ProjectNotificationRow(NotificationRecordEntity x, JsonObject p) => Cells(
         ("notification_id", x.Id),
@@ -2446,10 +2778,6 @@ public sealed class DataExchangeService(
         }
         return map;
     }
-
-    private Task<Dictionary<string, string>> LoadFacultyNameByCodeAsync(CancellationToken ct)
-        => db.LookupRows.AsNoTracking().Where(x => x.LookupKey == "faculties")
-            .ToDictionaryAsync(x => x.Code, x => x.Name, StringComparer.OrdinalIgnoreCase, ct);
 
     private static string? ApplicantField(JsonObject p, params string[] keys)
         => FirstString(p, keys) ?? FirstNested(p, "profile", keys);
