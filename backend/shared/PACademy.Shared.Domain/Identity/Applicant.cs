@@ -131,6 +131,20 @@ public sealed class Applicant
         UpdatedAt = DateTimeOffset.UtcNow;
     }
 
+    /// <summary>
+    /// Swap a derived placeholder full name for a regenerated one. Callers
+    /// must verify the current <see cref="FullName"/> is one of the retired
+    /// derive-pool placeholders before invoking — applicant-entered names
+    /// are never replaced through this path.
+    /// </summary>
+    public void ReplacePlaceholderName(string fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+            throw new ArgumentException("name required", nameof(fullName));
+        FullName = fullName;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
     private static void Guard(string nationalId, string phoneNumber)
     {
         if (string.IsNullOrWhiteSpace(nationalId)) throw new ArgumentException("nid required", nameof(nationalId));

@@ -25,6 +25,37 @@ namespace PACademy.Modules.IdentityApplicant.Application.Moi;
 public static class ArabicNameGenerator
 {
     /// <summary>
+    /// The 12 names the pre-engine <see cref="NidIdentityDeriver"/> pools
+    /// could produce. Rows persisted with one of these are derived
+    /// placeholders (applicants never typed them — the old derive path is
+    /// the only writer of these exact 3-part strings), so the startup
+    /// normalizer and any future self-heal may safely regenerate them.
+    /// </summary>
+    public static readonly IReadOnlySet<string> LegacyPlaceholderNames = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "محمد إبراهيم سعد",
+        "يوسف أحمد محمد",
+        "علي حسن طه",
+        "عمر مصطفى الشيخ",
+        "كريم مجدي عبد الله",
+        "محمود فؤاد العقاد",
+        "مريم عادل منصور",
+        "فاطمة أحمد السيد",
+        "نورهان محمود سعيد",
+        "سارة عبد الله حسن",
+        "هبة علي إبراهيم",
+        "ياسمين خالد فؤاد",
+    };
+
+    /// <summary>
+    /// Gender encoded in a 14-digit NID: digit 13 (the last sequence
+    /// digit) is odd for males, even for females. Single home for the
+    /// parity rule shared by the derive and normalize flows.
+    /// </summary>
+    public static string GenderFromNid(string nationalId)
+        => (nationalId[12] - '0') % 2 == 0 ? "female" : "male";
+
+    /// <summary>
     /// Builds the deterministic four-part full name for a NID.
     /// <paramref name="gender"/> is <c>"male"</c> or <c>"female"</c> as
     /// derived from the NID gender digit by the caller.
