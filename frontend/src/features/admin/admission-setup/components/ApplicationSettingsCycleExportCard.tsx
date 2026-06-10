@@ -238,7 +238,7 @@ export function ApplicationSettingsCycleExportCard(): JSX.Element {
 
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border-subtle bg-ink-50 px-4 py-3">
           <p className="text-xs leading-6 text-ink-500">
-            ملف Excel واحد بترويسة عربية واتجاه من اليمين لليسار، يضم كل فئات الدورة وشروطها في ورقة واحدة.
+            ملف Excel واحد بترويسة عربية واتجاه من اليمين لليسار، يضم كل فئات الدورة وشروطها في جدول واحد.
           </p>
           <Button
             variant="primary"

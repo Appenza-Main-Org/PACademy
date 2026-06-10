@@ -527,7 +527,7 @@ async function mockExport({ domains, layout, filter, nationalIds }: ExportParams
       rows: cells,
     });
   }
-  mockHistory.unshift(historyEntry('export', `تصدير ${sheets.length} ورقة · ${total} صف`, total, 0, 0, 0, 0));
+  mockHistory.unshift(historyEntry('export', `تصدير ${sheets.length} جدول · ${total} صف`, total, 0, 0, 0, 0));
   return { layout, watermark: new Date().toISOString(), totalRows: total, sheets };
 }
 
@@ -583,7 +583,7 @@ async function mockPreview(sheets: ImportSheetInput[]): Promise<ImportPreview> {
   for (const sheet of sheets) {
     const { outcomes, domain } = await classify(sheet);
     if (!domain) {
-      sheetIssues.push({ sheetName: sheet.sheetName, code: 'DATA_EXCHANGE_INVALID_WORKBOOK', message: `اسم ورقة غير معروف: ${sheet.sheetName}` });
+      sheetIssues.push({ sheetName: sheet.sheetName, code: 'DATA_EXCHANGE_INVALID_WORKBOOK', message: `اسم جدول غير معروف: ${sheet.sheetName}` });
       continue;
     }
     allOutcomes.push(...outcomes);

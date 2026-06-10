@@ -94,7 +94,7 @@ public sealed class DataExchangeController(DataExchangeService service) : Contro
         if (body?.Rows is null || body.Rows.Count == 0)
             return BadRequest(new { code = ErrorCodes.ValidationFailed, message = "لا توجد صفوف للمعاينة." });
         if (!string.Equals(body.SheetName, "Applicants", StringComparison.Ordinal))
-            return BadRequest(new { code = ErrorCodes.ValidationFailed, message = "ورقة المعاينة يجب أن تكون «Applicants»." });
+            return BadRequest(new { code = ErrorCodes.ValidationFailed, message = "جدول المعاينة يجب أن يكون «Applicants»." });
         return Ok(await service.PreviewApplicantsReconciliationAsync(body, ct));
     }
 
@@ -105,7 +105,7 @@ public sealed class DataExchangeController(DataExchangeService service) : Contro
         if (body?.Sheet is null || body.Sheet.Rows is null || body.Sheet.Rows.Count == 0)
             return BadRequest(new { code = ErrorCodes.ValidationFailed, message = "لا توجد صفوف للاعتماد." });
         if (!string.Equals(body.Sheet.SheetName, "Applicants", StringComparison.Ordinal))
-            return BadRequest(new { code = ErrorCodes.ValidationFailed, message = "ورقة الاعتماد يجب أن تكون «Applicants»." });
+            return BadRequest(new { code = ErrorCodes.ValidationFailed, message = "جدول الاعتماد يجب أن يكون «Applicants»." });
         if (body.Decisions is null || body.Decisions.Count == 0)
             return BadRequest(new { code = ErrorCodes.ValidationFailed, message = "لا توجد قرارات للاعتماد." });
         return Ok(await service.CommitApplicantsReconciliationAsync(body, ct));
@@ -115,7 +115,7 @@ public sealed class DataExchangeController(DataExchangeService service) : Contro
     public async Task<ActionResult<ImportPreviewResult>> Preview([FromBody] ImportPreviewRequest body, CancellationToken ct)
     {
         if (body?.Sheets is null || body.Sheets.Count == 0)
-            return BadRequest(new { code = ErrorCodes.ValidationFailed, message = "لا توجد أوراق للمعاينة." });
+            return BadRequest(new { code = ErrorCodes.ValidationFailed, message = "لا توجد جداول للمعاينة." });
         return Ok(await service.PreviewAsync(body, ct));
     }
 
@@ -123,7 +123,7 @@ public sealed class DataExchangeController(DataExchangeService service) : Contro
     public async Task<ActionResult<ImportApplyResult>> Apply([FromBody] ImportApplyRequest body, CancellationToken ct)
     {
         if (body?.Sheets is null || body.Sheets.Count == 0)
-            return BadRequest(new { code = ErrorCodes.ValidationFailed, message = "لا توجد أوراق للتطبيق." });
+            return BadRequest(new { code = ErrorCodes.ValidationFailed, message = "لا توجد جداول للتطبيق." });
         if (body.Mode is not ("new-only" or "new-and-changed"))
             return BadRequest(new { code = ErrorCodes.ValidationFailed, errors = new { mode = "وضع غير صالح" }, message = "وضع التطبيق غير صالح." });
         return Ok(await service.ApplyAsync(body, ct));

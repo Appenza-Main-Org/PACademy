@@ -92,11 +92,11 @@ function sanitizeFileLabel(raw: string): string {
 const LAYOUT_OPTIONS: Array<{ value: ExportLayout; label: string }> = [
   {
     value: 'single-workbook',
-    label: 'ملف Excel واحد يضم كل الأوراق',
+    label: 'ملف Excel واحد يضم كل الجداول',
   },
   {
     value: 'file-per-type',
-    label: 'ملف مستقل لكل ورقة',
+    label: 'ملف مستقل لكل جدول',
   },
 ];
 
@@ -263,7 +263,7 @@ export function DataExchangePage(): JSX.Element {
   async function handleExport(): Promise<void> {
     const domains = EXPORT_DOMAINS.filter((d) => selected.has(d));
     if (domains.length === 0) {
-      toast('اختر ورقة واحدة على الأقل للتصدير.', 'warning');
+      toast('اختر جدولاً واحدًا على الأقل للتصدير.', 'warning');
       return;
     }
     if (filterKind === 'changedAfter' && !toIsoOrNull(changedAfter)) {
@@ -280,7 +280,7 @@ export function DataExchangePage(): JSX.Element {
         ? selectedNationalIds
         : undefined;
     if (domains.includes('Applicants') && roster.length > 0 && selectedNationalIds.length === 0) {
-      toast('اختر متقدمًا واحدًا على الأقل لتصدير ورقة المتقدمين.', 'warning');
+      toast('اختر متقدمًا واحدًا على الأقل لتصدير جدول المتقدمين.', 'warning');
       return;
     }
     try {
@@ -329,7 +329,7 @@ export function DataExchangePage(): JSX.Element {
         entityType: 'data-exchange',
         entityLabel: 'استيراد وتصدير البيانات',
         entityId: `export-${stamp}`,
-        details: `تصدير ${result.sheets.length} ورقة · ${result.totalRows} صف`,
+        details: `تصدير ${result.sheets.length} جدول · ${result.totalRows} صف`,
       });
       toast(`تم تصدير ${result.totalRows} صف.`, 'success');
     } catch {
@@ -349,10 +349,10 @@ export function DataExchangePage(): JSX.Element {
       const { sheets, unknownSheets } = await parseWorkbook(target.file);
       setParsedSheets(sheets);
       if (unknownSheets.length > 0) {
-        toast(`أوراق غير معروفة سيتم تجاهلها: ${unknownSheets.join('، ')}`, 'warning');
+        toast(`جداول غير معروفة سيتم تجاهلها: ${unknownSheets.join('، ')}`, 'warning');
       }
       if (sheets.length === 0) {
-        toast('لا توجد أوراق مطابقة لأسماء النظام في الملف.', 'danger');
+        toast('لا توجد جداول مطابقة لأسماء النظام في الملف.', 'danger');
         setPreview(null);
         setApplicantsPreview(null);
         return;
@@ -380,7 +380,7 @@ export function DataExchangePage(): JSX.Element {
   async function handleReconcileCommit(decisions: ApplicantReconciliationDecision[]): Promise<void> {
     const sheet = parsedSheets.find((s) => s.sheetName === SHEET_NAMES.Applicants);
     if (!sheet) {
-      toast('تعذّر العثور على ورقة المتقدمين في الملف المرفوع.', 'danger');
+      toast('تعذّر العثور على جدول المتقدمين في الملف المرفوع.', 'danger');
       return;
     }
     try {
@@ -486,7 +486,7 @@ export function DataExchangePage(): JSX.Element {
                   </span>
                 }
                 subtitle="اختر حزمة البيانات ثم صدّر ملف Excel."
-                actions={<Badge tone="neutral">{selectedDomains.length} ورقة</Badge>}
+                actions={<Badge tone="neutral">{selectedDomains.length} جدول</Badge>}
               />
               <CardBody className="space-y-5">
                 <fieldset className="space-y-2">
@@ -508,7 +508,7 @@ export function DataExchangePage(): JSX.Element {
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-ink-900 focus-visible:shadow-focus-teal focus-visible:outline-none">
                     <span className="inline-flex items-center gap-2">
                       <Settings2 size={16} />
-                      تخصيص أوراق Excel
+                      تخصيص جداول Excel
                     </span>
                     <ChevronDown size={16} className="transition-transform duration-fast ease-standard group-open:rotate-180" />
                   </summary>
@@ -635,7 +635,7 @@ export function DataExchangePage(): JSX.Element {
               subtitle="ارفع الملف، راجع المعاينة، ثم طبّق."
               actions={
                 parsedSheets.length > 0 ? (
-                  <Badge tone="info">{parsedSheets.length} أوراق مقروءة</Badge>
+                  <Badge tone="info">{parsedSheets.length} جداول مقروءة</Badge>
                 ) : undefined
               }
             />
@@ -646,7 +646,7 @@ export function DataExchangePage(): JSX.Element {
                   onFilesChange={(f) => void handleFiles(f)}
                   accept=".xlsx,.xls"
                   title="اسحب مصنّف Excel هنا أو انقر للاختيار"
-                  helper="يجب أن تطابق أسماء الأوراق سجل النظام الثابت."
+                  helper="يجب أن تطابق أسماء الجداول سجل النظام الثابت."
                 />
                 {previewMutation.isPending && (
                   <p className="mt-3 flex items-center gap-2 text-2xs text-ink-500">
@@ -660,7 +660,7 @@ export function DataExchangePage(): JSX.Element {
                 <ul className="mt-3 space-y-2 text-xs leading-6 text-ink-600">
                   <li className="flex gap-2">
                     <Check size={14} className="mt-1 shrink-0 text-teal-600" />
-                    أسماء الأوراق تبقى ASCII كما في سجل النظام.
+                    أسماء الجداول تبقى ASCII كما في سجل النظام.
                   </li>
                   <li className="flex gap-2">
                     <Check size={14} className="mt-1 shrink-0 text-teal-600" />
