@@ -320,7 +320,7 @@ function normalizeApplicantPage(page: Pagination<Applicant>): Pagination<Applica
   };
 }
 
-function compactApplicantFilters(filters: ApplicantFilters): ApplicantFilters {
+export function compactApplicantFilters(filters: ApplicantFilters): ApplicantFilters {
   const out: ApplicantFilters = {};
   if (filters.page !== undefined) out.page = filters.page;
   if (filters.pageSize !== undefined) out.pageSize = filters.pageSize;
@@ -437,7 +437,7 @@ function sortApplicantsNewestFirst(applicants: readonly Applicant[]): Applicant[
     .map(({ applicant }) => applicant);
 }
 
-function paginateApplicants(
+export function paginateApplicants(
   applicants: readonly Applicant[],
   page = 1,
   pageSize = 20,
@@ -455,19 +455,43 @@ function paginateApplicants(
   };
 }
 
+/**
+ * Concurrent callers (e.g. the dashboard's KPI + recent-rows queries mounting
+ * together) share one in-flight round-trip instead of each pulling the full
+ * dataset. The promise is dropped once settled, so every later call still
+ * fetches fresh data — the no-server-state-cache policy is unchanged.
+ */
+let inflightApplicantsFetch: Promise<Applicant[]> | null = null;
+
 async function listAllApplicantsForClientFilter(): Promise<Applicant[]> {
-  const firstPage = await apiClient.get<Pagination<Applicant>>('/api/applicants', {
-    query: { page: 1, pageSize: CLIENT_FILTER_PAGE_SIZE },
-  });
-  const normalizedFirstPage = normalizeApplicantPage(firstPage);
-  const rows = [...normalizedFirstPage.data];
-  for (let page = 2; page <= normalizedFirstPage.totalPages; page += 1) {
-    const nextPage = await apiClient.get<Pagination<Applicant>>('/api/applicants', {
-      query: { page, pageSize: CLIENT_FILTER_PAGE_SIZE },
+  if (inflightApplicantsFetch) return inflightApplicantsFetch;
+  inflightApplicantsFetch = (async () => {
+    const firstPage = await apiClient.get<Pagination<Applicant>>('/api/applicants', {
+      query: { page: 1, pageSize: CLIENT_FILTER_PAGE_SIZE },
     });
-    rows.push(...normalizeApplicantPage(nextPage).data);
+    const normalizedFirstPage = normalizeApplicantPage(firstPage);
+    const rows = [...normalizedFirstPage.data];
+    for (let page = 2; page <= normalizedFirstPage.totalPages; page += 1) {
+      const nextPage = await apiClient.get<Pagination<Applicant>>('/api/applicants', {
+        query: { page, pageSize: CLIENT_FILTER_PAGE_SIZE },
+      });
+      rows.push(...normalizeApplicantPage(nextPage).data);
+    }
+    return rows;
+  })();
+  try {
+    return await inflightApplicantsFetch;
+  } finally {
+    inflightApplicantsFetch = null;
   }
-  return rows;
+}
+
+/**
+ * Mutations drop the shared in-flight list fetch so a post-write refetch
+ * never joins a request that started before the write and misses it.
+ */
+function dropInflightApplicantsFetch(): void {
+  inflightApplicantsFetch = null;
 }
 
 function normalizeDistribution(rows: Array<{ label: string; value: number }>): Array<{ label: string; value: number }> {
@@ -528,19 +552,14 @@ export function diffApplicants(
 }
 
 export const applicantService = {
-  async list(filters: ApplicantFilters = {}): Promise<Pagination<Applicant>> {
+  /** Full filtered + newest-first sorted list, no pagination — one backend round-trip. */
+  async listFiltered(filters: ApplicantFilters = {}): Promise<Applicant[]> {
     const cleaned = compactApplicantFilters(filters);
-    if (hasApplicantFilter(cleaned)) {
-      const rows = await listAllApplicantsForClientFilter();
-      return paginateApplicants(
-        sortApplicantsNewestFirst(rows.filter((applicant) => matchesApplicantFilters(applicant, cleaned))),
-        cleaned.page,
-        cleaned.pageSize,
-      );
-    }
-
     const rows = await listAllApplicantsForClientFilter();
-    return paginateApplicants(sortApplicantsNewestFirst(rows), cleaned.page, cleaned.pageSize);
+    const matched = hasApplicantFilter(cleaned)
+      ? rows.filter((applicant) => matchesApplicantFilters(applicant, cleaned))
+      : rows;
+    return sortApplicantsNewestFirst(matched);
   },
 
   async getById(id: string): Promise<Applicant | null> {
@@ -574,11 +593,13 @@ export const applicantService = {
 
   async create(input: ApplicantInput): Promise<Applicant> {
     const applicant = await apiClient.post<Applicant>('/api/v1/applicants', input);
+    dropInflightApplicantsFetch();
     return normalizeApplicant(applicant);
   },
 
   async update(id: string, patch: Partial<ApplicantInput>): Promise<Applicant> {
     const applicant = await apiClient.put<Applicant>(`/api/v1/applicants/${encodeURIComponent(id)}`, patch);
+    dropInflightApplicantsFetch();
     return normalizeApplicant(applicant);
   },
 
@@ -587,6 +608,7 @@ export const applicantService = {
     payload: { toStatus: ApplicantStatus; reason: string },
   ): Promise<Applicant> {
     const applicant = await apiClient.post<Applicant>(`/api/v1/applicants/${encodeURIComponent(id)}/transition`, payload);
+    dropInflightApplicantsFetch();
     return normalizeApplicant(applicant);
   },
 
@@ -598,6 +620,7 @@ export const applicantService = {
    */
   async resetApplicant(id: string): Promise<Applicant> {
     const applicant = await apiClient.post<Applicant>(`/api/v1/applicants/${encodeURIComponent(id)}/reset`);
+    dropInflightApplicantsFetch();
     return normalizeApplicant(applicant);
   },
 
@@ -607,6 +630,7 @@ export const applicantService = {
    */
   async deleteApplicant(id: string): Promise<void> {
     await apiClient.delete<void>(`/api/v1/applicants/${encodeURIComponent(id)}`);
+    dropInflightApplicantsFetch();
   },
 
   /**
@@ -622,6 +646,7 @@ export const applicantService = {
       `/api/v1/applicants/${encodeURIComponent(id)}/suspension`,
       payload,
     );
+    dropInflightApplicantsFetch();
     return normalizeApplicant(applicant);
   },
 

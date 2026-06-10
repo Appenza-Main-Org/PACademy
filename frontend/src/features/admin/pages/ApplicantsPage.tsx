@@ -188,9 +188,22 @@ export function ApplicantsPage(): JSX.Element {
         ),
       },
       {
+        key: 'committeeName',
+        label: 'اللجنة',
+        width: '12%',
+        sortable: true,
+        getSortValue: (a) => a.committeeName ?? '',
+        filter: { kind: 'text', getValue: (a) => a.committeeName ?? '' },
+        render: (a) => (
+          <span className="block truncate text-sm text-ink-700">
+            {displayValue(a.committeeName)}
+          </span>
+        ),
+      },
+      {
         key: 'contact',
         label: 'الاتصال',
-        width: '18%',
+        width: '16%',
         hideOn: 'md',
         sortable: true,
         getSortValue: (a) => a.phoneNumber ?? a.contact?.mobilePhone,
@@ -254,20 +267,6 @@ export function ApplicantsPage(): JSX.Element {
             <span className="block truncate text-ink-500">{a.certSection}</span>
             <span className="block text-end font-mono text-ink-500" dir="ltr">{displayValue(a.certPercent)}</span>
           </div>
-        ),
-      },
-      {
-        key: 'committeeName',
-        label: 'اللجنة',
-        width: '12%',
-        hideOn: 'md',
-        sortable: true,
-        getSortValue: (a) => a.committeeName ?? '',
-        filter: { kind: 'text', getValue: (a) => a.committeeName ?? '' },
-        render: (a) => (
-          <span className="block truncate text-sm text-ink-700">
-            {displayValue(a.committeeName)}
-          </span>
         ),
       },
       {
