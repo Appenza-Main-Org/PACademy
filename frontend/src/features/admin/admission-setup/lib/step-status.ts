@@ -132,8 +132,11 @@ export function computeStepStatus(
     case 'electronic_declaration':
       /* A declaration row alone is not enough: legacy/backend records can
        * exist before the admin has authored text or uploaded the PDF that
-       * applicants must acknowledge. */
-      return hasElectronicDeclarationContent(declaration) ? 'complete' : 'not_started';
+       * applicants must acknowledge. Authored content is still invisible to
+       * applicants until the explicit «نشر» click stamps `publishedAt` —
+       * only then is the step truly complete. */
+      if (!hasElectronicDeclarationContent(declaration)) return 'not_started';
+      return declaration?.publishedAt ? 'complete' : 'in_progress';
   }
 }
 
