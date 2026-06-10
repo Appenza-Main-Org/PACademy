@@ -1677,7 +1677,7 @@ public sealed class DataExchangeService(
     }
 
     /// <summary>Locked curated-snapshot sheet registry. The order here is the
-    /// workbook sheet order (after the frontend-built ExportInfo sheet). Columns
+    /// workbook sheet order. Columns
     /// are fixed + human-readable; mirrored by the frontend `EXPORT_DOMAINS`.
     ///
     /// Unique-identifier rule (2026-06-10): every sheet carries a stable per-row

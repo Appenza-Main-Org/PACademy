@@ -173,7 +173,6 @@ export function DataExchangePage(): JSX.Element {
   const cycleCtx = useAdmissionSetupCycle();
   const selectedCycleId = cycleCtx.cycle?.id ?? null;
   const exportMutation = useExportSnapshotMutation();
-  const exportedByName = useAuthStore((s) => s.user?.name);
   const rosterQuery = useBookedApplicantsRoster(selectedCycleId);
   const testsQuery = useLookup('tests');
 
@@ -295,9 +294,8 @@ export function DataExchangePage(): JSX.Element {
       // `data-exchange-{cycle}-{yyyyMMdd-HHmmss}.xlsx` — cycle label prefers the
       // cycle year (clean ASCII), then the backend's cycle name, then the cycle
       // id, then the date stamp. The time suffix comes from the backend export
-      // watermark (the same instant written into the ExportInfo sheet) so every
-      // export gets a distinct, sortable file name instead of overwriting the
-      // previous download of the same cycle.
+      // watermark so every export gets a distinct, sortable file name instead
+      // of overwriting the previous download of the same cycle.
       const cycleLabel = sanitizeFileLabel(
         String(cycleCtx.cycle?.year ?? result.info?.cycleName ?? selectedCycleId ?? stamp),
       );
@@ -308,19 +306,12 @@ export function DataExchangePage(): JSX.Element {
         .replace(/[-:]/g, '')
         .replace('T', '-')
         .slice(0, 15);
-      const meta = {
-        info: result.info ?? null,
-        fullUrl: window.location.href,
-        sourceRoute: '/admin/data-exchange',
-        sourceModule: 'Data Exchange',
-        exportedByName: exportedByName ?? undefined,
-      };
       if (layout === 'file-per-type') {
         const blobs = await buildPerTypeBlobs(result.sheets);
         for (const { sheetName, blob } of blobs)
           downloadBlob(blob, `data-exchange-${sheetName}-${cycleLabel}-${uniqueStamp}.xlsx`);
       } else {
-        const blob = await buildWorkbookBlob(result.sheets, meta);
+        const blob = await buildWorkbookBlob(result.sheets);
         downloadBlob(blob, `data-exchange-${cycleLabel}-${uniqueStamp}.xlsx`);
       }
       emitAudit({
