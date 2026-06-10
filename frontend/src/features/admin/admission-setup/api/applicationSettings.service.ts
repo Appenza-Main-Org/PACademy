@@ -252,10 +252,16 @@ export const applicationSettingsService = {
   async getParentCategoryForSpec(
     categorySpecializationId: string,
   ): Promise<ParentCategorySnapshot | null> {
-    return apiClient.get(`/api/admin/app-settings/specializations/${encodeURIComponent(categorySpecializationId)}/parent-category`, {
-      headers: cycleHeaders(),
-      query: cycleQuery(),
-    });
+    // "No parent category" serializes as 204 No Content → undefined; coalesce
+    // so the query resolves (TanStack treats undefined data as an error).
+    const snapshot = await apiClient.get<ParentCategorySnapshot | null | undefined>(
+      `/api/admin/app-settings/specializations/${encodeURIComponent(categorySpecializationId)}/parent-category`,
+      {
+        headers: cycleHeaders(),
+        query: cycleQuery(),
+      },
+    );
+    return snapshot ?? null;
   },
 
   async attachSpecialization(
