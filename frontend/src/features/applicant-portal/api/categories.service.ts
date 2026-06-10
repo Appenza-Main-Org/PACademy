@@ -136,7 +136,7 @@ function getActiveCycles(): AdmissionCycle[] {
 }
 
 function normalizeActiveCycles(
-  value: AdmissionCycle | AdmissionCycle[] | null,
+  value: AdmissionCycle | AdmissionCycle[] | null | undefined,
 ): AdmissionCycle[] {
   const rows = Array.isArray(value) ? value : value ? [value] : [];
   return rows
@@ -345,8 +345,9 @@ export const categoriesPublicService = {
    *  active cycle never opens the portal. */
   async getActiveCycles(): Promise<AdmissionCycle[]> {
     if (isBackendEnabled()) {
+      // GET /api/cycles/active serializes "no active cycle" as 204 → undefined.
       const active = await adminApiClient
-        .get<AdmissionCycle | AdmissionCycle[] | null>('/api/cycles/active')
+        .get<AdmissionCycle | AdmissionCycle[] | null | undefined>('/api/cycles/active')
         .catch(() => null);
       return normalizeActiveCycles(active);
     }
@@ -393,7 +394,7 @@ export const categoriesPublicService = {
   async getActiveCycle(): Promise<AdmissionCycle | null> {
     if (isBackendEnabled()) {
       const active = await adminApiClient
-        .get<AdmissionCycle | AdmissionCycle[] | null>('/api/cycles/active')
+        .get<AdmissionCycle | AdmissionCycle[] | null | undefined>('/api/cycles/active')
         .catch(() => null);
       return normalizeActiveCycles(active)[0] ?? null;
     }
