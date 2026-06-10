@@ -37,6 +37,7 @@ import {
 import { BarChart } from '@/shared/components/charts';
 import { date as fmtDate, maskNationalId, num, shortName } from '@/shared/lib/format';
 import { biometricService } from '../api/biometric.service';
+import { exportBiometricHistory, type HistoryExportData } from '../lib/exportHistory';
 import type {
   BiometricApplicantLookup,
   BiometricAuditLog,
@@ -688,7 +689,7 @@ export function BiometricEnrollPage(): JSX.Element {
 
   return (
     <>
-      <PageHeader title="تسجيل بيومتري" subtitle="إنشاء سجل المتقدم على الجهاز، ثم تسجيل البصمة والوجه على الجهاز، ثم التأكيد ببصمة حية" />
+      <PageHeader title="تسجيل بيومتري لمتقدم" subtitle="إنشاء سجل المتقدم على الجهاز، ثم تسجيل البصمة والوجه على الجهاز، ثم التأكيد ببصمة حية" />
 
       <div className="grid gap-5 lg:grid-cols-[0.7fr_1.3fr]">
         <Card>
@@ -1007,9 +1008,41 @@ export function BiometricHistoryPage(): JSX.Element {
     void refresh();
   }, [failedOnly, module]);
 
-  const exportReport = async (format: ExportFormat): Promise<void> => {
-    const file = await biometricService.exportReport(format);
-    toast(`تم تجهيز ملف ${file.fileName}`, 'success');
+  const exportReport = (format: ExportFormat): void => {
+    if (!reports) {
+      toast('لا توجد بيانات للتصدير بعد', 'warning');
+      return;
+    }
+    const exportData: HistoryExportData = {
+      title: 'سجل وتقارير التحقق البيومتري',
+      generatedAt: `تاريخ التصدير: ${fmtDate(Date.now(), 'short')}`,
+      fileSlug: todayIso(),
+      summary: [
+        ['عمليات اليوم', num(reports.daily.at(-1)?.total ?? 0)],
+        ['عمليات فاشلة (تحتاج متابعة)', num(reports.failed.length)],
+        ['حضور البوابة (دخول / خروج)', num(reports.attendance.length)],
+        ['مسجل بالكامل', num(reports.enrollment[0]?.value ?? 0)],
+      ],
+      daily: reports.daily.map((day) => [day.label, num(day.total)] as [string, string]),
+      log: {
+        headers: ['المتقدم', 'التاريخ', 'الطريقة', 'النتيجة', 'المشغل', 'الموقع'],
+        rows: rows.map((row) => [
+          row.applicantName,
+          fmtDate(row.timestamp, 'short'),
+          methodLabel(row.method),
+          `${STATUS_LABEL[row.result]}${row.confidence ? ` (${row.confidence}%)` : ''}`,
+          row.operator,
+          MODULE_LABEL[row.module],
+        ]),
+      },
+    };
+    try {
+      exportBiometricHistory(format, exportData);
+      if (format === 'pdf') toast('تم فتح نافذة الطباعة — اختر «حفظ كـ PDF»', 'info');
+      else toast('تم تجهيز الملف للتحميل', 'success');
+    } catch {
+      toast('تعذّر فتح نافذة الطباعة — اسمح بالنوافذ المنبثقة وأعد المحاولة', 'danger');
+    }
   };
 
   const chartData = useMemo(
@@ -1019,24 +1052,32 @@ export function BiometricHistoryPage(): JSX.Element {
 
   return (
     <>
-      <PageHeader title="سجل وتقارير التحقق البيومتري" subtitle="سجل العمليات والفشل والحضور وحالة التسجيل مع تصدير PDF / Excel / Word" />
+      <PageHeader
+        title="سجل وتقارير التحقق البيومتري"
+        subtitle="سجل العمليات والفشل والحضور وحالة التسجيل مع تصدير PDF / Excel / Word"
+        actions={
+          <Button variant="secondary" size="sm" leadingIcon={<RotateCcw size={14} />} onClick={() => void refresh()}>
+            تحديث
+          </Button>
+        }
+      />
 
       <div className="grid gap-5 lg:grid-cols-4">
         <Card>
           <CardHeader title="تقرير يومي" />
-          <Metric label="عمليات اليوم" value={num(reports?.daily.at(-1)?.total ?? 0)} />
+          <Metric label="عمليات اليوم" value={reports ? num(reports.daily.at(-1)?.total ?? 0) : '—'} />
         </Card>
         <Card>
           <CardHeader title="عمليات فاشلة" />
-          <Metric label="تحتاج متابعة" value={num(reports?.failed.length ?? 0)} />
+          <Metric label="تحتاج متابعة" value={reports ? num(reports.failed.length) : '—'} />
         </Card>
         <Card>
           <CardHeader title="حضور البوابة" />
-          <Metric label="دخول / خروج" value={num(reports?.attendance.length ?? 0)} />
+          <Metric label="دخول / خروج" value={reports ? num(reports.attendance.length) : '—'} />
         </Card>
         <Card>
           <CardHeader title="حالة التسجيل" />
-          <Metric label="مسجل بالكامل" value={num(reports?.enrollment[0]?.value ?? 0)} />
+          <Metric label="مسجل بالكامل" value={reports ? num(reports.enrollment[0]?.value ?? 0) : '—'} />
         </Card>
       </div>
 
