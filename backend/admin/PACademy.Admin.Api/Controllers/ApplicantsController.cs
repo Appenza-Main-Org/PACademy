@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
 using PACademy.Admin.Api.Modules.AdminRecords;
+using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Admin.Api.Modules.Admissions.Eligibility;
 using PACademy.Shared.Contracts;
 
@@ -8,7 +9,10 @@ namespace PACademy.Admin.Api.Controllers;
 
 [ApiController]
 [Route("")]
-public sealed class ApplicantsController(OperationalRecordsService records, ApplicantEligibilityService eligibility) : ControllerBase
+public sealed class ApplicantsController(
+    OperationalRecordsService records,
+    ApplicantEligibilityService eligibility,
+    CyclesService cycles) : ControllerBase
 {
     private static readonly ApplicantStatusOption[] StatusOptions =
     [
@@ -131,6 +135,14 @@ public sealed class ApplicantsController(OperationalRecordsService records, Appl
     {
         var id = $"APP-{DateTimeOffset.UtcNow:yyyy}{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
         body["id"] = id;
+        /* Every applicant must belong to a cycle so cycle-scoped views (filter,
+         * export, payments) can reach it; the admin form leaves the field optional. */
+        if (string.IsNullOrWhiteSpace(AdminRecordJson.StringProp(body, "cycleId")))
+        {
+            var activeCycle = await cycles.GetActiveAsync(ct);
+            var activeCycleId = activeCycle is null ? null : AdminRecordJson.StringProp(activeCycle, "id");
+            if (!string.IsNullOrWhiteSpace(activeCycleId)) body["cycleId"] = activeCycleId;
+        }
         var validation = ValidateApplicant(body);
         if (validation.Count > 0) return ValidationProblem(validation);
         return Ok(await records.UpsertAsync("applicants", id, body, ct));
