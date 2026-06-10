@@ -9,7 +9,7 @@
  *
  * Usage:
  *   node scripts/test-routes.mjs                  # against http://localhost:5173
- *   node scripts/test-routes.mjs https://pa-cademy.vercel.app
+ *   node scripts/test-routes.mjs https://admin-prod.appenzademo.com
  */
 
 const BASE = (process.argv[2] ?? 'http://localhost:5173').replace(/\/+$/, '');

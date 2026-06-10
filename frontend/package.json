@@ -17,7 +17,7 @@
     "test:applicant-grades-import": "node scripts/test-applicant-grades-import-integrity.mjs",
     "test:applicant-grades-commit": "node scripts/test-applicant-grades-commit-contract.mjs",
     "test:routes": "node scripts/test-routes.mjs",
-    "test:routes:prod": "node scripts/test-routes.mjs https://pa-cademy.vercel.app"
+    "test:routes:prod": "node scripts/test-routes.mjs https://admin-prod.appenzademo.com"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
