@@ -24,11 +24,12 @@ public sealed class BiometricController(BiometricService service, IServiceProvid
     public async Task<ActionResult<object>> ZkDevices(CancellationToken ct)
     {
         var client = sp.GetService<ZkBioTimeClient>();
-        if (client is null) return ZkInactive();
+        if (client is null || !await client.IsConfiguredAsync(ct)) return ZkInactive();
         try
         {
             var rows = await client.ListTerminalsAsync(ct);
-            var webUrl = sp.GetService<IConfiguration>()?["Biometric:ZkBioTime:BaseUrl"];
+            // Resolve the live server URL (admin-screen override first, then appsettings).
+            var webUrl = await client.GetBaseUrlOrNullAsync(ct);
             return Ok(new { mode = "zkbiotime", count = rows.Count, data = rows, webUrl });
         }
         catch (BiometricDeviceException ex) { return DeviceUnavailable(ex); }
@@ -39,7 +40,7 @@ public sealed class BiometricController(BiometricService service, IServiceProvid
         [FromQuery] int page = 1, [FromQuery] int pageSize = 100, CancellationToken ct = default)
     {
         var client = sp.GetService<ZkBioTimeClient>();
-        if (client is null) return ZkInactive();
+        if (client is null || !await client.IsConfiguredAsync(ct)) return ZkInactive();
         try
         {
             var (rows, count) = await client.ListEmployeesAsync(page, pageSize, ct);
@@ -58,7 +59,7 @@ public sealed class BiometricController(BiometricService service, IServiceProvid
         [FromQuery] int windowSeconds = 120, CancellationToken ct = default)
     {
         var client = sp.GetService<ZkBioTimeClient>();
-        if (client is null) return ZkInactive();
+        if (client is null || !await client.IsConfiguredAsync(ct)) return ZkInactive();
         try
         {
             var punch = await client.GetLatestTransactionAsync(windowSeconds, null, ct);
@@ -93,7 +94,7 @@ public sealed class BiometricController(BiometricService service, IServiceProvid
         [FromQuery] int windowSeconds = 300, [FromQuery] int limit = 20, CancellationToken ct = default)
     {
         var client = sp.GetService<ZkBioTimeClient>();
-        if (client is null) return ZkInactive();
+        if (client is null || !await client.IsConfiguredAsync(ct)) return ZkInactive();
         try
         {
             var punches = await client.GetRecentPunchesAsync(windowSeconds, limit, ct);
@@ -132,7 +133,7 @@ public sealed class BiometricController(BiometricService service, IServiceProvid
     public async Task<ActionResult<JsonObject>> VerifyLive([FromBody] JsonObject input, CancellationToken ct)
     {
         var client = sp.GetService<ZkBioTimeClient>();
-        if (client is null) return ZkInactive();
+        if (client is null || !await client.IsConfiguredAsync(ct)) return ZkInactive();
         var windowSeconds = AdminRecordJson.NumberProp(input, "windowSeconds") is { } w ? (int)w : 300;
         var module = AdminRecordJson.StringProp(input, "module") ?? "security-gate";
         var terminalSn = AdminRecordJson.StringProp(input, "terminalSn");
@@ -275,7 +276,7 @@ public sealed class BiometricController(BiometricService service, IServiceProvid
     public async Task<ActionResult<object>> TestZkConnection(CancellationToken ct)
     {
         var client = sp.GetService<ZkBioTimeClient>();
-        if (client is null) return ZkInactive();
+        if (client is null || !await client.IsConfiguredAsync(ct)) return ZkInactive();
         sp.GetService<IMemoryCache>()?.Remove(ZkBioTimeClient.TokenCacheKey);
         try
         {
@@ -290,7 +291,7 @@ public sealed class BiometricController(BiometricService service, IServiceProvid
     private ObjectResult ZkInactive() =>
         StatusCode(StatusCodes.Status409Conflict,
             new ApiErrorEnvelope("ZK_MODE_INACTIVE",
-                Message: "منظومة ZKBioTime غير مفعّلة (Biometric:Mode=zkbiotime)"));
+                Message: "لم يتم ضبط اتصال منظومة ZKBioTime — أدخل عنوان الخادم وبيانات الدخول واحفظ الإعدادات"));
 
     [HttpGet("api/biometric/applicants/search")]
     public async Task<ActionResult<IReadOnlyList<JsonObject>>> Search(

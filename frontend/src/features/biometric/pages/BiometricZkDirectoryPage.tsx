@@ -19,8 +19,9 @@ import { biometricService, type ZkTestResult } from '../api/biometric.service';
 /**
  * BiometricZkDirectoryPage — live directory pulled straight from the ZKBioTime
  * platform: registered terminals (devices) and personnel (employees). Backed by
- * GET /api/biometric/zk/devices and /api/biometric/zk/employees, which require
- * Biometric:Mode=zkbiotime on the backend (otherwise 409 ZK_MODE_INACTIVE).
+ * GET /api/biometric/zk/devices and /api/biometric/zk/employees, which are
+ * active once a server connection is saved here (or set in appsettings);
+ * otherwise the API returns 409 ZK_MODE_INACTIVE.
  *
  * @example
  * <Route path="zk-directory" element={<BiometricZkDirectoryPage />} />

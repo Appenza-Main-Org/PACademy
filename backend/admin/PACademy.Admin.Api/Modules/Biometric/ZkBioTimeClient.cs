@@ -52,6 +52,25 @@ public sealed class ZkBioTimeClient(
 
     private string BaseUrl => Cfg("BaseUrl")
         ?? throw new BiometricDeviceException("لم يتم ضبط عنوان منظومة ZKBioTime (Biometric:ZkBioTime:BaseUrl)");
+
+    /// <summary>
+    /// The resolved server URL (DB override from the admin screen first, then
+    /// appsettings) or null when none is set. Non-throwing — used to decide
+    /// whether ZKBioTime is active without a startup mode flag.
+    /// </summary>
+    public async Task<string?> GetBaseUrlOrNullAsync(CancellationToken ct)
+    {
+        await EnsureConfigAsync(ct);
+        return Cfg("BaseUrl");
+    }
+
+    /// <summary>
+    /// True once a server URL has been configured (from the admin screen or
+    /// appsettings). This is the live activation switch for ZKBioTime — the
+    /// integration turns on the moment the connection is saved, no redeploy.
+    /// </summary>
+    public async Task<bool> IsConfiguredAsync(CancellationToken ct)
+        => !string.IsNullOrWhiteSpace(await GetBaseUrlOrNullAsync(ct));
     private string AuthPath => Cfg("AuthPath") ?? "/jwt-api-token-auth/";
     // Header scheme paired with AuthPath: "JWT" for /jwt-api-token-auth/, "Token" for /api-token-auth/.
     private string TokenScheme => Cfg("TokenScheme") ?? "JWT";
