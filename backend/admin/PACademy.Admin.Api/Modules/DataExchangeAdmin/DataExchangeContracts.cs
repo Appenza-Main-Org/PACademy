@@ -73,25 +73,25 @@ public static class DataExchangeRegistry
 {
     public static readonly IReadOnlyList<DomainSpec> All =
     [
-        new(ExchangeDomain.Applicants,          "Applicants",          "المتقدمون",            ExchangeStorage.DocStore,       "applicants",  ["nationalId"]),
-        new(ExchangeDomain.Exams,               "Exams",               "الاختبارات",           ExchangeStorage.Exams,          null,          []),
-        new(ExchangeDomain.Relatives,           "Relatives",           "الأقارب المبدئيون",     ExchangeStorage.DocStore,       "relatives",   []),
+        new(ExchangeDomain.Applicants,          "Applicants",          "بيانات المتقدمين",            ExchangeStorage.DocStore,       "applicants",  ["nationalId"]),
+        new(ExchangeDomain.Exams,               "Exams",               "اختبارات دورة القبول",           ExchangeStorage.Exams,          null,          []),
+        new(ExchangeDomain.Relatives,           "Relatives",           "أقارب المتقدمين",     ExchangeStorage.DocStore,       "relatives",   []),
         new(ExchangeDomain.AcquaintanceDocs,    "AcquaintanceDocs",    "وثائق التعارف",         ExchangeStorage.DocStore,       "acquaintance",[]),
-        new(ExchangeDomain.Committees,          "Committees",          "اللجان",               ExchangeStorage.DocStore,       "committeeInstances", []),
+        new(ExchangeDomain.Committees,          "Committees",          "لجان القبول",               ExchangeStorage.DocStore,       "committeeInstances", []),
         new(ExchangeDomain.AdmissionConditions, "AdmissionConditions", "شروط القبول",           ExchangeStorage.AdmissionRules, null,          []),
         new(ExchangeDomain.SystemCodes,         "SystemCodes",         "أكواد النظام والقوائم", ExchangeStorage.Lookups,        null,          []),
-        new(ExchangeDomain.ExamResults,         "ExamResults",         "نتائج الاختبارات",      ExchangeStorage.DocStore,       "examResults", []),
-        new(ExchangeDomain.ExamSchedules,       "ExamSchedules",       "مواعيد الاختبارات",     ExchangeStorage.ExamSlots,      null,          []),
+        new(ExchangeDomain.ExamResults,         "ExamResults",         "نتائج اختبارات المتقدمين",      ExchangeStorage.DocStore,       "examResults", []),
+        new(ExchangeDomain.ExamSchedules,       "ExamSchedules",       "جدول مواعيد الاختبارات",     ExchangeStorage.ExamSlots,      null,          []),
         // ── curated-snapshot export-only domains (read-only on import) ──
         new(ExchangeDomain.ApplicantCategories, "ApplicantCategories", "فئات المتقدمين",        ExchangeStorage.ReadOnlyExport, null,          []),
         new(ExchangeDomain.Faculties,           "Faculties",           "الكليات",               ExchangeStorage.ReadOnlyExport, null,          []),
-        new(ExchangeDomain.LookupRows,          "LookupRows",          "أكواد القوائم",         ExchangeStorage.ReadOnlyExport, null,          []),
+        new(ExchangeDomain.LookupRows,          "LookupRows",          "القوائم المرجعية",         ExchangeStorage.ReadOnlyExport, null,          []),
         new(ExchangeDomain.GeneralSettings,     "GeneralSettings",     "الإعدادات العامة",      ExchangeStorage.ReadOnlyExport, null,          []),
-        new(ExchangeDomain.Payments,            "Payments",            "المدفوعات",             ExchangeStorage.ReadOnlyExport, null,          []),
+        new(ExchangeDomain.Payments,            "Payments",            "مدفوعات المتقدمين",             ExchangeStorage.ReadOnlyExport, null,          []),
         new(ExchangeDomain.Notifications,       "Notifications",       "الإشعارات",             ExchangeStorage.ReadOnlyExport, null,          []),
         new(ExchangeDomain.WorkflowRecords,     "WorkflowRecords",     "سجل سير العمل",         ExchangeStorage.ReadOnlyExport, null,          []),
         new(ExchangeDomain.AuditEntries,        "AuditEntries",        "سجل التدقيق",           ExchangeStorage.ReadOnlyExport, null,          []),
-        new(ExchangeDomain.ExamReservations,    "ExamReservations",    "حجوزات الاختبارات",     ExchangeStorage.ReadOnlyExport, null,          []),
+        new(ExchangeDomain.ExamReservations,    "ExamReservations",    "حجوزات المتقدمين للاختبارات",     ExchangeStorage.ReadOnlyExport, null,          []),
     ];
 
     public static readonly IReadOnlyDictionary<string, DomainSpec> BySheetName =
