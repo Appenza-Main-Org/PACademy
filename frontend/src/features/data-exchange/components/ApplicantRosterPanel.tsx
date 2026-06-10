@@ -96,11 +96,12 @@ export function ApplicantRosterPanel({
       key: 'examSlotDate',
       label: 'موعد الاختبار',
       width: 140,
+      // Date only — exam appointments are day-granular; slots carry no real
+      // time (the stored value is a synthesized default).
       render: (r) =>
         r.examSlotDate ? (
           <span dir="ltr" className="font-mono text-2xs text-ink-700">
             {r.examSlotDate}
-            {r.examSlotTime ? ` · ${r.examSlotTime}` : ''}
           </span>
         ) : (
           '—'
