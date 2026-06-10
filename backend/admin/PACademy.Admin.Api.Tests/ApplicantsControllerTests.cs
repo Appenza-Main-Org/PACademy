@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PACademy.Admin.Api.Controllers;
 using PACademy.Admin.Api.Modules.AdminRecords;
+using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Admin.Api.Modules.Admissions.Eligibility;
 using PACademy.Admin.Api.Persistence;
 using PACademy.Shared.Audit;
@@ -223,6 +224,84 @@ public sealed class ApplicantsControllerTests
         Assert.Equal("لا توجد دورة قبول نشطة حالياً", envelope.Message);
     }
 
+    [Fact]
+    public async Task CreateDefaultsCycleIdToActiveCycleWhenOmitted()
+    {
+        await using var db = CreateDb();
+        SeedActiveCycle(db, "CYC-ACTIVE-1");
+        await db.SaveChangesAsync();
+        var controller = CreateController(db);
+
+        var response = await controller.Create(ValidApplicantBody(), CancellationToken.None);
+
+        var result = Assert.IsType<OkObjectResult>(response.Result);
+        var applicant = Assert.IsType<JsonObject>(result.Value);
+        Assert.Equal("CYC-ACTIVE-1", applicant["cycleId"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task CreateKeepsExplicitCycleIdOverActiveCycle()
+    {
+        await using var db = CreateDb();
+        SeedActiveCycle(db, "CYC-ACTIVE-1");
+        await db.SaveChangesAsync();
+        var controller = CreateController(db);
+        var body = ValidApplicantBody();
+        body["cycleId"] = "CYC-HISTORIC-7";
+
+        var response = await controller.Create(body, CancellationToken.None);
+
+        var result = Assert.IsType<OkObjectResult>(response.Result);
+        var applicant = Assert.IsType<JsonObject>(result.Value);
+        Assert.Equal("CYC-HISTORIC-7", applicant["cycleId"]?.GetValue<string>());
+    }
+
+    private static void SeedActiveCycle(AdminDbContext db, string cycleId)
+    {
+        var now = DateTimeOffset.UtcNow;
+        db.AdmissionCycles.Add(new AdmissionCycleEntity
+        {
+            Id = cycleId,
+            NameAr = "دورة نشطة",
+            Year = 2026,
+            Status = "active",
+            IsActive = true,
+            PayloadJson = "{}",
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+    }
+
+    private static JsonObject ValidApplicantBody() => new()
+    {
+        ["nationalId"] = "30412180103456",
+        ["religion"] = "مسلم",
+        ["maritalStatus"] = "أعزب",
+        ["department"] = "general_first",
+        ["fullName"] = new JsonObject
+        {
+            ["first"] = "أحمد",
+            ["second"] = "محمد",
+            ["third"] = "إبراهيم",
+            ["fourth"] = "سعد"
+        },
+        ["currentAddress"] = new JsonObject
+        {
+            ["governorate"] = "القاهرة",
+            ["city"] = "مدينة نصر",
+            ["detail"] = "شارع الطيران"
+        },
+        ["contact"] = new JsonObject { ["mobilePhone"] = "01012345678" },
+        ["education"] = new JsonObject
+        {
+            ["kind"] = "general",
+            ["certificateName"] = "الثانوية العامة",
+            ["schoolName"] = "مدرسة النصر",
+            ["totalScore"] = 380,
+            ["graduationYear"] = 2021
+        }
+    };
+
     private static AdminDbContext CreateDb()
     {
         var options = new DbContextOptionsBuilder<AdminDbContext>()
@@ -235,7 +314,8 @@ public sealed class ApplicantsControllerTests
     {
         var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
         var eligibility = new ApplicantEligibilityService(db, records);
-        return new ApplicantsController(records, eligibility)
+        var cycles = new CyclesService(db, new NullAuditSink(), records);
+        return new ApplicantsController(records, eligibility, cycles)
         {
             ControllerContext = new ControllerContext
             {
