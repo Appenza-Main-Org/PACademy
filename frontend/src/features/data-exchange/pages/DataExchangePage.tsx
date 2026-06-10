@@ -92,11 +92,11 @@ function sanitizeFileLabel(raw: string): string {
 const LAYOUT_OPTIONS: Array<{ value: ExportLayout; label: string }> = [
   {
     value: 'single-workbook',
-    label: 'مصنّف واحد',
+    label: 'ملف Excel واحد يضم كل الأوراق',
   },
   {
     value: 'file-per-type',
-    label: 'ملف لكل نطاق',
+    label: 'ملف مستقل لكل ورقة',
   },
 ];
 
@@ -122,37 +122,37 @@ const FILTER_OPTIONS: Array<{ value: FilterKind; label: string }> = [
 const EXPORT_PRESETS: Array<{ value: ExportPreset; label: string; domains: ExchangeDomain[] }> = [
   {
     value: 'all',
-    label: 'كل النطاقات',
+    label: 'كل بيانات دورة القبول',
     domains: [...EXPORT_DOMAINS],
   },
   {
     value: 'applicants',
-    label: 'ملف المتقدمين',
+    label: 'ملف المتقدمين الكامل',
     domains: ['Applicants', 'Relatives', 'ExamReservations', 'ExamResults', 'AcquaintanceDocs', 'Payments'],
   },
   {
     value: 'operations',
-    label: 'الاختبارات واللجان',
+    label: 'الاختبارات والمواعيد والنتائج',
     domains: ['Exams', 'ExamSchedules', 'ExamReservations', 'ExamResults'],
   },
   {
     value: 'configuration',
-    label: 'الإعدادات والأكواد',
+    label: 'شروط القبول والإعدادات',
     domains: ['AdmissionConditions', 'LookupRows', 'GeneralSettings'],
   },
 ];
 
 const DOMAIN_GROUPS: Array<{ label: string; domains: ExchangeDomain[] }> = [
   {
-    label: 'بيانات المتقدم',
+    label: 'ملف المتقدم',
     domains: ['Applicants', 'Relatives', 'ExamReservations', 'ExamResults', 'AcquaintanceDocs', 'Payments'],
   },
   {
-    label: 'التشغيل والاختبارات',
+    label: 'الاختبارات والمواعيد',
     domains: ['Exams', 'ExamSchedules', 'ExamReservations', 'ExamResults'],
   },
   {
-    label: 'الإعدادات المرجعية',
+    label: 'شروط القبول والقوائم المرجعية',
     domains: ['AdmissionConditions', 'LookupRows', 'GeneralSettings'],
   },
 ];
@@ -263,7 +263,7 @@ export function DataExchangePage(): JSX.Element {
   async function handleExport(): Promise<void> {
     const domains = EXPORT_DOMAINS.filter((d) => selected.has(d));
     if (domains.length === 0) {
-      toast('اختر نطاقًا واحدًا على الأقل للتصدير.', 'warning');
+      toast('اختر ورقة واحدة على الأقل للتصدير.', 'warning');
       return;
     }
     if (filterKind === 'changedAfter' && !toIsoOrNull(changedAfter)) {
@@ -485,8 +485,8 @@ export function DataExchangePage(): JSX.Element {
                     <Download size={18} /> تصدير البيانات
                   </span>
                 }
-                subtitle="اختر الحزمة ثم صدّر."
-                actions={<Badge tone="neutral">{selectedDomains.length} نطاق</Badge>}
+                subtitle="اختر حزمة البيانات ثم صدّر ملف Excel."
+                actions={<Badge tone="neutral">{selectedDomains.length} ورقة</Badge>}
               />
               <CardBody className="space-y-5">
                 <fieldset className="space-y-2">
@@ -547,7 +547,7 @@ export function DataExchangePage(): JSX.Element {
 
                 <div className="grid gap-4 xl:grid-cols-2">
                   <fieldset className="space-y-2">
-                    <legend className="text-2xs font-semibold text-ink-700">تنسيق الخرج</legend>
+                    <legend className="text-2xs font-semibold text-ink-700">شكل ملف التصدير</legend>
                     <div className="grid gap-2 sm:grid-cols-2">
                       {LAYOUT_OPTIONS.map((option) => (
                         <ChoiceCard
@@ -562,7 +562,7 @@ export function DataExchangePage(): JSX.Element {
                   </fieldset>
 
                   <fieldset className="space-y-2">
-                    <legend className="text-2xs font-semibold text-ink-700">فلتر البيانات</legend>
+                    <legend className="text-2xs font-semibold text-ink-700">تصفية السجلات</legend>
                     <div className="grid gap-2 sm:grid-cols-2">
                       {FILTER_OPTIONS.map((option) => (
                         <ChoiceCard

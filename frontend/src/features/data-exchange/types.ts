@@ -35,23 +35,25 @@ export const SHEET_NAMES = {
 
 export type ExchangeDomain = keyof typeof SHEET_NAMES;
 
-/** Arabic titles for each domain (tab name stays ASCII; Arabic shown in UI). */
+/** Arabic titles for each domain (tab name stays ASCII; Arabic shown in UI).
+ *  Phrased in admissions-cycle terms (متقدمون / مواعيد / لجان القبول), not
+ *  storage terms — these are what the admin reads on the export checkboxes. */
 export const DOMAIN_TITLES_AR: Record<ExchangeDomain, string> = {
-  Applicants: 'المتقدمون',
-  Exams: 'الاختبارات',
-  Relatives: 'الأقارب',
+  Applicants: 'بيانات المتقدمين',
+  Exams: 'اختبارات دورة القبول',
+  Relatives: 'أقارب المتقدمين',
   AcquaintanceDocs: 'وثائق التعارف',
-  Committees: 'اللجان',
+  Committees: 'لجان القبول',
   AdmissionConditions: 'شروط القبول',
   SystemCodes: 'أكواد النظام والقوائم',
-  ExamResults: 'نتائج الاختبارات',
-  ExamSchedules: 'مواعيد الاختبارات',
-  ExamReservations: 'حجوزات الاختبارات',
+  ExamResults: 'نتائج اختبارات المتقدمين',
+  ExamSchedules: 'جدول مواعيد الاختبارات',
+  ExamReservations: 'حجوزات المتقدمين للاختبارات',
   ApplicantCategories: 'فئات المتقدمين',
   Faculties: 'الكليات',
-  LookupRows: 'أكواد القوائم',
+  LookupRows: 'القوائم المرجعية',
   GeneralSettings: 'الإعدادات العامة',
-  Payments: 'المدفوعات',
+  Payments: 'مدفوعات المتقدمين',
   Notifications: 'الإشعارات',
   WorkflowRecords: 'سجل سير العمل',
   AuditEntries: 'سجل التدقيق',
