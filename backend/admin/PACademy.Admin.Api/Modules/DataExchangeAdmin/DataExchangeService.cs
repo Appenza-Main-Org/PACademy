@@ -1529,15 +1529,7 @@ public sealed class DataExchangeService(
         if (docs.Count == 0) return [];
 
         // Resolve applicantId(GUID) → nationalId via the booked-applicants map.
-        var booked = await LoadBookedApplicantsByNidAsync(cycleId, ct);
-        var nidById = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var (nid, payload) in booked)
-        {
-            var tableId = payload["applicantTableId"]?.ToString();
-            if (!string.IsNullOrWhiteSpace(tableId)) nidById[tableId] = nid;
-            var id = payload["id"]?.ToString();
-            if (!string.IsNullOrWhiteSpace(id)) nidById[id] = nid;
-        }
+        var nidById = await LoadApplicantNidByRecordIdAsync(cycleId, ct);
 
         var result = new List<LoadedRow>(docs.Count);
         foreach (var doc in docs)
@@ -1557,6 +1549,22 @@ public sealed class DataExchangeService(
             result.Add(Loaded(doc.Id, bk, data, doc.CreatedAt, doc.UpdatedAt, [], null, "acquaintance-doc"));
         }
         return result;
+    }
+
+    /// <summary>Booked applicants' nationalId keyed by every record id shape the
+    /// acquaintance-doc table may reference (applicantTableId GUID or record id).</summary>
+    private async Task<IReadOnlyDictionary<string, string>> LoadApplicantNidByRecordIdAsync(string? cycleId, CancellationToken ct)
+    {
+        var booked = await LoadBookedApplicantsByNidAsync(cycleId, ct);
+        var nidById = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (nid, payload) in booked)
+        {
+            var tableId = payload["applicantTableId"]?.ToString();
+            if (!string.IsNullOrWhiteSpace(tableId)) nidById[tableId] = nid;
+            var id = payload["id"]?.ToString();
+            if (!string.IsNullOrWhiteSpace(id)) nidById[id] = nid;
+        }
+        return nidById;
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -1763,7 +1771,10 @@ public sealed class DataExchangeService(
     private static readonly IReadOnlyList<CuratedSheetSpec> CuratedSheets =
     [
         new(ExchangeDomain.Applicants, "Applicants", "المتقدمون",
-            ["applicant_id", "national_id", "full_name", "gender", "phone_number", "email", "date_of_birth", "birth_governorate", "category", "cycle_id", "status"],
+            ["applicant_id", "national_id", "full_name", "gender", "phone_number", "email", "date_of_birth", "birth_governorate",
+             "qualification_type", "university", "faculty", "specialization", "graduation_year", "grade", "percentage",
+             "school_name", "school_category", "secondary_total_score", "secondary_percentage", "secondary_graduation_year",
+             "category", "cycle_id", "status"],
             CycleScoped: true, PersonScoped: true),
         new(ExchangeDomain.Relatives, "Relatives", "الأقارب",
             ["applicant_id", "relation_type", "relation_label", "full_name", "national_id", "gender", "qualification", "occupation", "phone", "governorate", "address"],
@@ -1774,14 +1785,22 @@ public sealed class DataExchangeService(
         new(ExchangeDomain.ExamSchedules, "ExamSchedules", "مواعيد الاختبارات",
             ["slot_id", "exam_id", "exam_name", "date", "time", "location", "committee_name", "capacity", "reserved"],
             CycleScoped: true, PersonScoped: false),
+        new(ExchangeDomain.ExamReservations, "ExamReservations", "حجوزات الاختبارات",
+            ["applicant_national_id", "applicant_name", "slot_id", "exam_name", "appointment_date", "appointment_time",
+             "committee_name", "location", "reservation_status", "applicant_status", "cycle_id"],
+            CycleScoped: true, PersonScoped: true),
         new(ExchangeDomain.Committees, "Committees", "اللجان",
             ["committee_id", "committee_name", "category", "cycle_id", "location", "status"],
             CycleScoped: true, PersonScoped: false),
         new(ExchangeDomain.ExamResults, "ExamResults", "نتائج الاختبارات",
             ["applicant_id", "exam_id", "exam_name", "result", "score", "committee", "exam_date"],
             CycleScoped: true, PersonScoped: true),
+        new(ExchangeDomain.AcquaintanceDocs, "AcquaintanceDocs", "وثائق التعارف",
+            ["applicant_national_id", "cycle_id", "doc_status", "version", "opened_at", "closed_at", "last_autosaved_at",
+             "section_key", "section_data", "revision_count", "last_revision_kind", "last_revision_at"],
+            CycleScoped: true, PersonScoped: true),
         new(ExchangeDomain.AdmissionConditions, "AdmissionConditions", "شروط القبول",
-            ["category", "faculty", "specialization", "graduation_year", "gender", "min_age", "max_age", "min_percentage", "school_category", "exam_round"],
+            ["category", "category_name", "faculty", "specialization", "graduation_year", "gender", "min_age", "max_age", "min_percentage", "school_category", "exam_round", "is_active"],
             CycleScoped: true, PersonScoped: false),
         new(ExchangeDomain.ApplicantCategories, "ApplicantCategories", "فئات المتقدمين",
             ["category_key", "category_name", "is_open", "cycle_id"],
@@ -1823,8 +1842,10 @@ public sealed class DataExchangeService(
         ExchangeDomain.Relatives           => LoadCuratedRelativesAsync(cycleId, ctx, ct),
         ExchangeDomain.Exams               => LoadCuratedExamsAsync(cycleId, ct),
         ExchangeDomain.ExamSchedules       => LoadCuratedExamSchedulesAsync(cycleId, ctx, ct),
+        ExchangeDomain.ExamReservations    => LoadCuratedExamReservationsAsync(cycleId, ctx, ct),
         ExchangeDomain.Committees          => LoadCuratedCommitteesAsync(cycleId, ctx),
         ExchangeDomain.ExamResults         => LoadCuratedExamResultsAsync(cycleId, ctx, ct),
+        ExchangeDomain.AcquaintanceDocs    => LoadCuratedAcquaintanceDocsAsync(cycleId, ct),
         ExchangeDomain.AdmissionConditions => LoadCuratedAdmissionConditionsAsync(cycleId, ctx, ct),
         ExchangeDomain.ApplicantCategories => LoadCuratedApplicantCategoriesAsync(cycleId, ct),
         ExchangeDomain.Faculties           => LoadCuratedFacultiesAsync(ct),
@@ -1861,6 +1882,26 @@ public sealed class DataExchangeService(
                 ("email", ApplicantField(p, "email")),
                 ("date_of_birth", ApplicantField(p, "birthDate", "dateOfBirth", "dob")),
                 ("birth_governorate", ApplicantField(p, "birthGovernorate")),
+                ("qualification_type", ApplicantField(p, "certType")
+                    ?? EducationField(p, "higherSpecialization", "certificateName")
+                    ?? FirstNested(p, "profile", "qualificationLevel")),
+                ("university", EducationField(p, "university") ?? FirstNested(p, "profile", "bachelorUniversity")),
+                ("faculty", EducationField(p, "faculty") ?? FirstNested(p, "profile", "bachelorFaculty")),
+                ("specialization", EducationField(p, "specialization")
+                    ?? FirstNested(p, "profile", "bachelorSpecialization", "bachelorMajor")),
+                ("graduation_year", EducationField(p, "graduationYear")
+                    ?? FirstNested(p, "profile", "bachelorYear") ?? ThanawiGraduationYear(p)),
+                ("grade", EducationField(p, "grade") ?? FirstNested(p, "profile", "bachelorGrade", "thanawiGrade")),
+                ("percentage", EducationField(p, "percentage")
+                    ?? FirstNested(p, "profile", "bachelorPercentage", "thanawiPercentage")),
+                ("school_name", SecondaryEducationField(p, "schoolName") ?? FirstNested(p, "profile", "schoolNameAr")),
+                ("school_category", SecondaryEducationField(p, "schoolCategory", "branch")
+                    ?? FirstNested(p, "profile", "thanawiType")),
+                ("secondary_total_score", SecondaryEducationField(p, "totalScore")
+                    ?? FirstNested(p, "profile", "thanawiTotal")),
+                ("secondary_percentage", SecondaryEducationField(p, "percentage")
+                    ?? FirstNested(p, "profile", "thanawiPercentage")),
+                ("secondary_graduation_year", SecondaryEducationField(p, "graduationYear") ?? ThanawiGraduationYear(p)),
                 ("category", CategoryKey(p)),
                 ("cycle_id", FirstString(p, "cycleId", "admissionCycleId", "cycle_id") ?? cycleId),
                 ("status", ApplicantField(p, "status"))), created, updated, nid));
@@ -1980,6 +2021,78 @@ public sealed class DataExchangeService(
         return rows;
     }
 
+    /// <summary>One row per booked applicant's reserved exam appointment — the
+    /// applicant ↔ slot link the ExamSchedules sheet (slots + counts) can't
+    /// express. Committee + exam-plan names resolve through the committee
+    /// instance matched by slot id, falling back to (category, date).</summary>
+    private async Task<IReadOnlyList<CuratedRow>> LoadCuratedExamReservationsAsync(
+        string? cycleId, CuratedContext ctx, CancellationToken ct)
+    {
+        IReadOnlyList<JsonObject> applicants;
+        try { applicants = await records.ListAsync("applicants", ct); }
+        catch (InvalidOperationException) { return []; }
+
+        var rows = new List<CuratedRow>();
+        foreach (var a in applicants)
+        {
+            if (AdminRecordJson.IsSoftDeleted(a)) continue;
+            if (!IsApplicantInCycleScope(a, cycleId, ctx.ActiveCategoryKeys)) continue;
+            if (!IsApplicantBooked(a)) continue;
+            var nid = a["nationalId"]?.ToString();
+            if (string.IsNullOrWhiteSpace(nid)) continue;
+
+            var slot = a["examSlot"] as JsonObject;
+            var slotId = FirstString(a, "examSlotId", "slotId")
+                ?? (slot is null ? null : FirstString(slot, "slotId", "id"));
+            var date = (slot is null ? null : FirstString(slot, "date"))
+                ?? FirstString(a, "firstExamDate", "examDate", "examScheduledAt");
+            var instance = FindCommitteeInstanceForApplicant(a, ctx.CommitteeInstances);
+            var examName = instance is null
+                ? null
+                : FirstString(instance, "examPlanName", "planName", "examName", "examPlanLabel");
+            var (created, updated) = Timestamps(a);
+            rows.Add(new CuratedRow(Cells(
+                ("applicant_national_id", nid),
+                ("applicant_name", ApplicantField(a, "fullName", "name")),
+                ("slot_id", slotId),
+                ("exam_name", examName),
+                ("appointment_date", date),
+                ("appointment_time", (slot is null ? null : FirstString(slot, "time")) ?? DefaultExamScheduleTime),
+                ("committee_name", ResolveCommitteeName(a, ctx.CommitteeNameByCode, ctx.CommitteeInstances)),
+                ("location", slot is null ? null : FirstString(slot, "location")),
+                ("reservation_status", "محجوز"),
+                ("applicant_status", ApplicantField(a, "status")),
+                ("cycle_id", FirstString(a, "cycleId", "admissionCycleId", "cycle_id") ?? cycleId)), created, updated, nid));
+        }
+        return rows;
+    }
+
+    /// <summary>Finds the committee-instance row backing an applicant's booked
+    /// slot: exact slot-id match first, then (category, exam-date). Mirrors the
+    /// matching in <see cref="ResolveCommitteeCodeFromSchedule"/> but returns
+    /// the instance itself so callers can read its exam-plan fields.</summary>
+    private static JsonObject? FindCommitteeInstanceForApplicant(
+        JsonObject applicant, IReadOnlyList<JsonObject> committeeInstances)
+    {
+        var slotId = FirstString(applicant, "examSlotId", "slotId")
+            ?? NestedStringProp(applicant, "examSlot", "slotId")
+            ?? NestedStringProp(applicant, "examSlot", "id");
+        if (!string.IsNullOrWhiteSpace(slotId))
+        {
+            var exact = committeeInstances.FirstOrDefault(instance =>
+                TextEquals(FirstString(instance, "id", "slotId"), slotId));
+            if (exact is not null) return exact;
+        }
+
+        var category = CategoryKey(applicant);
+        var dateKey = DateKey(NestedStringProp(applicant, "examSlot", "date")
+            ?? FirstString(applicant, "firstExamDate", "examDate", "scheduledDate", "examSlotDate"));
+        if (string.IsNullOrWhiteSpace(category) || string.IsNullOrWhiteSpace(dateKey)) return null;
+        return committeeInstances.FirstOrDefault(instance =>
+            TextEquals(FirstString(instance, "categoryKey", "categoryId", "applicantCategory"), category) &&
+            TextEquals(DateKey(FirstString(instance, "date", "examDate", "scheduledDate")), dateKey));
+    }
+
     private Task<IReadOnlyList<CuratedRow>> LoadCuratedCommitteesAsync(string? cycleId, CuratedContext ctx)
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -2040,6 +2153,59 @@ public sealed class DataExchangeService(
         return rows;
     }
 
+    /// <summary>Curated وثيقة التعارف export — one row per (document, section)
+    /// so the submitted section data ships alongside the workflow lifecycle.
+    /// Documents with no sections still emit one row (lifecycle only). The
+    /// revision columns summarize the doc's change history (count + latest).</summary>
+    private async Task<IReadOnlyList<CuratedRow>> LoadCuratedAcquaintanceDocsAsync(string? cycleId, CancellationToken ct)
+    {
+        var docs = await db.ApplicantAcquaintanceDocs.AsNoTracking().ToListAsync(ct);
+        if (docs.Count == 0) return [];
+        var sections = await db.ApplicantAcquaintanceDocSections.AsNoTracking().ToListAsync(ct);
+        var revisions = await db.ApplicantAcquaintanceDocRevisions.AsNoTracking().ToListAsync(ct);
+        var sectionsByDoc = sections
+            .GroupBy(s => s.AcquaintanceDocId, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.OrderBy(s => s.SectionKey, StringComparer.Ordinal).ToList(), StringComparer.Ordinal);
+        var revisionsByDoc = revisions
+            .GroupBy(r => r.AcquaintanceDocId, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.Version).ToList(), StringComparer.Ordinal);
+        var nidById = await LoadApplicantNidByRecordIdAsync(cycleId, ct);
+
+        var rows = new List<CuratedRow>();
+        foreach (var doc in docs)
+        {
+            if (BelongsToDifferentCycle(doc.CycleId, cycleId)) continue;
+            if (!nidById.TryGetValue(doc.ApplicantId, out var nid)) continue;
+
+            var docRevisions = revisionsByDoc.TryGetValue(doc.Id, out var revs) ? revs : [];
+            var latestRevision = docRevisions.Count > 0 ? docRevisions[0] : null;
+            var docSections = sectionsByDoc.TryGetValue(doc.Id, out var secs) ? secs : [];
+
+            CuratedRow Row(string? sectionKey, string? sectionData) => new(Cells(
+                ("applicant_national_id", nid),
+                ("cycle_id", doc.CycleId),
+                ("doc_status", doc.Status),
+                ("version", doc.Version.ToString(CultureInfo.InvariantCulture)),
+                ("opened_at", DtoString(doc.OpenedAt)),
+                ("closed_at", DtoString(doc.ClosedAt)),
+                ("last_autosaved_at", DtoString(doc.LastAutosavedAt)),
+                ("section_key", sectionKey),
+                ("section_data", sectionData),
+                ("revision_count", docRevisions.Count.ToString(CultureInfo.InvariantCulture)),
+                ("last_revision_kind", latestRevision?.ChangeKind),
+                ("last_revision_at", DtoString(latestRevision?.CreatedAt))), doc.CreatedAt, doc.UpdatedAt, nid);
+
+            if (docSections.Count == 0)
+            {
+                rows.Add(Row(null, null));
+                continue;
+            }
+            foreach (var section in docSections)
+                rows.Add(Row(section.SectionKey, section.DataJson));
+        }
+        return rows;
+    }
+
     private async Task<IReadOnlyList<CuratedRow>> LoadCuratedAdmissionConditionsAsync(
         string? cycleId, CuratedContext ctx, CancellationToken ct)
     {
@@ -2053,46 +2219,104 @@ public sealed class DataExchangeService(
             return [];
         }
 
-        var years = await db.ApplicationSettingsGraduationYears.AsNoTracking().ToListAsync(ct);
-        if (years.Count == 0) return [];
         var configs = await db.ApplicationSettingsCategoryConfigs.AsNoTracking().ToListAsync(ct);
+        if (configs.Count == 0) return [];
         var specs = await db.ApplicationSettingsCategorySpecializations.AsNoTracking().ToListAsync(ct);
-        var configById = configs.ToDictionary(c => c.Id, c => c, StringComparer.Ordinal);
-        var specById = specs.ToDictionary(s => s.Id, s => s, StringComparer.Ordinal);
+        var years = await db.ApplicationSettingsGraduationYears.AsNoTracking().ToListAsync(ct);
+        var specsByConfig = specs
+            .GroupBy(s => s.ConfigId, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
+        var yearsBySpec = years
+            .GroupBy(y => y.CategorySpecializationId, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
         var facultyBySpec = await LoadFacultyBySpecializationAsync(ct);
         var facultyNames = await LoadFacultyNameByCodeAsync(ct);
+        var specializationNames = await LoadSpecializationNameByCodeAsync(ct);
+        var categoryNames = await db.ApplicantCategories.AsNoTracking()
+            .ToDictionaryAsync(c => c.Key, c => c.LabelAr, StringComparer.OrdinalIgnoreCase, ct);
 
         var rows = new List<CuratedRow>();
-        foreach (var y in years)
+        foreach (var config in configs.OrderBy(c => c.SortOrder))
         {
-            if (!specById.TryGetValue(y.CategorySpecializationId, out var spec)) continue;
-            if (!configById.TryGetValue(spec.ConfigId, out var config)) continue;
-            var facultyCode = facultyBySpec.TryGetValue(spec.SpecializationId, out var fc) ? fc : null;
-            var facultyName = facultyCode is not null && facultyNames.TryGetValue(facultyCode, out var fn) ? fn : facultyCode;
-            var gender = JoinJsonArray(y.GenderTypesJson);
-            var school = JoinJsonArray(y.SchoolCategoryCodesJson);
-            var minPercentage = string.Equals(y.GradeKind, "GRADES", StringComparison.OrdinalIgnoreCase)
-                ? y.MinPercentage?.ToString(CultureInfo.InvariantCulture)
-                : y.AcademicGradeId;
-            var gradYears = ParseJsonArrayItems(y.GraduationYearsJson);
-            var perYear = gradYears.Count == 0 ? new List<string?> { null } : gradYears.Cast<string?>().ToList();
-            foreach (var gradYear in perYear)
+            var categoryName = categoryNames.GetValueOrDefault(config.CategoryId);
+            var attachedSpecs = specsByConfig.TryGetValue(config.Id, out var specList)
+                ? specList : [];
+
+            CuratedRow Baseline(string? facultyName, string? specName, bool isActive,
+                DateTimeOffset created, DateTimeOffset updated) => new(Cells(
+                ("category", config.CategoryId),
+                ("category_name", categoryName),
+                ("faculty", facultyName),
+                ("specialization", specName),
+                ("graduation_year", null),
+                ("gender", null),
+                ("min_age", null),
+                ("max_age", null),
+                ("min_percentage", null),
+                ("school_category", null),
+                ("exam_round", null),
+                ("is_active", isActive ? "true" : "false")), created, updated, null);
+
+            // A configured category with no attached specializations (or with
+            // specializations but no condition rows yet) still surfaces — the
+            // export must list EVERY configured category, not only those whose
+            // admission conditions are fully authored.
+            if (attachedSpecs.Count == 0)
             {
-                rows.Add(new CuratedRow(Cells(
-                    ("category", config.CategoryId),
-                    ("faculty", facultyName),
-                    ("specialization", spec.SpecializationId),
-                    ("graduation_year", gradYear),
-                    ("gender", gender),
-                    ("min_age", y.AgeMin?.ToString(CultureInfo.InvariantCulture)),
-                    ("max_age", y.MaxAge?.ToString(CultureInfo.InvariantCulture)),
-                    ("min_percentage", minPercentage),
-                    ("school_category", school),
-                    ("exam_round", null)), y.CreatedAt, y.UpdatedAt, null));
+                rows.Add(Baseline(null, null, config.IsActive, config.CreatedAt, config.UpdatedAt));
+                continue;
+            }
+
+            foreach (var spec in attachedSpecs)
+            {
+                var isImplicit = string.Equals(
+                    spec.SpecializationId, ApplicationSettingsService.ImplicitDefaultSpecCode, StringComparison.Ordinal);
+                var specName = isImplicit
+                    ? null
+                    : specializationNames.GetValueOrDefault(spec.SpecializationId, spec.SpecializationId);
+                var facultyCode = isImplicit ? null : facultyBySpec.GetValueOrDefault(spec.SpecializationId);
+                var facultyName = facultyCode is null ? null : facultyNames.GetValueOrDefault(facultyCode, facultyCode);
+                var specYears = yearsBySpec.TryGetValue(spec.Id, out var yearList) ? yearList : [];
+                if (specYears.Count == 0)
+                {
+                    rows.Add(Baseline(facultyName, specName, config.IsActive && spec.IsActive, spec.CreatedAt, spec.UpdatedAt));
+                    continue;
+                }
+
+                foreach (var y in specYears)
+                {
+                    var gender = JoinJsonArray(y.GenderTypesJson);
+                    var school = JoinJsonArray(y.SchoolCategoryCodesJson);
+                    var minPercentage = string.Equals(y.GradeKind, "GRADES", StringComparison.OrdinalIgnoreCase)
+                        ? y.MinPercentage?.ToString(CultureInfo.InvariantCulture)
+                        : y.AcademicGradeId;
+                    var gradYears = ParseJsonArrayItems(y.GraduationYearsJson);
+                    var perYear = gradYears.Count == 0 ? new List<string?> { null } : gradYears.Cast<string?>().ToList();
+                    foreach (var gradYear in perYear)
+                    {
+                        rows.Add(new CuratedRow(Cells(
+                            ("category", config.CategoryId),
+                            ("category_name", categoryName),
+                            ("faculty", facultyName),
+                            ("specialization", specName),
+                            ("graduation_year", gradYear),
+                            ("gender", gender),
+                            ("min_age", y.AgeMin?.ToString(CultureInfo.InvariantCulture)),
+                            ("max_age", y.MaxAge?.ToString(CultureInfo.InvariantCulture)),
+                            ("min_percentage", minPercentage),
+                            ("school_category", school),
+                            ("exam_round", null),
+                            ("is_active", config.IsActive && spec.IsActive && y.IsActive ? "true" : "false")), y.CreatedAt, y.UpdatedAt, null));
+                    }
+                }
             }
         }
         return rows;
     }
+
+    private Task<Dictionary<string, string>> LoadSpecializationNameByCodeAsync(CancellationToken ct)
+        => db.LookupRows.AsNoTracking().Where(x => x.LookupKey == "specializations")
+            .ToDictionaryAsync(x => x.Code, x => x.Name, StringComparer.OrdinalIgnoreCase, ct);
 
     private async Task<IReadOnlyList<CuratedRow>> LoadCuratedApplicantCategoriesAsync(string? cycleId, CancellationToken ct)
     {
@@ -2229,6 +2453,40 @@ public sealed class DataExchangeService(
 
     private static string? ApplicantField(JsonObject p, params string[] keys)
         => FirstString(p, keys) ?? FirstNested(p, "profile", keys);
+
+    /// <summary>Reads a field off the projected `education` object — for higher
+    /// education the root carries the bachelor fields; for the pre-university
+    /// (general) kind the root carries the secondary-certificate fields.</summary>
+    private static string? EducationField(JsonObject p, params string[] keys)
+        => p["education"] is JsonObject education ? FirstString(education, keys) : null;
+
+    /// <summary>Reads a secondary-school field: the nested `education.secondary`
+    /// branch for higher-education applicants, falling back to the education
+    /// root for the general (pre-university) kind, whose school fields live there.</summary>
+    private static string? SecondaryEducationField(JsonObject p, params string[] keys)
+    {
+        if (p["education"] is not JsonObject education) return null;
+        if (education["secondary"] is JsonObject secondary)
+        {
+            var nested = FirstString(secondary, keys);
+            if (!string.IsNullOrWhiteSpace(nested)) return nested;
+        }
+        return string.Equals(education["kind"]?.ToString(), "general", StringComparison.Ordinal)
+            ? FirstString(education, keys)
+            : null;
+    }
+
+    /// <summary>Secondary-certificate graduation year from the raw portal profile —
+    /// the year component of `thanawiGradDate`, matching how the management
+    /// projection derives it. Fallback for payloads without an `education` object.</summary>
+    private static string? ThanawiGraduationYear(JsonObject p)
+    {
+        var raw = FirstNested(p, "profile", "thanawiGradDate");
+        return raw is not null
+            && DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)
+            ? parsed.Year.ToString(CultureInfo.InvariantCulture)
+            : null;
+    }
 
     private static string? FirstNested(JsonObject p, string parent, params string[] keys)
     {

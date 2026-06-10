@@ -22,6 +22,7 @@ export const SHEET_NAMES = {
   ExamResults: 'ExamResults',
   ExamSchedules: 'ExamSchedules',
   // ── curated-snapshot export-only domains ──
+  ExamReservations: 'ExamReservations',
   ApplicantCategories: 'ApplicantCategories',
   Faculties: 'Faculties',
   LookupRows: 'LookupRows',
@@ -45,6 +46,7 @@ export const DOMAIN_TITLES_AR: Record<ExchangeDomain, string> = {
   SystemCodes: 'أكواد النظام والقوائم',
   ExamResults: 'نتائج الاختبارات',
   ExamSchedules: 'مواعيد الاختبارات',
+  ExamReservations: 'حجوزات الاختبارات',
   ApplicantCategories: 'فئات المتقدمين',
   Faculties: 'الكليات',
   LookupRows: 'أكواد القوائم',
@@ -62,15 +64,17 @@ export const EXCHANGE_DOMAINS = Object.keys(SHEET_NAMES) as ExchangeDomain[];
  * The curated full-database snapshot sheets, in workbook order (after the
  * client-built `ExportInfo` sheet). Mirrors the backend `CuratedSheets`. This is
  * the universe the export UI offers — distinct from `SHEET_NAMES`, which also
- * carries the import-only legacy tabs (`AcquaintanceDocs`, `SystemCodes`).
+ * carries the import-only legacy tab (`SystemCodes`).
  */
 export const EXPORT_DOMAINS: ExchangeDomain[] = [
   'Applicants',
   'Relatives',
   'Exams',
   'ExamSchedules',
+  'ExamReservations',
   'Committees',
   'ExamResults',
+  'AcquaintanceDocs',
   'AdmissionConditions',
   'ApplicantCategories',
   'Faculties',

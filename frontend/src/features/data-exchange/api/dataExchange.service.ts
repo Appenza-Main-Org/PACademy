@@ -184,6 +184,7 @@ function mockColumns(domain: ExchangeDomain): string[] {
     SystemCodes: ['lookup_key', 'code', 'name', 'is_active'],
     ExamResults: ['applicantNationalId', 'examId', 'result'],
     ExamSchedules: ['date', 'time', 'location', 'capacity', 'reserved'],
+    ExamReservations: ['applicant_national_id', 'applicant_name', 'exam_name', 'appointment_date', 'appointment_time', 'committee_name', 'reservation_status'],
     ApplicantCategories: ['category_key', 'category_name', 'is_open', 'cycle_id'],
     Faculties: ['faculty_code', 'faculty_name', 'is_active'],
     LookupRows: ['lookup_key', 'code', 'name', 'is_active'],

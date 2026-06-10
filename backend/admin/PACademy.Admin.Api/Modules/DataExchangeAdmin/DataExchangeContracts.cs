@@ -33,6 +33,8 @@ public enum ExchangeDomain
     Notifications,
     WorkflowRecords,
     AuditEntries,
+    /// <summary>Booked exam appointments (applicant ↔ slot link) — export-only.</summary>
+    ExamReservations,
 }
 
 /// <summary>How a domain's rows are physically stored in the admin DB.</summary>
@@ -89,6 +91,7 @@ public static class DataExchangeRegistry
         new(ExchangeDomain.Notifications,       "Notifications",       "الإشعارات",             ExchangeStorage.ReadOnlyExport, null,          []),
         new(ExchangeDomain.WorkflowRecords,     "WorkflowRecords",     "سجل سير العمل",         ExchangeStorage.ReadOnlyExport, null,          []),
         new(ExchangeDomain.AuditEntries,        "AuditEntries",        "سجل التدقيق",           ExchangeStorage.ReadOnlyExport, null,          []),
+        new(ExchangeDomain.ExamReservations,    "ExamReservations",    "حجوزات الاختبارات",     ExchangeStorage.ReadOnlyExport, null,          []),
     ];
 
     public static readonly IReadOnlyDictionary<string, DomainSpec> BySheetName =
