@@ -559,6 +559,15 @@ export const biometricService = {
     return apiClient.post<AdjustAreaResult>('/api/biometric/zk/adjust-area', input);
   },
 
+  /**
+   * Register an already-created applicant on an additional terminal: appends
+   * the terminal's area to the device employee's area list (existing areas
+   * are kept — this is "also on this device", not a move).
+   */
+  async addToZkDevice(input: { nationalId: string; terminalSn: string }): Promise<{ ok: boolean; areaId: number }> {
+    return apiClient.post<{ ok: boolean; areaId: number }>('/api/biometric/zk/add-device', input);
+  },
+
   async searchApplicants(input: { field: SearchField; query: string }): Promise<BiometricApplicantLookup[]> {
     if (isBackendEnabled()) {
       return apiClient.get<BiometricApplicantLookup[]>('/api/biometric/applicants/search', {

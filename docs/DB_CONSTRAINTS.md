@@ -933,6 +933,17 @@ configured) never reports a duplicate. See
 [`BiometricService.cs`](../backend/admin/PACademy.Admin.Api/Modules/Biometric/BiometricService.cs)
 `EnrollAsync`.
 
+### `BIOMETRIC_ALREADY_ON_DEVICE`
+
+`POST /api/biometric/zk/add-device` registers an already-created
+applicant on an additional terminal by appending that terminal's area to
+the device employee's area list (existing areas kept). When the employee
+is already in the target terminal's area, the endpoint returns **409**
+with `ApiErrorEnvelope("CONFLICT", ConflictCode:
+"BIOMETRIC_ALREADY_ON_DEVICE", Message: <Arabic>)`. See
+[`BiometricController.cs`](../backend/admin/PACademy.Admin.Api/Controllers/BiometricController.cs)
+`ZkAddDevice`.
+
 ---
 
 ## Cross-reference
