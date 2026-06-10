@@ -18,6 +18,8 @@ public sealed class PortalDbContext(DbContextOptions<PortalDbContext> options, I
     public DbSet<ApplicantPortalRecordEntity> PortalRecords => Set<ApplicantPortalRecordEntity>();
     public DbSet<ApplicantManagementRecordEntity> ApplicantManagementRecords => Set<ApplicantManagementRecordEntity>();
     public DbSet<ExamSlotEntity> ExamSlots => Set<ExamSlotEntity>();
+    public DbSet<CommitteeInstanceReadEntity> CommitteeInstances => Set<CommitteeInstanceReadEntity>();
+    public DbSet<CommitteeLookupReadEntity> CommitteeLookups => Set<CommitteeLookupReadEntity>();
     public DbSet<GeneralSettingsReadEntity> GeneralSettings => Set<GeneralSettingsReadEntity>();
     public DbSet<AcquaintanceDocSettingsEntity> AcquaintanceDocSettings => Set<AcquaintanceDocSettingsEntity>();
     public DbSet<ApplicantAcquaintanceDocEntity> AcquaintanceDocs => Set<ApplicantAcquaintanceDocEntity>();
@@ -78,6 +80,27 @@ public sealed class PortalDbContext(DbContextOptions<PortalDbContext> options, I
             entity.Property(x => x.CreatedAt).HasColumnName("created_at");
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
             entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+        });
+
+        modelBuilder.Entity<CommitteeInstanceReadEntity>(entity =>
+        {
+            entity.ToTable("committee_instances");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(96);
+            entity.Property(x => x.DefinitionCode).HasColumnName("definition_code").HasMaxLength(96);
+            entity.Property(x => x.CycleId).HasColumnName("cycle_id").HasMaxLength(96);
+            entity.Property(x => x.CategoryKey).HasColumnName("category_key").HasMaxLength(96);
+            entity.Property(x => x.Date).HasColumnName("date");
+        });
+
+        modelBuilder.Entity<CommitteeLookupReadEntity>(entity =>
+        {
+            entity.ToTable("lookup_rows");
+            entity.HasKey(x => new { x.LookupKey, x.Code });
+            entity.Property(x => x.LookupKey).HasColumnName("lookup_key").HasMaxLength(96);
+            entity.Property(x => x.Code).HasColumnName("code").HasMaxLength(96);
+            entity.Property(x => x.Name).HasColumnName("name").HasMaxLength(512);
+            entity.Property(x => x.IsActive).HasColumnName("is_active");
         });
 
         modelBuilder.Entity<GeneralSettingsReadEntity>(entity =>

@@ -42,6 +42,7 @@ public sealed class OperationalAdminController(OperationalRecordsService records
                 node["updatedAt"] = now;
                 inserted.Add(node);
             }
+            await records.EnsureCommitteeInstanceCategoriesAsync(inserted, ct);
             await ApplyReservationSnapshotAsync(inserted, ct);
             foreach (var node in inserted)
             {
@@ -54,6 +55,7 @@ public sealed class OperationalAdminController(OperationalRecordsService records
         obj["id"] = singleId;
         obj["createdAt"] ??= now;
         obj["updatedAt"] = now;
+        await records.EnsureCommitteeInstanceCategoriesAsync([obj], ct);
         await ApplyReservationSnapshotAsync([obj], ct);
         var saved = await records.UpsertAsync("committeeInstances", singleId, obj, ct);
         return Ok(saved);
@@ -64,6 +66,7 @@ public sealed class OperationalAdminController(OperationalRecordsService records
     {
         var now = DateTimeOffset.UtcNow.ToString("O");
         body["updatedAt"] = now;
+        await records.EnsureCommitteeInstancePatchCategoryAsync(id, body, ct);
         var saved = await records.UpsertAsync("committeeInstances", id, body, ct);
         await SaveReservationSnapshotAsync([saved], ct);
         return Ok(saved);

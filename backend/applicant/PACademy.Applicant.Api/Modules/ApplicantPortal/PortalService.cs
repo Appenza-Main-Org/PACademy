@@ -109,6 +109,7 @@ public sealed class PortalService(PortalDbContext db)
         else
         {
             var draft = ParseJson(record.PayloadJson);
+            ClearCommitteeAssignmentOnCategoryChange(draft, partial);
             MergeJson(draft, partial);
             EnsureStartedStage(draft);
             draft["lastSavedAt"] = now.ToUnixTimeMilliseconds();
@@ -360,6 +361,7 @@ public sealed class PortalService(PortalDbContext db)
         EnsureExamDateBookable(resolvedDate);
 
         var draft = await GetOrCreateDraftAsync(applicantId, ct);
+        var resolvedCommittee = await ResolveBookableCommitteeAsync(draft, resolvedDate, committee, ct);
         var current = draft["furthestStage"]?.GetValue<int>() ?? 0;
         var examSlot = new JsonObject
         {
@@ -373,17 +375,85 @@ public sealed class PortalService(PortalDbContext db)
             ["furthestStage"] = Math.Max(current, 8),
             ["examSlot"] = examSlot,
         };
-        ApplyPickedCommittee(patch, examSlot, committee);
+        ApplyPickedCommittee(patch, examSlot, resolvedCommittee);
         await SaveDraftAsync(applicantId, patch, ct);
         return resolvedDate.ToString("yyyy-MM-dd");
+    }
+
+    /// <summary>
+    /// The committee the client suggests is only a hint — the stored
+    /// assignment must belong to the applicant's chosen category. The picked
+    /// date is validated against the admin-authored committee instances for
+    /// (cycle × category × date); when the suggestion is not in that set the
+    /// committee is re-resolved server-side, and dates with no instance for
+    /// the applicant's category are rejected outright.
+    /// </summary>
+    private async Task<PickedCommittee> ResolveBookableCommitteeAsync(
+        JsonObject draft,
+        DateOnly date,
+        PickedCommittee? requested,
+        CancellationToken ct)
+    {
+        var categoryKey = StringProp(draft, "categoryKey");
+        if (string.IsNullOrWhiteSpace(categoryKey))
+            throw new ConflictException(
+                "CATEGORY_REQUIRED",
+                "يجب اختيار فئة التقديم قبل حجز موعد الاختبار");
+
+        var cycleId = StringProp(draft, "cycleId") ?? "CYC-2026-M";
+        var codes = await db.CommitteeInstances
+            .AsNoTracking()
+            .Where(x => x.CycleId == cycleId && x.CategoryKey == categoryKey && x.Date == date)
+            .Select(x => x.DefinitionCode)
+            .Distinct()
+            .ToListAsync(ct);
+        if (codes.Count == 0)
+            throw new ConflictException(
+                "EXAM_DATE_NOT_AVAILABLE_FOR_CATEGORY",
+                "موعد الاختبار المحدد غير متاح لفئة التقديم الخاصة بك");
+
+        var nameByCode = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var lookupRows = await db.CommitteeLookups
+            .AsNoTracking()
+            .Where(x => x.LookupKey == "committees" && codes.Contains(x.Code))
+            .ToListAsync(ct);
+        foreach (var row in lookupRows) nameByCode[row.Code] = row.Name;
+
+        var requestedId = requested?.CommitteeId?.Trim();
+        var code = requestedId is not null && codes.Contains(requestedId, StringComparer.OrdinalIgnoreCase)
+            ? requestedId
+            : PickCommitteeForGender(codes, nameByCode, StringProp(ObjectProp(draft, "profile"), "gender"));
+        var name = nameByCode.GetValueOrDefault(code)
+            ?? (string.Equals(code, requestedId, StringComparison.OrdinalIgnoreCase) ? requested?.CommitteeName : null)
+            ?? code;
+        return new PickedCommittee(code, name);
+    }
+
+    /// <summary>
+    /// Committee gender is encoded in the Arabic display name — «طالبات»
+    /// marks female committees (same convention the admin name-resolution
+    /// relies on). Prefers a gender-matching committee, falls back to the
+    /// first code in deterministic order.
+    /// </summary>
+    private static string PickCommitteeForGender(
+        IReadOnlyList<string> codes,
+        IReadOnlyDictionary<string, string> nameByCode,
+        string? gender)
+    {
+        var ordered = codes.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
+        var isFemale = string.Equals(gender, "female", StringComparison.OrdinalIgnoreCase);
+        var genderMatched = ordered
+            .Where(code => nameByCode.TryGetValue(code, out var name) &&
+                name.Contains("طالبات", StringComparison.Ordinal) == isFemale)
+            .ToList();
+        return (genderMatched.Count > 0 ? genderMatched : ordered)[0];
     }
 
     private static void ApplyPickedCommittee(
         JsonObject patch,
         JsonObject examSlot,
-        PickedCommittee? committee)
+        PickedCommittee committee)
     {
-        if (committee is null) return;
         if (!string.IsNullOrWhiteSpace(committee.CommitteeId))
         {
             patch["assignedCommitteeId"] = committee.CommitteeId;
@@ -502,7 +572,7 @@ public sealed class PortalService(PortalDbContext db)
                 ApplicantId = applicantId,
                 NationalId = FirstString(payload, "nationalId"),
                 CycleId = FirstString(payload, "cycleId"),
-                CommitteeId = FirstString(payload, "committeeId"),
+                CommitteeId = FirstString(payload, "committeeId", "assignedCommitteeId"),
                 CategoryKey = FirstString(payload, "categoryKey"),
                 Department = FirstString(payload, "department"),
                 Status = FirstString(payload, "status"),
@@ -518,7 +588,7 @@ public sealed class PortalService(PortalDbContext db)
         existing.ApplicantId = applicantId;
         existing.NationalId = FirstString(payload, "nationalId");
         existing.CycleId = FirstString(payload, "cycleId");
-        existing.CommitteeId = FirstString(payload, "committeeId");
+        existing.CommitteeId = FirstString(payload, "committeeId", "assignedCommitteeId");
         existing.CategoryKey = FirstString(payload, "categoryKey");
         existing.Department = FirstString(payload, "department");
         existing.Status = FirstString(payload, "status");
@@ -563,6 +633,24 @@ public sealed class PortalService(PortalDbContext db)
         SetIfPresent(payload, "firstExamDate", StringProp(examSlot, "date"));
 
         return payload;
+    }
+
+    /// <summary>
+    /// A booked exam slot and its committee are only valid for the category
+    /// they were booked under — switching category invalidates them, so the
+    /// stale assignment is dropped instead of surviving the merge.
+    /// </summary>
+    private static void ClearCommitteeAssignmentOnCategoryChange(JsonObject draft, JsonObject partial)
+    {
+        var nextCategory = StringProp(partial, "categoryKey");
+        var currentCategory = StringProp(draft, "categoryKey");
+        if (string.IsNullOrWhiteSpace(nextCategory) || string.IsNullOrWhiteSpace(currentCategory)) return;
+        if (string.Equals(nextCategory, currentCategory, StringComparison.OrdinalIgnoreCase)) return;
+
+        draft.Remove("examSlot");
+        draft.Remove("assignedCommitteeId");
+        draft.Remove("assignedCommitteeName");
+        draft.Remove("firstExamDate");
     }
 
     private static void EnsureStartedStage(JsonObject draft)

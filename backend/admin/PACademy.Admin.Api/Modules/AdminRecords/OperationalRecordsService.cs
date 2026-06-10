@@ -11,6 +11,15 @@ using PACademy.Shared.Contracts;
 
 namespace PACademy.Admin.Api.Modules.AdminRecords;
 
+/// <summary>
+/// Committee codes mapped to display names and owning categories.
+/// Names from the operational <c>committees</c> records take precedence
+/// over the lookup rows (matching the previous resolution behavior).
+/// </summary>
+internal sealed record CommitteeDirectory(
+    IReadOnlyDictionary<string, string> NameByCode,
+    IReadOnlyDictionary<string, string> CategoryByCode);
+
 internal sealed record ApplicantIdentityProjection(
     string TableId,
     string? AdminRecordId,
@@ -673,11 +682,11 @@ public sealed class OperationalRecordsService(
     {
         if (applicants.Count == 0) return applicants;
 
-        var committeeNameByCode = await LoadCommitteeNameByCodeAsync(ct);
+        var directory = await LoadCommitteeDirectoryAsync(ct);
         var committeeInstances = await operationalRecords.ListAsync("committeeInstances", ct);
         foreach (var applicant in applicants)
         {
-            var committeeName = ResolveCommitteeName(applicant, committeeNameByCode, committeeInstances);
+            var committeeName = ResolveCommitteeName(applicant, directory, committeeInstances);
             if (string.IsNullOrWhiteSpace(committeeName)) continue;
 
             applicant["committeeName"] = committeeName;
@@ -686,80 +695,184 @@ public sealed class OperationalRecordsService(
         return applicants;
     }
 
-    private async Task<Dictionary<string, string>> LoadCommitteeNameByCodeAsync(CancellationToken ct)
+    /// <summary>
+    /// Validates that every committee-instance row pairs a committee with
+    /// the category it actually belongs to. Rows missing either field, or
+    /// naming a committee the directory doesn't know, pass through — only a
+    /// provable cross-category pairing is rejected.
+    /// </summary>
+    public async Task EnsureCommitteeInstanceCategoriesAsync(
+        IReadOnlyList<JsonObject> rows,
+        CancellationToken ct)
     {
-        var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        await AddCommitteeLookupNamesAsync(names, ct);
-        await AddCommitteeRecordNamesAsync(names, ct);
-        return names;
+        if (rows.Count == 0) return;
+
+        var directory = await LoadCommitteeDirectoryAsync(ct);
+        foreach (var row in rows)
+        {
+            var definitionCode = FirstString(row, "definitionCode", "committeeId", "committeeCode");
+            var categoryKey = FirstString(row, "categoryKey", "categoryId", "applicantCategory");
+            if (string.IsNullOrWhiteSpace(definitionCode) || string.IsNullOrWhiteSpace(categoryKey)) continue;
+            if (!directory.CategoryByCode.TryGetValue(definitionCode, out var committeeCategory)) continue;
+            if (!TextEquals(committeeCategory, categoryKey))
+            {
+                throw new ConflictException(
+                    "COMMITTEE_CATEGORY_MISMATCH",
+                    "اللجنة المحددة لا تتبع فئة التقديم المختارة لموعد الاختبار.",
+                    new { definitionCode, categoryKey, committeeCategory });
+            }
+        }
     }
 
-    private async Task AddCommitteeLookupNamesAsync(Dictionary<string, string> names, CancellationToken ct)
+    /// <summary>
+    /// Patch-time variant of <see cref="EnsureCommitteeInstanceCategoriesAsync"/>:
+    /// a partial body may carry only one side of the (committee × category)
+    /// pair, so the missing side is filled from the stored row before
+    /// validating — otherwise a category-only patch would bypass the check.
+    /// </summary>
+    public async Task EnsureCommitteeInstancePatchCategoryAsync(
+        string id,
+        JsonObject patch,
+        CancellationToken ct)
     {
+        var existing = await GetAsync("committeeInstances", id, ct);
+        if (existing is null)
+        {
+            await EnsureCommitteeInstanceCategoriesAsync([patch], ct);
+            return;
+        }
+
+        var effectiveRow = new JsonObject
+        {
+            ["definitionCode"] = FirstString(patch, "definitionCode", "committeeId", "committeeCode")
+                ?? FirstString(existing, "definitionCode", "committeeId", "committeeCode"),
+            ["categoryKey"] = FirstString(patch, "categoryKey", "categoryId", "applicantCategory")
+                ?? FirstString(existing, "categoryKey", "categoryId", "applicantCategory"),
+        };
+        await EnsureCommitteeInstanceCategoriesAsync([effectiveRow], ct);
+    }
+
+    internal async Task<CommitteeDirectory> LoadCommitteeDirectoryAsync(CancellationToken ct)
+    {
+        var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var categories = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
         if (db is ILookupsDbContext lookups)
         {
             var rows = await lookups.LookupRows
                 .AsNoTracking()
                 .Where(x => x.LookupKey == "committees")
-                .Select(x => new { x.Code, x.Name })
+                .Select(x => new { x.Code, x.Name, x.PayloadJson })
                 .ToListAsync(ct);
             foreach (var row in rows)
             {
-                if (!string.IsNullOrWhiteSpace(row.Code) && !string.IsNullOrWhiteSpace(row.Name))
-                {
-                    names[row.Code] = row.Name;
-                }
+                if (string.IsNullOrWhiteSpace(row.Code)) continue;
+                if (!string.IsNullOrWhiteSpace(row.Name)) names[row.Code] = row.Name;
+                var category = CommitteeCategoryFromPayload(row.PayloadJson);
+                if (!string.IsNullOrWhiteSpace(category)) categories[row.Code] = category!;
             }
         }
-    }
 
-    private async Task AddCommitteeRecordNamesAsync(Dictionary<string, string> names, CancellationToken ct)
-    {
-        var committeeRecords = await operationalRecords.ListAsync("committees", ct);
-        foreach (var committee in committeeRecords)
+        foreach (var committee in await operationalRecords.ListAsync("committees", ct))
         {
             var code = FirstString(committee, "id", "code", "definitionCode", "committeeId");
+            if (string.IsNullOrWhiteSpace(code)) continue;
             var name = FirstString(committee, "name", "nameAr", "committeeName");
-            if (!string.IsNullOrWhiteSpace(code) && !string.IsNullOrWhiteSpace(name))
-            {
-                names[code] = name;
-            }
+            if (!string.IsNullOrWhiteSpace(name)) names[code] = name;
+            var category = FirstString(committee, "categoryKey", "applicantCategoryId", "categoryId");
+            if (!string.IsNullOrWhiteSpace(category)) categories.TryAdd(code, category);
+        }
+
+        return new CommitteeDirectory(names, categories);
+    }
+
+    private static string? CommitteeCategoryFromPayload(string? payloadJson)
+    {
+        if (string.IsNullOrWhiteSpace(payloadJson)) return null;
+        try
+        {
+            return JsonNode.Parse(payloadJson) is JsonObject payload
+                ? FirstString(payload, "applicantCategoryId", "categoryId", "categoryCode")
+                : null;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
         }
     }
 
-    private static string? ResolveCommitteeName(
+    internal static string? ResolveCommitteeName(
         JsonObject applicant,
-        IReadOnlyDictionary<string, string> committeeNameByCode,
+        CommitteeDirectory directory,
         IReadOnlyList<JsonObject> committeeInstances)
     {
+        var applicantCategoryKey = FirstString(applicant, "categoryKey", "categoryId", "applicantCategory", "category");
         var code = FirstString(applicant, "assignedCommitteeId", "committeeId", "committeeCode", "definitionCode")
             ?? NestedString(applicant, "examSlot", "committeeId")
             ?? NestedString(applicant, "examSlot", "committeeCode")
             ?? NestedString(applicant, "examSlot", "definitionCode");
-        if (!string.IsNullOrWhiteSpace(code) && committeeNameByCode.TryGetValue(code, out var mappedName))
+        if (!string.IsNullOrWhiteSpace(code) &&
+            CommitteeMatchesCategory(directory, code, applicantCategoryKey) &&
+            directory.NameByCode.TryGetValue(code, out var mappedName))
         {
             return mappedName;
         }
 
-        var scheduledCode = ResolveCommitteeCodeFromSchedule(applicant, committeeInstances, committeeNameByCode);
+        var scheduledCode = ResolveCommitteeCodeFromSchedule(applicant, applicantCategoryKey, committeeInstances, directory);
         if (!string.IsNullOrWhiteSpace(scheduledCode) &&
-            committeeNameByCode.TryGetValue(scheduledCode, out var scheduledName))
+            directory.NameByCode.TryGetValue(scheduledCode, out var scheduledName))
         {
             return scheduledName;
         }
 
-        return FirstString(applicant, "assignedCommitteeName", "committeeName", "committeeLabelAr");
+        var storedName = FirstString(applicant, "assignedCommitteeName", "committeeName", "committeeLabelAr");
+        return StoredNameContradictsCategory(directory, storedName, applicantCategoryKey) ? null : storedName;
+    }
+
+    /// <summary>
+    /// A committee is acceptable for an applicant when either side has no
+    /// known category (legacy rows) or the categories agree. A provable
+    /// mismatch — e.g. a law-bachelor applicant pointing at a sports
+    /// committee — is rejected so resolution falls through to the
+    /// category-filtered schedule lookup instead of surfacing a wrong name.
+    /// </summary>
+    private static bool CommitteeMatchesCategory(
+        CommitteeDirectory directory,
+        string committeeCode,
+        string? applicantCategoryKey)
+    {
+        if (string.IsNullOrWhiteSpace(applicantCategoryKey)) return true;
+        if (!directory.CategoryByCode.TryGetValue(committeeCode, out var committeeCategory)) return true;
+        return TextEquals(committeeCategory, applicantCategoryKey);
+    }
+
+    private static bool StoredNameContradictsCategory(
+        CommitteeDirectory directory,
+        string? storedName,
+        string? applicantCategoryKey)
+    {
+        if (string.IsNullOrWhiteSpace(storedName) || string.IsNullOrWhiteSpace(applicantCategoryKey)) return false;
+
+        var knownCodes = directory.NameByCode
+            .Where(pair => TextEquals(pair.Value, storedName))
+            .Select(pair => pair.Key)
+            .ToArray();
+        if (knownCodes.Length == 0) return false;
+
+        return !knownCodes.Any(code => CommitteeMatchesCategory(directory, code, applicantCategoryKey));
     }
 
     private static string? ResolveCommitteeCodeFromSchedule(
         JsonObject applicant,
+        string? applicantCategoryKey,
         IReadOnlyList<JsonObject> committeeInstances,
-        IReadOnlyDictionary<string, string> committeeNameByCode)
-        => CommitteeCodeFromBookedSlot(applicant, committeeInstances)
-            ?? CommitteeCodeFromUniqueSchedule(applicant, committeeInstances, committeeNameByCode);
+        CommitteeDirectory directory)
+        => CommitteeCodeFromBookedSlot(applicant, applicantCategoryKey, committeeInstances)
+            ?? CommitteeCodeFromUniqueSchedule(applicant, applicantCategoryKey, committeeInstances, directory);
 
     private static string? CommitteeCodeFromBookedSlot(
         JsonObject applicant,
+        string? applicantCategoryKey,
         IReadOnlyList<JsonObject> committeeInstances)
     {
         var slotId = FirstString(applicant, "examSlotId", "slotId")
@@ -769,6 +882,15 @@ public sealed class OperationalRecordsService(
         {
             var exactSlot = committeeInstances.FirstOrDefault(instance =>
                 TextEquals(FirstString(instance, "id", "slotId"), slotId));
+            // An instance booked for another category never names this
+            // applicant's committee — ignore it and fall through.
+            var slotCategory = exactSlot is null ? null : FirstString(exactSlot, "categoryKey", "categoryId", "applicantCategory");
+            if (!string.IsNullOrWhiteSpace(applicantCategoryKey) &&
+                !string.IsNullOrWhiteSpace(slotCategory) &&
+                !TextEquals(slotCategory, applicantCategoryKey))
+            {
+                return null;
+            }
             var exactSlotCode = exactSlot is null ? null : FirstString(exactSlot, "definitionCode", "committeeId", "committeeCode");
             if (!string.IsNullOrWhiteSpace(exactSlotCode)) return exactSlotCode;
         }
@@ -778,11 +900,11 @@ public sealed class OperationalRecordsService(
 
     private static string? CommitteeCodeFromUniqueSchedule(
         JsonObject applicant,
+        string? applicantCategoryKey,
         IReadOnlyList<JsonObject> committeeInstances,
-        IReadOnlyDictionary<string, string> committeeNameByCode)
+        CommitteeDirectory directory)
     {
         var applicantCycleId = FirstString(applicant, "cycleId", "admissionCycleId", "cycle_id");
-        var applicantCategoryKey = FirstString(applicant, "categoryKey", "categoryId", "applicantCategory", "category");
         var applicantExamDate = FirstString(applicant, "examDate", "date", "scheduledDate", "examSlotDate")
             ?? NestedString(applicant, "examSlot", "date");
         if (string.IsNullOrWhiteSpace(applicantCategoryKey) || string.IsNullOrWhiteSpace(applicantExamDate))
@@ -803,7 +925,7 @@ public sealed class OperationalRecordsService(
             .ToArray();
 
         if (matchingCodes.Length == 1) return matchingCodes[0];
-        return CommitteeCodeByGender(applicant, matchingCodes, committeeNameByCode);
+        return CommitteeCodeByGender(applicant, matchingCodes, directory.NameByCode);
     }
 
     private static string? CommitteeCodeByGender(

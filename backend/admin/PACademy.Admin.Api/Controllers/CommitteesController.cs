@@ -92,7 +92,9 @@ public sealed class CommitteesController(OperationalRecordsService records, IIde
     {
         if (body is JsonArray array)
         {
-            foreach (var row in array.OfType<JsonObject>())
+            var rows = array.OfType<JsonObject>().ToList();
+            await records.EnsureCommitteeInstanceCategoriesAsync(rows, ct);
+            foreach (var row in rows)
             {
                 ValidateScheduleRow(row);
                 var id = AdminRecordJson.StringProp(row, "id") ?? $"CI-{Guid.NewGuid():N}";
@@ -105,7 +107,9 @@ public sealed class CommitteesController(OperationalRecordsService records, IIde
             var entries = obj["entries"] as JsonArray ?? obj["rows"] as JsonArray;
             if (entries is not null)
             {
-                foreach (var row in entries.OfType<JsonObject>())
+                var rows = entries.OfType<JsonObject>().ToList();
+                await records.EnsureCommitteeInstanceCategoriesAsync(rows, ct);
+                foreach (var row in rows)
                 {
                     ValidateScheduleRow(row);
                     var id = AdminRecordJson.StringProp(row, "id") ?? $"CI-{Guid.NewGuid():N}";
@@ -121,6 +125,7 @@ public sealed class CommitteesController(OperationalRecordsService records, IIde
     public async Task<ActionResult<JsonObject>> UpdateSchedule(string id, [FromBody] JsonObject body, CancellationToken ct)
     {
         ValidateScheduleRow(body);
+        await records.EnsureCommitteeInstancePatchCategoryAsync(id, body, ct);
         return Ok(await records.UpsertAsync("committeeInstances", id, body, ct));
     }
 
