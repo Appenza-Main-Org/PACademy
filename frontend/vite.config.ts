@@ -18,7 +18,9 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       open: true,
       proxy: {
-        '/api/applicant': {
+        /* Boundary-aware so /api/applicants (admin list) is NOT captured —
+         * only /api/applicant and /api/applicant/* go to the applicant API. */
+        '^/api/applicant(/|$)': {
           target: applicantProxyTarget,
           changeOrigin: true,
         },
