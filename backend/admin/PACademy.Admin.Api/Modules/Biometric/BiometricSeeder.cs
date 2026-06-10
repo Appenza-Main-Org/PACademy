@@ -1,6 +1,5 @@
 using System.Text.Json.Nodes;
 using PACademy.Admin.Api.Modules.AdminRecords;
-using PACademy.Admin.Api.Modules.OperationalRecords;
 using PACademy.Admin.Api.Persistence;
 
 namespace PACademy.Admin.Api.Modules.Biometric;
@@ -38,11 +37,11 @@ public sealed class BiometricSeeder(ILogger<BiometricSeeder> logger)
         // (biometric-enrollments) lands in its typed table via the runtime MERGE;
         // JSON buckets (verifications, gate-logs, audit) fall through to the
         // operational store. NullAuditSink keeps seeding out of audit_entries.
-        var store = new OperationalRecordsService(db, new HttpContextAccessor(), new PACademy.Shared.Audit.NullAuditSink());
-        var hasEnrollments = (await store.ListAsync(BiometricService.EnrollmentsModule, ct)).Count > 0;
-        var hasVerifications = (await store.ListAsync(BiometricService.VerificationsModule, ct)).Count > 0;
-        var hasGateLogs = (await store.ListAsync(BiometricService.GateLogsModule, ct)).Count > 0;
-        var hasAudit = (await store.ListAsync(BiometricService.AuditModule, ct)).Count > 0;
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new PACademy.Shared.Audit.NullAuditSink());
+        var hasEnrollments = (await records.ListAsync(BiometricService.EnrollmentsModule, ct)).Count > 0;
+        var hasVerifications = (await records.ListAsync(BiometricService.VerificationsModule, ct)).Count > 0;
+        var hasGateLogs = (await records.ListAsync(BiometricService.GateLogsModule, ct)).Count > 0;
+        var hasAudit = (await records.ListAsync(BiometricService.AuditModule, ct)).Count > 0;
         if (hasEnrollments && hasVerifications && hasGateLogs && hasAudit) return;
 
         var rng = new Random(42);
@@ -55,7 +54,7 @@ public sealed class BiometricSeeder(ILogger<BiometricSeeder> logger)
 
         async Task AddAsync(string module, string id, JsonObject payload)
         {
-            await store.UpsertAsync(module, id, payload, ct);
+            await records.UpsertAsync(module, id, payload, ct);
             inserted++;
         }
 
