@@ -46,6 +46,15 @@ export const PROFESSION_OPTIONS = [
 
 export const HOUSEWIFE_PROFESSION = 'housewife';
 export const DUPLICATE_FAMILY_NATIONAL_ID_MESSAGE = 'الرقم القومي مُستخدم بالفعل لأحد أفراد الأسرة.';
+export const MEMBERSHIP_PROFESSIONS = new Set(['police_officer', 'army_officer']);
+
+export type FamilyMemberGender = 'male' | 'female';
+
+export function genderByRelativeKind(kind: RelativeKind): FamilyMemberGender {
+  return kind === 'brothers' || kind === 'paternal_uncles' || kind === 'maternal_uncles'
+    ? 'male'
+    : 'female';
+}
 
 export function professionLabel(code: string): string {
   return PROFESSION_OPTIONS.find((o) => o.value === code)?.label ?? '—';
@@ -121,6 +130,13 @@ export interface GrandparentsForm {
   maternalGrandfather: FamilyMemberForm;
   maternalGrandmother: FamilyMemberForm;
 }
+
+export const GRANDPARENT_GENDER: Record<keyof GrandparentsForm, FamilyMemberGender> = {
+  paternalGrandfather: 'male',
+  paternalGrandmother: 'female',
+  maternalGrandfather: 'male',
+  maternalGrandmother: 'female',
+};
 
 export interface GuardianForm {
   firstName: string;
@@ -306,64 +322,98 @@ export function buildFamilyRows(s: FamilyDataSnapshot): readonly FamilyViewRow[]
   return rows;
 }
 
-function hasRequiredDetails(member: FamilyMemberForm): boolean {
+function isFamilyMemberNationalIdOk(
+  member: Pick<FamilyMemberForm, 'nationalId' | 'nidUnavailable' | 'nidUnavailableReason'>,
+  expectedGender?: FamilyMemberGender,
+): boolean {
+  if (member.nidUnavailable) return member.nidUnavailableReason.length > 0;
+  const analysis = analyseNationalId(member.nationalId);
+  if (!analysis.valid) return false;
+  return expectedGender ? analysis.gender === expectedGender : true;
+}
+
+/**
+ * Field-level completeness for one family member — the single source of
+ * truth shared by the entry page's section indicators / progress bar and
+ * the اعتماد gate below, so the two can never disagree. Mirrors the
+ * required-field rules MemberFormCard enforces at save time.
+ */
+export function isFamilyMemberComplete(
+  m: FamilyMemberForm,
+  expectedGender?: FamilyMemberGender,
+  opts: { professionDetailOptional?: boolean } = {},
+): boolean {
+  const birthLocalityOk =
+    !isBirthLocalityRequired(m) ||
+    (m.birthGovernorate.length > 0 && m.birthDistrict.length > 0);
+  const professionDetailOk =
+    opts.professionDetailOptional === true || (m.professionDetail ?? '').trim().length > 0;
   return (
-    (member.professionDetail ?? '').trim().length > 0 &&
-    (member.qualificationDetail ?? '').trim().length > 0
+    m.firstName.length >= 2 &&
+    isFamilyMemberNationalIdOk(m, expectedGender) &&
+    m.dateOfBirth.length > 0 &&
+    birthLocalityOk &&
+    m.profession.length > 0 &&
+    m.qualification.length > 0 &&
+    professionDetailOk &&
+    (m.qualificationDetail ?? '').trim().length > 0 &&
+    (!MEMBERSHIP_PROFESSIONS.has(m.profession) || (m.seniorityNumber ?? '').length > 0) &&
+    m.residenceGovernorate.length > 0 &&
+    m.residenceDistrict.length > 0 &&
+    m.residenceDetail.length >= 5
   );
 }
 
-function hasRequiredMotherDetails(member: FamilyMemberForm): boolean {
-  return (
-    (member.profession === HOUSEWIFE_PROFESSION || (member.professionDetail ?? '').trim().length > 0) &&
-    (member.qualificationDetail ?? '').trim().length > 0
-  );
+/** Mother is the one member whose وصف تفصيلي للوظيفة is waived for «ربة منزل». */
+export function isMotherComplete(m: FamilyMemberForm): boolean {
+  return isFamilyMemberComplete(m, 'female', {
+    professionDetailOptional: m.profession === HOUSEWIFE_PROFESSION,
+  });
 }
 
-function allRequiredMemberDetailsPresent(s: FamilyDataSnapshot): boolean {
-  const requiredMembers: FamilyMemberForm[] = [
-    s.father,
-    s.grandparents.paternalGrandfather,
-    s.grandparents.paternalGrandmother,
-    s.grandparents.maternalGrandfather,
-    s.grandparents.maternalGrandmother,
-    ...s.fatherWives,
-    ...s.motherHusbands,
-    ...(Object.keys(s.relatives) as RelativeKind[]).flatMap((kind) => s.relatives[kind]),
-  ];
-  return hasRequiredMotherDetails(s.mother) && requiredMembers.every(hasRequiredDetails);
+export function isGuardianComplete(g: GuardianForm): boolean {
+  return (
+    g.firstName.trim().length >= 2 &&
+    analyseNationalId(g.nationalId ?? '').valid &&
+    g.profession.length > 0 &&
+    g.qualification.length > 0
+  );
 }
 
 /** Same gate as the entry page used for the in-tab "اعتماد" button. */
 export function canApproveFamilySnapshot(s: FamilyDataSnapshot): boolean {
-  const allGrandparentsSaved =
-    s.savedGrandparents.paternalGrandfather &&
-    s.savedGrandparents.paternalGrandmother &&
-    s.savedGrandparents.maternalGrandfather &&
-    s.savedGrandparents.maternalGrandmother;
+  const fatherOk = s.savedFather && isFamilyMemberComplete(s.father, 'male');
+  const motherOk = s.savedMother && isMotherComplete(s.mother);
+  const grandparentsOk = (Object.keys(GRANDPARENT_GENDER) as (keyof GrandparentsForm)[]).every(
+    (key) =>
+      s.savedGrandparents[key] &&
+      isFamilyMemberComplete(s.grandparents[key], GRANDPARENT_GENDER[key]),
+  );
   const fatherWivesOk =
     !s.hasFatherWives ||
-    (s.fatherWives.length > 0 && s.savedFatherWives.every(Boolean));
+    (s.fatherWives.length > 0 &&
+      s.fatherWives.every(
+        (m, i) => s.savedFatherWives[i] === true && isFamilyMemberComplete(m, 'female'),
+      ));
   const motherHusbandsOk =
     !s.hasMotherHusbands ||
-    (s.motherHusbands.length > 0 && s.savedMotherHusbands.every(Boolean));
-  const relativesOk = (Object.keys(s.relatives) as RelativeKind[]).every((k) => {
-    const list = s.savedRelatives[k];
-    return list.length === 0 || list.every(Boolean);
-  });
-  const guardianOk =
-    s.savedGuardian &&
-    s.guardian.firstName.trim().length >= 2 &&
-    analyseNationalId(s.guardian.nationalId ?? '').valid &&
-    s.guardian.profession.length > 0 &&
-    s.guardian.qualification.length > 0;
+    (s.motherHusbands.length > 0 &&
+      s.motherHusbands.every(
+        (m, i) => s.savedMotherHusbands[i] === true && isFamilyMemberComplete(m, 'male'),
+      ));
+  const relativesOk = (Object.keys(s.relatives) as RelativeKind[]).every((kind) =>
+    s.relatives[kind].every(
+      (m, i) =>
+        s.savedRelatives[kind][i] === true &&
+        isFamilyMemberComplete(m, genderByRelativeKind(kind)),
+    ),
+  );
+  const guardianOk = s.savedGuardian && isGuardianComplete(s.guardian);
   return (
-    s.savedFather &&
-    s.savedMother &&
-    allGrandparentsSaved &&
-    allFamilyMemberNationalIdsMatchGender(s) &&
+    fatherOk &&
+    motherOk &&
+    grandparentsOk &&
     !hasDuplicateFamilyNationalId(s) &&
-    allRequiredMemberDetailsPresent(s) &&
     fatherWivesOk &&
     motherHusbandsOk &&
     relativesOk &&
@@ -399,38 +449,4 @@ function familyMembersWithNationalIds(snapshot: FamilyDataSnapshot): FamilyMembe
     snapshot.grandparents.maternalGrandmother,
     ...(Object.keys(snapshot.relatives) as RelativeKind[]).flatMap((kind) => snapshot.relatives[kind]),
   ].filter((member) => !member.nidUnavailable);
-}
-
-function allFamilyMemberNationalIdsMatchGender(s: FamilyDataSnapshot): boolean {
-  const maleMembers: FamilyMemberForm[] = [
-    s.father,
-    s.grandparents.paternalGrandfather,
-    s.grandparents.maternalGrandfather,
-    ...s.motherHusbands,
-    ...s.relatives.brothers,
-    ...s.relatives.paternal_uncles,
-    ...s.relatives.maternal_uncles,
-  ];
-  const femaleMembers: FamilyMemberForm[] = [
-    s.mother,
-    s.grandparents.paternalGrandmother,
-    s.grandparents.maternalGrandmother,
-    ...s.fatherWives,
-    ...s.relatives.sisters,
-    ...s.relatives.paternal_aunts,
-    ...s.relatives.maternal_aunts,
-  ];
-  return (
-    maleMembers.every((member) => familyMemberNationalIdMatches(member, 'male')) &&
-    femaleMembers.every((member) => familyMemberNationalIdMatches(member, 'female'))
-  );
-}
-
-function familyMemberNationalIdMatches(
-  member: Pick<FamilyMemberForm, 'nationalId' | 'nidUnavailable'>,
-  expectedGender: 'male' | 'female',
-): boolean {
-  if (member.nidUnavailable) return true;
-  const analysis = analyseNationalId(member.nationalId);
-  return analysis.valid && analysis.gender === expectedGender;
 }

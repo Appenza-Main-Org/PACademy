@@ -56,7 +56,7 @@ import {
  * issued by auth/verify, not the mock "APP-2026000" constant that pages
  * still reference. The auth store's user.id is set to that GUID during
  * login (ApplicantLoginForm → backendUser = { ...user, id: applicantId }). */
-function resolveApplicantId(passedId: string): string {
+export function resolveApplicantId(passedId: string): string {
   if (!isBackendEnabled()) return passedId;
   return useAuthStore.getState().user?.id ?? passedId;
 }
