@@ -985,26 +985,41 @@ public sealed class DataExchangeServiceTests
     public async Task Snapshot_empty_domain_emits_header_only()
     {
         var (svc, _) = Create();
-        var result = await svc.ExportSnapshotAsync([ExchangeDomain.Faculties], "single-workbook", ExportFilter.Default, default);
+        var result = await svc.ExportSnapshotAsync([ExchangeDomain.LookupRows], "single-workbook", ExportFilter.Default, default);
         var sheet = Assert.Single(result.Sheets);
-        Assert.Equal(new[] { "faculty_code", "faculty_name", "is_active" }, sheet.Columns);
+        Assert.Equal(new[] { "lookup_row_id", "lookup_key", "code", "name", "is_active" }, sheet.Columns);
         Assert.Empty(sheet.Rows);
     }
 
     [Fact]
-    public async Task Snapshot_faculties_and_lookuprows_split_cleanly()
+    public async Task Snapshot_internal_system_domains_are_not_exportable()
+    {
+        var (svc, db) = Create();
+        await SeedLookupAsync(db, "faculties", "FAC-01", "كلية الحقوق");
+
+        var result = await svc.ExportSnapshotAsync(
+            [ExchangeDomain.Committees, ExchangeDomain.ApplicantCategories, ExchangeDomain.Faculties,
+             ExchangeDomain.Notifications, ExchangeDomain.WorkflowRecords, ExchangeDomain.AuditEntries],
+            "single-workbook", ExportFilter.Default, default);
+
+        Assert.Empty(result.Sheets); // internal/system sheets dropped from the snapshot (2026-06-10)
+    }
+
+    [Fact]
+    public async Task Snapshot_lookuprows_carry_unique_row_identifier()
     {
         var (svc, db) = Create();
         await SeedLookupAsync(db, "faculties", "FAC-01", "كلية الحقوق");
         await SeedLookupAsync(db, "governorates", "GOV-01", "القاهرة");
 
-        var fac = await svc.ExportSnapshotAsync([ExchangeDomain.Faculties], "single-workbook", ExportFilter.Default, default);
         var lk = await svc.ExportSnapshotAsync([ExchangeDomain.LookupRows], "single-workbook", ExportFilter.Default, default);
 
-        var facRow = Assert.Single(fac.Sheets[0].Rows);
-        Assert.Equal("FAC-01", facRow["faculty_code"]);
-        Assert.Equal("كلية الحقوق", facRow["faculty_name"]);
-        Assert.Equal(2, lk.Sheets[0].Rows.Count); // every lookup row, faculties included
+        var rows = lk.Sheets[0].Rows;
+        Assert.Equal(2, rows.Count); // every lookup row, faculties included
+        var ids = rows.Select(r => r["lookup_row_id"]).ToList();
+        Assert.Contains("faculties:FAC-01", ids);
+        Assert.Contains("governorates:GOV-01", ids);
+        Assert.Equal(ids.Count, ids.Distinct(StringComparer.Ordinal).Count());
     }
 
     [Fact]
@@ -1012,18 +1027,21 @@ public sealed class DataExchangeServiceTests
     {
         var (svc, db) = Create();
         await SeedOperationalAsync(db, "applicants", "APP-FAM",
-            """{"id":"APP-FAM","nationalId":"29801011235101","status":"exam_scheduled","examSlot":{"date":"2026-06-15"},"family":{"father":{"fullName":"أحمد","nationalId":"27001011235001","occupation":"ضابط","gender":"male"}}}""");
+            """{"id":"APP-FAM","nationalId":"29801011235101","status":"exam_scheduled","examSlot":{"date":"2026-06-15"},"family":{"father":{"fullName":"أحمد","nationalId":"27001011235001","occupation":"ضابط","gender":"male"},"mother":{"fullName":"فاطمة","nationalId":"27201011235002","gender":"female"}}}""");
 
         var result = await svc.ExportSnapshotAsync([ExchangeDomain.Relatives], "single-workbook", ExportFilter.Default, default);
         var sheet = result.Sheets[0];
         Assert.Equal(
-            new[] { "applicant_id", "relation_type", "relation_label", "full_name", "national_id", "gender", "qualification", "occupation", "phone", "governorate", "address" },
+            new[] { "relative_id", "applicant_id", "relation_type", "relation_label", "full_name", "national_id", "gender", "qualification", "occupation", "phone", "governorate", "address" },
             sheet.Columns);
-        var row = Assert.Single(sheet.Rows);
+        Assert.Equal(2, sheet.Rows.Count);
+        var row = sheet.Rows.Single(r => r["relation_type"] == "father");
+        Assert.Equal("29801011235101:1", row["relative_id"]);
         Assert.Equal("29801011235101", row["applicant_id"]);
-        Assert.Equal("father", row["relation_type"]);
         Assert.Equal("الأب", row["relation_label"]);
         Assert.Equal("أحمد", row["full_name"]);
+        var ids = sheet.Rows.Select(r => r["relative_id"]).ToList();
+        Assert.Equal(ids.Count, ids.Distinct(StringComparer.Ordinal).Count());
     }
 
     [Fact]
@@ -1148,7 +1166,7 @@ public sealed class DataExchangeServiceTests
         var (svc, db) = Create();
         await SeedCommitteeLookupAsync(db, "COM-01", "اللجنة الأولى قسم عام");
         await SeedOperationalAsync(db, "committeeInstances", "CI-1",
-            """{"id":"CI-1","definitionCode":"COM-01","categoryKey":"officers_general","cycleId":"CYC-1","date":"2026-06-15","examPlanName":"اختبار الهيئة والقوام","capacity":30,"reserved":12}""");
+            """{"id":"CI-1","definitionCode":"COM-01","categoryKey":"officers_general","cycleId":"CYC-1","date":"2026-06-15","examPlanId":"TST-01","examPlanName":"اختبار الهيئة والقوام","capacity":30,"reserved":12}""");
         await SeedOperationalAsync(db, "applicants", "APP-1",
             """{"id":"APP-1","nationalId":"29801011234567","fullName":"متقدم","categoryKey":"officers_general","cycleId":"CYC-1","status":"exam_scheduled","examSlot":{"slotId":"CI-1","date":"2026-06-15","time":"09:30","location":"كلية الشرطة - القاهرة"}}""");
         await SeedOperationalAsync(db, "applicants", "APP-DRAFT",
@@ -1158,15 +1176,84 @@ public sealed class DataExchangeServiceTests
             [ExchangeDomain.ExamReservations], "single-workbook", ExportFilter.Default, default);
         var sheet = Assert.Single(result.Sheets);
 
+        Assert.Equal(
+            ["applicant_national_id", "applicant_name", "slot_id", "exam_id", "exam_name", "appointment_date",
+             "appointment_time", "committee_name", "reservation_status"],
+            sheet.Columns);
         var row = Assert.Single(sheet.Rows); // unbooked draft never emits a reservation
         Assert.Equal("29801011234567", row["applicant_national_id"]);
         Assert.Equal("CI-1", row["slot_id"]);
+        Assert.Equal("TST-01", row["exam_id"]);
         Assert.Equal("اختبار الهيئة والقوام", row["exam_name"]);
         Assert.Equal("2026-06-15", row["appointment_date"]);
         Assert.Equal("09:30", row["appointment_time"]);
         Assert.Equal("اللجنة الأولى قسم عام", row["committee_name"]);
         Assert.Equal("محجوز", row["reservation_status"]);
-        Assert.Equal("exam_scheduled", row["applicant_status"]);
+        Assert.False(row.ContainsKey("location"));
+        Assert.False(row.ContainsKey("applicant_status"));
+        Assert.False(row.ContainsKey("cycle_id"));
+    }
+
+    [Fact]
+    public async Task Snapshot_exam_reservations_resolve_exam_name_from_cycle_plan_for_every_booked_applicant()
+    {
+        var (svc, db) = Create();
+        await SeedCycleAsync(db, "CYC-1", true);
+        await SeedCommitteeLookupAsync(db, "COM-01", "اللجنة الأولى قسم عام");
+        await SeedLookupAsync(db, "tests", "TST-01", "اختبار الهيئة والقوام");
+        await SeedOperationalAsync(db, "examPlans", "EP-CYC-1-officers_general",
+            """{"id":"EP-CYC-1-officers_general","cycleId":"CYC-1","categoryId":"officers_general","exams":[{"examId":"TST-01","order":1,"isRequired":true}]}""");
+        // Instance has no exam fields — the old resolution left exam_name blank.
+        await SeedOperationalAsync(db, "committeeInstances", "CI-1",
+            """{"id":"CI-1","definitionCode":"COM-01","categoryKey":"officers_general","cycleId":"CYC-1","date":"2026-06-15","capacity":30,"reserved":12}""");
+        // Booked via slot id → resolves through the instance's category.
+        await SeedOperationalAsync(db, "applicants", "APP-1",
+            """{"id":"APP-1","nationalId":"29801011234567","fullName":"متقدم أول","categoryKey":"officers_general","cycleId":"CYC-1","status":"exam_scheduled","examSlot":{"slotId":"CI-1","date":"2026-06-15","time":"09:30"}}""");
+        // Booked with no matching instance — falls back to the applicant's own category.
+        await SeedOperationalAsync(db, "applicants", "APP-2",
+            """{"id":"APP-2","nationalId":"29801011234568","fullName":"متقدم ثان","categoryKey":"officers_general","cycleId":"CYC-1","status":"exam_scheduled","examSlot":{"slotId":"CI-MISSING","date":"2026-07-01"}}""");
+
+        var result = await svc.ExportSnapshotAsync(
+            [ExchangeDomain.ExamReservations], "single-workbook", ExportFilter.Default, default);
+        var rows = Assert.Single(result.Sheets).Rows;
+
+        Assert.Equal(2, rows.Count);
+        Assert.All(rows, row => Assert.Equal("TST-01", row["exam_id"]));
+        Assert.All(rows, row => Assert.Equal("اختبار الهيئة والقوام", row["exam_name"]));
+    }
+
+    [Fact]
+    public async Task Snapshot_exam_schedules_resolve_exam_and_category_from_cycle_plan()
+    {
+        var (svc, db) = Create();
+        await SeedCycleAsync(db, "CYC-1", true);
+        await SeedCommitteeLookupAsync(db, "COM-01", "اللجنة الأولى قسم عام");
+        await SeedLookupAsync(db, "tests", "TST-01", "اختبار الهيئة والقوام");
+        // Plan entries deliberately out of order — resolution must honor `order`.
+        await SeedOperationalAsync(db, "examPlans", "EP-CYC-1-officers_general",
+            """{"id":"EP-CYC-1-officers_general","cycleId":"CYC-1","categoryId":"officers_general","exams":[{"examId":"TST-02","order":2,"isRequired":true},{"examId":"TST-01","order":1,"isRequired":true}]}""");
+        // Instance carries no exam fields of its own — exam_id/exam_name must come from the plan.
+        await SeedOperationalAsync(db, "committeeInstances", "CI-1",
+            """{"id":"CI-1","definitionCode":"COM-01","categoryKey":"officers_general","cycleId":"CYC-1","date":"2026-06-15","time":"09:30","location":"كلية الشرطة","capacity":30,"reserved":12}""");
+
+        var result = await svc.ExportSnapshotAsync(
+            [ExchangeDomain.ExamSchedules], "single-workbook", ExportFilter.Default, default);
+        var sheet = Assert.Single(result.Sheets);
+
+        Assert.Equal(
+            ["slot_id", "exam_id", "exam_name", "category", "date", "committee_name", "capacity", "reserved"],
+            sheet.Columns);
+        var row = Assert.Single(sheet.Rows);
+        Assert.Equal("CI-1", row["slot_id"]);
+        Assert.Equal("TST-01", row["exam_id"]);
+        Assert.Equal("اختبار الهيئة والقوام", row["exam_name"]);
+        Assert.Equal("officers_general", row["category"]);
+        Assert.Equal("2026-06-15", row["date"]);
+        Assert.Equal("اللجنة الأولى قسم عام", row["committee_name"]);
+        Assert.Equal("30", row["capacity"]);
+        Assert.Equal("12", row["reserved"]);
+        Assert.False(row.ContainsKey("time"));
+        Assert.False(row.ContainsKey("location"));
     }
 
     [Fact]

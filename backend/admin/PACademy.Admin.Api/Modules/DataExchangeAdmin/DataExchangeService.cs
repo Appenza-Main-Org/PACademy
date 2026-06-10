@@ -1662,13 +1662,17 @@ public sealed class DataExchangeService(
         IReadOnlySet<string>? ActiveCategoryKeys,
         string? ActiveCycleId);
 
-    /// <summary>Max AuditEntries rows in a snapshot. Audit is system-wide (not
-    /// cycle-tagged); this bounds client-side workbook size. Explicit, not silent.</summary>
-    private const int AuditSnapshotRowCap = 5000;
-
     /// <summary>Locked curated-snapshot sheet registry. The order here is the
     /// workbook sheet order (after the frontend-built ExportInfo sheet). Columns
-    /// are fixed + human-readable; mirrored by the frontend `CURATED_SHEETS`.</summary>
+    /// are fixed + human-readable; mirrored by the frontend `EXPORT_DOMAINS`.
+    ///
+    /// Unique-identifier rule (2026-06-10): every sheet carries a stable per-row
+    /// unique key (`*_id` / business key) so re-import, dedup, and cross-sheet
+    /// mapping always have an anchor. Internal/system sheets (Committees,
+    /// ApplicantCategories, Faculties, Notifications, WorkflowRecords,
+    /// AuditEntries) were dropped from the snapshot the same day — they stay in
+    /// <see cref="DataExchangeRegistry"/> only so previously exported workbooks
+    /// still parse on import.</summary>
     private static readonly IReadOnlyList<CuratedSheetSpec> CuratedSheets =
     [
         new(ExchangeDomain.Applicants, "Applicants", "المتقدمون",
@@ -1678,59 +1682,41 @@ public sealed class DataExchangeService(
              "category", "cycle_id", "status"],
             CycleScoped: true, PersonScoped: true),
         new(ExchangeDomain.Relatives, "Relatives", "الأقارب",
-            ["applicant_id", "relation_type", "relation_label", "full_name", "national_id", "gender", "qualification", "occupation", "phone", "governorate", "address"],
+            ["relative_id", "applicant_id", "relation_type", "relation_label", "full_name", "national_id", "gender", "qualification", "occupation", "phone", "governorate", "address"],
             CycleScoped: true, PersonScoped: true),
         new(ExchangeDomain.Exams, "Exams", "الاختبارات",
             ["exam_id", "exam_name", "cycle_id", "scheduled_for", "duration_minutes", "question_count", "status"],
             CycleScoped: true, PersonScoped: false),
         new(ExchangeDomain.ExamSchedules, "ExamSchedules", "مواعيد الاختبارات",
-            ["slot_id", "exam_id", "exam_name", "date", "time", "location", "committee_name", "capacity", "reserved"],
+            ["slot_id", "exam_id", "exam_name", "category", "date", "committee_name", "capacity", "reserved"],
             CycleScoped: true, PersonScoped: false),
         new(ExchangeDomain.ExamReservations, "ExamReservations", "حجوزات الاختبارات",
-            ["applicant_national_id", "applicant_name", "slot_id", "exam_name", "appointment_date", "appointment_time",
-             "committee_name", "location", "reservation_status", "applicant_status", "cycle_id"],
+            ["applicant_national_id", "applicant_name", "slot_id", "exam_id", "exam_name", "appointment_date",
+             "appointment_time", "committee_name", "reservation_status"],
             CycleScoped: true, PersonScoped: true),
-        new(ExchangeDomain.Committees, "Committees", "اللجان",
-            ["committee_id", "committee_name", "category", "cycle_id", "location", "status"],
-            CycleScoped: true, PersonScoped: false),
         new(ExchangeDomain.ExamResults, "ExamResults", "نتائج الاختبارات",
-            ["applicant_id", "exam_id", "exam_name", "result", "score", "committee", "exam_date"],
+            ["result_id", "applicant_id", "exam_id", "exam_name", "result", "score", "committee", "exam_date"],
             CycleScoped: true, PersonScoped: true),
         new(ExchangeDomain.AcquaintanceDocs, "AcquaintanceDocs", "وثائق التعارف",
-            ["applicant_national_id", "cycle_id", "doc_status", "version", "opened_at", "closed_at", "last_autosaved_at",
+            ["record_id", "applicant_national_id", "cycle_id", "doc_status", "version", "opened_at", "closed_at", "last_autosaved_at",
              "section_key", "section_data", "revision_count", "last_revision_kind", "last_revision_at"],
             CycleScoped: true, PersonScoped: true),
         new(ExchangeDomain.AdmissionConditions, "AdmissionConditions", "شروط القبول",
-            ["category", "category_name", "faculty", "specialization", "academic_degree", "graduation_year", "gender",
+            ["condition_id", "category", "category_name", "faculty", "specialization", "academic_degree", "graduation_year", "gender",
              "marital_status", "min_age", "max_age", "age_reference_date", "min_percentage", "max_percentage",
              "min_grade", "max_grade", "division", "school_category", "exam_round", "committee",
              "excellence_criterion", "application_start_date", "application_end_date", "condition_status", "is_active"],
             CycleScoped: true, PersonScoped: false),
-        new(ExchangeDomain.ApplicantCategories, "ApplicantCategories", "فئات المتقدمين",
-            ["category_key", "category_name", "is_open", "cycle_id"],
-            CycleScoped: false, PersonScoped: false),
-        new(ExchangeDomain.Faculties, "Faculties", "الكليات",
-            ["faculty_code", "faculty_name", "is_active"],
-            CycleScoped: false, PersonScoped: false),
         new(ExchangeDomain.LookupRows, "LookupRows", "أكواد القوائم",
-            ["lookup_key", "code", "name", "is_active"],
+            ["lookup_row_id", "lookup_key", "code", "name", "is_active"],
             CycleScoped: false, PersonScoped: false),
         new(ExchangeDomain.GeneralSettings, "GeneralSettings", "الإعدادات العامة",
-            ["exam_days_per_applicant", "exam_slot_selection_window_days", "acquaintance_documents_open_timing", "acquaintance_documents_close_timing"],
+            ["settings_id", "exam_days_per_applicant", "exam_slot_selection_window_days", "acquaintance_documents_open_timing", "acquaintance_documents_close_timing"],
             CycleScoped: false, PersonScoped: false),
         new(ExchangeDomain.Payments, "Payments", "المدفوعات",
-            ["applicant_id", "payment_id", "national_id", "applicant_name", "amount", "payment_status",
+            ["payment_id", "applicant_id", "national_id", "applicant_name", "amount", "payment_status",
              "payment_method", "payment_date", "fawry_reference", "cycle_id"],
             CycleScoped: true, PersonScoped: true),
-        new(ExchangeDomain.Notifications, "Notifications", "الإشعارات",
-            ["notification_id", "applicant_id", "type", "title", "created_at", "status"],
-            CycleScoped: true, PersonScoped: true),
-        new(ExchangeDomain.WorkflowRecords, "WorkflowRecords", "سجل سير العمل",
-            ["applicant_id", "workflow_step", "status", "occurred_at", "cycle_id"],
-            CycleScoped: true, PersonScoped: true),
-        new(ExchangeDomain.AuditEntries, "AuditEntries", "سجل التدقيق",
-            ["entity", "entity_id", "action", "actor_name", "created_at"],
-            CycleScoped: false, PersonScoped: false),
     ];
 
     private async Task<CuratedContext> BuildCuratedContextAsync(string? cycleId, CancellationToken ct)
@@ -1748,18 +1734,12 @@ public sealed class DataExchangeService(
         ExchangeDomain.Exams               => LoadCuratedExamsAsync(cycleId, ct),
         ExchangeDomain.ExamSchedules       => LoadCuratedExamSchedulesAsync(cycleId, ctx, ct),
         ExchangeDomain.ExamReservations    => LoadCuratedExamReservationsAsync(cycleId, ctx, ct),
-        ExchangeDomain.Committees          => LoadCuratedCommitteesAsync(cycleId, ctx),
         ExchangeDomain.ExamResults         => LoadCuratedExamResultsAsync(cycleId, ctx, ct),
         ExchangeDomain.AcquaintanceDocs    => LoadCuratedAcquaintanceDocsAsync(cycleId, ct),
         ExchangeDomain.AdmissionConditions => LoadCuratedAdmissionConditionsAsync(cycleId, ctx, ct),
-        ExchangeDomain.ApplicantCategories => LoadCuratedApplicantCategoriesAsync(cycleId, ct),
-        ExchangeDomain.Faculties           => LoadCuratedFacultiesAsync(ct),
         ExchangeDomain.LookupRows          => LoadCuratedLookupRowsAsync(ct),
         ExchangeDomain.GeneralSettings     => LoadCuratedGeneralSettingsAsync(ct),
         ExchangeDomain.Payments            => LoadCuratedPaymentsAsync(cycleId, ct),
-        ExchangeDomain.Notifications       => LoadCuratedOperationalAsync(db.NotificationRecords, cycleId, ProjectNotificationRow, ct),
-        ExchangeDomain.WorkflowRecords     => LoadCuratedOperationalAsync(db.WorkflowRecords, cycleId, ProjectWorkflowRow, ct),
-        ExchangeDomain.AuditEntries        => LoadCuratedAuditAsync(ct),
         _ => Task.FromResult<IReadOnlyList<CuratedRow>>([]),
     };
 
@@ -1830,6 +1810,7 @@ public sealed class DataExchangeService(
             if (string.IsNullOrWhiteSpace(nid)) continue;
             if (a["family"] is not JsonObject family) continue;
             var (created, updated) = Timestamps(a);
+            var relativeSeq = 0;
 
             void Emit(string kinship, JsonObject? member)
             {
@@ -1837,7 +1818,12 @@ public sealed class DataExchangeService(
                 var name = member["fullName"]?.ToString() ?? member["name"]?.ToString();
                 var memberNid = member["nationalId"]?.ToString();
                 if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(memberNid)) return;
+                relativeSeq += 1;
                 rows.Add(new CuratedRow(Cells(
+                    // Stable per-row key: the member's own record id when stored,
+                    // else applicant NID + deterministic emit position (the family
+                    // payload is ordered, so re-exports keep the same ids).
+                    ("relative_id", member["id"]?.ToString() ?? $"{nid}:{relativeSeq}"),
                     ("applicant_id", nid),
                     ("relation_type", kinship),
                     ("relation_label", member["relationshipId"]?.ToString() ?? RelationLabelAr(kinship)),
@@ -1883,6 +1869,7 @@ public sealed class DataExchangeService(
 
     private async Task<IReadOnlyList<CuratedRow>> LoadCuratedExamSchedulesAsync(string? cycleId, CuratedContext ctx, CancellationToken ct)
     {
+        var resolver = await BuildCuratedExamResolverAsync(cycleId, ct);
         var rows = new List<CuratedRow>();
         foreach (var inst in ctx.CommitteeInstances)
         {
@@ -1891,14 +1878,14 @@ public sealed class DataExchangeService(
             var code = FirstString(inst, "definitionCode", "committeeId", "committeeCode");
             var committeeName = code is not null && ctx.CommitteeDirectory.NameByCode.TryGetValue(code, out var n)
                 ? n : FirstString(inst, "committeeName", "committeeLabelAr");
+            var (examId, examName) = resolver.Resolve(inst);
             var (created, updated) = Timestamps(inst);
             rows.Add(new CuratedRow(Cells(
                 ("slot_id", FirstString(inst, "id", "slotId")),
-                ("exam_id", FirstString(inst, "examPlanId", "planId", "examId")),
-                ("exam_name", FirstString(inst, "examPlanName", "planName", "examName", "examPlanLabel")),
+                ("exam_id", examId),
+                ("exam_name", examName),
+                ("category", CategoryKey(inst)),
                 ("date", FirstString(inst, "date", "examDate", "scheduledDate")),
-                ("time", FirstString(inst, "time", "slotTime", "examTime") ?? DefaultExamScheduleTime),
-                ("location", FirstString(inst, "location", "venue")),
                 ("committee_name", committeeName),
                 ("capacity", FirstString(inst, "capacity", "maxCapacity")),
                 ("reserved", FirstString(inst, "reserved", "reservedCount"))), created, updated, null));
@@ -1911,19 +1898,69 @@ public sealed class DataExchangeService(
         {
             if (AdminRecordJson.IsSoftDeleted(d)) continue;
             if (!MatchesCycle(FirstString(d, "cycleId", "admissionCycleId", "cycle_id"), cycleId)) continue;
+            var (examId, examName) = resolver.Resolve(d);
             var (created, updated) = Timestamps(d);
             rows.Add(new CuratedRow(Cells(
                 ("slot_id", FirstString(d, "id", "dayId")),
-                ("exam_id", FirstString(d, "examPlanId", "planId", "examId")),
-                ("exam_name", FirstString(d, "examPlanName", "planName", "examName")),
+                ("exam_id", examId),
+                ("exam_name", examName),
+                ("category", CategoryKey(d)),
                 ("date", FirstString(d, "date", "examDate", "day")),
-                ("time", FirstString(d, "time", "slotTime") ?? DefaultExamScheduleTime),
-                ("location", FirstString(d, "location", "venue")),
                 ("committee_name", FirstString(d, "committeeName")),
                 ("capacity", FirstString(d, "capacity", "maxCapacity")),
                 ("reserved", FirstString(d, "reserved", "reservedCount"))), created, updated, null));
         }
         return rows;
+    }
+
+    /// <summary>Resolves the exam (code + readable name) for a curated export
+    /// row. Explicit exam fields on the record win; otherwise the row's
+    /// category falls back to the first exam of the cycle's ordered exam plan,
+    /// and the name resolves through the tests lookup (code when unnamed).
+    /// Mirrors how /admin/committees-exam-config labels instance rows.</summary>
+    private sealed class CuratedExamResolver(
+        IReadOnlyDictionary<string, string> nameByCode,
+        IReadOnlyDictionary<string, string> firstPlannedByCategory)
+    {
+        public (string? ExamId, string? ExamName) Resolve(JsonObject row)
+        {
+            var examId = FirstString(row, "examPlanId", "planId", "examId")
+                ?? (CategoryKey(row) is { } category ? firstPlannedByCategory.GetValueOrDefault(category) : null);
+            var examName = FirstString(row, "examPlanName", "planName", "examName", "examPlanLabel")
+                ?? (examId is null ? null : nameByCode.GetValueOrDefault(examId) ?? examId);
+            return (examId, examName);
+        }
+    }
+
+    private async Task<CuratedExamResolver> BuildCuratedExamResolverAsync(string? cycleId, CancellationToken ct)
+        => new(await LoadExamNameByCodeAsync(ct), await LoadFirstPlannedExamByCategoryAsync(cycleId, ct));
+
+    /// <summary>categoryKey → first exam code in the cycle's ordered exam plan
+    /// (`examPlans` bucket). Committee instances don't link to a specific exam
+    /// in the domain model — the management page (/admin/committees-exam-config)
+    /// displays the first exam of the category's plan, and the ExamSchedules
+    /// sheet mirrors that resolution so exam_id/exam_name are never empty.</summary>
+    private async Task<IReadOnlyDictionary<string, string>> LoadFirstPlannedExamByCategoryAsync(string? cycleId, CancellationToken ct)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        IReadOnlyList<JsonObject> plans;
+        try { plans = await records.ListAsync("examPlans", ct); }
+        catch (InvalidOperationException) { return map; }
+
+        foreach (var plan in plans)
+        {
+            if (AdminRecordJson.IsSoftDeleted(plan)) continue;
+            if (!MatchesCycle(FirstString(plan, "cycleId", "admissionCycleId", "cycle_id"), cycleId)) continue;
+            var category = FirstString(plan, "categoryId", "categoryKey");
+            if (string.IsNullOrWhiteSpace(category) || map.ContainsKey(category)) continue;
+            var firstExamId = (plan["exams"] as JsonArray ?? [])
+                .OfType<JsonObject>()
+                .OrderBy(e => int.TryParse(e["order"]?.ToString(), out var order) ? order : int.MaxValue)
+                .Select(e => FirstString(e, "examId", "id", "code"))
+                .FirstOrDefault(id => !string.IsNullOrWhiteSpace(id));
+            if (firstExamId is not null) map[category] = firstExamId;
+        }
+        return map;
     }
 
     /// <summary>One row per booked applicant's reserved exam appointment — the
@@ -1937,6 +1974,7 @@ public sealed class DataExchangeService(
         try { applicants = await records.ListAsync("applicants", ct); }
         catch (InvalidOperationException) { return []; }
 
+        var resolver = await BuildCuratedExamResolverAsync(cycleId, ct);
         var rows = new List<CuratedRow>();
         foreach (var a in applicants)
         {
@@ -1952,22 +1990,23 @@ public sealed class DataExchangeService(
             var date = (slot is null ? null : FirstString(slot, "date"))
                 ?? FirstString(a, "firstExamDate", "examDate", "examScheduledAt");
             var instance = FindCommitteeInstanceForApplicant(a, ctx.CommitteeInstances);
-            var examName = instance is null
-                ? null
-                : FirstString(instance, "examPlanName", "planName", "examName", "examPlanLabel");
+            // The matched instance's explicit exam fields win; an applicant with
+            // no matched instance (or an instance carrying no exam/category data)
+            // falls back to their own category's cycle plan, so every booked
+            // applicant exports an exam_id + exam_name.
+            var (examId, examName) = instance is null ? (null, null) : resolver.Resolve(instance);
+            if (examId is null && examName is null) (examId, examName) = resolver.Resolve(a);
             var (created, updated) = Timestamps(a);
             rows.Add(new CuratedRow(Cells(
                 ("applicant_national_id", nid),
                 ("applicant_name", ApplicantField(a, "fullName", "name")),
                 ("slot_id", slotId),
+                ("exam_id", examId),
                 ("exam_name", examName),
                 ("appointment_date", date),
                 ("appointment_time", (slot is null ? null : FirstString(slot, "time")) ?? DefaultExamScheduleTime),
                 ("committee_name", OperationalRecordsService.ResolveCommitteeName(a, ctx.CommitteeDirectory, ctx.CommitteeInstances)),
-                ("location", slot is null ? null : FirstString(slot, "location")),
-                ("reservation_status", "محجوز"),
-                ("applicant_status", ApplicantField(a, "status")),
-                ("cycle_id", FirstString(a, "cycleId", "admissionCycleId", "cycle_id") ?? cycleId)), created, updated, nid));
+                ("reservation_status", "محجوز")), created, updated, nid));
         }
         return rows;
     }
@@ -1998,30 +2037,6 @@ public sealed class DataExchangeService(
             TextEquals(DateKey(FirstString(instance, "date", "examDate", "scheduledDate")), dateKey));
     }
 
-    private Task<IReadOnlyList<CuratedRow>> LoadCuratedCommitteesAsync(string? cycleId, CuratedContext ctx)
-    {
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var rows = new List<CuratedRow>();
-        foreach (var inst in ctx.CommitteeInstances)
-        {
-            if (AdminRecordJson.IsSoftDeleted(inst)) continue;
-            if (!MatchesCycle(FirstString(inst, "cycleId", "admissionCycleId", "cycle_id"), cycleId)) continue;
-            var code = FirstString(inst, "definitionCode", "committeeId", "committeeCode", "id");
-            if (string.IsNullOrWhiteSpace(code) || !seen.Add(code)) continue;
-            var name = ctx.CommitteeDirectory.NameByCode.TryGetValue(code, out var n)
-                ? n : FirstString(inst, "committeeName", "committeeLabelAr");
-            var (created, updated) = Timestamps(inst);
-            rows.Add(new CuratedRow(Cells(
-                ("committee_id", code),
-                ("committee_name", name),
-                ("category", CategoryKey(inst)),
-                ("cycle_id", FirstString(inst, "cycleId", "admissionCycleId", "cycle_id")),
-                ("location", FirstString(inst, "location", "venue")),
-                ("status", FirstString(inst, "status"))), created, updated, null));
-        }
-        return Task.FromResult<IReadOnlyList<CuratedRow>>(rows);
-    }
-
     private async Task<IReadOnlyList<CuratedRow>> LoadCuratedExamResultsAsync(string? cycleId, CuratedContext ctx, CancellationToken ct)
     {
         IReadOnlyList<JsonObject> applicants;
@@ -2046,6 +2061,9 @@ public sealed class DataExchangeService(
                 var outcome = node?.ToString();
                 if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(outcome)) continue;
                 rows.Add(new CuratedRow(Cells(
+                    // followUp holds one outcome per exam code, so (NID, exam)
+                    // is the natural unique row key.
+                    ("result_id", $"{nid}:{code}"),
                     ("applicant_id", nid),
                     ("exam_id", code),
                     ("exam_name", examNameByCode.TryGetValue(code, out var en) ? en : code),
@@ -2087,6 +2105,9 @@ public sealed class DataExchangeService(
             var docSections = sectionsByDoc.TryGetValue(doc.Id, out var secs) ? secs : [];
 
             CuratedRow Row(string? sectionKey, string? sectionData) => new(Cells(
+                // One row per (document, section): the doc id alone identifies
+                // the lifecycle-only row; section rows suffix their section key.
+                ("record_id", sectionKey is null ? doc.Id : $"{doc.Id}:{sectionKey}"),
                 ("applicant_national_id", nid),
                 ("cycle_id", doc.CycleId),
                 ("doc_status", doc.Status),
@@ -2184,6 +2205,7 @@ public sealed class DataExchangeService(
             if (covered.Contains(config.CategoryId)) continue;
             if (ctx.ActiveCategoryKeys is not null && !ctx.ActiveCategoryKeys.Contains(config.CategoryId)) continue;
             rows.Add(new CuratedRow(Cells(
+                ("condition_id", config.Id),
                 ("category", config.CategoryId),
                 ("category_name", names.CategoryNames.GetValueOrDefault(config.CategoryId)),
                 ("excellence_criterion", ResolveCategoryExcellence(config.CategoryId, names)),
@@ -2216,8 +2238,9 @@ public sealed class DataExchangeService(
             var attachedSpecs = specsByConfig.TryGetValue(config.Id, out var specList)
                 ? specList : [];
 
-            CuratedRow Baseline(string? facultyName, string? specName, bool isActive,
+            CuratedRow Baseline(string conditionId, string? facultyName, string? specName, bool isActive,
                 DateTimeOffset created, DateTimeOffset updated) => new(Cells(
+                ("condition_id", conditionId),
                 ("category", config.CategoryId),
                 ("category_name", categoryName),
                 ("faculty", facultyName),
@@ -2232,7 +2255,7 @@ public sealed class DataExchangeService(
             // admission conditions are fully authored.
             if (attachedSpecs.Count == 0)
             {
-                rows.Add(Baseline(null, null, config.IsActive, config.CreatedAt, config.UpdatedAt));
+                rows.Add(Baseline(config.Id, null, null, config.IsActive, config.CreatedAt, config.UpdatedAt));
                 continue;
             }
 
@@ -2246,7 +2269,7 @@ public sealed class DataExchangeService(
                 var specYears = yearsBySpec.TryGetValue(spec.Id, out var yearList) ? yearList : [];
                 if (specYears.Count == 0)
                 {
-                    rows.Add(Baseline(facultyName, specName, config.IsActive && spec.IsActive, spec.CreatedAt, spec.UpdatedAt));
+                    rows.Add(Baseline(spec.Id, facultyName, specName, config.IsActive && spec.IsActive, spec.CreatedAt, spec.UpdatedAt));
                     continue;
                 }
 
@@ -2258,6 +2281,9 @@ public sealed class DataExchangeService(
                     foreach (var gradYear in perYear)
                     {
                         rows.Add(new CuratedRow(Cells(
+                            // A year row fans out per graduation year — suffix
+                            // keeps each exported row's key unique.
+                            ("condition_id", gradYear is null ? y.Id : $"{y.Id}:{gradYear}"),
                             ("category", config.CategoryId),
                             ("category_name", categoryName),
                             ("faculty", facultyName),
@@ -2302,9 +2328,13 @@ public sealed class DataExchangeService(
         var rows = new List<CuratedRow>();
         foreach (var (bucket, statusAr) in new[] { ("approved", "معتمد"), ("local", "مسودة") })
         {
-            foreach (var row in (draft[bucket] as JsonArray ?? []).OfType<JsonObject>())
+            var bucketRows = (draft[bucket] as JsonArray ?? []).OfType<JsonObject>().ToList();
+            for (var i = 0; i < bucketRows.Count; i += 1)
             {
-                rows.AddRange(DraftConditionRows(row, statusAr, names, ctx, draftCreated, draftUpdated));
+                // Wizard rows carry their own id; the bucket+position fallback
+                // keeps id-less legacy rows unique and stable across re-exports.
+                var conditionId = FirstString(bucketRows[i], "id", "rowId") ?? $"{cycleId}:{bucket}:{i + 1}";
+                rows.AddRange(DraftConditionRows(bucketRows[i], conditionId, statusAr, names, ctx, draftCreated, draftUpdated));
             }
         }
         return rows;
@@ -2312,6 +2342,7 @@ public sealed class DataExchangeService(
 
     private static IEnumerable<CuratedRow> DraftConditionRows(
         JsonObject row,
+        string conditionId,
         string statusAr,
         ConditionNames names,
         CuratedContext ctx,
@@ -2342,6 +2373,9 @@ public sealed class DataExchangeService(
         foreach (var gradYear in perYear)
         {
             yield return new CuratedRow(Cells(
+                // A wizard row fans out per graduation year — suffix keeps each
+                // exported row's key unique.
+                ("condition_id", gradYear is null ? conditionId : $"{conditionId}:{gradYear}"),
                 ("category", categoryCode),
                 ("category_name", names.CategoryNames.GetValueOrDefault(categoryCode)),
                 ("faculty", FirstString(row, "facultyNameAr") ?? ResolveName(names, "faculties", FirstString(row, "facultyCode"))),
@@ -2428,29 +2462,13 @@ public sealed class DataExchangeService(
         return result;
     }
 
-    private async Task<IReadOnlyList<CuratedRow>> LoadCuratedApplicantCategoriesAsync(string? cycleId, CancellationToken ct)
-    {
-        var cats = await db.ApplicantCategories.AsNoTracking().ToListAsync(ct);
-        return cats.Select(c => new CuratedRow(Cells(
-            ("category_key", c.Key),
-            ("category_name", c.LabelAr),
-            ("is_open", c.IsOpen ? "true" : "false"),
-            ("cycle_id", cycleId)), c.CreatedAt, c.UpdatedAt, null)).ToList();
-    }
-
-    private async Task<IReadOnlyList<CuratedRow>> LoadCuratedFacultiesAsync(CancellationToken ct)
-    {
-        var rows = await db.LookupRows.AsNoTracking().Where(x => x.LookupKey == "faculties").ToListAsync(ct);
-        return rows.Select(x => new CuratedRow(Cells(
-            ("faculty_code", x.Code),
-            ("faculty_name", x.Name),
-            ("is_active", x.IsActive ? "true" : "false")), x.CreatedAt, x.UpdatedAt, null)).ToList();
-    }
-
     private async Task<IReadOnlyList<CuratedRow>> LoadCuratedLookupRowsAsync(CancellationToken ct)
     {
         var rows = await db.LookupRows.AsNoTracking().ToListAsync(ct);
         return rows.Select(x => new CuratedRow(Cells(
+            // lookup_rows has a composite PK — (lookup_key, code) joined is the
+            // stable single-column row identifier the export rule requires.
+            ("lookup_row_id", $"{x.LookupKey}:{x.Code}"),
             ("lookup_key", x.LookupKey),
             ("code", x.Code),
             ("name", x.Name),
@@ -2462,6 +2480,7 @@ public sealed class DataExchangeService(
         var s = await db.GeneralSettings.AsNoTracking().FirstOrDefaultAsync(ct);
         if (s is null) return [];
         return [new CuratedRow(Cells(
+            ("settings_id", s.Id),
             ("exam_days_per_applicant", s.ExamDaysPerApplicant.ToString(CultureInfo.InvariantCulture)),
             ("exam_slot_selection_window_days", s.ExamSlotSelectionWindowDays.ToString(CultureInfo.InvariantCulture)),
             ("acquaintance_documents_open_timing", s.AcquaintanceDocumentsOpenTiming),
@@ -2645,33 +2664,6 @@ public sealed class DataExchangeService(
             catch (ArgumentOutOfRangeException) { return null; }
         }
         return ParseDto(node);
-    }
-
-    private static Dictionary<string, string?> ProjectNotificationRow(NotificationRecordEntity x, JsonObject p) => Cells(
-        ("notification_id", x.Id),
-        ("applicant_id", x.ApplicantId ?? x.NationalId),
-        ("type", x.Kind ?? AdminRecordJson.StringProp(p, "type")),
-        ("title", AdminRecordJson.StringProp(p, "title") ?? AdminRecordJson.StringProp(p, "message")),
-        ("created_at", DtoString(x.CreatedAt)),
-        ("status", x.Status ?? AdminRecordJson.StringProp(p, "status")));
-
-    private static Dictionary<string, string?> ProjectWorkflowRow(WorkflowRecordEntity x, JsonObject p) => Cells(
-        ("applicant_id", x.ApplicantId ?? x.NationalId),
-        ("workflow_step", x.Kind ?? AdminRecordJson.StringProp(p, "step") ?? AdminRecordJson.StringProp(p, "workflowStep")),
-        ("status", x.Status),
-        ("occurred_at", DtoString(x.OccurredAt) ?? DtoString(x.CreatedAt)),
-        ("cycle_id", x.CycleId));
-
-    private async Task<IReadOnlyList<CuratedRow>> LoadCuratedAuditAsync(CancellationToken ct)
-    {
-        var rows = await db.AuditRows.AsNoTracking()
-            .OrderByDescending(x => x.CreatedAt).Take(AuditSnapshotRowCap).ToListAsync(ct);
-        return rows.Select(x => new CuratedRow(Cells(
-            ("entity", x.Entity),
-            ("entity_id", x.EntityId),
-            ("action", x.Action),
-            ("actor_name", x.ActorName),
-            ("created_at", DtoString(x.CreatedAt))), x.CreatedAt, x.UpdatedAt, null)).ToList();
     }
 
     private async Task<ExportInfoDto> BuildExportInfoAsync(string? cycleId, DateTimeOffset watermark, CancellationToken ct)

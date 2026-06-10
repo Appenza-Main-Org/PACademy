@@ -64,7 +64,10 @@ export const EXCHANGE_DOMAINS = Object.keys(SHEET_NAMES) as ExchangeDomain[];
  * The curated full-database snapshot sheets, in workbook order (after the
  * client-built `ExportInfo` sheet). Mirrors the backend `CuratedSheets`. This is
  * the universe the export UI offers — distinct from `SHEET_NAMES`, which also
- * carries the import-only legacy tab (`SystemCodes`).
+ * carries the import-only legacy tabs (`SystemCodes`) and the internal/system
+ * sheets dropped from the export on 2026-06-10 (Committees, ApplicantCategories,
+ * Faculties, Notifications, WorkflowRecords, AuditEntries — kept in
+ * `SHEET_NAMES` only so previously exported workbooks still parse on import).
  */
 export const EXPORT_DOMAINS: ExchangeDomain[] = [
   'Applicants',
@@ -72,18 +75,12 @@ export const EXPORT_DOMAINS: ExchangeDomain[] = [
   'Exams',
   'ExamSchedules',
   'ExamReservations',
-  'Committees',
   'ExamResults',
   'AcquaintanceDocs',
   'AdmissionConditions',
-  'ApplicantCategories',
-  'Faculties',
   'LookupRows',
   'GeneralSettings',
   'Payments',
-  'Notifications',
-  'WorkflowRecords',
-  'AuditEntries',
 ];
 
 /** Reserved tab name for the workbook's leading metadata sheet. */
