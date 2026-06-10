@@ -333,6 +333,47 @@ public sealed class BiometricController(BiometricService service, IServiceProvid
         catch (BiometricDeviceException ex) { return DeviceUnavailable(ex); }
     }
 
+    /// <summary>
+    /// Register the applicant's existing device employee on an additional
+    /// terminal: appends the terminal's area to the employee's area list (the
+    /// platform syncs the record to every terminal in its areas). Keeps the
+    /// areas already assigned — "also on this device", not a move.
+    /// </summary>
+    [HttpPost("api/biometric/zk/add-device")]
+    [RequireBearerAuth]
+    public async Task<ActionResult<object>> ZkAddDevice([FromBody] JsonObject input, CancellationToken ct)
+    {
+        var client = sp.GetService<ZkBioTimeClient>();
+        if (client is null || !await client.IsConfiguredAsync(ct)) return ZkInactive();
+
+        var nationalId = AdminRecordJson.StringProp(input, "nationalId");
+        var terminalSn = AdminRecordJson.StringProp(input, "terminalSn");
+        if (string.IsNullOrWhiteSpace(nationalId) || string.IsNullOrWhiteSpace(terminalSn))
+            return BadRequest(new ApiErrorEnvelope("VALIDATION", Message: "الرقم القومي والجهاز مطلوبان"));
+
+        try
+        {
+            if (await client.FindEmployeeAsync(nationalId, ct) is not { } employee
+                || !int.TryParse(employee["id"]?.ToString(), out var employeeId) || employeeId <= 0)
+                return NotFound(new ApiErrorEnvelope(
+                    "NOT_FOUND", Message: "المتقدم غير مسجل على المنظومة — أنشئ السجل على جهاز أولاً"));
+
+            var areaId = await client.GetTerminalAreaIdAsync(terminalSn, ct);
+            if (areaId is null)
+                return BadRequest(new ApiErrorEnvelope("VALIDATION", Message: "الجهاز المحدد غير معروف على المنظومة"));
+
+            var currentAreaIds = ZkBioTimeClient.ReadEmployeeAreaIds(employee);
+            if (currentAreaIds.Contains(areaId.Value))
+                return Conflict(new ApiErrorEnvelope(
+                    "CONFLICT", ConflictCode: "BIOMETRIC_ALREADY_ON_DEVICE",
+                    Message: "المتقدم مسجل على هذا الجهاز بالفعل"));
+
+            await client.AdjustAreaAsync([employeeId], [.. currentAreaIds, areaId.Value], ct);
+            return Ok(new { ok = true, areaId = areaId.Value });
+        }
+        catch (BiometricDeviceException ex) { return DeviceUnavailable(ex); }
+    }
+
     /* ── ZKBioTime connection config (set from the admin screen) ───────── */
 
     [HttpGet("api/biometric/zk/config")]

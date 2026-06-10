@@ -367,6 +367,20 @@ public sealed class ZkBioTimeClient(
         };
     }
 
+    /// <summary>
+    /// The area ids currently assigned to an employee row. Handles both row
+    /// shapes the platform returns (<c>area</c> as objects with <c>id</c> or
+    /// as bare ids).
+    /// </summary>
+    public static IReadOnlyList<int> ReadEmployeeAreaIds(JsonObject employee) =>
+        employee["area"] is JsonArray areas
+            ? areas
+                .Select(a => a is JsonObject obj ? ReadInt(obj["id"]) : ReadInt(a))
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList()
+            : [];
+
     private string Url(string path) => $"{BaseUrl.TrimEnd('/')}{path}";
 
     private static int ReadInt(JsonNode? node)

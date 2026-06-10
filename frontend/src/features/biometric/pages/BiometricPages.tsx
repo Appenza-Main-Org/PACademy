@@ -556,6 +556,8 @@ export function BiometricEnrollPage(): JSX.Element {
   const [lookup, setLookup] = useState<BiometricApplicantLookup | null>(null);
   const [busy, setBusy] = useState(false);
   const [terminalSn, setTerminalSn] = useState('');
+  const [addDeviceSn, setAddDeviceSn] = useState('');
+  const [addBusy, setAddBusy] = useState(false);
   const [listening, setListening] = useState(false);
   const [confirmResult, setConfirmResult] = useState<VerifyResult | null>(null);
   const baselineRef = useRef<string | null>(null);
@@ -697,6 +699,35 @@ export function BiometricEnrollPage(): JSX.Element {
     hasBio(deviceEmp?.face) || hasBio(deviceEmp?.vl_face) || Number(deviceEmp?.vl_face_photo ?? 0) > 0;
   const bioRegistered = hasFingerprint || hasFace;
 
+  // Devices the created employee is NOT yet on (by area membership) — offered
+  // as "also register on this device". A device with an unknown area stays
+  // listed; the backend validates it on submit.
+  const employeeAreaIds = new Set((deviceEmp?.area ?? []).map((a) => a.id));
+  const otherDeviceChoices = (devicesQuery.data?.data ?? [])
+    .filter((d) => {
+      const area = d.area as { id?: number } | undefined;
+      return !(area?.id && employeeAreaIds.has(area.id));
+    })
+    .map((d) => ({
+      value: d.sn,
+      label: `${d.terminal_name || d.alias || d.sn}${d.area_name ? ` · ${d.area_name}` : ''}`,
+    }));
+
+  const addToAnotherDevice = async (): Promise<void> => {
+    if (!lookup || !addDeviceSn) return;
+    setAddBusy(true);
+    try {
+      await biometricService.addToZkDevice({ nationalId: lookup.applicant.nationalId, terminalSn: addDeviceSn });
+      toast('تمت إضافة المتقدم إلى الجهاز — سجّل البصمة عليه ثم اطلب منه البصم للتأكيد', 'success');
+      setAddDeviceSn('');
+      void zkEmployeesQuery.refetch();
+    } catch (error) {
+      toast(error instanceof Error && error.message ? error.message : 'تعذر إضافة المتقدم إلى الجهاز', 'danger');
+    } finally {
+      setAddBusy(false);
+    }
+  };
+
   return (
     <>
       <PageHeader title="تسجيل بيومتري لمتقدم" subtitle="إنشاء سجل المتقدم على الجهاز، ثم تسجيل البصمة والوجه على الجهاز، ثم التأكيد ببصمة حية" />
@@ -778,6 +809,27 @@ export function BiometricEnrollPage(): JSX.Element {
                   {!bioRegistered && (
                     <span className="text-2xs text-gold-700">— سجّل البصمة/الوجه على الجهاز</span>
                   )}
+                </div>
+              )}
+              {deviceCreated && otherDeviceChoices.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-end gap-2">
+                  <div className="min-w-48 flex-1">
+                    <Select
+                      label="إضافة إلى جهاز آخر"
+                      value={addDeviceSn}
+                      onChange={(event) => setAddDeviceSn(event.target.value)}
+                      options={[{ value: '', label: 'اختر الجهاز…' }, ...otherDeviceChoices]}
+                    />
+                  </div>
+                  <Button
+                    variant="secondary"
+                    leadingIcon={<UserPlus size={14} />}
+                    onClick={() => void addToAnotherDevice()}
+                    disabled={!addDeviceSn}
+                    isLoading={addBusy}
+                  >
+                    إضافة
+                  </Button>
                 </div>
               )}
               <div className="mt-3 flex justify-end">
