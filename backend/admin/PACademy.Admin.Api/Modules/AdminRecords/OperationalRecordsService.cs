@@ -2723,12 +2723,33 @@ public sealed class OperationalRecordsService(
 
     private async Task<bool> ApplicantHasGradeAsync(string nationalId, CancellationToken ct)
     {
-        var rows = await ListAsync("grades", ct);
-        return rows.Any(row =>
-            !AdminRecordJson.IsSoftDeleted(row)
-            && (AdminRecordJson.StringProp(row, "nid") == nationalId
+        var rows = await ListGradesByNationalIdAsync(nationalId, ct);
+        return rows.Any(row => !AdminRecordJson.IsSoftDeleted(row));
+    }
+
+    /// <summary>Grade rows for a single applicant. The normalized path is an
+    /// index seek on [nid] (the column is import-populated and verified
+    /// consistent with the payload) instead of materializing the whole
+    /// applicant_grades table — per-applicant callers (eligibility checks,
+    /// grade-existence guards) were pulling ~50k rows / 40MB each call and
+    /// starving the instance. Soft-deleted rows are included; callers filter,
+    /// matching the ListAsync contract.</summary>
+    public async Task<IReadOnlyList<JsonObject>> ListGradesByNationalIdAsync(string nationalId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(nationalId)) return [];
+        if (CanUseNormalizedTables("grades"))
+        {
+            return await QueryPayloadRowsAsync(
+                $"SELECT [payload_json], CONVERT(nvarchar(128), [seat]) AS [row_id], [created_at], [updated_at] FROM {AdminDbContext.QualifiedTableName("applicant_grades")} WHERE [nid] = @nid ORDER BY [seat]",
+                "row_id",
+                ct,
+                command => AddParameter(command, "@nid", nationalId));
+        }
+        return (await ListAsync("grades", ct))
+            .Where(row => AdminRecordJson.StringProp(row, "nid") == nationalId
                 || AdminRecordJson.StringProp(row, "nationalId") == nationalId
-                || AdminRecordJson.StringProp(row, "national_id") == nationalId));
+                || AdminRecordJson.StringProp(row, "national_id") == nationalId)
+            .ToList();
     }
 
     private static void ClearApplicantEnteredData(JsonObject payload)

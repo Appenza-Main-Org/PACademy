@@ -326,8 +326,10 @@ public sealed class ApplicantEligibilityService(
 
     private async Task<JsonObject?> LoadGradeFromAdminRecordsAsync(string nationalId, CancellationToken ct)
     {
+        // By-NID seek — loading the full grades table per eligibility check
+        // (~50k rows on staging) starved the instance under applicant traffic.
         var candidates = records is not null
-            ? await records.ListAsync("grades", ct)
+            ? await records.ListGradesByNationalIdAsync(nationalId, ct)
             : (await Store().ListAsync("grades", ct))
                 .Where(x => x.ToJsonString(AdminRecordJson.Options).Contains(nationalId, StringComparison.Ordinal))
                 .ToList();
