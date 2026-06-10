@@ -946,6 +946,26 @@ with `ApiErrorEnvelope("CONFLICT", ConflictCode:
 
 ---
 
+## Committee Assignment · category match (booking + instance authoring, 2026-06-10)
+
+Applicants must only ever be attached to committees that serve their
+application category. Three typed codes enforce this end-to-end:
+
+| Code | Where | When | Behavior |
+|---|---|---|---|
+| `EXAM_DATE_NOT_AVAILABLE_FOR_CATEGORY` | Applicant API `POST /applicant/exam-date` ([`PortalService.cs`](../backend/applicant/PACademy.Applicant.Api/Modules/ApplicantPortal/PortalService.cs) `ResolveBookableCommitteeAsync`) | The picked date has no `committee_instances` row for `(cycle × applicant categoryKey × date)`. | **409**. The client-suggested committee is only a hint: when it isn't in the category-day instance set the server re-resolves (gender-name heuristic «طالبات»), so the stored `assignedCommitteeId` always belongs to the applicant's category. |
+| `CATEGORY_REQUIRED` | Same endpoint | Draft has no `categoryKey` at booking time. | **409**. Booking before category selection is rejected. |
+| `COMMITTEE_CATEGORY_MISMATCH` | Admin API `POST/PATCH /api/committee-instances`, `POST/PATCH /api/committees/schedule` ([`OperationalRecordsService.cs`](../backend/admin/PACademy.Admin.Api/Modules/AdminRecords/OperationalRecordsService.cs) `EnsureCommitteeInstanceCategoriesAsync`) | A row pairs a `definitionCode` with a `categoryKey` that doesn't match the committee's owning category (committees lookup `applicantCategoryId`). Patches merge the stored row first so a category-only patch can't bypass the check. | **409** with `{ definitionCode, categoryKey, committeeCategory }` payload. Unknown committees and rows missing either field pass through (legacy tolerance). |
+
+Two non-throwing guards complete the invariant: changing the draft
+`categoryKey` clears any booked `examSlot` / `assignedCommittee*`
+(`ClearCommitteeAssignmentOnCategoryChange`), and admin/list + data-exchange
+committee-name resolution ignores stored committees that provably belong to
+another category, falling through to the category-filtered schedule lookup
+(`CommitteeMatchesCategory` / `StoredNameContradictsCategory`).
+
+---
+
 ## Cross-reference
 
 These constraints are referenced from `CLAUDE.md §6` (mock service
