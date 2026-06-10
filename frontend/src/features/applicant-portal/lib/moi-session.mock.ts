@@ -24,6 +24,7 @@
 
 import { applicantApiClient } from '@/shared/lib/api-client';
 import { NotFoundError } from '@/shared/lib/errors';
+import { arabicFullNameForNid } from '@/shared/mock-data/arabic-names';
 
 export interface MoiApplicantSession {
   applicantId: string;
@@ -418,15 +419,9 @@ export function mockMoiVerifyNid(nid: string): MoiApplicantSession | null {
   const parsed = parseNidStructure(nid);
   if (!parsed) return null;
   const hash = djb2(nid);
-  const namePool = [
-    'محمد إبراهيم سعد',
-    'يوسف أحمد محمد',
-    'علي حسن طه',
-    'عمر مصطفى الشيخ',
-    'كريم مجدي عبد الله',
-    'محمود فؤاد العقاد',
-  ];
-  const givenName = namePool[hash % namePool.length] ?? namePool[0]!;
+  // Gender-matched four-part name from the weighted Egyptian name engine —
+  // deterministic per NID and mirrored by the backend ArabicNameGenerator.
+  const givenName = arabicFullNameForNid(nid, parsed.gender);
   return {
     applicantId: 'APP-MOI-MOCK',
     fullName: givenName,

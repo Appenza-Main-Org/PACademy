@@ -18,26 +18,6 @@ namespace PACademy.Modules.IdentityApplicant.Application.Moi;
 /// </summary>
 public static class NidIdentityDeriver
 {
-    private static readonly string[] MaleNamePool =
-    [
-        "محمد إبراهيم سعد",
-        "يوسف أحمد محمد",
-        "علي حسن طه",
-        "عمر مصطفى الشيخ",
-        "كريم مجدي عبد الله",
-        "محمود فؤاد العقاد",
-    ];
-
-    private static readonly string[] FemaleNamePool =
-    [
-        "مريم عادل منصور",
-        "فاطمة أحمد السيد",
-        "نورهان محمود سعيد",
-        "سارة عبد الله حسن",
-        "هبة علي إبراهيم",
-        "ياسمين خالد فؤاد",
-    ];
-
     private static readonly Dictionary<string, string> GovMap = new()
     {
         ["01"] = "محافظة القاهرة", ["02"] = "محافظة الإسكندرية", ["03"] = "محافظة بورسعيد", ["04"] = "محافظة السويس",
@@ -77,14 +57,12 @@ public static class NidIdentityDeriver
             return null;
         }
 
-        var hash = Djb2(nationalId);
         var lastDigit = sequence[^1] - '0';
         var gender = lastDigit % 2 == 0 ? "female" : "male";
-        // Pick a gender-matched name — the NID's gender digit is authoritative, so
+        // Gender-matched name — the NID's gender digit is authoritative, so
         // a female NID must not get a male name (which would land the applicant in
         // a (طالبات)/(طلاب) committee that contradicts the name).
-        var pool = gender == "female" ? FemaleNamePool : MaleNamePool;
-        var fullName = pool[hash % pool.Length];
+        var fullName = ArabicNameGenerator.FullNameFor(nationalId, gender);
         var governorate = GovMap.GetValueOrDefault(gov, "غير محددة");
         var arCulture = CultureInfo.GetCultureInfo("ar-EG");
 
@@ -100,13 +78,5 @@ public static class NidIdentityDeriver
             BirthGovernorate: governorate,
             BirthDistrict: string.Empty,
             Religion: "مسلم");
-    }
-
-    private static int Djb2(string s)
-    {
-        var h = 5381;
-        foreach (var c in s)
-            h = (h * 33 + c) & 0x7fffffff;
-        return h;
     }
 }

@@ -4,10 +4,8 @@
  */
 
 import { reseed, rng, pick } from './seed';
+import { randomArabicFullName } from './arabic-names';
 import {
-  ARABIC_FIRST_NAMES,
-  ARABIC_MIDDLE_NAMES,
-  ARABIC_LAST_NAMES,
   GOVERNORATES,
   GOVERNORATE_WEIGHTS,
   CITIES,
@@ -115,14 +113,17 @@ function pickWeightedGovernorate(): string {
   return GOVERNORATES[0]!;
 }
 
-function genNationalIdFor(governorate: string, birth: Date): string {
+function genNationalIdFor(governorate: string, birth: Date, gender: 'male' | 'female'): string {
   const yr = String(birth.getFullYear()).slice(-2);
   const mo = String(birth.getMonth() + 1).padStart(2, '0');
   const dy = String(birth.getDate()).padStart(2, '0');
   const gov = GOV_NID_CODES[governorate] ?? '01';
-  const serial = String(1000 + Math.floor(rng() * 8999));
+  /* The last serial digit is the gender digit (odd = male, even = female) —
+   * keep it consistent with the applicant's gender so NID-derived flows agree. */
+  let serialNum = 1000 + Math.floor(rng() * 8999);
+  if ((serialNum % 2 === 1) !== (gender === 'male')) serialNum += 1;
   const checksum = String(Math.floor(rng() * 9));
-  return `3${yr}${mo}${dy}${gov}${serial}${checksum}`;
+  return `3${yr}${mo}${dy}${gov}${serialNum}${checksum}`;
 }
 
 /** Score distribution: weighted toward 75-90% of cert max (410 for thanwiya). */
@@ -140,10 +141,8 @@ const TOTAL_APPLICANTS = 2847;
 
 const applicants: Applicant[] = [];
 for (let i = 0; i < TOTAL_APPLICANTS; i += 1) {
-  const fname = pick(ARABIC_FIRST_NAMES);
-  const middle = pick(ARABIC_MIDDLE_NAMES);
-  const lname1 = pick(ARABIC_MIDDLE_NAMES);
-  const lname2 = pick(ARABIC_LAST_NAMES);
+  const gender: 'male' | 'female' = rng() < 0.88 ? 'male' : 'female';
+  const name = randomArabicFullName(gender, rng);
   const cert = pick(CERTIFICATES);
   const totalScore = pickRealisticScore();
   const status = pick(STATUSES);
@@ -156,9 +155,9 @@ for (let i = 0; i < TOTAL_APPLICANTS; i += 1) {
   const birth = new Date(birthYear, birthMonth, birthDay);
   applicants.push({
     id: `APP-${String(2026000000 + i + 1).padStart(10, '0')}`,
-    nationalId: genNationalIdFor(governorate, birth),
-    name: `${fname} ${middle} ${lname1} ${lname2}`,
-    gender: rng() < 0.88 ? 'male' : 'female',
+    nationalId: genNationalIdFor(governorate, birth, gender),
+    name,
+    gender,
     birthDate: birth.toISOString(),
     governorate,
     city: pick(CITIES),
