@@ -27,25 +27,32 @@ public sealed class OperationalAdminController(OperationalRecordsService records
         var now = DateTimeOffset.UtcNow.ToString("O");
         if (body is JsonArray arr)
         {
+            // Snapshot only the inserted rows — rewriting every instance in the
+            // table here made bulk adds time out at the gateway after the insert
+            // had already committed.
+            var inserted = new List<JsonObject>();
             foreach (var node in arr.OfType<JsonObject>())
             {
                 var id = AdminRecordJson.StringProp(node, "id") ?? $"CI-{Guid.NewGuid():N}";
                 node["id"] = id;
                 node["createdAt"] ??= now;
                 node["updatedAt"] = now;
-                await records.UpsertAsync("committeeInstances", id, node, ct);
+                inserted.Add(node);
             }
-            var rows = await ListCommitteeInstancesAsync(null, null, null, ct);
-            await SaveReservationSnapshotAsync(rows, ct);
-            return Ok(rows);
+            await ApplyReservationSnapshotAsync(inserted, ct);
+            foreach (var node in inserted)
+            {
+                await records.UpsertAsync("committeeInstances", AdminRecordJson.StringProp(node, "id")!, node, ct);
+            }
+            return Ok(await ListCommitteeInstancesAsync(null, null, null, ct));
         }
         var obj = body as JsonObject ?? [];
         var singleId = AdminRecordJson.StringProp(obj, "id") ?? $"CI-{Guid.NewGuid():N}";
         obj["id"] = singleId;
         obj["createdAt"] ??= now;
         obj["updatedAt"] = now;
+        await ApplyReservationSnapshotAsync([obj], ct);
         var saved = await records.UpsertAsync("committeeInstances", singleId, obj, ct);
-        await SaveReservationSnapshotAsync([saved], ct);
         return Ok(saved);
     }
 
@@ -75,7 +82,7 @@ public sealed class OperationalAdminController(OperationalRecordsService records
             filters is null ? null : AdminRecordJson.StringProp(filters, "categoryKey"),
             filters is null ? null : AdminRecordJson.StringProp(filters, "definitionCode"),
             ct);
-        await SaveReservationSnapshotAsync(rows, ct);
+        await SaveChangedReservationSnapshotsAsync(rows, ct);
         return Ok(rows);
     }
 
