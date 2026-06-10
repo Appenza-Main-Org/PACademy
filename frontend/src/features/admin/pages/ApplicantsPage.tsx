@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FilterX, Search, UserPlus } from 'lucide-react';
 import {
-  Avatar,
   Badge,
   Button,
   Card,
@@ -162,13 +161,10 @@ export function ApplicantsPage(): JSX.Element {
         getSortValue: (a) => a.name,
         filter: { kind: 'text', getValue: (a) => a.name },
         render: (a) => (
-          <Link to={ROUTES.admin.applicantDetail(a.id)} className="flex min-w-0 items-center gap-3">
-            <Avatar name={a.name} size="sm" />
-            <div className="flex min-w-0 flex-col gap-1">
-              <span className="truncate text-sm font-medium text-ink-900">{shortName(a.name, 3)}</span>
-              <span className="block truncate font-mono text-2xs text-ink-500" dir="ltr">{displayValue(a.adminRecordId ?? a.id)}</span>
-              <Badge tone="neutral" className="w-fit">{sourceLabel(a.source)}</Badge>
-            </div>
+          <Link to={ROUTES.admin.applicantDetail(a.id)} className="flex min-w-0 flex-col gap-1">
+            <span className="truncate text-sm font-medium text-ink-900">{shortName(a.name, 3)}</span>
+            <span className="block truncate text-end font-mono text-2xs text-ink-500" dir="ltr">{displayValue(a.adminRecordId ?? a.id)}</span>
+            <Badge tone="neutral" className="w-fit">{sourceLabel(a.source)}</Badge>
           </Link>
         ),
       },

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Ban, MoreHorizontal, RotateCcw, Trash2, Undo2 } from 'lucide-react';
+import { Ban, MoreVertical, RotateCcw, Trash2, Undo2 } from 'lucide-react';
 import {
   Button,
   DropdownMenu,
@@ -87,13 +87,16 @@ export function ApplicantRowActions({
       <DropdownMenu>
         <DropdownMenu.Trigger asChild>
           <Button
-            variant="ghost"
+            variant="secondary"
             size="icon"
             aria-label={`إجراءات ${applicant.name}`}
             disabled={mutationPending}
-          >
-            <MoreHorizontal size={16} strokeWidth={1.75} aria-hidden />
-          </Button>
+            // Icon buttons render children sr-only — the visible glyph must come
+            // through leadingIcon. base.css resets `button { border: none }`, so
+            // border-solid restores the secondary variant's 1px border.
+            leadingIcon={<MoreVertical size={16} strokeWidth={2} aria-hidden />}
+            className="!h-8 !w-8 border-solid text-ink-700 data-[state=open]:bg-ink-100 data-[state=open]:text-ink-900"
+          />
         </DropdownMenu.Trigger>
         <DropdownMenu.Content align="end" className="min-w-56">
           <DropdownMenu.Label>إجراءات الطلب</DropdownMenu.Label>
