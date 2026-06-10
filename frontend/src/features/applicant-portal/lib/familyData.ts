@@ -421,6 +421,13 @@ export function canApproveFamilySnapshot(s: FamilyDataSnapshot): boolean {
   );
 }
 
+/**
+ * Duplicate NIDs are checked among family members only. The guardian is
+ * deliberately excluded — the «اختيار ولي الأمر» picker copies an existing
+ * family member (NID included) into the guardian form, so the guardian
+ * sharing a NID with a member is the expected "guardian is one of the
+ * family" case, not a data-entry error.
+ */
 export function hasDuplicateFamilyNationalId(snapshot: FamilyDataSnapshot): boolean {
   const seen = new Set<string>();
   for (const nationalId of familyNationalIds(snapshot)) {
@@ -431,10 +438,9 @@ export function hasDuplicateFamilyNationalId(snapshot: FamilyDataSnapshot): bool
 }
 
 function familyNationalIds(snapshot: FamilyDataSnapshot): string[] {
-  return [
-    ...familyMembersWithNationalIds(snapshot).map((member) => member.nationalId.trim()),
-    snapshot.guardian.nationalId?.trim() ?? '',
-  ].filter((nationalId) => nationalId.length > 0);
+  return familyMembersWithNationalIds(snapshot)
+    .map((member) => member.nationalId.trim())
+    .filter((nationalId) => nationalId.length > 0);
 }
 
 function familyMembersWithNationalIds(snapshot: FamilyDataSnapshot): FamilyMemberForm[] {
