@@ -9,8 +9,12 @@ export const paymentsKeys = {
   refundEligible: () => [...paymentsKeys.all, 'refund-eligible'] as const,
 };
 
-export function useAdminPayments(filters: PaymentFilters = {}) {
-  return useQuery({ queryKey: paymentsKeys.list(filters), queryFn: () => paymentsService.list(filters) });
+export function useAdminPayments(filters: PaymentFilters = {}, options: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: paymentsKeys.list(filters),
+    queryFn: () => paymentsService.list(filters),
+    enabled: options.enabled ?? true,
+  });
 }
 
 export function useRefundEligiblePayments() {

@@ -31,6 +31,7 @@ import {
   useRefundEligiblePayments,
   useSyncFawryStatus,
 } from '../api/payments.queries';
+import { useActiveCycle, useCycles } from '../api/cycles.queries';
 import type { AdminPaymentRow, FawryPaymentStatus } from '@/shared/types/domain';
 
 const STATUS_LABEL: Record<FawryPaymentStatus, string> = {
@@ -60,7 +61,18 @@ export function PaymentsPage(): JSX.Element {
   const [statusFilter, setStatusFilter] = useState<FawryPaymentStatus | 'all'>('all');
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<'ledger' | 'refund-eligible'>('ledger');
-  const ledgerQuery = useAdminPayments({ status: statusFilter, search });
+  /* Cycle scope — the ledger (and its export) is always scoped to one
+   * cycle: the active cycle by default, or an explicitly picked one.
+   * `null` means "follow the active cycle". */
+  const [cycleFilter, setCycleFilter] = useState<string | null>(null);
+  const cyclesQuery = useCycles();
+  const activeCycleQuery = useActiveCycle();
+  const effectiveCycleId = cycleFilter ?? activeCycleQuery.data?.id ?? null;
+  const cycleResolving = cyclesQuery.isLoading || activeCycleQuery.isLoading;
+  const ledgerQuery = useAdminPayments(
+    { status: statusFilter, search, cycleId: effectiveCycleId ?? undefined },
+    { enabled: !cycleResolving && Boolean(effectiveCycleId) },
+  );
   const refundQuery = useRefundEligiblePayments();
   const syncMut = useSyncFawryStatus();
   /* Demo-only client state: which payment refs have been marked as
@@ -73,7 +85,15 @@ export function PaymentsPage(): JSX.Element {
   const reviewedSet = useMemo(() => reviewed, [reviewed]);
 
   const rows = (tab === 'ledger' ? ledgerQuery.data : refundQuery.data) ?? [];
-  const isLoading = tab === 'ledger' ? ledgerQuery.isLoading : refundQuery.isLoading;
+  const isLoading =
+    tab === 'ledger' ? ledgerQuery.isLoading || cycleResolving : refundQuery.isLoading;
+
+  const cycleOptions = useMemo(() => {
+    const cycles = cyclesQuery.data ?? [];
+    const options = cycles.map((c) => ({ value: c.id, label: c.nameAr }));
+    if (!effectiveCycleId) options.unshift({ value: '', label: 'اختر الدورة' });
+    return options;
+  }, [cyclesQuery.data, effectiveCycleId]);
 
   const listActions: ListActionsConfig<AdminPaymentRow> = useMemo(
     () => ({
@@ -289,13 +309,35 @@ export function PaymentsPage(): JSX.Element {
                 })),
               ]}
             />
+            <Select
+              label="الدورة"
+              value={effectiveCycleId ?? ''}
+              onChange={(e) => setCycleFilter(e.target.value || null)}
+              options={cycleOptions}
+            />
           </div>
           <DataTable
             data={rows}
             columns={columns}
             rowKey={(r) => r.id}
             loading={isLoading}
-            empty={<EmptyState variant="generic" title="لا توجد دفعات" icon={<Banknote size={32} />} />}
+            empty={
+              effectiveCycleId ? (
+                <EmptyState
+                  variant="generic"
+                  title="لا توجد دفعات"
+                  description="لا توجد دفعات مسجلة على هذه الدورة."
+                  icon={<Banknote size={32} />}
+                />
+              ) : (
+                <EmptyState
+                  variant="generic"
+                  title="لا توجد دورة نشطة"
+                  description="اختر دورة من قائمة «الدورة» لعرض دفعاتها."
+                  icon={<Banknote size={32} />}
+                />
+              )
+            }
             zebraStripes
             stickyHeader
             density="compact"
