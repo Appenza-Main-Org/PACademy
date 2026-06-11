@@ -689,6 +689,14 @@ public sealed class DataExchangeService(
             outcomes.Add(Outcome(spec, i, bk, IsDbNewer(dbRow, row) ? ImportRowClass.Outdated : ImportRowClass.Changed));
         }
 
+        // Reservation rows carry operational FKs (applicant, exam, committee
+        // appointment) — verify them so broken links surface as invalid rows in
+        // the preview and the apply result.
+        if (spec.Storage == ExchangeStorage.ExamReservations)
+        {
+            await ValidateExamReservationOutcomesAsync(sheet, outcomes, ct);
+        }
+
         return (outcomes, dataColumns, dbByKey);
     }
 
@@ -742,11 +750,25 @@ public sealed class DataExchangeService(
                     attempted++;
                     var existing = dbByKey.TryGetValue(outcome.BusinessKey, out var m) && m.Count == 1 ? m[0] : null;
 
+                    // Per-row isolation: a row whose write is rejected (typed
+                    // conflict, missing FK, …) lands in failedRows instead of
+                    // aborting the rest of the workbook.
                     switch (outcome.Class)
                     {
-                        case "new": await UpsertAsync(spec, row, existing, ct); inserted++; break;
-                        case "changed" when applyChanged: await UpsertAsync(spec, row, existing, ct); updated++; break;
-                        case "outdated" when request.ForceUpdate: await UpsertAsync(spec, row, existing, ct); updated++; break;
+                        case "new":
+                        case "changed" when applyChanged:
+                        case "outdated" when request.ForceUpdate:
+                            try
+                            {
+                                await UpsertAsync(spec, row, existing, ct);
+                                if (outcome.Class == "new") inserted++; else updated++;
+                            }
+                            catch (OperationCanceledException) { throw; }
+                            catch (Exception ex)
+                            {
+                                failed.Add(new ImportFailedRow(i, sheet.SheetName, [ex.Message]));
+                            }
+                            break;
                         case "invalid": failed.Add(new ImportFailedRow(i, sheet.SheetName, outcome.Errors)); break;
                         case "conflict" when !request.SkipConflicts: failed.Add(new ImportFailedRow(i, sheet.SheetName, ["تعارض — لم يُطبَّق"])); break;
                         default: skipped++; break;
@@ -832,6 +854,7 @@ public sealed class DataExchangeService(
         ExchangeDomain.Relatives => await LoadApplicantRelativesAsync(cycleId, ct),
         ExchangeDomain.ExamResults => await LoadApplicantExamResultsAsync(cycleId, ct),
         ExchangeDomain.AcquaintanceDocs => await LoadAcquaintanceDocsAsync(cycleId, ct),
+        ExchangeDomain.ExamReservations => await LoadExamReservationRowsAsync(cycleId, ct),
         _ => spec.Storage switch
         {
             ExchangeStorage.DocStore => await LoadDocStoreAsync(spec, cycleId, ct),
@@ -1477,11 +1500,18 @@ public sealed class DataExchangeService(
     {
         switch (spec.Storage)
         {
-            case ExchangeStorage.DocStore: await UpsertDocStoreAsync(spec, row, ct); break;
+            case ExchangeStorage.DocStore:
+                await UpsertDocStoreAsync(spec, row, ct);
+                // The ExamResults bucket alone is invisible to the applicant
+                // screens — outcomes live in the applicant's followUp map. Mirror
+                // the imported result there so the timeline updates too.
+                if (spec.Domain == ExchangeDomain.ExamResults) await ApplyExamResultFollowUpAsync(row, ct);
+                break;
             case ExchangeStorage.Lookups: await UpsertLookupAsync(row, ct); break;
             case ExchangeStorage.AdmissionRules: await UpsertAdmissionRuleAsync(row, ct); break;
             case ExchangeStorage.Exams: await UpsertExamAsync(row, ct); break;
-            case ExchangeStorage.ExamSlots: await UpsertExamSlotAsync(row, ct); break;
+            case ExchangeStorage.ExamSlots: await UpsertExamScheduleAsync(row, ct); break;
+            case ExchangeStorage.ExamReservations: await UpsertExamReservationAsync(row, ct); break;
             case ExchangeStorage.ReadOnlyExport:
                 throw Invalid("هذا الجدول للتصدير فقط ولا يمكن استيراده.");
         }
@@ -1554,6 +1584,36 @@ public sealed class DataExchangeService(
         }
     }
 
+    /// <summary>ExamSchedules sheet import. The export reads committee-instance
+    /// rows (the operational exam schedule), so instance-shaped rows must write
+    /// BACK to <c>committeeInstances</c> — not the legacy <c>exam_slots</c>
+    /// table nothing operational reads. Legacy slot-shaped rows (no category /
+    /// committee code) keep the old exam_slots path.</summary>
+    private async Task UpsertExamScheduleAsync(IReadOnlyDictionary<string, string?> row, CancellationToken ct)
+    {
+        var id = Get(row, "id") ?? throw Invalid("id مفقود");
+        var isInstanceShaped = Get(row, "categoryKey") is not null
+            || Get(row, "definitionCode") is not null
+            || id.StartsWith("CI-", StringComparison.Ordinal);
+        if (!isInstanceShaped)
+        {
+            await UpsertExamSlotAsync(row, ct);
+            return;
+        }
+
+        var payload = new JsonObject { ["id"] = id, ["updatedAt"] = DateTimeOffset.UtcNow.ToString("O") };
+        foreach (var key in new[] { "cycleId", "categoryKey", "definitionCode", "date", "time" })
+        {
+            if (Get(row, key) is { } value) payload[key] = value;
+        }
+        if (ParseInt(Get(row, "capacity")) is { } capacity) payload["capacity"] = capacity;
+        if (ParseInt(Get(row, "reserved")) is { } reserved) payload["reserved"] = reserved;
+
+        // Committee ↔ category seam: a committee may only serve its own category.
+        await records.EnsureCommitteeInstancePatchCategoryAsync(id, payload, ct);
+        await records.UpsertAsync("committeeInstances", id, payload, ct);
+    }
+
     private async Task UpsertExamSlotAsync(IReadOnlyDictionary<string, string?> row, CancellationToken ct)
     {
         var id = Get(row, "id") ?? throw Invalid("id مفقود");
@@ -1563,6 +1623,274 @@ public sealed class DataExchangeService(
             db.ExamSlots.Add(new ExamSlotEntity { Id = id, Date = date ?? default, Time = Get(row, "time") ?? "08:00", Location = Get(row, "location") ?? "", Capacity = ParseInt(Get(row, "capacity")) ?? 0, Reserved = ParseInt(Get(row, "reserved")) ?? 0, SourceSystem = ImportSource });
         else { if (date is { } d) existing.Date = d; existing.Time = Get(row, "time") ?? existing.Time; existing.Location = Get(row, "location") ?? existing.Location; existing.Capacity = ParseInt(Get(row, "capacity")) ?? existing.Capacity; existing.Reserved = ParseInt(Get(row, "reserved")) ?? existing.Reserved; existing.SourceSystem = ImportSource; }
     }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // EXAM RESERVATIONS IMPORT — writes through the applicant scheduling records
+    // ──────────────────────────────────────────────────────────────────────
+
+    /// <summary>Shared per-request lookup context for validating + applying the
+    /// ExamReservations sheet: applicants by NID (NOT booked-gated — the point
+    /// of the import is to create bookings), live committee instances, the
+    /// tests-lookup name map, and the cycle's plan-first exam per category.</summary>
+    private sealed record ReservationImportContext(
+        IReadOnlyDictionary<string, JsonObject> ApplicantsByNid,
+        IReadOnlyList<JsonObject> CommitteeInstances,
+        IReadOnlyDictionary<string, string> ExamNameByCode,
+        IReadOnlyDictionary<string, string> ExamCodeByName,
+        IReadOnlyDictionary<string, string> FirstPlannedByCategory,
+        CommitteeDirectory CommitteeDirectory);
+
+    private ReservationImportContext? reservationImportContext;
+
+    private async Task<ReservationImportContext> GetReservationImportContextAsync(CancellationToken ct)
+    {
+        if (reservationImportContext is not null) return reservationImportContext;
+
+        IReadOnlyList<JsonObject> applicants;
+        try { applicants = await records.ListAsync("applicants", enrichApplicantCommitteeNames: false, ct); }
+        catch (InvalidOperationException) { applicants = []; }
+        var byNid = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
+        foreach (var payload in applicants)
+        {
+            if (AdminRecordJson.IsSoftDeleted(payload)) continue;
+            var nid = payload["nationalId"]?.ToString();
+            if (!string.IsNullOrWhiteSpace(nid)) byNid[nid] = payload;
+        }
+
+        var instances = (await LoadCommitteeInstancesAsync(ct))
+            .Where(x => !AdminRecordJson.IsSoftDeleted(x))
+            .ToList();
+        var examNameByCode = await LoadExamNameByCodeAsync(ct);
+        var examCodeByName = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (code, name) in examNameByCode)
+        {
+            if (!string.IsNullOrWhiteSpace(name)) examCodeByName.TryAdd(name.Trim(), code);
+        }
+        var cycleId = await ResolveCycleIdAsync(null, ct);
+        var firstPlanned = await LoadFirstPlannedExamByCategoryAsync(cycleId, ct);
+        var directory = await records.LoadCommitteeDirectoryAsync(ct);
+
+        return reservationImportContext = new ReservationImportContext(
+            byNid, instances, examNameByCode, examCodeByName, firstPlanned, directory);
+    }
+
+    /// <summary>Downgrades reservation rows that fail the operational checks —
+    /// applicant must exist, the exam must resolve, and a matching committee
+    /// appointment (the exam schedule) must exist — so they surface as
+    /// «غير صالح» in the preview AND in the apply result instead of being
+    /// silently written nowhere.</summary>
+    private async Task ValidateExamReservationOutcomesAsync(
+        ImportSheetInput sheet, List<ImportRowOutcome> outcomes, CancellationToken ct)
+    {
+        var ctx = await GetReservationImportContextAsync(ct);
+        for (var i = 0; i < sheet.Rows.Count; i++)
+        {
+            if (outcomes[i].Class == "invalid") continue;
+            var errors = ValidateReservationRow(ctx, sheet.Rows[i]);
+            if (errors.Count > 0)
+            {
+                outcomes[i] = outcomes[i] with { Class = Camel(ImportRowClass.Invalid), Errors = errors };
+            }
+        }
+    }
+
+    private static List<string> ValidateReservationRow(
+        ReservationImportContext ctx, IReadOnlyDictionary<string, string?> row)
+    {
+        var errors = new List<string>();
+        var nid = Get(row, "applicant_national_id");
+        if (nid is null || !ctx.ApplicantsByNid.TryGetValue(nid, out var applicant))
+        {
+            errors.Add($"المتقدم غير موجود بالرقم القومي {nid ?? "—"}");
+            return errors;
+        }
+        if (ResolveReservationExam(ctx, row) is null)
+        {
+            errors.Add($"اختبار غير معروف: {Get(row, "exam_id") ?? Get(row, "exam_name") ?? "—"}");
+        }
+        if (MatchReservationInstance(ctx, row, applicant) is null)
+        {
+            errors.Add($"لا يوجد موعد لجنة مطابق بتاريخ {DateKey(Get(row, "appointment_date")) ?? "—"}");
+        }
+        return errors;
+    }
+
+    /// <summary>Resolves the imported exam to a canonical (code, name) through
+    /// the tests lookup — by code first, then by Arabic name. Null when the
+    /// exam is unknown to the system.</summary>
+    private static (string ExamId, string? ExamName)? ResolveReservationExam(
+        ReservationImportContext ctx, IReadOnlyDictionary<string, string?> row)
+    {
+        var examId = Get(row, "exam_id");
+        if (examId is not null)
+        {
+            var known = ctx.ExamNameByCode.ContainsKey(examId)
+                || ctx.FirstPlannedByCategory.Values.Contains(examId, StringComparer.OrdinalIgnoreCase);
+            return known ? (examId, Get(row, "exam_name") ?? ctx.ExamNameByCode.GetValueOrDefault(examId)) : null;
+        }
+        var examName = Get(row, "exam_name");
+        return examName is not null && ctx.ExamCodeByName.TryGetValue(examName.Trim(), out var code)
+            ? (code, examName.Trim())
+            : null;
+    }
+
+    /// <summary>Matches the imported reservation to its committee-instance
+    /// appointment: exact slot id, else same-day rows narrowed by committee
+    /// name, then by the applicant's category, accepting a same-day row only
+    /// when unambiguous. Cross-category instances are excluded up front
+    /// (a committee serves its own category only).</summary>
+    private static JsonObject? MatchReservationInstance(
+        ReservationImportContext ctx, IReadOnlyDictionary<string, string?> row, JsonObject applicant)
+    {
+        var slotId = Get(row, "slot_id");
+        if (slotId is not null)
+        {
+            var exact = ctx.CommitteeInstances.FirstOrDefault(x => TextEquals(FirstString(x, "id", "slotId"), slotId));
+            if (exact is not null) return exact;
+        }
+
+        var dateKey = DateKey(Get(row, "appointment_date"));
+        if (dateKey is null) return null;
+        var category = CategoryKey(applicant);
+        var onDate = ctx.CommitteeInstances
+            .Where(x => TextEquals(DateKey(FirstString(x, "date", "examDate", "scheduledDate")), dateKey))
+            .Where(x =>
+            {
+                var instanceCategory = FirstString(x, "categoryKey", "categoryId", "applicantCategory");
+                return string.IsNullOrWhiteSpace(instanceCategory)
+                    || string.IsNullOrWhiteSpace(category)
+                    || TextEquals(instanceCategory, category);
+            })
+            .ToList();
+        if (onDate.Count == 0) return null;
+
+        if (Get(row, "committee_name") is { } committeeName)
+        {
+            var wanted = NormalizeCommitteeName(committeeName);
+            var byCommittee = onDate.Where(x =>
+            {
+                var code = FirstString(x, "definitionCode", "committeeId", "committeeCode");
+                var resolved = (code is not null ? ctx.CommitteeDirectory.NameByCode.GetValueOrDefault(code) : null)
+                    ?? FirstString(x, "committeeName", "name");
+                return !string.IsNullOrWhiteSpace(resolved) && CommitteeNamesMatch(NormalizeCommitteeName(resolved), wanted);
+            }).ToList();
+            if (byCommittee.Count > 0) return byCommittee[0];
+        }
+
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            var byCategory = onDate
+                .Where(x => TextEquals(FirstString(x, "categoryKey", "categoryId", "applicantCategory"), category))
+                .ToList();
+            if (byCategory.Count > 0) return byCategory[0];
+        }
+
+        return onDate.Count == 1 ? onDate[0] : null;
+    }
+
+    private static string NormalizeCommitteeName(string name)
+        => string.Join(" ", name.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    /// <summary>Word-boundary committee-name match: equal, or one is a leading
+    /// word-prefix of the other («لجنة 6» ↔ «لجنة 6 طالبات»). A plain substring
+    /// check would wrongly match «لجنة 1» against «لجنة 10».</summary>
+    private static bool CommitteeNamesMatch(string have, string wanted)
+        => string.Equals(have, wanted, StringComparison.Ordinal)
+            || have.StartsWith(wanted + " ", StringComparison.Ordinal)
+            || wanted.StartsWith(have + " ", StringComparison.Ordinal);
+
+    /// <summary>Applies one imported reservation: links the applicant to the
+    /// matched committee appointment and writes the booking through
+    /// <see cref="OperationalRecordsService.ApplyApplicantExamReservationAsync"/> —
+    /// the same scheduling records the admin applicant screens and the
+    /// applicant portal read. Idempotent per (applicant, exam).</summary>
+    private async Task UpsertExamReservationAsync(IReadOnlyDictionary<string, string?> row, CancellationToken ct)
+    {
+        var ctx = await GetReservationImportContextAsync(ct);
+        var nid = Get(row, "applicant_national_id") ?? throw Invalid("الرقم القومي مفقود");
+        if (!ctx.ApplicantsByNid.TryGetValue(nid, out var applicant))
+            throw Invalid($"المتقدم غير موجود بالرقم القومي {nid}");
+        var (examId, examName) = ResolveReservationExam(ctx, row)
+            ?? throw Invalid($"اختبار غير معروف: {Get(row, "exam_id") ?? Get(row, "exam_name") ?? "—"}");
+        var instance = MatchReservationInstance(ctx, row, applicant)
+            ?? throw Invalid($"لا يوجد موعد لجنة مطابق بتاريخ {DateKey(Get(row, "appointment_date")) ?? "—"}");
+
+        var date = DateKey(Get(row, "appointment_date"))
+            ?? DateKey(FirstString(instance, "date", "examDate", "scheduledDate"))
+            ?? throw Invalid("تاريخ الموعد مفقود");
+        var time = Get(row, "appointment_time") ?? FirstString(instance, "time") ?? DefaultExamScheduleTime;
+        var instanceCode = FirstString(instance, "definitionCode", "committeeId", "committeeCode");
+        var committeeName = (instanceCode is not null ? ctx.CommitteeDirectory.NameByCode.GetValueOrDefault(instanceCode) : null)
+            ?? FirstString(instance, "committeeName", "name")
+            ?? Get(row, "committee_name");
+
+        var reservation = new JsonObject
+        {
+            ["examId"] = examId,
+            ["testCode"] = examId,
+            ["examName"] = examName,
+            ["slotId"] = FirstString(instance, "id", "slotId"),
+            ["date"] = date,
+            ["time"] = time,
+            ["committeeName"] = committeeName,
+            ["status"] = Get(row, "reservation_status") ?? "محجوز",
+            ["source"] = ImportSource,
+        };
+
+        // Whether this row is the FIRST exam of the applicant's category plan
+        // (the Stage-8 booking) — drives firstExamDate. The current-appointment
+        // advance is decided inside the records service against the freshly
+        // loaded payload, so several rows for one applicant converge correctly.
+        var isPlanFirstExam = CategoryKey(applicant) is { } category
+            && TextEquals(ctx.FirstPlannedByCategory.GetValueOrDefault(category), examId);
+
+        var applicantId = applicant["id"]?.ToString() ?? nid;
+        await records.ApplyApplicantExamReservationAsync(applicantId, reservation, isPlanFirstExam, ct);
+    }
+
+    /// <summary>Mirrors one imported exam-result row into the applicant's
+    /// followUp map (the outcome store both the admin results card and the
+    /// portal follow-up timeline read). Result codes resolve through the
+    /// test-results lookup; rows without a result are bucket-only.</summary>
+    private async Task ApplyExamResultFollowUpAsync(IReadOnlyDictionary<string, string?> row, CancellationToken ct)
+    {
+        var nid = Get(row, "applicantNationalId") ?? Get(row, "applicant_national_id");
+        var examCode = Get(row, "examCode") ?? Get(row, "exam_id") ?? Get(row, "testCode");
+        var resultRaw = Get(row, "result");
+        if (nid is null || examCode is null || resultRaw is null) return;
+
+        var resultLookup = examResultLookup ??= await LoadResultLookupAsync(ct);
+        if (!resultLookup.TryGetValue(resultRaw.Trim(), out var outcome))
+            throw Invalid($"نتيجة غير معروفة: {resultRaw}");
+
+        var ctx = await GetReservationImportContextAsync(ct);
+        if (!ctx.ApplicantsByNid.TryGetValue(nid, out var applicant))
+            throw Invalid($"المتقدم غير موجود بالرقم القومي {nid}");
+        var applicantId = applicant["id"]?.ToString() ?? nid;
+        if (db.Database.IsRelational())
+        {
+            try
+            {
+                await records.UpdateApplicantFollowUpAsync(applicantId, new JsonObject { [examCode] = outcome }, ct);
+                return;
+            }
+            catch (PACademy.Shared.Contracts.ConflictException ex) when (ex.ConflictCode == "NO_PORTAL_RECORD")
+            {
+                // Admin-created applicant — fall through to the management document.
+            }
+        }
+
+        var payload = applicant.DeepClone().AsObject();
+        if (payload["followUp"] is not JsonObject followUp)
+        {
+            followUp = new JsonObject();
+            payload["followUp"] = followUp;
+        }
+        followUp[examCode] = outcome;
+        await records.UpsertAsync("applicants", applicantId, payload, ct);
+    }
+
+    private IReadOnlyDictionary<string, string>? examResultLookup;
 
     // ──────────────────────────────────────────────────────────────────────
     // Business key + validation
@@ -1575,6 +1903,8 @@ public sealed class DataExchangeService(
         {
             ExchangeStorage.Lookups => Compose(Get(row, "lookup_key"), Get(row, "code")),
             ExchangeStorage.AdmissionRules => Compose(Get(row, "cycle_id"), Get(row, "version")),
+            ExchangeStorage.ExamReservations
+                => Compose(Get(row, "applicant_national_id"), Get(row, "exam_id") ?? Get(row, "exam_name")),
             ExchangeStorage.DocStore when spec.BusinessKeyFields.Count > 0
                 => string.Join("|", spec.BusinessKeyFields.Select(f => Get(row, f) ?? "")),
             _ => Get(row, "id") ?? "",
@@ -1587,6 +1917,17 @@ public sealed class DataExchangeService(
             var nid = Get(row, "nationalId");
             if (!string.IsNullOrEmpty(nid) && (nid.Length != 14 || !nid.All(char.IsDigit)))
                 errors.Add("الرقم القومي غير صالح (14 رقمًا)");
+        }
+
+        if (spec.Domain == ExchangeDomain.ExamReservations)
+        {
+            var nid = Get(row, "applicant_national_id");
+            if (string.IsNullOrEmpty(nid) || nid.Length != 14 || !nid.All(char.IsDigit))
+                errors.Add("الرقم القومي غير صالح (14 رقمًا)");
+            if (Get(row, "exam_id") is null && Get(row, "exam_name") is null)
+                errors.Add("exam_id مفقود");
+            if (Get(row, "appointment_date") is null && Get(row, "slot_id") is null)
+                errors.Add("appointment_date مفقود");
         }
         return (key, errors);
     }
@@ -2034,6 +2375,8 @@ public sealed class DataExchangeService(
             var (examId, examName) = instance is null ? (null, null) : resolver.Resolve(instance);
             if (examId is null && examName is null) (examId, examName) = resolver.Resolve(a);
             var (created, updated) = Timestamps(a);
+            var emittedExamIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (!string.IsNullOrWhiteSpace(examId)) emittedExamIds.Add(examId);
             rows.Add(new CuratedRow(Cells(
                 ("applicant_national_id", nid),
                 ("applicant_name", ApplicantField(a, "fullName", "name")),
@@ -2044,6 +2387,51 @@ public sealed class DataExchangeService(
                 ("appointment_time", (slot is null ? null : FirstString(slot, "time")) ?? DefaultExamScheduleTime),
                 ("committee_name", OperationalRecordsService.ResolveCommitteeName(a, ctx.CommitteeDirectory, ctx.CommitteeInstances)),
                 ("reservation_status", "محجوز")), created, updated, nid));
+
+            // Per-test reservations recorded on the draft's `testSchedules` array
+            // (booked by later rounds or imported through this hub) — one row per
+            // additional exam so every appointment round-trips.
+            foreach (var node in a["testSchedules"] as JsonArray ?? [])
+            {
+                if (node is not JsonObject schedule) continue;
+                var scheduleExamId = FirstString(schedule, "examId", "testCode", "code");
+                if (string.IsNullOrWhiteSpace(scheduleExamId) || !emittedExamIds.Add(scheduleExamId)) continue;
+                rows.Add(new CuratedRow(Cells(
+                    ("applicant_national_id", nid),
+                    ("applicant_name", ApplicantField(a, "fullName", "name")),
+                    ("slot_id", FirstString(schedule, "slotId")),
+                    ("exam_id", scheduleExamId),
+                    ("exam_name", FirstString(schedule, "examName")),
+                    ("appointment_date", DateKey(FirstString(schedule, "date", "examDate", "scheduledDate"))),
+                    ("appointment_time", FirstString(schedule, "time") ?? DefaultExamScheduleTime),
+                    ("committee_name", FirstString(schedule, "committeeName")
+                        ?? OperationalRecordsService.ResolveCommitteeName(a, ctx.CommitteeDirectory, ctx.CommitteeInstances)),
+                    ("reservation_status", FirstString(schedule, "status") ?? "محجوز")), created, updated, nid));
+            }
+        }
+        return rows;
+    }
+
+    /// <summary>Import-side projection of the exam reservations: the curated rows
+    /// keyed by <c>applicant_national_id|exam_id</c> so an imported workbook can
+    /// be classified (new / changed / skipped) against the live scheduling
+    /// records and re-imports stay idempotent.</summary>
+    private async Task<IReadOnlyList<LoadedRow>> LoadExamReservationRowsAsync(string? cycleId, CancellationToken ct)
+    {
+        var resolvedCycleId = await ResolveCycleIdAsync(cycleId, ct);
+        var ctx = await BuildCuratedContextAsync(resolvedCycleId, ct);
+        var curated = await LoadCuratedExamReservationsAsync(resolvedCycleId, ctx, ct);
+        var rows = new List<LoadedRow>(curated.Count);
+        foreach (var row in curated)
+        {
+            var nid = row.Cells.GetValueOrDefault("applicant_national_id");
+            var examId = row.Cells.GetValueOrDefault("exam_id");
+            if (string.IsNullOrWhiteSpace(nid) || string.IsNullOrWhiteSpace(examId)) continue;
+            var bk = $"{nid}|{examId}";
+            var data = new Dictionary<string, string?>(StringComparer.Ordinal);
+            foreach (var (key, value) in row.Cells)
+                if (!NonDataColumns.Contains(key)) data[key] = value;
+            rows.Add(Loaded(bk, bk, data, row.CreatedAt, row.UpdatedAt, [], null, null));
         }
         return rows;
     }

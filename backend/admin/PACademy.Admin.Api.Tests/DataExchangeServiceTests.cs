@@ -1565,4 +1565,209 @@ public sealed class DataExchangeServiceTests
         Assert.Equal("2026-05-01", row["age_reference_date"]);
         Assert.Equal("معتمد", row["condition_status"]);
     }
+
+    // ── ExamReservations import → applicant scheduling records ─────────────
+
+    private static async Task SeedReservationFixturesAsync(AdminDbContext db)
+    {
+        await SeedCycleAsync(db, "CYC-1", true);
+        await SeedCommitteeLookupAsync(db, "CMT-1", "لجنة 1");
+        await SeedLookupAsync(db, "tests", "TST-01", "القدرات");
+        await SeedLookupAsync(db, "tests", "TST-09", "القوام");
+        await SeedOperationalAsync(db, "committeeInstances", "CI-1",
+            """{"id":"CI-1","cycleId":"CYC-1","categoryKey":"officers_general","definitionCode":"CMT-1","date":"2026-06-20","time":"08:00","capacity":30,"reserved":0}""");
+        await SeedOperationalAsync(db, "committeeInstances", "CI-2",
+            """{"id":"CI-2","cycleId":"CYC-1","categoryKey":"officers_general","definitionCode":"CMT-1","date":"2026-07-05","time":"08:00","capacity":30,"reserved":0}""");
+        await SeedOperationalAsync(db, "examPlans", "PLAN-1",
+            """{"id":"PLAN-1","cycleId":"CYC-1","categoryId":"officers_general","exams":[{"examId":"TST-01","order":1},{"examId":"TST-09","order":2}]}""");
+        await SeedOperationalAsync(db, "applicants", "APP-1",
+            """{"id":"APP-1","nationalId":"29801011230001","fullName":"متقدم الحجز","categoryKey":"officers_general"}""");
+    }
+
+    private static Dictionary<string, string?> ReservationRow(
+        string nid, string examId, string date, string? committee = "لجنة 1") => new(StringComparer.Ordinal)
+    {
+        ["applicant_national_id"] = nid,
+        ["exam_id"] = examId,
+        ["appointment_date"] = date,
+        ["appointment_time"] = "08:00",
+        ["committee_name"] = committee,
+        ["reservation_status"] = "محجوز",
+    };
+
+    [Fact]
+    public async Task ExamReservations_import_books_matched_applicant_on_scheduling_records()
+    {
+        var (svc, db) = Create();
+        await SeedReservationFixturesAsync(db);
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new DbAuditSink(db), new OperationalRecordStore(db));
+
+        var rows = new List<Dictionary<string, string?>> { ReservationRow("29801011230001", "TST-01", "2026-06-20") };
+        var apply = await svc.ApplyAsync(new ImportApplyRequest([new("ExamReservations", rows)], "new-and-changed", false, false), default);
+
+        Assert.Equal(0, apply.FailedCount);
+        Assert.Equal(1, apply.InsertedCount);
+
+        var applicant = await records.GetAsync("applicants", "APP-1", default);
+        Assert.NotNull(applicant);
+        var slot = Assert.IsType<JsonObject>(applicant!["examSlot"]);
+        Assert.Equal("2026-06-20", slot["date"]?.ToString());
+        Assert.Equal("CI-1", slot["slotId"]?.ToString());
+        Assert.Equal("2026-06-20", applicant["firstExamDate"]?.ToString());
+        var schedules = Assert.IsType<JsonArray>(applicant["testSchedules"]);
+        var entry = Assert.IsType<JsonObject>(Assert.Single(schedules));
+        Assert.Equal("TST-01", entry["examId"]?.ToString());
+        Assert.Equal("لجنة 1", entry["committeeName"]?.ToString());
+    }
+
+    [Fact]
+    public async Task ExamReservations_reimport_updates_in_place_without_duplicates()
+    {
+        var (svc, db) = Create();
+        await SeedReservationFixturesAsync(db);
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new DbAuditSink(db), new OperationalRecordStore(db));
+
+        var rows = new List<Dictionary<string, string?>>
+        {
+            ReservationRow("29801011230001", "TST-01", "2026-06-20"),
+            ReservationRow("29801011230001", "TST-09", "2026-07-05"),
+        };
+        var first = await svc.ApplyAsync(new ImportApplyRequest([new("ExamReservations", rows)], "new-and-changed", false, false), default);
+        Assert.Equal(0, first.FailedCount);
+
+        // Re-import the same file on a fresh request scope — must converge, not duplicate.
+        var again = Build(db);
+        var second = await again.ApplyAsync(new ImportApplyRequest([new("ExamReservations", rows)], "new-and-changed", false, false), default);
+        Assert.Equal(0, second.FailedCount);
+        Assert.Equal(0, second.InsertedCount); // matched by (nid, exam) business key
+
+        var applicant = await records.GetAsync("applicants", "APP-1", default);
+        var schedules = Assert.IsType<JsonArray>(applicant!["testSchedules"]);
+        Assert.Equal(2, schedules.Count);
+        // Current appointment = the later round; first-exam date stays on the plan's first exam.
+        Assert.Equal("2026-07-05", Assert.IsType<JsonObject>(applicant["examSlot"])["date"]?.ToString());
+        Assert.Equal("2026-06-20", applicant["firstExamDate"]?.ToString());
+    }
+
+    [Fact]
+    public async Task ExamReservations_unmatched_applicant_or_schedule_is_invalid_not_silently_dropped()
+    {
+        var (svc, db) = Create();
+        await SeedReservationFixturesAsync(db);
+
+        var rows = new List<Dictionary<string, string?>>
+        {
+            ReservationRow("29999999999999", "TST-01", "2026-06-20"),   // unknown applicant
+            ReservationRow("29801011230001", "TST-01", "2026-08-01"),   // no committee appointment that day
+            ReservationRow("29801011230001", "TST-77", "2026-06-20"),   // unknown exam
+        };
+
+        var preview = await svc.PreviewAsync(new ImportPreviewRequest([new("ExamReservations", rows)]), default);
+        Assert.Equal(3, preview.Counts["invalid"]);
+
+        var apply = await svc.ApplyAsync(new ImportApplyRequest([new("ExamReservations", rows)], "new-and-changed", false, false), default);
+        Assert.Equal(3, apply.FailedCount);
+        Assert.Equal(0, apply.SuccessCount);
+    }
+
+    [Fact]
+    public async Task ExamResults_import_mirrors_outcome_into_applicant_follow_up()
+    {
+        var (svc, db) = Create();
+        await SeedReservationFixturesAsync(db);
+        db.LookupRows.Add(new LookupRowEntity
+        {
+            LookupKey = "test-results", Code = "RES-01", Name = "ناجح", IsActive = true,
+            PayloadJson = """{"code":"RES-01","name":"ناجح","outcome":"pass"}""",
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new DbAuditSink(db), new OperationalRecordStore(db));
+
+        var rows = new List<Dictionary<string, string?>>
+        {
+            new(StringComparer.Ordinal)
+            {
+                ["id"] = "29801011230001|TST-01",
+                ["applicantNationalId"] = "29801011230001",
+                ["examCode"] = "TST-01",
+                ["result"] = "RES-01",
+            },
+        };
+        var apply = await svc.ApplyAsync(new ImportApplyRequest([new("ExamResults", rows)], "new-and-changed", false, false), default);
+
+        Assert.Equal(0, apply.FailedCount);
+        var applicant = await records.GetAsync("applicants", "APP-1", default);
+        var followUp = Assert.IsType<JsonObject>(applicant!["followUp"]);
+        Assert.Equal("passed", followUp["TST-01"]?.ToString());
+    }
+
+    [Fact]
+    public async Task ExamReservations_rows_with_external_columns_and_stale_business_key_still_book()
+    {
+        // Mirrors the externally produced workbook shape (internal-data-*.xlsx):
+        // GUID id, date-suffixed business_key, and foreign columns (attend,
+        // attendance_time, lookup_key…) — matching keys on (nid, exam) must win.
+        var (svc, db) = Create();
+        await SeedReservationFixturesAsync(db);
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new DbAuditSink(db), new OperationalRecordStore(db));
+
+        var rows = new List<Dictionary<string, string?>>
+        {
+            new(StringComparer.Ordinal)
+            {
+                ["id"] = "CC56C48C-4B5D-4CAD-B04C-08FA68",
+                ["business_key"] = "29801011230001|TST-01|2026-06-20",
+                ["applicant_national_id"] = "29801011230001",
+                ["applicant_name"] = "متقدم الحجز",
+                ["appointment_date"] = "2026-06-20",
+                ["attend"] = "true",
+                ["attendance_time"] = "2026-06-09T15:19:36",
+                ["committee_name"] = "لجنة 1",
+                ["exam_id"] = "TST-01",
+                ["exam_name"] = "القدرات",
+                ["file_number"] = "230001",
+                ["gender"] = "M",
+                ["lookup_key"] = "tests",
+                ["source_system"] = "applicant-portal",
+            },
+        };
+        var apply = await svc.ApplyAsync(new ImportApplyRequest([new("ExamReservations", rows)], "new-and-changed", false, false), default);
+
+        Assert.Equal(0, apply.FailedCount);
+        var applicant = await records.GetAsync("applicants", "APP-1", default);
+        Assert.Equal("2026-06-20", Assert.IsType<JsonObject>(applicant!["examSlot"])["date"]?.ToString());
+        Assert.Equal("CI-1", Assert.IsType<JsonObject>(applicant["examSlot"])["slotId"]?.ToString());
+    }
+
+    [Fact]
+    public async Task ExamSchedules_instance_rows_import_into_committee_instances()
+    {
+        var (svc, db) = Create();
+        await SeedReservationFixturesAsync(db);
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new DbAuditSink(db), new OperationalRecordStore(db));
+
+        var rows = new List<Dictionary<string, string?>>
+        {
+            new(StringComparer.Ordinal)
+            {
+                ["id"] = "CI-9",
+                ["cycleId"] = "CYC-1",
+                ["categoryKey"] = "officers_general",
+                ["definitionCode"] = "CMT-1",
+                ["date"] = "2026-07-12",
+                ["time"] = "08:00",
+                ["capacity"] = "25",
+                ["reserved"] = "0",
+            },
+        };
+        var apply = await svc.ApplyAsync(new ImportApplyRequest([new("ExamSchedules", rows)], "new-and-changed", false, false), default);
+
+        Assert.Equal(0, apply.FailedCount);
+        var instance = await records.GetAsync("committeeInstances", "CI-9", default);
+        Assert.NotNull(instance);
+        Assert.Equal("2026-07-12", instance!["date"]?.ToString());
+        Assert.Equal("25", instance["capacity"]?.ToString());
+        Assert.Empty(db.ExamSlots); // no longer parked in the legacy exam_slots table
+    }
 }
