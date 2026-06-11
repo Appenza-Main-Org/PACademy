@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -1634,6 +1635,7 @@ public sealed class DataExchangeService(
     /// tests-lookup name map, and the cycle's plan-first exam per category.</summary>
     private sealed record ReservationImportContext(
         IReadOnlyDictionary<string, JsonObject> ApplicantsByNid,
+        IReadOnlyDictionary<string, JsonObject> ApplicantsById,
         IReadOnlyList<JsonObject> CommitteeInstances,
         IReadOnlyDictionary<string, string> ExamNameByCode,
         IReadOnlyDictionary<string, string> ExamCodeByName,
@@ -1650,11 +1652,16 @@ public sealed class DataExchangeService(
         try { applicants = await records.ListAsync("applicants", enrichApplicantCommitteeNames: false, ct); }
         catch (InvalidOperationException) { applicants = []; }
         var byNid = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
+        var byId = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
         foreach (var payload in applicants)
         {
             if (AdminRecordJson.IsSoftDeleted(payload)) continue;
             var nid = payload["nationalId"]?.ToString();
             if (!string.IsNullOrWhiteSpace(nid)) byNid[nid] = payload;
+            AddApplicantLookup(byId, payload, "id");
+            AddApplicantLookup(byId, payload, "applicantId");
+            AddApplicantLookup(byId, payload, "applicantTableId");
+            AddApplicantLookup(byId, payload, "adminRecordId");
         }
 
         var instances = (await LoadCommitteeInstancesAsync(ct))
@@ -1671,7 +1678,13 @@ public sealed class DataExchangeService(
         var directory = await records.LoadCommitteeDirectoryAsync(ct);
 
         return reservationImportContext = new ReservationImportContext(
-            byNid, instances, examNameByCode, examCodeByName, firstPlanned, directory);
+            byNid, byId, instances, examNameByCode, examCodeByName, firstPlanned, directory);
+    }
+
+    private static void AddApplicantLookup(Dictionary<string, JsonObject> applicantsById, JsonObject applicant, string key)
+    {
+        var identifier = AdminRecordJson.StringProp(applicant, key);
+        if (!string.IsNullOrWhiteSpace(identifier)) applicantsById[identifier] = applicant;
     }
 
     /// <summary>Downgrades reservation rows that fail the operational checks —
@@ -1698,10 +1711,10 @@ public sealed class DataExchangeService(
         ReservationImportContext ctx, IReadOnlyDictionary<string, string?> row)
     {
         var errors = new List<string>();
-        var nid = Get(row, "applicant_national_id");
-        if (nid is null || !ctx.ApplicantsByNid.TryGetValue(nid, out var applicant))
+        var applicant = ResolveReservationApplicant(ctx, row);
+        if (applicant is null)
         {
-            errors.Add($"المتقدم غير موجود بالرقم القومي {nid ?? "—"}");
+            errors.Add($"المتقدم غير موجود: {ReservationApplicantLabel(row)}");
             return errors;
         }
         if (ResolveReservationExam(ctx, row) is null)
@@ -1714,6 +1727,25 @@ public sealed class DataExchangeService(
         }
         return errors;
     }
+
+    private static JsonObject? ResolveReservationApplicant(
+        ReservationImportContext ctx, IReadOnlyDictionary<string, string?> row)
+    {
+        var nid = Get(row, "applicant_national_id");
+        if (nid is not null && ctx.ApplicantsByNid.TryGetValue(nid, out var byNid)) return byNid;
+
+        var applicantId = Get(row, "applicant_id") ?? Get(row, "applicantId") ?? Get(row, "applicant_table_id");
+        return applicantId is not null && ctx.ApplicantsById.TryGetValue(applicantId, out var byId)
+            ? byId
+            : null;
+    }
+
+    private static string ReservationApplicantLabel(IReadOnlyDictionary<string, string?> row)
+        => Get(row, "applicant_national_id")
+            ?? Get(row, "applicant_id")
+            ?? Get(row, "applicantId")
+            ?? Get(row, "applicant_table_id")
+            ?? "—";
 
     /// <summary>Resolves the imported exam to a canonical (code, name) through
     /// the tests lookup — by code first, then by Arabic name. Null when the
@@ -1764,16 +1796,14 @@ public sealed class DataExchangeService(
             .ToList();
         if (onDate.Count == 0) return null;
 
+        onDate = NarrowReservationInstancesByExam(ctx, row, onDate);
+        onDate = NarrowReservationInstancesByTime(row, onDate);
+
         if (Get(row, "committee_name") is { } committeeName)
         {
             var wanted = NormalizeCommitteeName(committeeName);
             var byCommittee = onDate.Where(x =>
-            {
-                var code = FirstString(x, "definitionCode", "committeeId", "committeeCode");
-                var resolved = (code is not null ? ctx.CommitteeDirectory.NameByCode.GetValueOrDefault(code) : null)
-                    ?? FirstString(x, "committeeName", "name");
-                return !string.IsNullOrWhiteSpace(resolved) && CommitteeNamesMatch(NormalizeCommitteeName(resolved), wanted);
-            }).ToList();
+                ReservationInstanceMatchesCommittee(ctx, x, wanted)).ToList();
             if (byCommittee.Count > 0) return byCommittee[0];
         }
 
@@ -1791,6 +1821,54 @@ public sealed class DataExchangeService(
     private static string NormalizeCommitteeName(string name)
         => string.Join(" ", name.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
+    private static List<JsonObject> NarrowReservationInstancesByExam(
+        ReservationImportContext ctx,
+        IReadOnlyDictionary<string, string?> row,
+        List<JsonObject> instances)
+    {
+        if (ResolveReservationExam(ctx, row) is not { } exam) return instances;
+        var byExam = instances.Where(x => InstanceMatchesExam(x, exam)).ToList();
+        return byExam.Count > 0 ? byExam : instances;
+    }
+
+    private static List<JsonObject> NarrowReservationInstancesByTime(
+        IReadOnlyDictionary<string, string?> row,
+        List<JsonObject> instances)
+    {
+        if (Get(row, "appointment_time") is not { } requestedTime) return instances;
+        var requestedTimeKey = AppointmentTimeKey(requestedTime);
+        var byTime = instances
+            .Where(x => TextEquals(AppointmentTimeKey(FirstString(x, "time", "appointmentTime")), requestedTimeKey))
+            .ToList();
+        return byTime.Count > 0 ? byTime : instances;
+    }
+
+    private static bool InstanceMatchesExam(JsonObject instance, (string ExamId, string? ExamName) exam)
+    {
+        var instanceExamId = FirstString(instance, "examPlanId", "examId", "testCode");
+        if (TextEquals(instanceExamId, exam.ExamId)) return true;
+        var instanceExamName = FirstString(instance, "examPlanName", "examName", "testName");
+        return TextEquals(instanceExamName, exam.ExamName);
+    }
+
+    private static string? AppointmentTimeKey(string? rawTime)
+        => TimeOnly.TryParse(rawTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out var time)
+            ? time.ToString("HH:mm", CultureInfo.InvariantCulture)
+            : rawTime;
+
+    private static bool ReservationInstanceMatchesCommittee(
+        ReservationImportContext ctx,
+        JsonObject instance,
+        string wantedCommitteeName)
+    {
+        var code = FirstString(instance, "definitionCode", "committeeId", "committeeCode");
+        var resolvedName = (code is not null ? ctx.CommitteeDirectory.NameByCode.GetValueOrDefault(code) : null)
+            ?? FirstString(instance, "committeeName", "name");
+        return (!string.IsNullOrWhiteSpace(resolvedName)
+                && CommitteeNamesMatch(NormalizeCommitteeName(resolvedName), wantedCommitteeName))
+            || CommitteeCodeMatchesName(code, wantedCommitteeName);
+    }
+
     /// <summary>Word-boundary committee-name match: equal, or one is a leading
     /// word-prefix of the other («لجنة 6» ↔ «لجنة 6 طالبات»). A plain substring
     /// check would wrongly match «لجنة 1» against «لجنة 10».</summary>
@@ -1798,6 +1876,28 @@ public sealed class DataExchangeService(
         => string.Equals(have, wanted, StringComparison.Ordinal)
             || have.StartsWith(wanted + " ", StringComparison.Ordinal)
             || wanted.StartsWith(have + " ", StringComparison.Ordinal);
+
+    private static bool CommitteeCodeMatchesName(string? code, string wantedName)
+    {
+        var codeNumber = CommitteeNumberToken(code);
+        var wantedNumber = CommitteeNumberToken(wantedName);
+        return codeNumber is not null && wantedNumber is not null && codeNumber == wantedNumber;
+    }
+
+    private static string? CommitteeNumberToken(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        var digits = new StringBuilder();
+        foreach (var ch in text)
+        {
+            if (!char.IsDigit(ch)) continue;
+            var numeric = char.GetNumericValue(ch);
+            if (numeric >= 0 && numeric <= 9) digits.Append((char)('0' + (int)numeric));
+        }
+        var normalized = digits.ToString().TrimStart('0');
+        if (normalized.Length > 0) return normalized;
+        return digits.Length > 0 ? "0" : null;
+    }
 
     /// <summary>Applies one imported reservation: links the applicant to the
     /// matched committee appointment and writes the booking through
@@ -1807,9 +1907,8 @@ public sealed class DataExchangeService(
     private async Task UpsertExamReservationAsync(IReadOnlyDictionary<string, string?> row, CancellationToken ct)
     {
         var ctx = await GetReservationImportContextAsync(ct);
-        var nid = Get(row, "applicant_national_id") ?? throw Invalid("الرقم القومي مفقود");
-        if (!ctx.ApplicantsByNid.TryGetValue(nid, out var applicant))
-            throw Invalid($"المتقدم غير موجود بالرقم القومي {nid}");
+        var applicant = ResolveReservationApplicant(ctx, row)
+            ?? throw Invalid($"المتقدم غير موجود: {ReservationApplicantLabel(row)}");
         var (examId, examName) = ResolveReservationExam(ctx, row)
             ?? throw Invalid($"اختبار غير معروف: {Get(row, "exam_id") ?? Get(row, "exam_name") ?? "—"}");
         var instance = MatchReservationInstance(ctx, row, applicant)
@@ -1844,7 +1943,9 @@ public sealed class DataExchangeService(
         var isPlanFirstExam = CategoryKey(applicant) is { } category
             && TextEquals(ctx.FirstPlannedByCategory.GetValueOrDefault(category), examId);
 
-        var applicantId = applicant["id"]?.ToString() ?? nid;
+        var applicantId = AdminRecordJson.StringProp(applicant, "id")
+            ?? AdminRecordJson.StringProp(applicant, "nationalId")
+            ?? ReservationApplicantLabel(row);
         await records.ApplyApplicantExamReservationAsync(applicantId, reservation, isPlanFirstExam, ct);
     }
 
@@ -1904,7 +2005,11 @@ public sealed class DataExchangeService(
             ExchangeStorage.Lookups => Compose(Get(row, "lookup_key"), Get(row, "code")),
             ExchangeStorage.AdmissionRules => Compose(Get(row, "cycle_id"), Get(row, "version")),
             ExchangeStorage.ExamReservations
-                => Compose(Get(row, "applicant_national_id"), Get(row, "exam_id") ?? Get(row, "exam_name")),
+                => Compose(Get(row, "applicant_national_id")
+                    ?? Get(row, "applicant_id")
+                    ?? Get(row, "applicantId")
+                    ?? Get(row, "applicant_table_id"),
+                    Get(row, "exam_id") ?? Get(row, "exam_name")),
             ExchangeStorage.DocStore when spec.BusinessKeyFields.Count > 0
                 => string.Join("|", spec.BusinessKeyFields.Select(f => Get(row, f) ?? "")),
             _ => Get(row, "id") ?? "",
@@ -1922,7 +2027,10 @@ public sealed class DataExchangeService(
         if (spec.Domain == ExchangeDomain.ExamReservations)
         {
             var nid = Get(row, "applicant_national_id");
-            if (string.IsNullOrEmpty(nid) || nid.Length != 14 || !nid.All(char.IsDigit))
+            var applicantId = Get(row, "applicant_id") ?? Get(row, "applicantId") ?? Get(row, "applicant_table_id");
+            if (string.IsNullOrEmpty(nid) && string.IsNullOrEmpty(applicantId))
+                errors.Add("applicant_national_id مفقود");
+            if (!string.IsNullOrEmpty(nid) && (nid.Length != 14 || !nid.All(char.IsDigit)))
                 errors.Add("الرقم القومي غير صالح (14 رقمًا)");
             if (Get(row, "exam_id") is null && Get(row, "exam_name") is null)
                 errors.Add("exam_id مفقود");

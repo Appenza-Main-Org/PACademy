@@ -1741,6 +1741,51 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
+    public async Task ExamReservations_row_can_match_applicant_by_applicant_id_when_nid_is_absent()
+    {
+        var (svc, db) = Create();
+        await SeedReservationFixturesAsync(db);
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new DbAuditSink(db), new OperationalRecordStore(db));
+
+        var rows = new List<Dictionary<string, string?>>
+        {
+            new(StringComparer.Ordinal)
+            {
+                ["applicant_id"] = "APP-1",
+                ["exam_id"] = "TST-01",
+                ["appointment_date"] = "2026-06-20",
+                ["appointment_time"] = "08:00",
+                ["committee_name"] = "لجنة 1",
+            },
+        };
+        var apply = await svc.ApplyAsync(new ImportApplyRequest([new("ExamReservations", rows)], "new-and-changed", false, false), default);
+
+        Assert.Equal(0, apply.FailedCount);
+        var applicant = await records.GetAsync("applicants", "APP-1", default);
+        Assert.Equal("2026-06-20", Assert.IsType<JsonObject>(applicant!["examSlot"])["date"]?.ToString());
+    }
+
+    [Fact]
+    public async Task ExamReservations_match_committee_number_when_directory_name_is_missing()
+    {
+        var (svc, db) = Create();
+        await SeedCycleAsync(db, "CYC-1", true);
+        await SeedLookupAsync(db, "tests", "TST-01", "القدرات");
+        await SeedOperationalAsync(db, "committeeInstances", "CI-6",
+            """{"id":"CI-6","cycleId":"CYC-1","categoryKey":"officers_general","definitionCode":"CMT-06","date":"2026-06-20","time":"08:00","capacity":30,"reserved":0}""");
+        await SeedOperationalAsync(db, "applicants", "APP-1",
+            """{"id":"APP-1","nationalId":"29801011230001","fullName":"متقدم الحجز","categoryKey":"officers_general"}""");
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new DbAuditSink(db), new OperationalRecordStore(db));
+
+        var rows = new List<Dictionary<string, string?>> { ReservationRow("29801011230001", "TST-01", "2026-06-20", "لجنة 6") };
+        var apply = await svc.ApplyAsync(new ImportApplyRequest([new("ExamReservations", rows)], "new-and-changed", false, false), default);
+
+        Assert.Equal(0, apply.FailedCount);
+        var applicant = await records.GetAsync("applicants", "APP-1", default);
+        Assert.Equal("CI-6", Assert.IsType<JsonObject>(applicant!["examSlot"])["slotId"]?.ToString());
+    }
+
+    [Fact]
     public async Task ExamSchedules_instance_rows_import_into_committee_instances()
     {
         var (svc, db) = Create();
