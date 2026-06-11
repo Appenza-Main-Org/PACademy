@@ -8,8 +8,10 @@
 /**
  * All locked, ASCII, ≤31-char Excel tab names. The first nine are the historical
  * round-trip (export+import) domains. The trailing block was added for the
- * curated full-database snapshot export (export-only). `SHEET_NAMES` is the
- * import-parser's allow-list; the curated snapshot UI uses `EXPORT_DOMAINS`.
+ * curated full-database snapshot export (export-only — except `ExamReservations`,
+ * importable since 2026-06-11: imported rows write back through the applicant
+ * scheduling records). `SHEET_NAMES` is the import-parser's allow-list; the
+ * curated snapshot UI uses `EXPORT_DOMAINS`.
  */
 export const SHEET_NAMES = {
   Applicants: 'Applicants',
@@ -21,7 +23,7 @@ export const SHEET_NAMES = {
   SystemCodes: 'SystemCodes',
   ExamResults: 'ExamResults',
   ExamSchedules: 'ExamSchedules',
-  // ── curated-snapshot export-only domains ──
+  // ── curated-snapshot domains (export; ExamReservations also imports) ──
   ExamReservations: 'ExamReservations',
   ApplicantCategories: 'ApplicantCategories',
   Faculties: 'Faculties',

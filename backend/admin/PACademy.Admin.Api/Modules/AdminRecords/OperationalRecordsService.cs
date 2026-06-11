@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using System.Data;
 using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using PACademy.Admin.Api.Persistence;
 using PACademy.Admin.Api.Modules.OperationalRecords;
 using PACademy.Admin.Api.Modules.Lookups;
@@ -2809,6 +2810,10 @@ public sealed class OperationalRecordsService(
         await using var command = connection.CreateCommand();
         command.CommandText = sql;
         command.CommandTimeout = 120;
+        // Enlist in the caller's EF transaction (e.g. the data-exchange import) —
+        // a raw command on a connection with a pending local transaction must
+        // carry it explicitly or SqlClient throws.
+        command.Transaction = context.Database.CurrentTransaction?.GetDbTransaction();
         bind?.Invoke(command);
         await using var reader = await command.ExecuteReaderAsync(ct);
         var rows = new List<JsonObject>();
@@ -2835,6 +2840,8 @@ public sealed class OperationalRecordsService(
         await using var command = connection.CreateCommand();
         command.CommandText = sql;
         command.CommandTimeout = 120;
+        // See ExecuteNormalizedQueryAsync — enlist in the caller's EF transaction.
+        command.Transaction = context.Database.CurrentTransaction?.GetDbTransaction();
         bind(command);
         return await command.ExecuteNonQueryAsync(ct);
     }
@@ -3118,6 +3125,162 @@ public sealed class OperationalRecordsService(
 
         return await GetApplicantFollowUpAsync(id, ct);
     }
+
+    // ── Portal exam reservations (imported via Data Exchange) ────────────────
+    /// <summary>
+    /// Records one exam appointment on the applicant's OPERATIONAL scheduling
+    /// records — the same records the admin applicant page and the applicant
+    /// portal read. For portal applicants the reservation merges into the
+    /// applicant_portal_records draft row (the row the portal follow-up and the
+    /// admin projection both consume); admin-created applicants fall back to
+    /// their management document. Idempotent per (applicant, exam): re-applying
+    /// the same reservation updates the existing entry in place.
+    /// </summary>
+    public async Task ApplyApplicantExamReservationAsync(
+        string id,
+        JsonObject reservation,
+        bool isFirstPlanExam,
+        CancellationToken ct)
+    {
+        var applicant = await GetAsync("applicants", id, ct)
+            ?? throw new ConflictException("APPLICANT_NOT_FOUND", "المتقدم غير موجود");
+
+        var applicantGuid = AdminRecordJson.StringProp(applicant, "applicantTableId");
+        var relational = db is DbContext context && context.Database.IsRelational();
+        JsonObject? draft = null;
+        if (relational
+            && !string.IsNullOrWhiteSpace(applicantGuid)
+            && await ReadDraftPayloadAsync(applicantGuid, ct) is { } draftJson)
+        {
+            try { draft = JsonNode.Parse(draftJson) as JsonObject; }
+            catch (System.Text.Json.JsonException) { draft = null; }
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        if (draft is not null)
+        {
+            MergeExamReservation(draft, reservation, isFirstPlanExam, now);
+            var fullPayload = draft.ToJsonString(AdminRecordJson.Options);
+            await ExecuteNormalizedNonQueryAsync(
+                $"""
+                MERGE {AdminDbContext.QualifiedTableName("applicant_portal_records")} WITH (HOLDLOCK) AS target
+                USING (SELECT N'draft' AS [type], @guid AS [record_id]) AS source
+                    ON target.[type] = source.[type] AND target.[record_id] = source.[record_id]
+                WHEN MATCHED THEN
+                    UPDATE SET [payload_json] = @payload, [updated_at] = @now
+                WHEN NOT MATCHED THEN
+                    INSERT ([type], [record_id], [applicant_id], [payload_json], [created_at], [updated_at])
+                    VALUES (N'draft', @guid, @guid, @payload, @now, @now);
+                """,
+                command =>
+                {
+                    AddParameter(command, "@guid", applicantGuid!);
+                    AddParameter(command, "@payload", fullPayload);
+                    AddParameter(command, "@now", now);
+                },
+                ct);
+        }
+        else
+        {
+            var payload = applicant.DeepClone().AsObject();
+            MergeExamReservation(payload, reservation, isFirstPlanExam, now);
+            await UpsertAsync("applicants", AdminRecordJson.StringProp(applicant, "id") ?? id, payload, ct);
+        }
+
+        await EmitAuditAsync(
+            "applicants",
+            "exam_reservation.import",
+            AdminRecordJson.StringProp(applicant, "nationalId") ?? id,
+            $"applicants.exam_reservation.import · {AdminRecordJson.StringProp(reservation, "examName") ?? AdminRecordJson.StringProp(reservation, "examId") ?? ""} · {AdminRecordJson.StringProp(reservation, "date") ?? ""}",
+            now,
+            ct);
+    }
+
+    /// <summary>
+    /// Merges one reservation into an applicant payload: upserts the matching
+    /// `testSchedules` entry (keyed by exam code — the array the applicant API
+    /// already consults for per-test dates) and points `examSlot` /
+    /// `firstExamDate` at the appointment so the booking surfaces on the admin
+    /// list/detail and the portal follow-up screen. The current appointment
+    /// (`examSlot`) advances only when the applicant has none yet or the
+    /// reservation date is the same or newer — historical rounds stay in
+    /// `testSchedules` only. The decision reads THIS payload (the freshly
+    /// loaded record), so several rows for one applicant in a single import
+    /// converge on the latest round regardless of file order.
+    /// </summary>
+    private static void MergeExamReservation(
+        JsonObject payload,
+        JsonObject reservation,
+        bool isFirstPlanExam,
+        DateTimeOffset now)
+    {
+        var examId = AdminRecordJson.StringProp(reservation, "examId")
+            ?? AdminRecordJson.StringProp(reservation, "testCode")
+            ?? "";
+        var reservationDate = DateOnlyKey(AdminRecordJson.StringProp(reservation, "date"));
+        var currentDate = DateOnlyKey(
+            (payload["examSlot"] is JsonObject currentSlot ? AdminRecordJson.StringProp(currentSlot, "date") : null)
+            ?? AdminRecordJson.StringProp(payload, "firstExamDate"));
+        var setAsCurrentSlot = reservationDate is not null
+            && (currentDate is null || string.CompareOrdinal(reservationDate, currentDate) >= 0);
+        var setFirstExamDate = isFirstPlanExam
+            || string.IsNullOrWhiteSpace(AdminRecordJson.StringProp(payload, "firstExamDate"));
+
+        if (payload["testSchedules"] is not JsonArray schedules)
+        {
+            schedules = [];
+            payload["testSchedules"] = schedules;
+        }
+
+        var entry = new JsonObject
+        {
+            ["testCode"] = examId,
+            ["examId"] = examId,
+            ["updatedAt"] = now,
+        };
+        foreach (var key in new[] { "examName", "date", "time", "slotId", "committeeName", "status", "source" })
+        {
+            var value = AdminRecordJson.StringProp(reservation, key);
+            if (!string.IsNullOrWhiteSpace(value)) entry[key] = value;
+        }
+
+        var replaced = false;
+        for (var i = 0; i < schedules.Count; i++)
+        {
+            if (schedules[i] is not JsonObject existing) continue;
+            var existingCode = AdminRecordJson.StringProp(existing, "examId")
+                ?? AdminRecordJson.StringProp(existing, "testCode")
+                ?? AdminRecordJson.StringProp(existing, "code");
+            if (!string.Equals(existingCode, examId, StringComparison.OrdinalIgnoreCase)) continue;
+            schedules[i] = entry;
+            replaced = true;
+            break;
+        }
+        if (!replaced) schedules.Add(entry);
+
+        if (setAsCurrentSlot)
+        {
+            if (payload["examSlot"] is not JsonObject slot)
+            {
+                slot = new JsonObject();
+                payload["examSlot"] = slot;
+            }
+            foreach (var (sourceKey, targetKey) in new[] { ("slotId", "slotId"), ("date", "date"), ("time", "time"), ("committeeName", "committeeName") })
+            {
+                var value = AdminRecordJson.StringProp(reservation, sourceKey);
+                if (!string.IsNullOrWhiteSpace(value)) slot[targetKey] = value;
+            }
+        }
+
+        if (setFirstExamDate && AdminRecordJson.StringProp(reservation, "date") is { } date)
+        {
+            payload["firstExamDate"] = date;
+        }
+    }
+
+    /// <summary>First 10 chars of an ISO date(-time) string — ordinal-comparable day key.</summary>
+    private static string? DateOnlyKey(string? raw)
+        => string.IsNullOrWhiteSpace(raw) ? null : raw.Length >= 10 ? raw[..10] : raw;
 
     private async Task<string?> ReadDraftPayloadAsync(string applicantGuid, CancellationToken ct)
     {

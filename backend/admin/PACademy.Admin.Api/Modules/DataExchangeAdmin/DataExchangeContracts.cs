@@ -33,7 +33,11 @@ public enum ExchangeDomain
     Notifications,
     WorkflowRecords,
     AuditEntries,
-    /// <summary>Booked exam appointments (applicant ↔ slot link) — export-only.</summary>
+    /// <summary>Booked exam appointments (applicant ↔ slot link). Exported from
+    /// the applicant scheduling records; importable since 2026-06-11 — imported
+    /// rows write back through the same operational records (portal draft
+    /// examSlot/firstExamDate/testSchedules) so appointments surface in the
+    /// admin applicant screens and the applicant portal.</summary>
     ExamReservations,
 }
 
@@ -52,6 +56,10 @@ public enum ExchangeStorage
     ExamSlots,
     /// <summary>Export-only operational/typed tables — import is read-only.</summary>
     ReadOnlyExport,
+    /// <summary>Applicant exam reservations — import writes through the
+    /// applicant scheduling records (portal draft + management document) via
+    /// <c>OperationalRecordsService.ApplyApplicantExamReservationAsync</c>.</summary>
+    ExamReservations,
 }
 
 /// <summary>Per-domain binding: sheet name, Arabic title, storage, and business key.</summary>
@@ -91,7 +99,7 @@ public static class DataExchangeRegistry
         new(ExchangeDomain.Notifications,       "Notifications",       "الإشعارات",             ExchangeStorage.ReadOnlyExport, null,          []),
         new(ExchangeDomain.WorkflowRecords,     "WorkflowRecords",     "سجل سير العمل",         ExchangeStorage.ReadOnlyExport, null,          []),
         new(ExchangeDomain.AuditEntries,        "AuditEntries",        "سجل التدقيق",           ExchangeStorage.ReadOnlyExport, null,          []),
-        new(ExchangeDomain.ExamReservations,    "ExamReservations",    "حجوزات المتقدمين للاختبارات",     ExchangeStorage.ReadOnlyExport, null,          []),
+        new(ExchangeDomain.ExamReservations,    "ExamReservations",    "حجوزات المتقدمين للاختبارات",     ExchangeStorage.ExamReservations, null,        ["applicant_national_id", "exam_id"]),
     ];
 
     public static readonly IReadOnlyDictionary<string, DomainSpec> BySheetName =
