@@ -1587,6 +1587,7 @@ public sealed class DataExchangeService(
         {
             case ExchangeStorage.DocStore:
                 await UpsertDocStoreAsync(spec, row, ct);
+                if (spec.Domain == ExchangeDomain.Applicants) await ApplyApplicantScheduleFromRowAsync(row, ct);
                 // The ExamResults bucket alone is invisible to the applicant
                 // screens — outcomes live in the applicant's followUp map. Mirror
                 // the imported result there so the timeline updates too.
@@ -1616,6 +1617,38 @@ public sealed class DataExchangeService(
         payload["id"] = id;
         payload["sourceSystem"] = ImportSource;
         await records.UpsertAsync(spec.DocModule!, id, payload, ct);
+    }
+
+    private async Task ApplyApplicantScheduleFromRowAsync(
+        IReadOnlyDictionary<string, string?> row,
+        CancellationToken ct)
+    {
+        var applicantId = Get(row, "id")
+            ?? Get(row, "nationalId")
+            ?? Get(row, "applicantId")
+            ?? Get(row, "applicant_id")
+            ?? Get(row, "business_key");
+        var examId = TestCodeFromRow(row);
+        var date = NextExamDateFromRow(row);
+        if (applicantId is null || examId is null || date is null) return;
+
+        var reservation = new JsonObject
+        {
+            ["examId"] = examId,
+            ["testCode"] = examId,
+            ["slotId"] = Get(row, "examSlot.slotId") ?? examId,
+            ["date"] = DateKey(date) ?? date,
+            ["source"] = ImportSource,
+        };
+        SetReservationField(reservation, "time", Get(row, "examSlot.time"));
+        SetReservationField(reservation, "committeeName", Get(row, "examSlot.committeeName") ?? Get(row, "committeeName"));
+        SetReservationField(reservation, "status", Get(row, "examSlot.status"));
+        await records.ApplyApplicantExamReservationAsync(applicantId, reservation, true, ct);
+    }
+
+    private static void SetReservationField(JsonObject reservation, string key, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value)) reservation[key] = value;
     }
 
     private async Task UpsertLookupAsync(IReadOnlyDictionary<string, string?> row, CancellationToken ct)
