@@ -89,22 +89,24 @@ public sealed class DataExchangeController(DataExchangeService service) : Contro
 
     [HttpPost("applicants/reconcile/preview")]
     public async Task<ActionResult<ApplicantReconciliationPreview>> ReconcilePreview(
-        [FromBody] ImportSheetInput body, CancellationToken ct)
+        [FromBody] ApplicantReconciliationPreviewRequest body, CancellationToken ct)
     {
-        if (body?.Rows is null || body.Rows.Count == 0)
+        if (body?.Sheets is null || body.Sheets.Count == 0)
             return BadRequest(new { code = ErrorCodes.ValidationFailed, message = "لا توجد صفوف للمعاينة." });
-        if (!string.Equals(body.SheetName, "Applicants", StringComparison.Ordinal))
+        var applicantsSheet = body.Sheets.FirstOrDefault(s => string.Equals(s.SheetName, "Applicants", StringComparison.Ordinal));
+        if (applicantsSheet?.Rows is null || applicantsSheet.Rows.Count == 0)
             return BadRequest(new { code = ErrorCodes.ValidationFailed, message = "جدول المعاينة يجب أن يكون «Applicants»." });
-        return Ok(await service.PreviewApplicantsReconciliationAsync(body, ct));
+        return Ok(await service.PreviewApplicantsReconciliationAsync(body.Sheets, ct));
     }
 
     [HttpPost("applicants/reconcile/commit")]
     public async Task<ActionResult<ApplicantReconciliationCommitResult>> ReconcileCommit(
         [FromBody] ApplicantReconciliationCommitRequest body, CancellationToken ct)
     {
-        if (body?.Sheet is null || body.Sheet.Rows is null || body.Sheet.Rows.Count == 0)
+        if (body?.Sheets is null || body.Sheets.Count == 0)
             return BadRequest(new { code = ErrorCodes.ValidationFailed, message = "لا توجد صفوف للاعتماد." });
-        if (!string.Equals(body.Sheet.SheetName, "Applicants", StringComparison.Ordinal))
+        var applicantsSheet = body.Sheets.FirstOrDefault(s => string.Equals(s.SheetName, "Applicants", StringComparison.Ordinal));
+        if (applicantsSheet?.Rows is null || applicantsSheet.Rows.Count == 0)
             return BadRequest(new { code = ErrorCodes.ValidationFailed, message = "جدول الاعتماد يجب أن يكون «Applicants»." });
         if (body.Decisions is null || body.Decisions.Count == 0)
             return BadRequest(new { code = ErrorCodes.ValidationFailed, message = "لا توجد قرارات للاعتماد." });

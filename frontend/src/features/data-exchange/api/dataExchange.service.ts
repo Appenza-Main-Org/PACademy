@@ -144,15 +144,15 @@ export const dataExchangeService = {
   },
 
   async previewApplicantsReconciliation(
-    sheet: ImportSheetInput,
+    sheets: ImportSheetInput[],
   ): Promise<ApplicantReconciliationPreview> {
     if (isBackendEnabled()) {
       return apiClient.post<ApplicantReconciliationPreview>(
         `${BASE}/applicants/reconcile/preview`,
-        sheet,
+        { sheets },
       );
     }
-    return mockReconcilePreview(sheet);
+    return mockReconcilePreview(sheets);
   },
 
   async commitApplicantsReconciliation(
@@ -182,7 +182,7 @@ function mockColumns(domain: ExchangeDomain): string[] {
     Committees: ['categoryKey', 'capacity', 'reserved'],
     AdmissionConditions: ['cycle_id', 'version', 'minPercentage'],
     SystemCodes: ['lookup_key', 'code', 'name', 'is_active'],
-    ExamResults: ['applicantNationalId', 'examId', 'result'],
+    ExamResults: ['applicantNationalId', 'examCode', 'result'],
     ExamSchedules: ['date', 'time', 'location', 'capacity', 'reserved'],
     ExamReservations: ['applicant_national_id', 'applicant_name', 'slot_id', 'exam_id', 'exam_name', 'appointment_date', 'appointment_time', 'committee_name', 'reservation_status'],
     ApplicantCategories: ['category_key', 'category_name', 'is_open', 'cycle_id'],
@@ -270,10 +270,70 @@ const RESULT_LOOKUP = new Map<string, string>([
   ['awaiting-approval', 'awaiting-approval'], ['pending', 'pending'],
 ]);
 
+function textCell(row: ExchangeCellMap | null | undefined, keys: readonly string[]): string | null {
+  if (!row) return null;
+  for (const key of keys) {
+    const cell = row[key];
+    if (cell != null && cell.trim() !== '') return cell;
+  }
+  return null;
+}
+
+function testCodeFromRow(row: ExchangeCellMap | null | undefined): string | null {
+  return textCell(row, ['test_code', 'examCode', 'exam_id', 'testCode', 'examId', 'examSlot.slotId']);
+}
+
+function nextExamDateFromRow(row: ExchangeCellMap | null | undefined): string | null {
+  return textCell(row, ['next_exam_date', 'nextExamDate', 'examSlot.date', 'firstExamDate', 'appointment_date']);
+}
+
+function nationalIdFromResultRow(row: ExchangeCellMap): string | null {
+  return textCell(row, ['applicantNationalId', 'applicant_national_id', 'nationalId', 'national_id']);
+}
+
+function mockExamResultRowsByNid(sheets: ImportSheetInput[]): ReadonlyMap<string, ExchangeCellMap[]> {
+  const resultRowsByNid = new Map<string, ExchangeCellMap[]>();
+  const resultsSheet = sheets.find((sheet) => sheet.sheetName === SHEET_NAMES.ExamResults);
+  if (!resultsSheet) return resultRowsByNid;
+  for (const row of resultsSheet.rows) {
+    const nationalId = nationalIdFromResultRow(row);
+    if (!nationalId) continue;
+    const rows = resultRowsByNid.get(nationalId) ?? [];
+    rows.push(row);
+    resultRowsByNid.set(nationalId, rows);
+  }
+  return resultRowsByNid;
+}
+
+function sameText(left: string | null, right: string | null): boolean {
+  return left != null && right != null && left.toLowerCase() === right.toLowerCase();
+}
+
+function selectMockResultRow(rows: readonly ExchangeCellMap[], applicantRow: ExchangeCellMap): ExchangeCellMap | null {
+  const testCode = testCodeFromRow(applicantRow);
+  if (testCode) {
+    const matchingRow = rows.find((row) => sameText(testCodeFromRow(row), testCode));
+    if (matchingRow) return matchingRow;
+  }
+  return rows.find((row) => textCell(row, ['result']) != null) ?? rows[0] ?? null;
+}
+
+function mockWritebackProjection(
+  applicantRow: ExchangeCellMap,
+  resultRow: ExchangeCellMap | null,
+): ExchangeCellMap {
+  return {
+    result: textCell(applicantRow, ['result']) ?? textCell(resultRow, ['result']),
+    test_code: testCodeFromRow(resultRow) ?? testCodeFromRow(applicantRow),
+    next_exam_date: nextExamDateFromRow(applicantRow) ?? nextExamDateFromRow(resultRow),
+    round: textCell(applicantRow, ['round']) ?? textCell(resultRow, ['round']),
+  };
+}
+
 function mockParseWriteback(row: ExchangeCellMap): ApplicantWritebackResult {
-  const raw = row.result ?? null;
-  const testCode = row.test_code ?? null;
-  const nextExamDate = row.next_exam_date ?? null;
+  const raw = textCell(row, ['result']);
+  const testCode = textCell(row, ['test_code']);
+  const nextExamDate = textCell(row, ['next_exam_date']);
   const roundRaw = row.round ?? null;
   const round = roundRaw && /^\d+$/.test(roundRaw) ? Number.parseInt(roundRaw, 10) : null;
   const errors: string[] = [];
@@ -291,9 +351,17 @@ function mockParseWriteback(row: ExchangeCellMap): ApplicantWritebackResult {
   return { resultRaw: raw, outcome, testCode, round, nextExamDate, errors };
 }
 
-function mockReconcilePreview(sheet: ImportSheetInput): ApplicantReconciliationPreview {
+function mockReconcilePreview(sheets: ImportSheetInput[]): ApplicantReconciliationPreview {
+  const applicantsSheet = sheets.find((sheet) => sheet.sheetName === SHEET_NAMES.Applicants);
+  if (!applicantsSheet) {
+    return {
+      counts: { total: 0, matched: 0, unmatched: 0, withDiff: 0, withWriteback: 0, invalid: 0 },
+      rows: [],
+    };
+  }
   const roster = mockRoster();
   const byNid = new Map(roster.map((r) => [r.nationalId, r]));
+  const resultsByNid = mockExamResultRowsByNid(sheets);
   const dbCells = new Map(
     seededStore('Applicants')
       .filter((r) => isApplicantBooked(r.cells))
@@ -302,7 +370,7 @@ function mockReconcilePreview(sheet: ImportSheetInput): ApplicantReconciliationP
   const seen = new Set<string>();
   const rows: ApplicantReconciliationRow[] = [];
 
-  for (const importRow of sheet.rows) {
+  for (const importRow of applicantsSheet.rows) {
     const nid = importRow.nationalId ?? importRow.business_key ?? '';
     const errors: string[] = [];
     if (!nid) {
@@ -316,7 +384,8 @@ function mockReconcilePreview(sheet: ImportSheetInput): ApplicantReconciliationP
       continue;
     }
     seen.add(nid);
-    const writeback = mockParseWriteback(importRow);
+    const resultRow = selectMockResultRow(resultsByNid.get(nid) ?? [], importRow);
+    const writeback = mockParseWriteback(mockWritebackProjection(importRow, resultRow));
     const matched = byNid.get(nid);
     if (!matched) {
       rows.push({
@@ -365,9 +434,12 @@ function mockReconcilePreview(sheet: ImportSheetInput): ApplicantReconciliationP
 function mockReconcileCommit(
   request: ApplicantReconciliationCommitRequest,
 ): ApplicantReconciliationCommitResult {
-  const preview = mockReconcilePreview(request.sheet);
+  const applicantsSheet = request.sheets.find((sheet) => sheet.sheetName === SHEET_NAMES.Applicants);
+  const preview = mockReconcilePreview(request.sheets);
   const previewByNid = new Map(preview.rows.map((r) => [r.nationalId, r]));
-  const importByNid = new Map(request.sheet.rows.map((r) => [r.nationalId ?? r.business_key ?? '', r]));
+  const importByNid = new Map(
+    applicantsSheet?.rows.map((r) => [r.nationalId ?? r.business_key ?? '', r]) ?? [],
+  );
   const store = seededStore('Applicants');
   let attempted = 0;
   let successCount = 0;

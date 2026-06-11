@@ -160,8 +160,8 @@ public sealed class DataExchangeServiceTests
             ["result"] = "راسب",
         };
 
-        var preview = await svc.PreviewApplicantsReconciliationAsync(
-            new ImportSheetInput("Applicants", new List<Dictionary<string, string?>> { matchedRow, unmatchedRow }), default);
+        var sheet = new ImportSheetInput("Applicants", new List<Dictionary<string, string?>> { matchedRow, unmatchedRow });
+        var preview = await svc.PreviewApplicantsReconciliationAsync([sheet], default);
 
         Assert.Equal(2, preview.Rows.Count);
         Assert.Equal(1, preview.Counts["matched"]);
@@ -197,11 +197,11 @@ public sealed class DataExchangeServiceTests
         await SeedOperationalAsync(db, "applicants", "APP-2",
             """{"id":"APP-2","nationalId":"29801011230701","status":"exam_scheduled"}""");
 
-        var preview = await svc.PreviewApplicantsReconciliationAsync(
-            new ImportSheetInput("Applicants", new List<Dictionary<string, string?>>
+        var sheet = new ImportSheetInput("Applicants", new List<Dictionary<string, string?>>
             {
                 new(StringComparer.Ordinal) { ["nationalId"] = "29801011230701", ["result"] = "متذبذب" },
-            }), default);
+            });
+        var preview = await svc.PreviewApplicantsReconciliationAsync([sheet], default);
 
         Assert.Contains("RESULT_VALUE_UNKNOWN", preview.Rows[0].Writeback!.Errors);
     }
@@ -220,13 +220,60 @@ public sealed class DataExchangeServiceTests
         await SeedOperationalAsync(db, "applicants", "APP-3",
             """{"id":"APP-3","nationalId":"29801011230801","status":"exam_scheduled"}""");
 
-        var preview = await svc.PreviewApplicantsReconciliationAsync(
-            new ImportSheetInput("Applicants", new List<Dictionary<string, string?>>
+        var sheet = new ImportSheetInput("Applicants", new List<Dictionary<string, string?>>
             {
                 new(StringComparer.Ordinal) { ["nationalId"] = "29801011230801", ["result"] = "ناجح" },
-            }), default);
+            });
+        var preview = await svc.PreviewApplicantsReconciliationAsync([sheet], default);
 
         Assert.Contains("WRITEBACK_NEXT_EXAM_MISSING", preview.Rows[0].Writeback!.Errors);
+    }
+
+    [Fact]
+    public async Task Reconcile_preview_reads_writeback_from_exam_results_sheet()
+    {
+        var (svc, db) = Create();
+        db.LookupRows.Add(new LookupRowEntity
+        {
+            LookupKey = "test-results", Code = "RES-01", Name = "ناجح", IsActive = true,
+            PayloadJson = """{"code":"RES-01","name":"ناجح","outcome":"pass"}""",
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        db.LookupRows.Add(new LookupRowEntity
+        {
+            LookupKey = "test-results", Code = "RES-02", Name = "راسب", IsActive = true,
+            PayloadJson = """{"code":"RES-02","name":"راسب","outcome":"fail"}""",
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+        await SeedOperationalAsync(db, "applicants", "APP-AMMAR",
+            """{"id":"APP-AMMAR","nationalId":"30301011234571","fullName":"عمار كمال فتحي الجيزاوي","status":"exam_scheduled"}""");
+
+        var applicantsSheet = new ImportSheetInput("Applicants",
+        [
+            new(StringComparer.Ordinal)
+            {
+                ["nationalId"] = "30301011234571",
+                ["name"] = "عمار كمال فتحي الجيزاوي",
+                ["examSlot.slotId"] = "TST-01",
+                ["examSlot.date"] = "2026-06-14",
+            },
+        ]);
+        var resultsSheet = new ImportSheetInput("ExamResults",
+        [
+            new(StringComparer.Ordinal) { ["applicantNationalId"] = "30301011234571", ["examCode"] = "TST-09", ["result"] = "RES-02" },
+            new(StringComparer.Ordinal) { ["applicantNationalId"] = "30301011234571", ["examCode"] = "TST-01", ["result"] = "RES-01" },
+        ]);
+
+        var preview = await svc.PreviewApplicantsReconciliationAsync([applicantsSheet, resultsSheet], default);
+
+        var row = Assert.Single(preview.Rows);
+        Assert.Equal("RES-01", row.Writeback?.ResultRaw);
+        Assert.Equal("passed", row.Writeback?.Outcome);
+        Assert.Equal("TST-01", row.Writeback?.TestCode);
+        Assert.Equal("2026-06-14", row.Writeback?.NextExamDate);
+        Assert.DoesNotContain("WRITEBACK_NEXT_EXAM_MISSING", row.Writeback!.Errors);
+        Assert.Equal(1, preview.Counts["withWriteback"]);
     }
 
     [Fact]
@@ -263,7 +310,7 @@ public sealed class DataExchangeServiceTests
             new("29801011231101", ["fullName"], ApplyWriteback: true),
         };
         var commit = await svc.CommitApplicantsReconciliationAsync(
-            new ApplicantReconciliationCommitRequest(decisions, sheet), default);
+            new ApplicantReconciliationCommitRequest(decisions, [sheet]), default);
 
         Assert.Equal(1, commit.SuccessCount);
         Assert.Equal(1, commit.FieldsWrittenCount);
@@ -275,6 +322,47 @@ public sealed class DataExchangeServiceTests
         Assert.Equal("old@example.com", refreshed["email"]!.GetValue<string>()); // rejected → unchanged
         Assert.Equal("passed", refreshed["followUp"]!["TST-01"]!.GetValue<string>()); // result wrote
         Assert.Equal("2026-07-20", refreshed["examSlot"]!["date"]!.GetValue<string>()); // next slot wrote
+    }
+
+    [Fact]
+    public async Task Reconcile_commit_writes_exam_results_sheet_writeback()
+    {
+        var (svc, db) = Create();
+        db.LookupRows.Add(new LookupRowEntity
+        {
+            LookupKey = "test-results", Code = "RES-01", Name = "ناجح", IsActive = true,
+            PayloadJson = """{"code":"RES-01","name":"ناجح","outcome":"pass"}""",
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+        await SeedOperationalAsync(db, "applicants", "APP-AMMAR-COMMIT",
+            """{"id":"APP-AMMAR-COMMIT","nationalId":"30301011234571","status":"exam_scheduled","examSlot":{"date":"2026-06-01"}}""");
+
+        var applicantsSheet = new ImportSheetInput("Applicants",
+        [
+            new(StringComparer.Ordinal)
+            {
+                ["nationalId"] = "30301011234571",
+                ["examSlot.slotId"] = "TST-01",
+                ["examSlot.date"] = "2026-06-14",
+            },
+        ]);
+        var resultsSheet = new ImportSheetInput("ExamResults",
+        [
+            new(StringComparer.Ordinal) { ["applicantNationalId"] = "30301011234571", ["examCode"] = "TST-01", ["result"] = "RES-01" },
+        ]);
+        var decisions = new List<ApplicantReconciliationDecision>
+        {
+            new("30301011234571", [], ApplyWriteback: true),
+        };
+
+        var commit = await svc.CommitApplicantsReconciliationAsync(new(decisions, [applicantsSheet, resultsSheet]), default);
+
+        Assert.Equal(1, commit.SuccessCount);
+        Assert.Equal(1, commit.WritebacksAppliedCount);
+        var refreshed = (await new OperationalRecordStore(db).GetAsync("applicants", "APP-AMMAR-COMMIT", default))!;
+        Assert.Equal("passed", refreshed["followUp"]!["TST-01"]!.GetValue<string>());
+        Assert.Equal("2026-06-14", refreshed["examSlot"]!["date"]!.GetValue<string>());
     }
 
     [Fact]
@@ -304,8 +392,8 @@ public sealed class DataExchangeServiceTests
         });
         var decisions = new List<ApplicantReconciliationDecision> { new("29801011231201", [], ApplyWriteback: true) };
 
-        await svc.CommitApplicantsReconciliationAsync(new(decisions, sheet), default);
-        await svc.CommitApplicantsReconciliationAsync(new(decisions, sheet), default);
+        await svc.CommitApplicantsReconciliationAsync(new(decisions, [sheet]), default);
+        await svc.CommitApplicantsReconciliationAsync(new(decisions, [sheet]), default);
 
         var refreshed = (await new OperationalRecordStore(db).GetAsync("applicants", "APP-IDEMP", default))!;
         var followUp = refreshed["followUp"]!.AsObject();
@@ -339,7 +427,7 @@ public sealed class DataExchangeServiceTests
             new("29801011239999", [], ApplyWriteback: true),
         };
 
-        var commit = await svc.CommitApplicantsReconciliationAsync(new(decisions, sheet), default);
+        var commit = await svc.CommitApplicantsReconciliationAsync(new(decisions, [sheet]), default);
 
         Assert.Equal(2, commit.AttemptedCount);
         Assert.Equal(1, commit.SuccessCount); // OK applicant committed
@@ -588,13 +676,12 @@ public sealed class DataExchangeServiceTests
             "single-workbook",
             ExportFilter.Default,
             default);
-        var preview = await svc.PreviewApplicantsReconciliationAsync(
-            new ImportSheetInput("Applicants",
-            [
-                new(StringComparer.Ordinal) { ["nationalId"] = "29801011230201", ["fullName"] = "نشط قانون" },
-                new(StringComparer.Ordinal) { ["nationalId"] = "29801011230203", ["fullName"] = "دورة مغلقة" },
-            ]),
-            default);
+        var previewSheet = new ImportSheetInput("Applicants",
+        [
+            new(StringComparer.Ordinal) { ["nationalId"] = "29801011230201", ["fullName"] = "نشط قانون" },
+            new(StringComparer.Ordinal) { ["nationalId"] = "29801011230203", ["fullName"] = "دورة مغلقة" },
+        ]);
+        var preview = await svc.PreviewApplicantsReconciliationAsync([previewSheet], default);
 
         var rosterRow = Assert.Single(roster);
         Assert.Equal("29801011230201", rosterRow.NationalId);

@@ -356,7 +356,7 @@ export function DataExchangePage(): JSX.Element {
       // and a per-round result + next-exam writeback per applicant.
       const applicantsSheet = sheets.find((s) => s.sheetName === SHEET_NAMES.Applicants);
       if (applicantsSheet) {
-        const recon = await reconcilePreviewMutation.mutateAsync(applicantsSheet);
+        const recon = await reconcilePreviewMutation.mutateAsync(sheets);
         setApplicantsPreview(recon);
       } else {
         setApplicantsPreview(null);
@@ -375,7 +375,7 @@ export function DataExchangePage(): JSX.Element {
       return;
     }
     try {
-      const result = await reconcileCommitMutation.mutateAsync({ decisions, sheet });
+      const result = await reconcileCommitMutation.mutateAsync({ decisions, sheets: parsedSheets });
       emitAudit({
         action: 'entity_imported',
         module: 'admin',
@@ -389,7 +389,7 @@ export function DataExchangePage(): JSX.Element {
         `تم الاعتماد: ${result.successCount} متقدم · ${result.fieldsWrittenCount} حقل · ${result.writebacksAppliedCount} نتيجة.`,
         result.failedCount > 0 ? 'warning' : 'success',
       );
-      const refreshed = await reconcilePreviewMutation.mutateAsync(sheet);
+      const refreshed = await reconcilePreviewMutation.mutateAsync(parsedSheets);
       setApplicantsPreview(refreshed);
     } catch {
       toast('تعذّر اعتماد المراجعة.', 'danger');
@@ -416,6 +416,11 @@ export function DataExchangePage(): JSX.Element {
       // Re-preview against the now-updated store so the matrix reflects reality.
       const refreshed = await previewMutation.mutateAsync(parsedSheets);
       setPreview(refreshed);
+      const applicantsSheet = parsedSheets.find((s) => s.sheetName === SHEET_NAMES.Applicants);
+      if (applicantsSheet) {
+        const refreshedApplicants = await reconcilePreviewMutation.mutateAsync(parsedSheets);
+        setApplicantsPreview(refreshedApplicants);
+      }
     } catch {
       toast('تعذّر تطبيق الاستيراد.', 'danger');
     }

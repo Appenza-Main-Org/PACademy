@@ -285,9 +285,12 @@ public sealed record ApplicantReconciliationDecision(
     IReadOnlyList<string> AcceptedFields,
     bool ApplyWriteback);
 
+public sealed record ApplicantReconciliationPreviewRequest(
+    IReadOnlyList<ImportSheetInput> Sheets);
+
 public sealed record ApplicantReconciliationCommitRequest(
     IReadOnlyList<ApplicantReconciliationDecision> Decisions,
-    ImportSheetInput Sheet);
+    IReadOnlyList<ImportSheetInput> Sheets);
 
 public sealed record ApplicantReconciliationCommitResult(
     int AttemptedCount,
