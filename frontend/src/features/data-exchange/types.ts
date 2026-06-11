@@ -297,9 +297,9 @@ export interface ApplicantReconciliationDecision {
 
 export interface ApplicantReconciliationCommitRequest {
   decisions: ApplicantReconciliationDecision[];
-  /** Same sheet the admin previewed — backend re-resolves diffs against the
-   *  live DB so a concurrent edit cannot be overwritten silently. */
-  sheet: ImportSheetInput;
+  /** Same workbook sheets the admin previewed — backend re-resolves diffs
+   *  against the live DB and joins Applicants with ExamResults writebacks. */
+  sheets: ImportSheetInput[];
 }
 
 export interface ApplicantReconciliationCommitResult {

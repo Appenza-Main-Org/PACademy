@@ -72,8 +72,8 @@ export function useApplyMutation() {
 
 export function useApplicantsReconciliationPreviewMutation() {
   return useMutation({
-    mutationFn: (sheet: ImportSheetInput) =>
-      dataExchangeService.previewApplicantsReconciliation(sheet),
+    mutationFn: (sheets: ImportSheetInput[]) =>
+      dataExchangeService.previewApplicantsReconciliation(sheets),
   });
 }
 

@@ -309,10 +309,12 @@ public sealed class DataExchangeService(
     /// commit endpoint. Unmatched national IDs are surfaced rather than
     /// silently dropped.</summary>
     public async Task<ApplicantReconciliationPreview> PreviewApplicantsReconciliationAsync(
-        ImportSheetInput sheet, CancellationToken ct)
+        IReadOnlyList<ImportSheetInput> sheets, CancellationToken ct)
     {
+        var sheet = RequiredSheet(sheets, "Applicants");
         var booked = await LoadBookedApplicantsByNidAsync(null, ct);
         var resultLookup = await LoadResultLookupAsync(ct);
+        var examResultsByNid = ExamResultRowsByNid(sheets);
         var rows = new List<ApplicantReconciliationRow>(sheet.Rows.Count);
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
@@ -334,7 +336,7 @@ public sealed class DataExchangeService(
                 continue;
             }
 
-            var writeback = ParseWritebackResult(importRow, resultLookup);
+            var writeback = ResolveWriteback(importRow, examResultsByNid, resultLookup);
             if (!booked.TryGetValue(nid, out var payload))
             {
                 rows.Add(new ApplicantReconciliationRow(
@@ -362,6 +364,89 @@ public sealed class DataExchangeService(
         };
         return new ApplicantReconciliationPreview(counts, rows);
     }
+
+    private static ImportSheetInput RequiredSheet(IReadOnlyList<ImportSheetInput> sheets, string sheetName)
+    {
+        var sheet = sheets.FirstOrDefault(s => string.Equals(s.SheetName, sheetName, StringComparison.Ordinal));
+        return sheet ?? throw new InvalidOperationException($"جدول {sheetName} غير موجود في الملف.");
+    }
+
+    private static IReadOnlyDictionary<string, List<IReadOnlyDictionary<string, string?>>> ExamResultRowsByNid(
+        IReadOnlyList<ImportSheetInput> sheets)
+    {
+        var map = new Dictionary<string, List<IReadOnlyDictionary<string, string?>>>(StringComparer.Ordinal);
+        var sheet = sheets.FirstOrDefault(s => string.Equals(s.SheetName, "ExamResults", StringComparison.Ordinal));
+        if (sheet is null) return map;
+        foreach (var row in sheet.Rows)
+        {
+            var nid = NationalIdFromResultRow(row);
+            if (nid is null) continue;
+            if (!map.TryGetValue(nid, out var rows)) map[nid] = rows = [];
+            rows.Add(row);
+        }
+        return map;
+    }
+
+    private static ApplicantWritebackResult ResolveWriteback(
+        IReadOnlyDictionary<string, string?> applicantRow,
+        IReadOnlyDictionary<string, List<IReadOnlyDictionary<string, string?>>> examResultsByNid,
+        IReadOnlyDictionary<string, string> resultLookup)
+    {
+        var nid = Get(applicantRow, "nationalId") ?? Get(applicantRow, "business_key");
+        var resultRow = nid is not null && examResultsByNid.TryGetValue(nid, out var rows)
+            ? SelectResultRow(rows, applicantRow)
+            : null;
+        return ParseWritebackResult(WritebackProjection(applicantRow, resultRow), resultLookup);
+    }
+
+    private static IReadOnlyDictionary<string, string?> WritebackProjection(
+        IReadOnlyDictionary<string, string?> applicantRow,
+        IReadOnlyDictionary<string, string?>? resultRow)
+        => new Dictionary<string, string?>(StringComparer.Ordinal)
+        {
+            ["result"] = Get(applicantRow, "result") ?? (resultRow is null ? null : Get(resultRow, "result")),
+            ["test_code"] = TestCodeFromRow(resultRow) ?? TestCodeFromRow(applicantRow),
+            ["next_exam_date"] = NextExamDateFromRow(applicantRow) ?? NextExamDateFromRow(resultRow),
+            ["round"] = Get(applicantRow, "round") ?? (resultRow is null ? null : Get(resultRow, "round")),
+        };
+
+    private static IReadOnlyDictionary<string, string?>? SelectResultRow(
+        IReadOnlyList<IReadOnlyDictionary<string, string?>> rows,
+        IReadOnlyDictionary<string, string?> applicantRow)
+    {
+        var testCode = TestCodeFromRow(applicantRow);
+        if (testCode is not null)
+        {
+            var matching = rows.FirstOrDefault(r => TextEquals(TestCodeFromRow(r), testCode));
+            if (matching is not null) return matching;
+        }
+        return rows.FirstOrDefault(r => Get(r, "result") is not null) ?? rows.FirstOrDefault();
+    }
+
+    private static string? NationalIdFromResultRow(IReadOnlyDictionary<string, string?> row)
+        => Get(row, "applicantNationalId")
+            ?? Get(row, "applicant_national_id")
+            ?? Get(row, "nationalId")
+            ?? Get(row, "national_id");
+
+    private static string? TestCodeFromRow(IReadOnlyDictionary<string, string?>? row)
+        => row is null
+            ? null
+            : Get(row, "test_code")
+                ?? Get(row, "examCode")
+                ?? Get(row, "exam_id")
+                ?? Get(row, "testCode")
+                ?? Get(row, "examId")
+                ?? Get(row, "examSlot.slotId");
+
+    private static string? NextExamDateFromRow(IReadOnlyDictionary<string, string?>? row)
+        => row is null
+            ? null
+            : Get(row, "next_exam_date")
+                ?? Get(row, "nextExamDate")
+                ?? Get(row, "examSlot.date")
+                ?? Get(row, "firstExamDate")
+                ?? Get(row, "appointment_date");
 
     /// <summary>Computes the diff for one applicant row. Only fields in
     /// <see cref="EditableApplicantFields"/> are considered, only when the
@@ -495,14 +580,13 @@ public sealed class DataExchangeService(
     public async Task<ApplicantReconciliationCommitResult> CommitApplicantsReconciliationAsync(
         ApplicantReconciliationCommitRequest request, CancellationToken ct)
     {
-        if (!string.Equals(request.Sheet.SheetName, "Applicants", StringComparison.Ordinal))
-            throw new InvalidOperationException("جدول الاعتماد يجب أن يكون «Applicants».");
+        var sheet = RequiredSheet(request.Sheets, "Applicants");
 
         // Re-resolve diffs against the LIVE db so a concurrent edit (since the
         // admin's preview) cannot be overwritten without a fresh preview.
-        var preview = await PreviewApplicantsReconciliationAsync(request.Sheet, ct);
+        var preview = await PreviewApplicantsReconciliationAsync(request.Sheets, ct);
         var rowByNid = preview.Rows.ToDictionary(r => r.NationalId, r => r, StringComparer.Ordinal);
-        var importByNid = request.Sheet.Rows
+        var importByNid = sheet.Rows
             .Where(r => !string.IsNullOrWhiteSpace(Get(r, "nationalId")))
             .ToDictionary(r => Get(r, "nationalId")!, r => r, StringComparer.Ordinal);
 
@@ -515,12 +599,12 @@ public sealed class DataExchangeService(
             attempted++;
             if (!rowByNid.TryGetValue(decision.NationalId, out var diffRow) || diffRow.Unmatched)
             {
-                failed.Add(new ImportFailedRow(i, request.Sheet.SheetName, ["APPLICANT_NID_UNMATCHED"]));
+                failed.Add(new ImportFailedRow(i, sheet.SheetName, ["APPLICANT_NID_UNMATCHED"]));
                 continue;
             }
             if (!importByNid.TryGetValue(decision.NationalId, out var importRow))
             {
-                failed.Add(new ImportFailedRow(i, request.Sheet.SheetName, ["IMPORT_ROW_MISSING"]));
+                failed.Add(new ImportFailedRow(i, sheet.SheetName, ["IMPORT_ROW_MISSING"]));
                 continue;
             }
 
@@ -533,7 +617,7 @@ public sealed class DataExchangeService(
             }
             catch (Exception ex)
             {
-                failed.Add(new ImportFailedRow(i, request.Sheet.SheetName, [ex.Message]));
+                failed.Add(new ImportFailedRow(i, sheet.SheetName, [ex.Message]));
             }
         }
 
