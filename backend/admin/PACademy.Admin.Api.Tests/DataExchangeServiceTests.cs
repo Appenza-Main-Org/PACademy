@@ -857,6 +857,45 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
+    public async Task Applicants_import_syncs_exam_slot_columns_into_schedule_records()
+    {
+        var (svc, db) = Create();
+        await SeedOperationalAsync(db, "applicants", "30301011234571",
+            """{"id":"30301011234571","nationalId":"30301011234571","name":"عمار كمال فتحي الجيزاوي","status":"exam_scheduled"}""");
+
+        var rows = new List<Dictionary<string, string?>>
+        {
+            new(StringComparer.Ordinal)
+            {
+                ["id"] = "30301011234571",
+                ["business_key"] = "30301011234571",
+                ["nationalId"] = "30301011234571",
+                ["name"] = "عمار كمال فتحي الجيزاوي",
+                ["examSlot.slotId"] = "TST-01",
+                ["examSlot.date"] = "2026-06-14",
+                ["examSlot.time"] = "08:00",
+            },
+        };
+
+        var first = await svc.ApplyAsync(new ImportApplyRequest([new("Applicants", rows)], "new-and-changed", false, false), default);
+        var second = await Build(db).ApplyAsync(new ImportApplyRequest([new("Applicants", rows)], "new-and-changed", false, true), default);
+
+        Assert.Equal(0, first.FailedCount);
+        Assert.Equal(0, second.FailedCount);
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new DbAuditSink(db), new OperationalRecordStore(db));
+        var applicant = await records.GetAsync("applicants", "30301011234571", default);
+        var slot = Assert.IsType<JsonObject>(applicant!["examSlot"]);
+        Assert.Equal("TST-01", slot["slotId"]?.ToString());
+        Assert.Equal("2026-06-14", slot["date"]?.ToString());
+        Assert.Equal("2026-06-14", applicant["firstExamDate"]?.ToString());
+
+        var schedules = Assert.IsType<JsonArray>(applicant["testSchedules"]);
+        var schedule = Assert.IsType<JsonObject>(Assert.Single(schedules));
+        Assert.Equal("TST-01", schedule["examId"]?.ToString());
+        Assert.Equal("2026-06-14", schedule["date"]?.ToString());
+    }
+
+    [Fact]
     public async Task Apply_new_only_skips_changed_rows()
     {
         var (svc, db) = Create();
