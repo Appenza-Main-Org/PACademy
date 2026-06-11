@@ -856,6 +856,18 @@ public sealed class DataExchangeService(
                             break;
                         case "invalid": failed.Add(new ImportFailedRow(i, sheet.SheetName, outcome.Errors)); break;
                         case "conflict" when !request.SkipConflicts: failed.Add(new ImportFailedRow(i, sheet.SheetName, ["تعارض — لم يُطبَّق"])); break;
+                        case "skipped":
+                            try
+                            {
+                                await ReplayOperationalSyncAsync(spec, row, ct);
+                                skipped++;
+                            }
+                            catch (OperationCanceledException) { throw; }
+                            catch (Exception ex)
+                            {
+                                failed.Add(new ImportFailedRow(i, sheet.SheetName, [ex.Message]));
+                            }
+                            break;
                         default: skipped++; break;
                     }
                 }
@@ -1602,6 +1614,18 @@ public sealed class DataExchangeService(
                 throw Invalid("هذا الجدول للتصدير فقط ولا يمكن استيراده.");
         }
     }
+
+    private Task ReplayOperationalSyncAsync(
+        DomainSpec spec,
+        IReadOnlyDictionary<string, string?> row,
+        CancellationToken ct)
+        => spec.Domain switch
+        {
+            ExchangeDomain.Applicants => ApplyApplicantScheduleFromRowAsync(row, ct),
+            ExchangeDomain.ExamResults => ApplyExamResultFollowUpAsync(row, ct),
+            ExchangeDomain.ExamReservations => UpsertExamReservationAsync(row, ct),
+            _ => Task.CompletedTask,
+        };
 
     private static IReadOnlySet<string> SkipKeys(params string[] extra)
         => new HashSet<string>(NonDataColumns.Concat(extra), StringComparer.Ordinal);
