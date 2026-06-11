@@ -6,9 +6,9 @@
  * and a validation-errors download.
  */
 
-import { useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Download, ShieldAlert } from 'lucide-react';
-import { Badge, Button, Card, CardBody, CardHeader, DataTable } from '@/shared/components';
+import { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, CheckCircle2, Download, Search, ShieldAlert } from 'lucide-react';
+import { Badge, Button, Card, CardBody, CardHeader, DataTable, Input, Select } from '@/shared/components';
 import type { BadgeTone } from '@/shared/components/Badge';
 import type { DataTableColumn } from '@/shared/components/DataTable';
 import {
@@ -30,6 +30,8 @@ const CLASS_TONE: Record<ImportRowClass, BadgeTone> = {
   invalid: 'danger',
 };
 
+const PREVIEW_PAGE_SIZE_OPTIONS = [25, 50, 100, 250] as const;
+
 interface DataExchangePreviewProps {
   preview: ImportPreview;
   isSuperAdmin: boolean;
@@ -47,11 +49,35 @@ export function DataExchangePreview({
   const [mode, setMode] = useState<ImportApplyMode>('new-and-changed');
   const [skipConflicts, setSkipConflicts] = useState(true);
   const [forceUpdate, setForceUpdate] = useState(false);
+  const [activeSheet, setActiveSheet] = useState('all');
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
-  const filteredRows = useMemo(
-    () => (activeClass === 'all' ? preview.rows : preview.rows.filter((r) => r.class === activeClass)),
-    [preview.rows, activeClass],
-  );
+  useEffect(() => {
+    setActiveClass('all');
+    setActiveSheet('all');
+    setQuery('');
+    setPage(1);
+  }, [preview]);
+
+  const sheetOptions = useMemo(() => buildSheetOptions(preview.rows), [preview.rows]);
+
+  const filteredRows = useMemo(() => {
+    const needle = normalizeSearch(query);
+    return preview.rows.filter((row) => {
+      if (activeClass !== 'all' && row.class !== activeClass) return false;
+      if (activeSheet !== 'all' && row.sheetName !== activeSheet) return false;
+      return matchesPreviewQuery(row, needle);
+    });
+  }, [activeClass, activeSheet, preview.rows, query]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pageRows = useMemo(() => {
+    const start = (safePage - 1) * pageSize;
+    return filteredRows.slice(start, start + pageSize);
+  }, [filteredRows, pageSize, safePage]);
 
   const outdatedCount = preview.counts.outdated ?? 0;
   const hasInvalid = (preview.counts.invalid ?? 0) > 0 || preview.rows.some((r) => r.class === 'invalid');
@@ -82,6 +108,26 @@ export function DataExchangePreview({
     downloadBlob(blob, `data-exchange-validation-errors-${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
 
+  function changeActiveClass(nextClass: ImportRowClass | 'all'): void {
+    setActiveClass(nextClass);
+    setPage(1);
+  }
+
+  function changeActiveSheet(nextSheet: string): void {
+    setActiveSheet(nextSheet);
+    setPage(1);
+  }
+
+  function changeQuery(nextQuery: string): void {
+    setQuery(nextQuery);
+    setPage(1);
+  }
+
+  function changePageSize(nextPageSize: number): void {
+    setPageSize(nextPageSize);
+    setPage(1);
+  }
+
   return (
     <Card>
       <CardHeader
@@ -97,7 +143,13 @@ export function DataExchangePreview({
         }
       />
       <CardBody className="space-y-4">
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-4">
+          <PreviewMetric
+            icon={<Search size={17} />}
+            label="إجمالي الصفوف"
+            value={preview.rows.length}
+            tone="neutral"
+          />
           <PreviewMetric
             icon={<CheckCircle2 size={17} />}
             label="قابل للتطبيق"
@@ -118,25 +170,49 @@ export function DataExchangePreview({
           />
         </div>
 
-        {/* Count chips */}
-        <div className="flex flex-wrap gap-2" role="toolbar" aria-label="تصفية تصنيفات الاستيراد">
-          <ClassChip
-            label="الكل"
-            count={preview.rows.length}
-            active={activeClass === 'all'}
-            tone="neutral"
-            onClick={() => setActiveClass('all')}
-          />
-          {IMPORT_ROW_CLASSES.map((cls) => (
-            <ClassChip
-              key={cls}
-              label={CLASS_LABELS_AR[cls]}
-              count={preview.counts[cls] ?? 0}
-              active={activeClass === cls}
-              tone={CLASS_TONE[cls]}
-              onClick={() => setActiveClass(cls)}
+        <div className="rounded-lg border border-border-subtle bg-surface-card p-3 shadow-sm">
+          <div className="grid gap-3 lg:grid-cols-[minmax(15rem,1fr)_14rem_auto] lg:items-end">
+            <Input
+              value={query}
+              onChange={(event) => changeQuery(event.target.value)}
+              label="بحث سريع"
+              placeholder="الجدول، المفتاح، أو الملاحظات"
+              leadingIcon={<Search size={15} />}
+              density="compact"
             />
-          ))}
+            <Select
+              value={activeSheet}
+              onChange={(event) => changeActiveSheet(event.target.value)}
+              label="الجدول"
+              options={sheetOptions}
+            />
+            <VisibleRowsSummary
+              start={(safePage - 1) * pageSize + 1}
+              end={(safePage - 1) * pageSize + pageRows.length}
+              total={filteredRows.length}
+              all={preview.rows.length}
+            />
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2" role="toolbar" aria-label="تصفية تصنيفات الاستيراد">
+            <ClassChip
+              label="الكل"
+              count={preview.rows.length}
+              active={activeClass === 'all'}
+              tone="neutral"
+              onClick={() => changeActiveClass('all')}
+            />
+            {IMPORT_ROW_CLASSES.map((cls) => (
+              <ClassChip
+                key={cls}
+                label={CLASS_LABELS_AR[cls]}
+                count={preview.counts[cls] ?? 0}
+                active={activeClass === cls}
+                tone={CLASS_TONE[cls]}
+                onClick={() => changeActiveClass(cls)}
+              />
+            ))}
+          </div>
         </div>
 
         {preview.sheetIssues.length > 0 && (
@@ -153,11 +229,25 @@ export function DataExchangePreview({
         )}
 
         <DataTable<ImportRowOutcome>
-          data={filteredRows}
+          data={pageRows}
           columns={columns}
           rowKey={(r) => `${r.sheetName}-${r.rowIndex}`}
           density="compact"
           stickyHeader
+          sequenceStart={(safePage - 1) * pageSize + 1}
+          pagination={{
+            page: safePage,
+            pageSize,
+            total: filteredRows.length,
+            pageSizeOptions: PREVIEW_PAGE_SIZE_OPTIONS,
+            onPageChange: setPage,
+            onPageSizeChange: changePageSize,
+          }}
+          empty={
+            <p className="text-center text-sm text-ink-500">
+              لا توجد صفوف تطابق البحث أو التصفية الحالية.
+            </p>
+          }
         />
 
         {/* Apply controls */}
@@ -212,6 +302,34 @@ export function DataExchangePreview({
   );
 }
 
+function normalizeSearch(query: string): string {
+  return query.trim().toLocaleLowerCase('ar-EG');
+}
+
+function matchesPreviewQuery(row: ImportRowOutcome, needle: string): boolean {
+  if (!needle) return true;
+  return [
+    row.sheetName,
+    row.domain,
+    row.businessKey,
+    CLASS_LABELS_AR[row.class],
+    row.errors.join(' '),
+    String(row.rowIndex + 1),
+  ].some((part) => part.toLocaleLowerCase('ar-EG').includes(needle));
+}
+
+function buildSheetOptions(
+  rows: readonly ImportRowOutcome[],
+): ReadonlyArray<{ value: string; label: string }> {
+  const sheetNames = Array.from(new Set(rows.map((row) => row.sheetName))).sort((a, b) =>
+    a.localeCompare(b, 'en'),
+  );
+  return [
+    { value: 'all', label: 'كل الجداول' },
+    ...sheetNames.map((sheetName) => ({ value: sheetName, label: sheetName })),
+  ];
+}
+
 function PreviewMetric({
   icon,
   label,
@@ -230,6 +348,33 @@ function PreviewMetric({
         <span className="text-2xs font-semibold">{label}</span>
       </div>
       <Badge tone={tone}>{value}</Badge>
+    </div>
+  );
+}
+
+function VisibleRowsSummary({
+  start,
+  end,
+  total,
+  all,
+}: {
+  start: number;
+  end: number;
+  total: number;
+  all: number;
+}): JSX.Element {
+  const safeStart = total === 0 ? 0 : start;
+  return (
+    <div className="rounded-md border border-border-subtle bg-ink-50 px-3 py-2 text-2xs text-ink-500">
+      <p className="font-semibold text-ink-700">الصفوف المعروضة</p>
+      <p className="mt-1 font-numeric tnum" dir="ltr">
+        {safeStart.toLocaleString('en-US')} - {end.toLocaleString('en-US')} / {total.toLocaleString('en-US')}
+      </p>
+      {total !== all && (
+        <p className="mt-1 text-ink-400">
+          من أصل <span dir="ltr">{all.toLocaleString('en-US')}</span>
+        </p>
+      )}
     </div>
   );
 }
