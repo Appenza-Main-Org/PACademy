@@ -31,8 +31,8 @@ public sealed class DataExchangeServiceTests
         public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
 
-    private static Task SeedOperationalAsync(AdminDbContext db, string module, string id, string payloadJson)
-        => new OperationalRecordStore(db).UpsertAsync(module, id, JsonNode.Parse(payloadJson)!.AsObject(), default);
+    private static Task SeedOperationalAsync(AdminDbContext db, string module, string id, string payloadJson, CancellationToken ct = default)
+        => new OperationalRecordStore(db).UpsertAsync(module, id, JsonNode.Parse(payloadJson)!.AsObject(), ct);
 
     private static async Task SeedCycleAsync(AdminDbContext db, string id, bool isActive)
     {
@@ -893,6 +893,61 @@ public sealed class DataExchangeServiceTests
         var schedule = Assert.IsType<JsonObject>(Assert.Single(schedules));
         Assert.Equal("TST-01", schedule["examId"]?.ToString());
         Assert.Equal("2026-06-14", schedule["date"]?.ToString());
+    }
+
+    [Fact]
+    public async Task Applicants_import_replays_exam_sync_when_row_is_skipped()
+    {
+        var (svc, db) = Create();
+        var ct = TestContext.Current.CancellationToken;
+        db.LookupRows.Add(new LookupRowEntity
+        {
+            LookupKey = "test-results", Code = "RES-01", Name = "ناجح", IsActive = true,
+            PayloadJson = """{"code":"RES-01","name":"ناجح","outcome":"pass"}""",
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync(ct);
+        await SeedOperationalAsync(db, "applicants", "30301011234571",
+            """
+            {
+              "id":"30301011234571",
+              "nationalId":"30301011234571",
+              "name":"عمار كمال فتحي الجيزاوي",
+              "status":"Pending",
+              "examSlot":{"slotId":"TST-01","date":"2026-06-14"},
+              "firstExamDate":"2026-06-14"
+            }
+            """,
+            ct);
+
+        var export = await svc.ExportAsync([ExchangeDomain.Applicants], "single-workbook", ExportFilter.Default, ct);
+        var applicants = AsImportRows(export.Sheets.Single());
+        var results = new List<Dictionary<string, string?>>
+        {
+            new(StringComparer.Ordinal)
+            {
+                ["id"] = "30301011234571|TST-01",
+                ["business_key"] = "30301011234571|TST-01",
+                ["applicantNationalId"] = "30301011234571",
+                ["examCode"] = "TST-01",
+                ["result"] = "RES-01",
+            },
+        };
+
+        var apply = await svc.ApplyAsync(
+            new ImportApplyRequest([new("Applicants", applicants), new("ExamResults", results)], "new-and-changed", false, false),
+            ct);
+
+        Assert.Equal(0, apply.FailedCount);
+        Assert.Equal(1, apply.SkippedCount);
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new DbAuditSink(db), new OperationalRecordStore(db));
+        var applicant = await records.GetAsync("applicants", "30301011234571", ct);
+        var schedules = Assert.IsType<JsonArray>(applicant!["testSchedules"]);
+        var schedule = Assert.IsType<JsonObject>(Assert.Single(schedules));
+        Assert.Equal("TST-01", schedule["examId"]?.ToString());
+        Assert.Equal("2026-06-14", schedule["date"]?.ToString());
+        var followUp = Assert.IsType<JsonObject>(applicant["followUp"]);
+        Assert.Equal("passed", followUp["TST-01"]?.ToString());
     }
 
     [Fact]
