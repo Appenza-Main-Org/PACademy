@@ -36,6 +36,7 @@ import {
   Card,
   DataTable,
   EmptyState,
+  IconStamp,
   PageHeader,
   SoftDeleteDialog,
   toast,
@@ -236,13 +237,19 @@ export function CyclesPage(): JSX.Element {
       getSortValue: (c) => c.nameAr,
       filter: { kind: 'text', getValue: (c) => c.nameAr },
       render: (c) => (
-        <div className="min-w-[11rem]">
+        <div className="flex min-w-[11rem] flex-wrap items-center gap-2">
           <Link
             to={ROUTES.admin.cycleDetail(c.id)}
             className="font-ar text-sm font-semibold text-teal-700 hover:underline"
           >
             {c.nameAr}
           </Link>
+          {activeCycle?.id === c.id && (
+            <Badge tone="success">
+              <IconStamp width={12} height={12} className="me-1 inline-block" />
+              الدورة النشطة
+            </Badge>
+          )}
         </div>
       ),
     },
@@ -424,6 +431,7 @@ export function CyclesPage(): JSX.Element {
             data={sortedCycles}
             columns={columns}
             rowKey={(c) => c.id}
+            highlightedRowKeys={activeCycle ? [activeCycle.id] : []}
             loading={isLoading}
             empty={<EmptyState variant="generic" title="لا توجد دورات حالياً" />}
             density="compact"

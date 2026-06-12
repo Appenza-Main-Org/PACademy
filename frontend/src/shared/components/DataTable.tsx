@@ -20,6 +20,9 @@
  *  - Header bg --surface-sunken, 11px tracking-wide uppercase ink-500.
  *  - Rows alternating with --ink-50 if zebra; hover bg --teal-50 if interactive.
  *  - Selected row: 3px start-edge in accent + bg accent-50.
+ *  - Highlighted row (`highlightedRowKeys`): same accent treatment without
+ *    entering selection state — for "the one row that matters" (e.g. the
+ *    published cycle on /admin/cycles).
  *  - Numeric cells use font-numeric tnum, end-aligned.
  *  - Cell padding 12/16, 8/12 compact, 16/20 comfortable.
  *
@@ -113,6 +116,11 @@ interface DataTableProps<TRow> {
   selectedRowKeys?: readonly (string | number)[];
   onSelectionChange?: (keys: (string | number)[]) => void;
 
+  /** Rows rendered with the persistent accent treatment (accent-50 wash +
+   *  3px start-edge rail) without entering selection state. Use for the
+   *  single row that matters on the page — e.g. the published cycle. */
+  highlightedRowKeys?: readonly (string | number)[];
+
   sort?: DataTableSort<TRow> | null;
   onSortChange?: (next: DataTableSort<TRow> | null) => void;
   /** Controlled per-column filter values keyed by column `key`. Omit for
@@ -159,6 +167,7 @@ export function DataTable<TRow>({
   selectionMode = 'none',
   selectedRowKeys = [],
   onSelectionChange,
+  highlightedRowKeys = [],
   sort,
   onSortChange,
   columnFilters,
@@ -240,6 +249,7 @@ export function DataTable<TRow>({
     : 0;
 
   const selectedSet = useMemo(() => new Set(selectedRowKeys), [selectedRowKeys]);
+  const highlightedSet = useMemo(() => new Set(highlightedRowKeys), [highlightedRowKeys]);
 
   const allKeys = useMemo(
     () => processed.map((row, i) => rowKey?.(row, i) ?? i),
@@ -441,6 +451,7 @@ export function DataTable<TRow>({
                 processed.map((row, i) => {
                   const key = rowKey?.(row, i) ?? i;
                   const isSelected = selectedSet.has(key);
+                  const isHighlighted = highlightedSet.has(key);
                   const interactive = Boolean(onRowClick) || selectionMode !== 'none';
                   const isDeletedRow = Boolean(listActions?.deleted?.isDeleted(row));
                   return (
@@ -454,12 +465,13 @@ export function DataTable<TRow>({
                         zebraStripes && i % 2 === 1 && 'bg-ink-50',
                         interactive && 'hover:bg-teal-50',
                         isDeletedRow && 'bg-warning-bg/70 text-ink-600 hover:bg-warning-bg',
-                        isSelected && 'bg-accent-50 hover:bg-accent-50',
+                        (isSelected || isHighlighted) && 'bg-accent-50 hover:bg-accent-50',
                       )}
                       style={
-                        isSelected
+                        isSelected || isHighlighted
                           ? {
-                              boxShadow: 'inset 3px 0 0 var(--accent-500)',
+                              /* negative x = start edge under dir="rtl" */
+                              boxShadow: 'inset -3px 0 0 var(--accent-500)',
                             }
                           : undefined
                       }
