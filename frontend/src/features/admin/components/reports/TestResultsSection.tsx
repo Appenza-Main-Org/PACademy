@@ -4,7 +4,7 @@
  */
 
 import { Activity, Brain, Stethoscope, TestTube, TrendingDown, TrendingUp, UserCheck, type LucideIcon } from 'lucide-react';
-import { Card, CardBody, CardHeader } from '@/shared/components';
+import { Card, CardBody, CardHeader, EmptyState } from '@/shared/components';
 import { HeatmapChart, HeatmapLegend } from '@/shared/components/charts';
 import { num } from '@/shared/lib/format';
 import type { TestKindForReport, TestKindResult, TestResultsReport } from '@/shared/types/domain';
@@ -45,28 +45,40 @@ export function TestResultsSection({ report }: TestResultsSectionProps): JSX.Ele
           </div>
         }
       />
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        {report.byKind.map((k) => (
-          <TestKindTile key={k.kind} result={k} />
-        ))}
-      </div>
-
-      <Card className="mt-5">
-        <CardHeader
-          title="معدل النجاح حسب المحافظة × نوع الاختبار"
-          subtitle="أعلى ٨ محافظات حسب عدد المتقدمين"
-          actions={<HeatmapLegend scale="pass-rate" />}
-        />
-        <CardBody>
-          <HeatmapChart
-            rows={report.governorateHeatmap.governorates}
-            cols={report.governorateHeatmap.kinds.map((k) => labelFor(k))}
-            data={report.governorateHeatmap.passRates}
-            colorScale="pass-rate"
-            formatCell={(v) => `${Math.round(v)}%`}
+      {report.byKind.length === 0 ? (
+        <Card>
+          <EmptyState
+            variant="generic"
+            title="لا توجد نتائج اختبارات مسجلة بعد"
+            description="تظهر هذه اللوحة فور تسجيل نتائج الاختبارات للمتقدمين في الدورة النشطة."
           />
-        </CardBody>
-      </Card>
+        </Card>
+      ) : (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            {report.byKind.map((k) => (
+              <TestKindTile key={k.kind} result={k} />
+            ))}
+          </div>
+
+          <Card className="mt-5">
+            <CardHeader
+              title="معدل النجاح حسب المحافظة × نوع الاختبار"
+              subtitle="أعلى ٨ محافظات حسب عدد المتقدمين"
+              actions={<HeatmapLegend scale="pass-rate" />}
+            />
+            <CardBody>
+              <HeatmapChart
+                rows={report.governorateHeatmap.governorates}
+                cols={report.governorateHeatmap.kinds.map((k) => labelFor(k))}
+                data={report.governorateHeatmap.passRates}
+                colorScale="pass-rate"
+                formatCell={(v) => `${Math.round(v)}%`}
+              />
+            </CardBody>
+          </Card>
+        </>
+      )}
     </section>
   );
 }

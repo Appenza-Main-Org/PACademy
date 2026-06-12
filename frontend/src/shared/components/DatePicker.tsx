@@ -192,7 +192,8 @@ export function DatePicker({
           disabled={disabled}
           onClick={() => setOpen((prev) => !prev)}
           className={cn(
-            'flex w-full items-center justify-between rounded-md border bg-surface-card px-3 text-start text-sm transition-colors duration-fast ease-standard',
+            /* border-solid: base.css resets button borders to none. */
+            'flex w-full items-center justify-between rounded-md border border-solid bg-surface-card px-3 text-start text-sm transition-colors duration-fast ease-standard',
             'h-9',
             error ? 'border-terra-500' : 'border-ink-200 hover:border-ink-300',
             'focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none',

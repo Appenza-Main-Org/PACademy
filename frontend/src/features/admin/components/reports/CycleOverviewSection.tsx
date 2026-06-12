@@ -41,7 +41,8 @@ export function CycleOverviewSection({ snapshot, range }: CycleOverviewSectionPr
   const window = RANGE_WINDOW_DAYS[range];
   const tempoThis = sliceTail(snapshot.registrationTempo.thisCycle, window);
   const tempoPrev = sliceTail(snapshot.registrationTempo.prevCycle, window);
-  const showCompareLine = range === 'compare' || range === 'cycle';
+  const hasPrevCycle = snapshot.registrationTempo.prevCycle.length > 0;
+  const showCompareLine = (range === 'compare' || range === 'cycle') && hasPrevCycle;
 
   const thisTotal = tempoThis.reduce((s, p) => s + p.value, 0);
   const prevTotal = tempoPrev.reduce((s, p) => s + p.value, 0);
@@ -69,14 +70,16 @@ export function CycleOverviewSection({ snapshot, range }: CycleOverviewSectionPr
             title="إيقاع التقديم اليومي"
             subtitle={RANGE_SUBTITLE[range]}
             actions={
-              <span className="inline-flex items-center gap-1 text-xs">
-                <TrendIcon size={12} strokeWidth={2} className={positive ? 'text-success' : 'text-terra-700'} />
-                <span className={positive ? 'text-success' : 'text-terra-700'}>
-                  {positive ? '+' : ''}
-                  {windowDelta}%
+              hasPrevCycle ? (
+                <span className="inline-flex items-center gap-1 text-xs">
+                  <TrendIcon size={12} strokeWidth={2} className={positive ? 'text-success' : 'text-terra-700'} />
+                  <span className={positive ? 'text-success' : 'text-terra-700'}>
+                    {positive ? '+' : ''}
+                    {windowDelta}%
+                  </span>
+                  <span className="text-ink-500">مقارنةً بالعام الماضي</span>
                 </span>
-                <span className="text-ink-500">مقارنةً بالعام الماضي</span>
-              </span>
+              ) : undefined
             }
           />
           <CardBody>
@@ -102,20 +105,22 @@ export function CycleOverviewSection({ snapshot, range }: CycleOverviewSectionPr
             <p className="mt-2 text-xs text-ink-500">
               {num(snapshot.finalApproved)} من إجمالي {num(snapshot.totalApplicants)} متقدم
             </p>
-            <div className="mt-3 inline-flex items-center gap-1 text-2xs text-ink-500">
-              <span>الدورة السابقة:</span>
-              <span className="font-numeric tnum text-ink-700">{snapshot.prevCycleAcceptanceRate}%</span>
-              <span
-                className={
-                  snapshot.acceptanceRate - snapshot.prevCycleAcceptanceRate >= 0
-                    ? 'text-success'
-                    : 'text-terra-700'
-                }
-              >
-                ({snapshot.acceptanceRate - snapshot.prevCycleAcceptanceRate >= 0 ? '+' : ''}
-                {Math.round((snapshot.acceptanceRate - snapshot.prevCycleAcceptanceRate) * 10) / 10}pp)
-              </span>
-            </div>
+            {hasPrevCycle && (
+              <div className="mt-3 inline-flex items-center gap-1 text-2xs text-ink-500">
+                <span>الدورة السابقة:</span>
+                <span className="font-numeric tnum text-ink-700">{snapshot.prevCycleAcceptanceRate}%</span>
+                <span
+                  className={
+                    snapshot.acceptanceRate - snapshot.prevCycleAcceptanceRate >= 0
+                      ? 'text-success'
+                      : 'text-terra-700'
+                  }
+                >
+                  ({snapshot.acceptanceRate - snapshot.prevCycleAcceptanceRate >= 0 ? '+' : ''}
+                  {Math.round((snapshot.acceptanceRate - snapshot.prevCycleAcceptanceRate) * 10) / 10}pp)
+                </span>
+              </div>
+            )}
             {capacity > 0 && (
               <>
                 <div className="mt-4 flex items-end justify-between text-2xs text-ink-500">
