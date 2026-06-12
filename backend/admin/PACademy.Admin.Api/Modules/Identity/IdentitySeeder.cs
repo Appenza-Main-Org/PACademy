@@ -74,13 +74,27 @@ public sealed class IdentitySeeder(IWebHostEnvironment environment, ILogger<Iden
             var obj = JsonNode.Parse(user.GetRawText())!.AsObject();
             var nationalId = IdentityJson.StringProp(obj, "nationalId")!;
             if (nationalId != BootstrapAdminNationalId) continue;
-            /* Bootstrap MOI credentials so the super admin can sign in through the
-             * simulated MOI flow (username + password). Documented default. */
-            obj["username"] = "superadmin";
-            obj["passwordHash"] = IdentityCredentials.HashPassword("Admin@12345");
-            obj["passwordUpdatedAt"] = now;
-            obj["mustChangePassword"] = false;
             var existingUser = await db.Users.FirstOrDefaultAsync(x => x.NationalId == nationalId, ct);
+            if (existingUser is not null
+                && IdentityJson.StringProp(IdentityJson.Parse(existingUser.PayloadJson), "passwordHash") is { Length: > 0 } liveHash)
+            {
+                /* The account already holds live credentials — carry them over so a
+                 * reseed never reverts a rotated password to the bootstrap default. */
+                var live = IdentityJson.Parse(existingUser.PayloadJson);
+                obj["username"] = IdentityJson.StringProp(live, "username") ?? "superadmin";
+                obj["passwordHash"] = liveHash;
+                obj["passwordUpdatedAt"] = live["passwordUpdatedAt"]?.DeepClone();
+                obj["mustChangePassword"] = IdentityJson.BoolProp(live, "mustChangePassword") ?? false;
+            }
+            else
+            {
+                /* Bootstrap MOI credentials so the super admin can sign in through the
+                 * simulated MOI flow (username + password). Documented default. */
+                obj["username"] = "superadmin";
+                obj["passwordHash"] = IdentityCredentials.HashPassword("Admin@12345");
+                obj["passwordUpdatedAt"] = now;
+                obj["mustChangePassword"] = false;
+            }
             if (existingUser is null)
             {
                 db.Users.Add(new UserEntity
