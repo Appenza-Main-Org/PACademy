@@ -472,7 +472,7 @@ function FamilySection({
         )}
       </header>
       {familyRows.length > 0 ? (
-        <div className="grid min-w-0 items-stretch gap-3 md:grid-cols-2">
+        <div className="grid min-w-0 items-stretch gap-3 md:auto-rows-fr md:grid-cols-2">
           {familyRows.map((row) => (
             <FamilyMemberPanel key={row.key} relation={row.relation} member={row.member} />
           ))}
