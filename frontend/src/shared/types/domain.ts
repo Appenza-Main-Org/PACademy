@@ -141,8 +141,16 @@ export interface ApplicantFamilyMember {
   alive: boolean;
   governorate?: string;
   education?: string;
-  /** Only used on the relatives array. */
+  /** Arabic relation label (الأب، الأم، العم، …) — stamped on every member by the backend projection. */
   relationshipId?: string;
+  religion?: string;
+  /** ISO yyyy-MM-dd as entered on the portal family step. */
+  dateOfBirth?: string;
+  birthGovernorate?: string;
+  residenceGovernorate?: string;
+  residenceDistrict?: string;
+  /** Detailed residence address (العنوان). */
+  address?: string;
 }
 
 export interface ApplicantFamily {
