@@ -266,27 +266,42 @@ export function ApplicantDetailPage(): JSX.Element {
             <RelativesView family={applicant.family} />
           </SectionCard>
 
-          {/* Status & Investigation snapshot */}
+          {/* Payment summary (workflow status kept on the card per issue spec;
+              document tracking lives in its own sections elsewhere) */}
           <Card>
-            <CardHeader title="الحالة الحالية" />
+            <CardHeader title="بيانات الدفع" />
             <CardBody>
               <div className="grid gap-3 md:grid-cols-2">
                 <DefRow label="الحالة" value={<StatusBadge status={applicant.status} />} />
-                <DefRow label="الدفع" value={<PaymentBadge status={applicant.paymentStatus} />} />
+                <DefRow label="حالة السداد" value={<PaymentBadge status={applicant.paymentStatus} />} />
                 <DefRow
-                  label="الرسوم"
-                  value={<span className="font-mono">{num(applicant.paymentAmount)} ج.م</span>}
-                />
-                <DefRow
-                  label="المستندات"
+                  label="قيمة الرسوم"
                   value={
-                    applicant.hasDocuments ? (
-                      <Badge tone="success">مكتملة</Badge>
+                    (applicant.payment?.amount ?? applicant.paymentAmount) != null ? (
+                      <span className="font-mono">
+                        {num(applicant.payment?.amount ?? applicant.paymentAmount)} ج.م
+                      </span>
                     ) : (
-                      <Badge tone="warning">ناقصة</Badge>
+                      '—'
                     )
                   }
                 />
+                {applicant.payment?.paidAt != null && (
+                  <DefRow
+                    label="تاريخ السداد"
+                    value={fmtDate(applicant.payment.paidAt, 'short')}
+                  />
+                )}
+                {applicant.payment?.refNumber && (
+                  <DefRow
+                    label="رقم العملية / رقم الإيصال"
+                    value={
+                      <span className="font-mono" dir="ltr">
+                        {applicant.payment.refNumber}
+                      </span>
+                    }
+                  />
+                )}
               </div>
             </CardBody>
           </Card>
