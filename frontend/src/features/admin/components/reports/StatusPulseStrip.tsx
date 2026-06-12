@@ -1,10 +1,11 @@
 /**
  * StatusPulseStrip — top of /admin/reports.
- * Five inline tiles separated by vertical dividers. Reads from
- * CycleSnapshot + IntegrationStatus[] and gives the page its live pulse.
+ * Five hero KPI tiles on sunken surfaces. Reads from CycleSnapshot +
+ * IntegrationStatus[] and gives the page its live pulse — the numbers
+ * here are the largest on the page by design (command-center scale).
  */
 
-import { Activity, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Activity, AlertTriangle, CalendarClock, CheckCircle2, Stamp, Users } from 'lucide-react';
 import { date as fmtDate, num } from '@/shared/lib/format';
 import { Card, LogoMark } from '@/shared/components';
 import type { CycleSnapshot, IntegrationStatus } from '@/shared/types/domain';
@@ -47,44 +48,51 @@ export function StatusPulseStrip({ snapshot, integrations }: StatusPulseStripPro
           آخر قراءة {generatedTime}
         </span>
       </div>
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-4 md:grid-cols-5 md:gap-x-6">
+      <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <Tile
           label="الدورة النشطة"
-          value={snapshot.cycleLabelAr}
-          icon={<LogoMark size={22} />}
+          icon={<LogoMark size={20} />}
+          value={
+            <span className="font-ar-display text-xl font-bold leading-snug text-ink-900">
+              {snapshot.cycleLabelAr}
+            </span>
+          }
         />
         <Tile
           label="الأيام المتبقية للإغلاق"
+          icon={<CalendarClock size={16} strokeWidth={1.75} />}
           value={
-            <span className={daysTone}>
-              {num(snapshot.daysRemaining)} <span className="text-xs font-normal text-ink-500">يوم</span>
+            <span className={`font-numeric tnum text-3xl font-bold leading-none ${daysTone}`}>
+              {num(snapshot.daysRemaining)}
+              <span className="ms-1 font-ar text-xs font-normal text-ink-500">يوم</span>
             </span>
           }
-          divider
         />
         <Tile
           label="إجمالي المتقدمين"
-          value={num(snapshot.totalApplicants)}
-          divider
+          icon={<Users size={16} strokeWidth={1.75} />}
+          value={
+            <span className="font-numeric tnum text-3xl font-bold leading-none text-ink-900">
+              {num(snapshot.totalApplicants)}
+            </span>
+          }
         />
         <Tile
           label="المعتمدون نهائياً"
+          icon={<Stamp size={16} strokeWidth={1.75} />}
           value={
-            <span>
+            <span className="font-numeric tnum text-3xl font-bold leading-none text-ink-900">
               {num(snapshot.finalApproved)}
-              <span className="ms-2 text-xs font-normal text-ink-500">
-                ({snapshot.acceptanceRate}%)
-              </span>
+              <span className="ms-1 text-xs font-normal text-ink-500">({snapshot.acceptanceRate}%)</span>
             </span>
           }
-          divider
         />
         <Tile
           label="حالة التكامل"
+          icon={<Activity size={16} strokeWidth={1.75} />}
           value={
-            <span className="flex items-center gap-2">
-              <Activity size={14} strokeWidth={1.75} aria-hidden className="text-ink-500" />
-              <span className="text-md">
+            <span className="flex items-baseline gap-2">
+              <span className="font-numeric tnum text-3xl font-bold leading-none text-ink-900">
                 {snapshot.integrationsHealthy}/{snapshot.integrationsTotal}
               </span>
               <span className="flex items-center gap-1">
@@ -99,7 +107,6 @@ export function StatusPulseStrip({ snapshot, integrations }: StatusPulseStripPro
               </span>
             </span>
           }
-          divider
         />
       </dl>
     </Card>
@@ -110,23 +117,24 @@ interface TileProps {
   label: string;
   value: React.ReactNode;
   icon?: React.ReactNode;
-  divider?: boolean;
 }
 
-function Tile({ label, value, icon, divider }: TileProps): JSX.Element {
+function Tile({ label, value, icon }: TileProps): JSX.Element {
   return (
-    <div
-      className={
-        divider
-          ? 'border-t border-border-subtle pt-4 md:border-t-0 md:border-s md:ps-6 md:pt-0'
-          : ''
-      }
-    >
-      <dt className="flex items-center gap-2 text-2xs uppercase tracking-wide text-ink-500">
-        {icon}
+    <div className="flex min-h-12 flex-col justify-between rounded-lg border border-border-subtle bg-ink-50 px-4 py-3">
+      <dt className="flex items-center gap-2 text-2xs text-ink-500">
+        {icon && (
+          <span
+            aria-hidden
+            className="inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-surface-card"
+            style={{ color: 'var(--accent-600)' }}
+          >
+            {icon}
+          </span>
+        )}
         <span>{label}</span>
       </dt>
-      <dd className="mt-1 font-ar-display text-md font-bold text-ink-900">{value}</dd>
+      <dd className="m-0 mt-2">{value}</dd>
     </div>
   );
 }

@@ -208,7 +208,8 @@ export function DateRangePicker({
         aria-haspopup="dialog"
         aria-expanded={open}
         className={cn(
-          'flex h-9 w-full items-center justify-between rounded-md border bg-surface-card px-3 text-start text-sm transition-colors duration-fast ease-standard',
+          /* border-solid: base.css resets button borders to none. */
+          'flex h-9 w-full items-center justify-between rounded-md border border-solid bg-surface-card px-3 text-start text-sm transition-colors duration-fast ease-standard',
           error ? 'border-terra-500' : 'border-ink-200 hover:border-ink-300',
           'focus-visible:border-teal-500 focus-visible:shadow-focus-teal focus-visible:outline-none',
           disabled && 'cursor-not-allowed opacity-60',

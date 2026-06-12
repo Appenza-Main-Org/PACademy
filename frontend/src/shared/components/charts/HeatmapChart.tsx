@@ -90,18 +90,21 @@ export function HeatmapChart({
 
   const max = Math.max(0, ...data.flatMap((row) => row.slice()));
   const labelColMin = 96;
-  const gridTemplateColumns = `minmax(${labelColMin}px, max-content) repeat(${cols.length}, ${cellSize}px)`;
+  /* Cells stretch up to ~2× their base size so the matrix fills wide
+   * cards instead of huddling at the start edge; below the minimum the
+   * wrapper scrolls horizontally. */
+  const gridTemplateColumns = `minmax(${labelColMin}px, max-content) repeat(${cols.length}, minmax(${cellSize}px, ${cellSize * 2}px))`;
 
   return (
     <div className="overflow-x-auto" role="img" aria-label={ariaLabel}>
-      <div className="inline-grid gap-1" style={{ gridTemplateColumns }}>
+      <div className="mx-auto grid w-full max-w-3xl justify-center gap-1" style={{ gridTemplateColumns }}>
         {/* Header row: blank corner + col labels */}
         <span aria-hidden />
         {cols.map((label, c) => (
           <span
             key={`col-${c}`}
             className="pb-2 text-center text-xs font-medium text-ink-700"
-            style={{ width: cellSize }}
+            style={{ minWidth: cellSize }}
           >
             {label}
           </span>
@@ -150,7 +153,7 @@ function RowFragment({ label, cellSize, cells, cols, colorScale, max, fmt }: Row
           title={`${label} · ${cols[c]} · ${fmt(value)}`}
           className="flex items-center justify-center rounded-md font-numeric tnum text-sm font-semibold"
           style={{
-            width: cellSize,
+            minWidth: cellSize,
             height: cellSize,
             background: colorFor(value, colorScale, max),
             color: textColorFor(value, colorScale, max),
