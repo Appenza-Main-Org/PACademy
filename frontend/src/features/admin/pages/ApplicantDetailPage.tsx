@@ -40,6 +40,7 @@ import {
 import { useCycle } from '@/features/admin/api/cycles.queries';
 import { useAuthStore } from '@/features/auth';
 import { date as fmtDate, num, year as fmtYear } from '@/shared/lib/format';
+import { EGYPTIAN_GOVERNORATE_CODES } from '@/shared/lib/national-id';
 import { ROUTES } from '@/config/routes';
 import {
   APPLICANT_CATEGORY_KEYS,
@@ -262,7 +263,7 @@ export function ApplicantDetailPage(): JSX.Element {
 
           {/* §7 Relatives */}
           <SectionCard id="section-relatives" title={SECTION_LABELS.relatives}>
-            <RelativesView family={applicant.family} fallbackCount={applicant.relativesCount} />
+            <RelativesView family={applicant.family} />
           </SectionCard>
 
           {/* Status & Investigation snapshot */}
@@ -902,41 +903,131 @@ function FamilyMembersList({
   );
 }
 
-function RelativesView({
-  family,
-  fallbackCount,
-}: {
-  family: Applicant['family'];
-  fallbackCount: number;
-}): JSX.Element {
-  const relatives = family?.relatives ?? [];
-  if (relatives.length === 0) {
-    return (
-      <DefRow
-        label="عدد الأقارب"
-        value={`${num(fallbackCount)} قريب (لم تُسجَّل بيانات تفصيلية بعد)`}
-        wide
-      />
-    );
+interface RelativeTableRow {
+  key: string;
+  relation: string;
+  member: ApplicantFamilyMember;
+}
+
+/** Flatten every family member (parents, wives/husbands, grandparents,
+ *  siblings, extended relatives, guardian) into relation-labelled rows —
+ *  data-driven, no member-specific conditionals. */
+function flattenFamilyForRelativesTable(family: Applicant['family']): RelativeTableRow[] {
+  if (!family) return [];
+  const rows: RelativeTableRow[] = [];
+  const push = (key: string, relation: string, member: ApplicantFamilyMember | undefined): void => {
+    if (!member?.fullName) return;
+    rows.push({ key, relation: member.relationshipId ?? relation, member });
+  };
+  push('father', 'الأب', family.father);
+  push('mother', 'الأم', family.mother);
+  family.fatherWives?.forEach((m, i) => push(`father-wife-${i}`, 'زوجة الأب', m));
+  family.motherHusbands?.forEach((m, i) => push(`mother-husband-${i}`, 'زوج الأم', m));
+  push('paternal-grandfather', 'الجد لأب', family.paternalGrandfather);
+  push('paternal-grandmother', 'الجدة لأب', family.paternalGrandmother);
+  push('maternal-grandfather', 'الجد لأم', family.maternalGrandfather);
+  push('maternal-grandmother', 'الجدة لأم', family.maternalGrandmother);
+  family.siblings?.forEach((m, i) => push(`sibling-${i}`, 'شقيق', m));
+  family.relatives?.forEach((m, i) => push(`relative-${i}`, 'قريب', m));
+  push('guardian', 'ولي الأمر', family.guardian);
+  return rows;
+}
+
+/** Resolve a zero-padded NID governorate code to its Arabic label
+ *  (27 governorates + the «88 / خارج الجمهورية» sentinel). Values that
+ *  are already labels pass through verbatim. */
+function governorateDisplay(value: string | undefined): string {
+  const trimmed = value?.trim() ?? '';
+  if (!trimmed) return '—';
+  if (!/^\d{2}$/.test(trimmed)) return trimmed;
+  if (trimmed === '88') return 'خارج الجمهورية';
+  const match = EGYPTIAN_GOVERNORATE_CODES.find((g) => g.code === trimmed);
+  return match ? `محافظة ${match.labelAr}` : trimmed;
+}
+
+function birthDateDisplay(value: string | undefined): string {
+  if (!value) return '—';
+  return Number.isNaN(Date.parse(value)) ? value : fmtDate(value, 'short');
+}
+
+const RELATIVE_TABLE_HEADERS = [
+  'صلة القرابة',
+  'الاسم',
+  'الرقم القومي',
+  'المؤهل',
+  'الوظيفة',
+  'تاريخ الميلاد',
+  'محافظة الميلاد',
+  'محافظة الإقامة',
+  'مركز الإقامة',
+  'العنوان',
+  'الديانة',
+  'على قيد الحياة',
+] as const;
+
+function RelativesView({ family }: { family: Applicant['family'] }): JSX.Element {
+  const rows = flattenFamilyForRelativesTable(family);
+  if (rows.length === 0) {
+    return <DefRow label="عدد الأقارب" value="لا توجد بيانات أقارب مسجّلة بعد" wide />;
   }
   return (
     <>
       <DefRow
         label="إجمالي الأقارب"
-        value={<span className="font-mono">{num(relatives.length)}</span>}
+        value={<span className="font-mono">{num(rows.length)}</span>}
+        wide
       />
       <DefRow
         label="القائمة"
-        value={
-          <ul className="flex flex-col gap-1">
-            {relatives.map((r, i) => (
-              <li key={i} className="text-sm">
-                <FamilyMemberSummary member={r} />
-              </li>
-            ))}
-          </ul>
-        }
         wide
+        value={
+          <div className="min-w-0 overflow-x-auto rounded-md border border-border-subtle">
+            <table className="w-full min-w-[1080px] border-collapse text-xs">
+              <thead>
+                <tr className="bg-surface-page">
+                  {RELATIVE_TABLE_HEADERS.map((header) => (
+                    <th
+                      key={header}
+                      className="whitespace-nowrap border-b border-border-subtle px-3 py-2 text-start text-2xs font-bold uppercase tracking-wide text-ink-500"
+                    >
+                      {header}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(({ key, relation, member }) => (
+                  <tr key={key} className="border-b border-border-subtle align-top last:border-b-0">
+                    <td className="whitespace-nowrap px-3 py-2 font-medium text-ink-900">{relation}</td>
+                    <td className="min-w-44 break-words px-3 py-2">{member.fullName}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-start font-mono" dir="ltr">
+                      {member.nationalId || '—'}
+                    </td>
+                    <td className="break-words px-3 py-2">{displayValue(member.education)}</td>
+                    <td className="break-words px-3 py-2">{displayValue(member.occupation)}</td>
+                    <td className="whitespace-nowrap px-3 py-2 font-mono" dir="ltr">
+                      {birthDateDisplay(member.dateOfBirth)}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2">{governorateDisplay(member.birthGovernorate)}</td>
+                    <td className="whitespace-nowrap px-3 py-2">
+                      {governorateDisplay(member.residenceGovernorate ?? member.governorate)}
+                    </td>
+                    <td className="break-words px-3 py-2">{displayValue(member.residenceDistrict)}</td>
+                    <td className="break-words px-3 py-2">{displayValue(member.address)}</td>
+                    <td className="whitespace-nowrap px-3 py-2">{displayValue(member.religion)}</td>
+                    <td className="whitespace-nowrap px-3 py-2">
+                      {member.alive ? (
+                        <Badge tone="success">على قيد الحياة</Badge>
+                      ) : (
+                        <Badge tone="neutral">متوفى</Badge>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        }
       />
     </>
   );
