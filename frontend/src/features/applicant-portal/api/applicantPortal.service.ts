@@ -162,6 +162,11 @@ export interface AcquaintanceDocResponse {
   version?: number;
 }
 
+export type AcquaintanceDocSaveInput = Partial<VothiqaTaarufDocument> & {
+  /** Optimistic concurrency token returned by the backend document response. */
+  version?: number;
+};
+
 /** Admin-only portal follow-up snapshot for a single applicant, resolved by the admin
  *  route id (GUID / national id / admin record id). Served by the ADMIN API
  *  (GET /api/applicants/:id/follow-up) — the admin frontend is authenticated against the
@@ -588,7 +593,7 @@ export const applicantPortalService = {
 
   async saveAcquaintanceDoc(
     applicantId: string,
-    partial: Partial<VothiqaTaarufDocument>,
+    partial: AcquaintanceDocSaveInput,
   ): Promise<AcquaintanceDocResponse> {
     if (isBackendEnabled()) {
       return applicantApiClient.patch<AcquaintanceDocResponse>('/api/applicant/acquaintance-doc', partial);
