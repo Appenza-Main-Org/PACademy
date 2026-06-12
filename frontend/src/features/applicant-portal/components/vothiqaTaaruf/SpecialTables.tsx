@@ -9,6 +9,8 @@
  */
 
 import { Plus, Trash2 } from 'lucide-react';
+import { Button, Checkbox } from '@/shared/components';
+import { cn } from '@/shared/lib/cn';
 import type {
   CriminalCaseList,
   CriminalCaseRecord,
@@ -48,37 +50,39 @@ function PanelHeader({
   addLabel,
 }: SharedHeaderProps): JSX.Element {
   return (
-    <header className="mb-3 flex flex-wrap items-start justify-between gap-3 border-b border-border-subtle pb-3">
-      <div className="flex items-start gap-3">
-        <span className="inline-flex shrink-0 items-center rounded-md bg-teal-50 px-2 py-1 text-2xs font-bold text-teal-700">
+    <header className="mb-4 flex flex-wrap items-start justify-between gap-4 border-b border-border-subtle pb-4">
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="inline-flex shrink-0 items-center rounded-md bg-teal-50 px-3 py-1.5 text-xs font-bold text-teal-700">
           {formNumber}
         </span>
-        <div>
+        <div className="min-w-0">
           <h4 className="font-ar-display text-md font-bold text-ink-900">{title}</h4>
           {hint && <p className="mt-0.5 text-2xs text-ink-500 leading-relaxed">{hint}</p>}
         </div>
       </div>
-      <div className="flex items-center gap-2">
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border-default bg-surface-page px-3 py-1.5 text-2xs font-medium text-ink-700 hover:bg-ink-50">
-          <input
-            type="checkbox"
-            checked={none}
-            onChange={(e) => setNone(e.target.checked)}
-            disabled={readOnly}
-            className="h-3.5 w-3.5 accent-teal-600"
-          />
-          <span>لا يوجد</span>
-        </label>
+      <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:flex-row sm:items-center">
+        <Checkbox
+          checked={none}
+          onCheckedChange={(checked) => setNone(checked === true)}
+          disabled={readOnly}
+          label="لا يوجد"
+          className={cn(
+            'min-h-9 rounded-md border border-border-default bg-surface-page px-4 text-sm font-medium text-ink-800',
+            'transition-colors duration-fast ease-standard hover:border-border-strong hover:bg-ink-50',
+            readOnly && 'cursor-not-allowed opacity-60',
+          )}
+        />
         {!none && (
-          <button
+          <Button
             type="button"
+            variant="primary"
+            size="md"
             onClick={onAdd}
             disabled={readOnly}
-            className="inline-flex items-center gap-1.5 rounded-md bg-teal-500 px-3 py-1.5 text-2xs font-medium text-white shadow-sm hover:bg-teal-600 disabled:cursor-not-allowed disabled:bg-ink-300"
+            leadingIcon={<Plus size={16} strokeWidth={1.75} />}
           >
-            <Plus size={12} strokeWidth={2} />
             {addLabel}
-          </button>
+          </Button>
         )}
       </div>
     </header>
@@ -157,14 +161,17 @@ export function ForeignEmployedTable({
                   <td className="px-2"><input className={inputCls} value={row.residence} onChange={(e) => update(i, { residence: e.target.value })} disabled={readOnly} /></td>
                   <td className="px-2 py-1">
                     {!readOnly && (
-                      <button
+                      <Button
                         type="button"
+                        variant="secondary"
+                        size="icon"
                         aria-label="حذف"
                         onClick={() => remove(i)}
-                        className="rounded-md border border-terra-300 p-1 text-terra-700 hover:bg-terra-50"
+                        className="h-8 w-8 border-terra-300 text-terra-700 hover:border-terra-400 hover:bg-terra-50 focus-visible:shadow-focus-terra"
+                        leadingIcon={<Trash2 size={15} strokeWidth={1.75} />}
                       >
-                        <Trash2 size={12} strokeWidth={1.75} />
-                      </button>
+                        حذف
+                      </Button>
                     )}
                   </td>
                 </tr>
@@ -249,14 +256,17 @@ export function NaturalizedTable({
                   <td className="px-2"><input className={inputCls} value={row.residence} onChange={(e) => update(i, { residence: e.target.value })} disabled={readOnly} /></td>
                   <td className="px-2 py-1">
                     {!readOnly && (
-                      <button
+                      <Button
                         type="button"
+                        variant="secondary"
+                        size="icon"
                         aria-label="حذف"
                         onClick={() => remove(i)}
-                        className="rounded-md border border-terra-300 p-1 text-terra-700 hover:bg-terra-50"
+                        className="h-8 w-8 border-terra-300 text-terra-700 hover:border-terra-400 hover:bg-terra-50 focus-visible:shadow-focus-terra"
+                        leadingIcon={<Trash2 size={15} strokeWidth={1.75} />}
                       >
-                        <Trash2 size={12} strokeWidth={1.75} />
-                      </button>
+                        حذف
+                      </Button>
                     )}
                   </td>
                 </tr>
@@ -339,14 +349,17 @@ export function CriminalCasesTable({
                   <td className="px-2"><input className={inputCls} value={row.executedSentences} onChange={(e) => update(i, { executedSentences: e.target.value })} disabled={readOnly} /></td>
                   <td className="px-2 py-1">
                     {!readOnly && (
-                      <button
+                      <Button
                         type="button"
+                        variant="secondary"
+                        size="icon"
                         aria-label="حذف"
                         onClick={() => remove(i)}
-                        className="rounded-md border border-terra-300 p-1 text-terra-700 hover:bg-terra-50"
+                        className="h-8 w-8 border-terra-300 text-terra-700 hover:border-terra-400 hover:bg-terra-50 focus-visible:shadow-focus-terra"
+                        leadingIcon={<Trash2 size={15} strokeWidth={1.75} />}
                       >
-                        <Trash2 size={12} strokeWidth={1.75} />
-                      </button>
+                        حذف
+                      </Button>
                     )}
                   </td>
                 </tr>
