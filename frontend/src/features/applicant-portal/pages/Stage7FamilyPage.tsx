@@ -57,6 +57,7 @@ import {
   isMotherComplete,
   MEMBERSHIP_PROFESSIONS,
   PROFESSION_OPTIONS,
+  QUALIFICATION_OPTIONS,
   RELATIVE_LABEL,
   canApproveFamilySnapshot,
   saveFamilySnapshot,
@@ -90,19 +91,6 @@ type FamilyDraftPatch = Partial<Pick<
   FamilyDataSnapshot,
   'father' | 'mother' | 'fatherWives' | 'motherHusbands' | 'grandparents' | 'relatives' | 'guardian'
 >>;
-
-const QUALIFICATION_OPTIONS = [
-  { value: '', label: '— اختر —' },
-  { value: 'none', label: 'بدون مؤهل' },
-  { value: 'primary', label: 'ابتدائي' },
-  { value: 'preparatory', label: 'إعدادي' },
-  { value: 'secondary', label: 'ثانوي' },
-  { value: 'diploma', label: 'دبلوم' },
-  { value: 'bachelor', label: 'بكالوريوس / ليسانس' },
-  { value: 'masters', label: 'ماجستير' },
-  { value: 'phd', label: 'دكتوراه' },
-  { value: 'other', label: 'أخرى' },
-] as const;
 
 /* Tab keys — `view` was retired as the data-entry page's last tab and
  * moved into a dedicated wizard step (`/applicant/profile/family-review`)
