@@ -7,12 +7,12 @@
  * Until the ministry API is live the backend runs a simulated MOI gateway.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { ArrowLeft, Eye, EyeOff, Lock, ShieldCheck } from 'lucide-react';
-import { Button, Input, toast } from '@/shared/components';
+import { Button, Checkbox, Input, toast } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
 import { useLoginMutation } from '../api/auth.queries';
 import { ROLE_TILES, RoleSelector } from './RoleSelector';
@@ -27,6 +27,29 @@ const STAFF_LOGIN_ROLES = [
   'exams_admin',
   'admissions_system_admin',
 ] as const;
+
+/* «تذكرني» — remembers the username on this device after a successful login.
+ * The password itself is never stored by the app; it autofills from the
+ * browser's password manager (the form carries the `current-password`
+ * autocomplete contract for that). */
+const REMEMBERED_USERNAME_KEY = 'pa-login-remember:staff';
+
+function readRememberedUsername(): string {
+  try {
+    return localStorage.getItem(REMEMBERED_USERNAME_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function writeRememberedUsername(username: string | null): void {
+  try {
+    if (username) localStorage.setItem(REMEMBERED_USERNAME_KEY, username);
+    else localStorage.removeItem(REMEMBERED_USERNAME_KEY);
+  } catch {
+    /* storage unavailable — remembering is best-effort */
+  }
+}
 
 /** Resolve a tile's post-login landing route. `auto` defers to the user's
  *  default route; the app-specific landings mirror how Question Bank +
@@ -87,14 +110,23 @@ export function LoginForm(): JSX.Element {
     (location.state as { from?: unknown } | null)?.from,
   );
 
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm<LoginValues>({
+  const [rememberedUsername] = useState(readRememberedUsername);
+  const [shouldRemember, setShouldRemember] = useState(rememberedUsername !== '');
+
+  const { register, handleSubmit, setValue, setFocus, formState: { errors } } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: '',
+      username: rememberedUsername,
       password: '',
       role: 'super_admin',
     },
   });
+
+  /* Returning user with a remembered username: land focus on the password
+   * so the browser's password-manager autofill is one keystroke away. */
+  useEffect(() => {
+    if (rememberedUsername) setFocus('password');
+  }, [rememberedUsername, setFocus]);
 
   /* The selected *tile* (not just its role) drives the post-login landing,
    * so the barcode + biometric tiles can share the admissions_system_admin
@@ -109,6 +141,7 @@ export function LoginForm(): JSX.Element {
       role: values.role,
     }, {
       onSuccess: (user) => {
+        writeRememberedUsername(shouldRemember ? values.username : null);
         toast('تم تسجيل الدخول بنجاح', 'success');
         /* A stale protected-route return can outlive the previous session in
          * browser history. Only honor it when it matches the app tile the user
@@ -174,6 +207,12 @@ export function LoginForm(): JSX.Element {
         }
         {...register('password')}
         error={errors.password?.message}
+      />
+
+      <Checkbox
+        checked={shouldRemember}
+        onCheckedChange={(checked) => setShouldRemember(checked === true)}
+        label="تذكرني على هذا الجهاز"
       />
 
       <div className="flex flex-col gap-2">
