@@ -11,7 +11,7 @@ import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { ArrowLeft, Lock, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Lock, ShieldCheck } from 'lucide-react';
 import { Button, Input, toast } from '@/shared/components';
 import { zodResolver } from '@/shared/lib/zod-resolver';
 import { useLoginMutation } from '../api/auth.queries';
@@ -90,8 +90,8 @@ export function LoginForm(): JSX.Element {
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: 'superadmin',
-      password: 'Admin@12345',
+      username: '',
+      password: '',
       role: 'super_admin',
     },
   });
@@ -100,6 +100,7 @@ export function LoginForm(): JSX.Element {
    * so the barcode + biometric tiles can share the admissions_system_admin
    * role yet route to different apps. */
   const [selectedTile, setSelectedTile] = useState<RoleTile>(ROLE_TILES[0]!);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
   const onSubmit = async (values: LoginValues): Promise<void> => {
     loginMut.mutate({
@@ -150,12 +151,24 @@ export function LoginForm(): JSX.Element {
 
       <Input
         label="كلمة المرور"
-        type="password"
+        type={isPasswordVisible ? 'text' : 'password'}
         required
         dir="ltr"
         autoComplete="current-password"
         placeholder="••••••••"
         helper="كلمة المرور صادرة من إدارة المنظومة. يمكنك تغييرها بعد الدخول."
+        trailingAction={
+          <button
+            type="button"
+            onClick={() => setIsPasswordVisible((v) => !v)}
+            aria-label={isPasswordVisible ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+            className="flex h-6 w-6 items-center justify-center rounded text-ink-400 transition-colors duration-fast ease-standard hover:text-ink-700 focus-visible:outline-none focus-visible:shadow-focus-teal"
+          >
+            {isPasswordVisible
+              ? <EyeOff size={16} strokeWidth={1.75} aria-hidden />
+              : <Eye size={16} strokeWidth={1.75} aria-hidden />}
+          </button>
+        }
         {...register('password')}
         error={errors.password?.message}
       />
