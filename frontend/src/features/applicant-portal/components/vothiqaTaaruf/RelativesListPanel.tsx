@@ -8,12 +8,15 @@
  * group otherwise refuses to advance — enforced one level up).
  *
  * Each row collapses by default to its name + a small action strip;
- * clicking the row expands the inline editor. Rows are kept very
- * compact so a screen with many uncles + aunts is still scannable.
+ * clicking the row expands the inline editor. Multiple rows can stay
+ * open so adding a new relative never hides data the applicant was
+ * already editing.
  */
 
 import { useState, type ReactNode } from 'react';
 import { ChevronDown, Plus, Trash2 } from 'lucide-react';
+import { Button, Checkbox } from '@/shared/components';
+import { cn } from '@/shared/lib/cn';
 import type { AdultRelativeRecord, RelativeChildRecord, RelativeList } from '../../lib/vothiqaTaaruf.types';
 
 type RowRecord = AdultRelativeRecord | RelativeChildRecord;
@@ -53,23 +56,27 @@ export function RelativesListPanel<T extends RowRecord>({
   renderRow,
   readOnly,
 }: RelativesListPanelProps<T>): JSX.Element {
-  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [expandedIndices, setExpandedIndices] = useState<number[]>([]);
 
   const setNone = (next: boolean): void => {
     onChange({ none: next, items: next ? [] : value.items });
-    if (next) setExpandedIndex(null);
+    if (next) setExpandedIndices([]);
   };
 
   const addRow = (): void => {
     const next = [...value.items, emptyFactory()];
     onChange({ none: false, items: next });
-    setExpandedIndex(next.length - 1);
+    setExpandedIndices((current) => [...new Set([...current, next.length - 1])]);
   };
 
   const removeRow = (i: number): void => {
     const next = value.items.filter((_, idx) => idx !== i);
     onChange({ none: false, items: next });
-    if (expandedIndex === i) setExpandedIndex(null);
+    setExpandedIndices((current) =>
+      current
+        .filter((idx) => idx !== i)
+        .map((idx) => (idx > i ? idx - 1 : idx)),
+    );
   };
 
   const updateRow = (i: number, patch: Partial<T>): void => {
@@ -77,14 +84,22 @@ export function RelativesListPanel<T extends RowRecord>({
     onChange({ none: false, items: next });
   };
 
+  const toggleRow = (i: number): void => {
+    setExpandedIndices((current) =>
+      current.includes(i)
+        ? current.filter((idx) => idx !== i)
+        : [...current, i],
+    );
+  };
+
   return (
     <section className="rounded-lg border border-border-default bg-surface-card p-4 md:p-5">
-      <header className="mb-3 flex flex-wrap items-start justify-between gap-3 border-b border-border-subtle pb-3">
-        <div className="flex items-start gap-3">
-          <span className="inline-flex shrink-0 items-center rounded-md bg-teal-50 px-2 py-1 text-2xs font-bold text-teal-700">
+      <header className="mb-4 flex flex-wrap items-start justify-between gap-4 border-b border-border-subtle pb-4">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="inline-flex shrink-0 items-center rounded-md bg-teal-50 px-3 py-1.5 text-xs font-bold text-teal-700">
             {formNumber}
           </span>
-          <div>
+          <div className="min-w-0">
             <h4 className="font-ar-display text-md font-bold text-ink-900">{title}</h4>
             {hint && <p className="mt-0.5 text-2xs text-ink-500 leading-relaxed">{hint}</p>}
             {footnote && (
@@ -92,27 +107,29 @@ export function RelativesListPanel<T extends RowRecord>({
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border-default bg-surface-page px-3 py-1.5 text-2xs font-medium text-ink-700 hover:bg-ink-50">
-            <input
-              type="checkbox"
-              checked={value.none}
-              onChange={(e) => setNone(e.target.checked)}
-              disabled={readOnly}
-              className="h-3.5 w-3.5 accent-teal-600"
-            />
-            <span>لا يوجد</span>
-          </label>
+        <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:flex-row sm:items-center">
+          <Checkbox
+            checked={value.none}
+            onCheckedChange={(checked) => setNone(checked === true)}
+            disabled={readOnly}
+            label="لا يوجد"
+            className={cn(
+              'min-h-9 rounded-md border border-border-default bg-surface-page px-4 text-sm font-medium text-ink-800',
+              'transition-colors duration-fast ease-standard hover:border-border-strong hover:bg-ink-50',
+              readOnly && 'cursor-not-allowed opacity-60',
+            )}
+          />
           {!value.none && (
-            <button
+            <Button
               type="button"
+              variant="primary"
+              size="md"
               onClick={addRow}
               disabled={readOnly}
-              className="inline-flex items-center gap-1.5 rounded-md bg-teal-500 px-3 py-1.5 text-2xs font-medium text-white shadow-sm hover:bg-teal-600 disabled:cursor-not-allowed disabled:bg-ink-300"
+              leadingIcon={<Plus size={16} strokeWidth={1.75} />}
             >
-              <Plus size={12} strokeWidth={2} />
               إضافة {itemSingular}
-            </button>
+            </Button>
           )}
         </div>
       </header>
@@ -128,19 +145,19 @@ export function RelativesListPanel<T extends RowRecord>({
       ) : (
         <ul className="flex flex-col gap-2">
           {value.items.map((row, i) => {
-            const isExpanded = expandedIndex === i;
+            const isExpanded = expandedIndices.includes(i);
             const displayName =
               ('name' in row ? row.name : '').trim() || `${itemSingular} ${i + 1}`;
             return (
               <li key={i} className="rounded-md border border-border-subtle">
                 <button
                   type="button"
-                  onClick={() => setExpandedIndex(isExpanded ? null : i)}
-                  className="flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-start hover:bg-ink-50"
+                  onClick={() => toggleRow(i)}
+                  className="flex min-h-9 w-full items-center justify-between gap-3 rounded-md px-4 py-3 text-start transition-colors duration-fast ease-standard hover:bg-ink-50 focus-visible:outline-none focus-visible:shadow-[var(--ring)]"
                   aria-expanded={isExpanded}
                 >
                   <span className="flex items-center gap-3">
-                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-ink-100 text-2xs font-bold text-ink-700">
+                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-ink-100 text-xs font-bold text-ink-700">
                       {i + 1}
                     </span>
                     <span className="text-sm font-medium text-ink-800">{displayName}</span>
@@ -156,13 +173,16 @@ export function RelativesListPanel<T extends RowRecord>({
                     {renderRow(row, (patch) => updateRow(i, patch), i)}
                     {!readOnly && (
                       <div className="mt-3 flex justify-end">
-                        <button
+                        <Button
                           type="button"
+                          variant="secondary"
+                          size="md"
                           onClick={() => removeRow(i)}
-                          className="inline-flex items-center gap-1.5 rounded-md border border-terra-300 bg-surface-card px-3 py-1.5 text-2xs font-medium text-terra-700 hover:bg-terra-50"
+                          className="border-terra-300 text-terra-700 hover:border-terra-400 hover:bg-terra-50 focus-visible:shadow-focus-terra"
+                          leadingIcon={<Trash2 size={14} strokeWidth={1.75} />}
                         >
-                          <Trash2 size={12} strokeWidth={1.75} /> حذف هذا السجل
-                        </button>
+                          حذف هذا السجل
+                        </Button>
                       </div>
                     )}
                   </div>
