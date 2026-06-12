@@ -34,7 +34,8 @@ import {
   EMPTY_MEMBER,
   formatMemberName,
   loadFamilySnapshot,
-  professionLabel,
+  resolveProfessionDisplay,
+  resolveQualificationDisplay,
   type GrandparentsForm,
   type GuardianForm,
   type FamilyMemberForm,
@@ -643,32 +644,24 @@ function printGuardianName(guardian: GuardianForm): string {
     .join(' ');
 }
 
+/* المؤهل / الوظيفة resolve through the shared lookup resolvers so the
+ * printed card always shows the stored value's Arabic label — the
+ * free-text detail only surfaces for the «أخرى» sentinel, and unknown
+ * codes (imported rows already carrying labels) pass through verbatim. */
 function printProfession(member: FamilyMemberForm): string {
-  return selectedLabelOrFallback(member.profession, member.professionDetail);
+  return resolveProfessionDisplay(member.profession, member.professionDetail);
 }
 
 function printGuardianProfession(guardian: GuardianForm): string {
-  return selectedLabelOrFallback(guardian.profession, guardian.professionDetail);
+  return resolveProfessionDisplay(guardian.profession, guardian.professionDetail);
 }
 
 function printQualification(member: FamilyMemberForm): string {
-  return selectedOrFallback(member.qualification, member.qualificationDetail);
+  return resolveQualificationDisplay(member.qualification, member.qualificationDetail);
 }
 
 function printGuardianQualification(guardian: GuardianForm): string {
-  return selectedOrFallback(guardian.qualification, guardian.qualificationDetail);
-}
-
-function selectedLabelOrFallback(selectedValue: string, fallback?: string): string {
-  const raw = selectedOrFallback(selectedValue, fallback);
-  if (!raw) return '';
-  const label = professionLabel(raw);
-  return label === '—' ? raw : label;
-}
-
-function selectedOrFallback(selectedValue: string, fallback?: string): string {
-  const raw = selectedValue.trim();
-  return raw || fallback?.trim() || '';
+  return resolveQualificationDisplay(guardian.qualification, guardian.qualificationDetail);
 }
 
 function readString(record: Record<string, unknown>, key: string): string {

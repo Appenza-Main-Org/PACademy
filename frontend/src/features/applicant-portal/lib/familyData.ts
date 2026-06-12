@@ -44,9 +44,66 @@ export const PROFESSION_OPTIONS = [
   { value: 'other', label: 'أخرى' },
 ] as const;
 
+/** Canonical qualification lookup for family members — single source for
+ *  the Stage-7 form selects and every read-only renderer (summary cards,
+ *  review table, طلب الالتحاق print). */
+export const QUALIFICATION_OPTIONS = [
+  { value: '', label: '— اختر —' },
+  { value: 'none', label: 'بدون مؤهل' },
+  { value: 'primary', label: 'ابتدائي' },
+  { value: 'preparatory', label: 'إعدادي' },
+  { value: 'secondary', label: 'ثانوي' },
+  { value: 'diploma', label: 'دبلوم' },
+  { value: 'bachelor', label: 'بكالوريوس / ليسانس' },
+  { value: 'masters', label: 'ماجستير' },
+  { value: 'phd', label: 'دكتوراه' },
+  { value: 'other', label: 'أخرى' },
+] as const;
+
 export const HOUSEWIFE_PROFESSION = 'housewife';
 export const DUPLICATE_FAMILY_NATIONAL_ID_MESSAGE = 'الرقم القومي مُستخدم بالفعل لأحد أفراد الأسرة.';
 export const MEMBERSHIP_PROFESSIONS = new Set(['police_officer', 'army_officer']);
+
+const OTHER_OPTION_VALUE = 'other';
+
+interface LookupOption {
+  readonly value: string;
+  readonly label: string;
+}
+
+/**
+ * Resolve a stored lookup code to its Arabic label for display.
+ *
+ * - empty code        → the free-text detail (or empty — callers decide the placeholder)
+ * - `other` sentinel  → the free-text detail the applicant typed (label as last resort)
+ * - known code        → the option's Arabic label; the detail is NOT appended
+ * - unknown code      → the raw stored value verbatim (covers imported rows that
+ *                       already carry Arabic labels) — never a description, never empty
+ */
+function resolveOptionDisplay(
+  options: readonly LookupOption[],
+  code: string,
+  detail?: string,
+): string {
+  const trimmedCode = code.trim();
+  const trimmedDetail = detail?.trim() ?? '';
+  if (!trimmedCode) return trimmedDetail;
+  if (trimmedCode === OTHER_OPTION_VALUE) {
+    return trimmedDetail || options.find((o) => o.value === OTHER_OPTION_VALUE)?.label || trimmedCode;
+  }
+  const label = options.find((o) => o.value === trimmedCode)?.label;
+  return label ?? trimmedCode;
+}
+
+/** المؤهل display value for a family member / guardian. */
+export function resolveQualificationDisplay(code: string, detail?: string): string {
+  return resolveOptionDisplay(QUALIFICATION_OPTIONS, code, detail);
+}
+
+/** الوظيفة display value for a family member / guardian. */
+export function resolveProfessionDisplay(code: string, detail?: string): string {
+  return resolveOptionDisplay(PROFESSION_OPTIONS, code, detail);
+}
 
 export type FamilyMemberGender = 'male' | 'female';
 
@@ -54,10 +111,6 @@ export function genderByRelativeKind(kind: RelativeKind): FamilyMemberGender {
   return kind === 'brothers' || kind === 'paternal_uncles' || kind === 'maternal_uncles'
     ? 'male'
     : 'female';
-}
-
-export function professionLabel(code: string): string {
-  return PROFESSION_OPTIONS.find((o) => o.value === code)?.label ?? '—';
 }
 
 export interface FamilyMemberForm {
@@ -245,7 +298,7 @@ export function buildFamilyRows(s: FamilyDataSnapshot): readonly FamilyViewRow[]
     serial: n++,
     name: formatMemberName(s.father),
     relation: 'الأب',
-    profession: professionLabel(s.father.profession),
+    profession: resolveProfessionDisplay(s.father.profession, s.father.professionDetail),
     saved: s.savedFather,
   });
   s.fatherWives.forEach((w, i) => {
@@ -253,7 +306,7 @@ export function buildFamilyRows(s: FamilyDataSnapshot): readonly FamilyViewRow[]
       serial: n++,
       name: formatMemberName(w),
       relation: `زوجة الأب ${i + 1}`,
-      profession: professionLabel(w.profession),
+      profession: resolveProfessionDisplay(w.profession, w.professionDetail),
       saved: s.savedFatherWives[i] === true,
     });
   });
@@ -261,7 +314,7 @@ export function buildFamilyRows(s: FamilyDataSnapshot): readonly FamilyViewRow[]
     serial: n++,
     name: formatMemberName(s.mother),
     relation: 'الأم',
-    profession: professionLabel(s.mother.profession),
+    profession: resolveProfessionDisplay(s.mother.profession, s.mother.professionDetail),
     saved: s.savedMother,
   });
   s.motherHusbands.forEach((h, i) => {
@@ -269,7 +322,7 @@ export function buildFamilyRows(s: FamilyDataSnapshot): readonly FamilyViewRow[]
       serial: n++,
       name: formatMemberName(h),
       relation: `زوج الأم ${i + 1}`,
-      profession: professionLabel(h.profession),
+      profession: resolveProfessionDisplay(h.profession, h.professionDetail),
       saved: s.savedMotherHusbands[i] === true,
     });
   });
@@ -277,28 +330,28 @@ export function buildFamilyRows(s: FamilyDataSnapshot): readonly FamilyViewRow[]
     serial: n++,
     name: formatMemberName(s.grandparents.paternalGrandfather),
     relation: 'الجد لأب',
-    profession: professionLabel(s.grandparents.paternalGrandfather.profession),
+    profession: resolveProfessionDisplay(s.grandparents.paternalGrandfather.profession, s.grandparents.paternalGrandfather.professionDetail),
     saved: s.savedGrandparents.paternalGrandfather,
   });
   rows.push({
     serial: n++,
     name: formatMemberName(s.grandparents.paternalGrandmother),
     relation: 'الجدة لأب',
-    profession: professionLabel(s.grandparents.paternalGrandmother.profession),
+    profession: resolveProfessionDisplay(s.grandparents.paternalGrandmother.profession, s.grandparents.paternalGrandmother.professionDetail),
     saved: s.savedGrandparents.paternalGrandmother,
   });
   rows.push({
     serial: n++,
     name: formatMemberName(s.grandparents.maternalGrandfather),
     relation: 'الجد لأم',
-    profession: professionLabel(s.grandparents.maternalGrandfather.profession),
+    profession: resolveProfessionDisplay(s.grandparents.maternalGrandfather.profession, s.grandparents.maternalGrandfather.professionDetail),
     saved: s.savedGrandparents.maternalGrandfather,
   });
   rows.push({
     serial: n++,
     name: formatMemberName(s.grandparents.maternalGrandmother),
     relation: 'الجدة لأم',
-    profession: professionLabel(s.grandparents.maternalGrandmother.profession),
+    profession: resolveProfessionDisplay(s.grandparents.maternalGrandmother.profession, s.grandparents.maternalGrandmother.professionDetail),
     saved: s.savedGrandparents.maternalGrandmother,
   });
   (Object.keys(RELATIVE_LABEL) as RelativeKind[]).forEach((kind) => {
@@ -307,7 +360,7 @@ export function buildFamilyRows(s: FamilyDataSnapshot): readonly FamilyViewRow[]
         serial: n++,
         name: formatMemberName(m),
         relation: `${RELATIVE_LABEL[kind].singular} ${i + 1}`,
-        profession: professionLabel(m.profession),
+        profession: resolveProfessionDisplay(m.profession, m.professionDetail),
         saved: s.savedRelatives[kind][i] === true,
       });
     });
@@ -316,7 +369,7 @@ export function buildFamilyRows(s: FamilyDataSnapshot): readonly FamilyViewRow[]
     serial: n++,
     name: formatMemberName(s.guardian),
     relation: 'ولي الأمر',
-    profession: professionLabel(s.guardian.profession),
+    profession: resolveProfessionDisplay(s.guardian.profession, s.guardian.professionDetail),
     saved: s.savedGuardian,
   });
   return rows;

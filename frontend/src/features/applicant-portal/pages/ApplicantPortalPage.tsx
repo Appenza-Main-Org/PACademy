@@ -50,7 +50,8 @@ import {
   EMPTY_GUARDIAN,
   RELATIVE_LABEL,
   formatMemberName,
-  professionLabel,
+  resolveProfessionDisplay,
+  resolveQualificationDisplay,
   type FamilyMemberForm,
   type GrandparentsForm,
   type GuardianForm,
@@ -504,8 +505,8 @@ function FamilyMemberPanel({
         <Row label="الرقم القومي" value={member.nationalId || member.nidUnavailableReason || '—'} ltr mono />
         <Row label="الديانة" value={member.religion || '—'} />
         <Row label="تاريخ الميلاد" value={member.dateOfBirth || '—'} ltr />
-        <Row label="المهنة" value={professionLabel(member.profession)} />
-        <Row label="المؤهل" value={member.qualificationDetail || member.qualification || '—'} />
+        <Row label="المهنة" value={resolveProfessionDisplay(member.profession, member.professionDetail) || '—'} />
+        <Row label="المؤهل" value={resolveQualificationDisplay(member.qualification, member.qualificationDetail) || '—'} />
         <Row
           label="محل الإقامة"
           value={
@@ -529,9 +530,9 @@ function GuardianPanel({ guardian }: { guardian: GuardianForm }): JSX.Element {
       </p>
       <dl className="mt-3 grid min-w-0 flex-1 grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
         <Row label="الرقم القومي" value={guardian.nationalId || '—'} ltr mono />
-        <Row label="المهنة" value={professionLabel(guardian.profession)} />
+        <Row label="المهنة" value={resolveProfessionDisplay(guardian.profession, guardian.professionDetail) || '—'} />
         <Row label="رقم الأقدمية" value={guardian.seniorityNumber || '—'} ltr mono />
-        <Row label="المؤهل" value={guardian.qualificationDetail || guardian.qualification || '—'} />
+        <Row label="المؤهل" value={resolveQualificationDisplay(guardian.qualification, guardian.qualificationDetail) || '—'} />
         <Row label="جهة العمل" value={guardian.workplaceDetail || guardian.professionDetail || '—'} />
       </dl>
     </div>
