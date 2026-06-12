@@ -9,6 +9,7 @@ public static class ReportsModule
     public static IServiceCollection AddReportsModule(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<ReportsQueryService>();
+        services.AddScoped<ReportsOverviewService>();
         services.AddScoped<ReportsExportHandler>();
         services.AddScoped<ReportsFiltersValidator>();
         return services;

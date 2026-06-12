@@ -6,20 +6,6 @@ namespace PACademy.Admin.Api.Modules.Reports.Queries;
 
 public sealed class ReportsQueryService(OperationalRecordsService records)
 {
-    private static readonly string[] StageLabels =
-    [
-        "رقم الهاتف",
-        "رسالة التأكيد",
-        "البيانات الشخصية",
-        "بيانات المؤهل",
-        "الحالة الاجتماعية",
-        "سداد الرسوم",
-        "بيانات الأسرة",
-        "موعد الاختبار",
-        "كارت التردد",
-        "المتابعة",
-        "وثيقة التعارف"
-    ];
 
     public async Task<object> AggregateAsync(ReportsFiltersDto filters, string groupBy, CancellationToken ct)
     {
@@ -250,8 +236,8 @@ public sealed class ReportsQueryService(OperationalRecordsService records)
         };
 
     private static string? Text(JsonObject? obj, string name) => obj is null ? null : AdminRecordJson.StringProp(obj, name);
-    private static int Stage(JsonObject row) => (int)(AdminRecordJson.NumberProp(row, "stage") ?? AdminRecordJson.NumberProp(row, "currentStage") ?? 1);
-    private static string StageLabel(int stage) => StageLabels[Math.Clamp(stage, 1, 11) - 1];
+    private static int Stage(JsonObject row) => ApplicantStageDerivation.StageOf(row);
+    private static string StageLabel(int stage) => ApplicantStageDerivation.StageLabelOf(stage);
     private static string PaymentStatus(JsonObject row) => Text(row, "paymentStatus") ?? Text(row, "payment_status") ?? "unpaid";
     private static string CategoryKey(JsonObject row) => Text(row, "categoryKey") ?? Text(row, "category") ?? "uncategorized";
     private static string ApplicantType(JsonObject row) => Text(row, "applicantType") ?? Text(row, "type") ?? "civilian";
