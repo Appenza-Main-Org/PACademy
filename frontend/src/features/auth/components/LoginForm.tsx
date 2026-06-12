@@ -162,11 +162,14 @@ export function LoginForm(): JSX.Element {
             type="button"
             onClick={() => setIsPasswordVisible((v) => !v)}
             aria-label={isPasswordVisible ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
-            className="flex h-6 w-6 items-center justify-center rounded text-ink-400 transition-colors duration-fast ease-standard hover:text-ink-700 focus-visible:outline-none focus-visible:shadow-focus-teal"
+            /* translate-y compensates the font's tall-ascent metrics: the input
+             * text renders ~2px below geometric center, so a box-centered icon
+             * reads visibly high next to the password dots. */
+            className="flex h-6 w-6 translate-y-[2px] items-center justify-center rounded text-ink-400 transition-colors duration-fast ease-standard hover:text-ink-700 focus-visible:outline-none focus-visible:shadow-focus-teal"
           >
             {isPasswordVisible
-              ? <EyeOff size={16} strokeWidth={1.75} aria-hidden />
-              : <Eye size={16} strokeWidth={1.75} aria-hidden />}
+              ? <EyeOff size={18} strokeWidth={1.75} aria-hidden />
+              : <Eye size={18} strokeWidth={1.75} aria-hidden />}
           </button>
         }
         {...register('password')}
