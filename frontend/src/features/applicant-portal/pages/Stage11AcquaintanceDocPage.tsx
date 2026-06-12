@@ -21,7 +21,7 @@
  *   - 30501010203456 — expired-window seed (loaded at login, locked here).
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Eye, FileCheck, Lock, Printer, Save } from 'lucide-react';
 import { Button, Drawer, ErrorState, LoadingState, toast } from '@/shared/components';
@@ -250,21 +250,78 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
       admissionYear: '2026',
     });
   });
+  const [docVersion, setDocVersion] = useState<number | null>(null);
   const [hasHydratedBackendDoc, setHasHydratedBackendDoc] = useState(false);
+  const lastSyncedDocJsonRef = useRef<string | null>(null);
+  const localEditSeqRef = useRef(0);
+  const lastSyncedEditSeqRef = useRef(0);
+  const blockedConflictDocJsonRef = useRef<string | null>(null);
+  const forceHydrateFromServerRef = useRef(false);
+  const hasShownConflictToastRef = useRef(false);
 
   useEffect(() => {
     if (!docQuery.data?.document) return;
-    setDoc(normalizeBackendDocument(docQuery.data.document));
+    const next = normalizeBackendDocument(docQuery.data.document);
+    const incomingVersion = docQuery.data.version ?? docQuery.data.status.version ?? null;
+    const hasUnsyncedLocalEdits = localEditSeqRef.current > lastSyncedEditSeqRef.current;
+    if (hasHydratedBackendDoc && hasUnsyncedLocalEdits && !forceHydrateFromServerRef.current) {
+      setDocVersion(incomingVersion);
+      return;
+    }
+    forceHydrateFromServerRef.current = false;
+    setDoc(next);
+    setDocVersion(incomingVersion);
+    lastSyncedDocJsonRef.current = stringifyDocument(next);
+    lastSyncedEditSeqRef.current = localEditSeqRef.current;
+    blockedConflictDocJsonRef.current = null;
     setHasHydratedBackendDoc(true);
-  }, [docQuery.data?.document]);
+  }, [
+    docQuery.data?.document,
+    docQuery.data?.status.version,
+    docQuery.data?.version,
+    hasHydratedBackendDoc,
+  ]);
 
   useEffect(() => {
-    if (!hasHydratedBackendDoc || !backendStatus?.canEdit) return;
+    if (!hasHydratedBackendDoc || !backendStatus?.canEdit || saveDoc.isPending) return;
+    const serialized = stringifyDocument(doc);
+    if (
+      serialized === lastSyncedDocJsonRef.current ||
+      serialized === blockedConflictDocJsonRef.current
+    ) {
+      return;
+    }
     const timeoutId = window.setTimeout(() => {
-      saveDoc.mutate(doc);
+      const savedEditSeq = localEditSeqRef.current;
+      saveDoc.mutate(withDocumentVersion(doc, docVersion), {
+        onSuccess: (result) => {
+          if (localEditSeqRef.current === savedEditSeq && result.document) {
+            const next = normalizeBackendDocument(result.document);
+            lastSyncedDocJsonRef.current = stringifyDocument(next);
+            lastSyncedEditSeqRef.current = savedEditSeq;
+          } else if (localEditSeqRef.current === savedEditSeq) {
+            lastSyncedDocJsonRef.current = serialized;
+            lastSyncedEditSeqRef.current = savedEditSeq;
+          }
+          setDocVersion(result.version ?? result.status.version ?? docVersion);
+          blockedConflictDocJsonRef.current = null;
+          hasShownConflictToastRef.current = false;
+        },
+        onError: (error) => {
+          if (isPreconditionError(error)) {
+            blockedConflictDocJsonRef.current = serialized;
+            if (!hasShownConflictToastRef.current) {
+              toast('تم تحديث نسخة وثيقة التعارف من الخادم. راجع آخر تعديل ثم أكمل.', 'warning');
+              hasShownConflictToastRef.current = true;
+            }
+            forceHydrateFromServerRef.current = true;
+            void docQuery.refetch();
+          }
+        },
+      });
     }, 900);
     return () => window.clearTimeout(timeoutId);
-  }, [backendStatus?.canEdit, doc, hasHydratedBackendDoc, saveDoc]);
+  }, [backendStatus?.canEdit, doc, docQuery.refetch, docVersion, hasHydratedBackendDoc, saveDoc]);
 
   const [expanded, setExpanded] = useState<GroupKey>('personal');
   const [completed, setCompleted] = useState<Record<GroupKey, boolean>>(() =>
@@ -318,6 +375,7 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
   /* Patch a top-level section of the doc by key. */
   const patchSection = useCallback(
     <K extends GroupKey>(key: K, next: VothiqaTaarufDocument[K]): void => {
+      localEditSeqRef.current += 1;
       setDoc((d) => ({ ...d, [key]: next }));
     },
     [],
@@ -335,12 +393,31 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
   };
 
   const handleSubmit = (): void => {
-    saveDoc.mutate(doc, {
-      onSuccess: () => {
+    const serialized = stringifyDocument(doc);
+    const savedEditSeq = localEditSeqRef.current;
+    saveDoc.mutate(withDocumentVersion(doc, docVersion), {
+      onSuccess: (result) => {
+        setDocVersion(result.version ?? result.status.version ?? docVersion);
+        if (localEditSeqRef.current === savedEditSeq && result.document) {
+          lastSyncedDocJsonRef.current = stringifyDocument(normalizeBackendDocument(result.document));
+          lastSyncedEditSeqRef.current = savedEditSeq;
+        } else if (localEditSeqRef.current === savedEditSeq) {
+          lastSyncedDocJsonRef.current = serialized;
+          lastSyncedEditSeqRef.current = savedEditSeq;
+        }
+        blockedConflictDocJsonRef.current = null;
+        hasShownConflictToastRef.current = false;
         toast('تم حفظ وثيقة التعارف تلقائياً.', 'success');
         setPreviewOpen(false);
       },
       onError: (error) => {
+        if (isPreconditionError(error)) {
+          blockedConflictDocJsonRef.current = serialized;
+          toast('تم تحديث نسخة وثيقة التعارف من الخادم. راجع آخر تعديل ثم حاول الحفظ مرة أخرى.', 'warning');
+          forceHydrateFromServerRef.current = true;
+          void docQuery.refetch();
+          return;
+        }
         toast(error instanceof Error ? error.message : 'تعذر حفظ وثيقة التعارف.', 'danger');
       },
     });
@@ -676,6 +753,27 @@ function normalizeBackendDocument(partial: Partial<VothiqaTaarufDocument>): Voth
     maternalRelatives: { ...empty.maternalRelatives, ...partial.maternalRelatives },
     foreignAndCases: { ...empty.foreignAndCases, ...partial.foreignAndCases },
   };
+}
+
+function stringifyDocument(doc: VothiqaTaarufDocument): string {
+  return JSON.stringify(doc);
+}
+
+function withDocumentVersion(
+  doc: VothiqaTaarufDocument,
+  version: number | null,
+): VothiqaTaarufDocument & { version?: number } {
+  return version == null ? doc : { ...doc, version };
+}
+
+function isPreconditionError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return (
+    error.message.includes('412') ||
+    error.message.includes('Precondition') ||
+    error.name === 'PRECONDITION_FAILED' ||
+    error.name === 'PreconditionFailed'
+  );
 }
 
 function formatSavedAt(value: number): string {
