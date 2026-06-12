@@ -217,6 +217,16 @@ export interface Applicant extends ApplicantExtended {
   registeredAt: string;
   paymentStatus: PaymentStatus;
   paymentAmount: number;
+  /** Portal payment snapshot — present on the detail payload once the applicant paid. */
+  payment?: {
+    method?: string;
+    /** رقم العملية / رقم الإيصال. */
+    refNumber?: string;
+    fawryCode?: string;
+    amount?: number;
+    /** Payment confirmation timestamp (epoch milliseconds). */
+    paidAt?: number;
+  };
   hasDocuments: boolean;
   photo: string | null;
   results: ApplicantResults;
