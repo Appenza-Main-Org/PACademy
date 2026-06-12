@@ -24,6 +24,9 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   leadingIcon?: ReactNode;
   /** Optional icon shown at the end of the input. */
   trailingIcon?: ReactNode;
+  /** Optional interactive element at the end of the input (e.g. a show-password
+   *  toggle button). Unlike `trailingIcon`, it receives pointer events. */
+  trailingAction?: ReactNode;
   containerClassName?: string;
 }
 
@@ -38,6 +41,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       density = 'default',
       leadingIcon,
       trailingIcon,
+      trailingAction,
       containerClassName,
       className,
       id,
@@ -56,11 +60,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             {required && <span aria-hidden className="ms-1 align-middle text-base font-bold leading-none text-terra-500">*</span>}
           </label>
         )}
-        <div className="relative">
+        {/* dir mirrors the input so inline-end (icons + pe-9 padding) resolve on
+            the same side for dir-overridden inputs (e.g. LTR password fields). */}
+        <div className="relative" dir={rest.dir}>
           {leadingIcon && (
             <span
               aria-hidden
-              className="pointer-events-none absolute inset-y-0 inset-inline-start-0 flex items-center px-3 text-ink-400"
+              className="pointer-events-none absolute inset-y-0 start-0 flex items-center px-3 text-ink-400"
             >
               {leadingIcon}
             </span>
@@ -73,7 +79,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               'block w-full rounded-md border bg-surface-card text-sm text-ink-900 transition-colors duration-fast ease-standard',
               density === 'compact' ? 'h-7 text-xs' : 'h-9',
               leadingIcon ? 'ps-9 pe-3' : 'px-3',
-              trailingIcon && 'pe-9',
+              (trailingIcon || trailingAction) && 'pe-9',
               'placeholder:text-ink-400',
               error
                 ? 'border-terra-500 focus-visible:border-terra-500 focus-visible:shadow-focus-terra'
@@ -87,9 +93,14 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           {trailingIcon && (
             <span
               aria-hidden
-              className="pointer-events-none absolute inset-y-0 inset-inline-end-0 flex items-center px-3 text-ink-400"
+              className="pointer-events-none absolute inset-y-0 end-0 flex items-center px-3 text-ink-400"
             >
               {trailingIcon}
+            </span>
+          )}
+          {trailingAction && (
+            <span className="absolute inset-y-0 end-0 flex items-center pe-2">
+              {trailingAction}
             </span>
           )}
         </div>
