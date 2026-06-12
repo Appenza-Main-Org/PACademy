@@ -2315,14 +2315,14 @@ public sealed class OperationalRecordsService(
         if (family is null) return null;
 
         var result = new JsonObject();
-        SetObjectIfPresent(result, "father", BuildPortalFamilyMember(ObjectProp(family, "father")));
-        SetObjectIfPresent(result, "mother", BuildPortalFamilyMember(ObjectProp(family, "mother")));
+        SetObjectIfPresent(result, "father", BuildPortalFamilyMember(ObjectProp(family, "father"), "الأب"));
+        SetObjectIfPresent(result, "mother", BuildPortalFamilyMember(ObjectProp(family, "mother"), "الأم"));
 
         var grandparents = ObjectProp(family, "grandparents");
-        SetObjectIfPresent(result, "paternalGrandfather", BuildPortalFamilyMember(ObjectProp(grandparents, "paternalGrandfather")));
-        SetObjectIfPresent(result, "paternalGrandmother", BuildPortalFamilyMember(ObjectProp(grandparents, "paternalGrandmother")));
-        SetObjectIfPresent(result, "maternalGrandfather", BuildPortalFamilyMember(ObjectProp(grandparents, "maternalGrandfather")));
-        SetObjectIfPresent(result, "maternalGrandmother", BuildPortalFamilyMember(ObjectProp(grandparents, "maternalGrandmother")));
+        SetObjectIfPresent(result, "paternalGrandfather", BuildPortalFamilyMember(ObjectProp(grandparents, "paternalGrandfather"), "الجد لأب"));
+        SetObjectIfPresent(result, "paternalGrandmother", BuildPortalFamilyMember(ObjectProp(grandparents, "paternalGrandmother"), "الجدة لأب"));
+        SetObjectIfPresent(result, "maternalGrandfather", BuildPortalFamilyMember(ObjectProp(grandparents, "maternalGrandfather"), "الجد لأم"));
+        SetObjectIfPresent(result, "maternalGrandmother", BuildPortalFamilyMember(ObjectProp(grandparents, "maternalGrandmother"), "الجدة لأم"));
 
         var fatherWives = BuildPortalFamilyMemberArray(ArrayProp(family, "fatherWives"), "زوجة الأب");
         if (fatherWives.Count > 0) result["fatherWives"] = fatherWives;
@@ -2379,27 +2379,45 @@ public sealed class OperationalRecordsService(
     {
         if (member is null) return null;
 
-        var fullName = JoinedPortalPersonName(member);
+        // Tolerate both shapes: portal drafts carry split name parts +
+        // lookup codes; admin/imported rows may already carry fullName +
+        // resolved labels — those pass through verbatim.
+        var fullName = JoinedPortalPersonName(member) ?? StringProp(member, "fullName");
         var nationalId = BoolProp(member, "nidUnavailable") == true ? null : StringProp(member, "nationalId");
         if (string.IsNullOrWhiteSpace(fullName) && string.IsNullOrWhiteSpace(nationalId)) return null;
 
+        var alive = BoolProp(member, "deceased") is { } deceased
+            ? !deceased
+            : BoolProp(member, "alive") ?? true;
         var result = new JsonObject
         {
             ["fullName"] = fullName ?? nationalId,
-            ["alive"] = BoolProp(member, "deceased") != true
+            ["alive"] = alive
         };
         SetIfPresent(result, "nationalId", nationalId);
-        SetIfPresent(result, "occupation", ProfessionLabel(StringProp(member, "profession"), StringProp(member, "professionDetail")));
-        SetIfPresent(result, "governorate", StringProp(member, "residenceGovernorate") ?? StringProp(member, "birthGovernorate"));
-        SetIfPresent(result, "education", QualificationLabel(StringProp(member, "qualification"), StringProp(member, "qualificationDetail")));
-        SetIfPresent(result, "relationshipId", relationshipId);
+        SetIfPresent(result, "occupation",
+            ProfessionLabel(StringProp(member, "profession"), StringProp(member, "professionDetail"))
+                ?? StringProp(member, "occupation"));
+        SetIfPresent(result, "governorate", StringProp(member, "residenceGovernorate") ?? StringProp(member, "birthGovernorate") ?? StringProp(member, "governorate"));
+        SetIfPresent(result, "education",
+            QualificationLabel(StringProp(member, "qualification"), StringProp(member, "qualificationDetail"))
+                ?? StringProp(member, "education"));
+        SetIfPresent(result, "relationshipId", relationshipId ?? StringProp(member, "relationshipId"));
+        // Detail columns surfaced for the admin «بيانات الأقارب» table —
+        // additive keys; absent fields stay absent (UI renders «—»).
+        SetIfPresent(result, "religion", StringProp(member, "religion"));
+        SetIfPresent(result, "dateOfBirth", StringProp(member, "dateOfBirth"));
+        SetIfPresent(result, "birthGovernorate", StringProp(member, "birthGovernorate"));
+        SetIfPresent(result, "residenceGovernorate", StringProp(member, "residenceGovernorate"));
+        SetIfPresent(result, "residenceDistrict", StringProp(member, "residenceDistrict"));
+        SetIfPresent(result, "address", StringProp(member, "residenceDetail") ?? StringProp(member, "address"));
         return result;
     }
 
     private static JsonObject? BuildPortalGuardian(JsonObject? guardian)
     {
         if (guardian is null) return null;
-        var fullName = JoinedPortalPersonName(guardian);
+        var fullName = JoinedPortalPersonName(guardian) ?? StringProp(guardian, "fullName");
         if (string.IsNullOrWhiteSpace(fullName)) return null;
 
         var result = new JsonObject
@@ -2407,8 +2425,13 @@ public sealed class OperationalRecordsService(
             ["fullName"] = fullName,
             ["alive"] = true
         };
-        SetIfPresent(result, "occupation", ProfessionLabel(StringProp(guardian, "profession"), StringProp(guardian, "professionDetail")));
-        SetIfPresent(result, "education", QualificationLabel(StringProp(guardian, "qualification"), StringProp(guardian, "qualificationDetail")));
+        SetIfPresent(result, "nationalId", StringProp(guardian, "nationalId"));
+        SetIfPresent(result, "occupation",
+            ProfessionLabel(StringProp(guardian, "profession"), StringProp(guardian, "professionDetail"))
+                ?? StringProp(guardian, "occupation"));
+        SetIfPresent(result, "education",
+            QualificationLabel(StringProp(guardian, "qualification"), StringProp(guardian, "qualificationDetail"))
+                ?? StringProp(guardian, "education"));
         SetIfPresent(result, "governorate", StringProp(guardian, "workplaceDetail"));
         SetIfPresent(result, "relationshipId", "ولي الأمر");
         return result;

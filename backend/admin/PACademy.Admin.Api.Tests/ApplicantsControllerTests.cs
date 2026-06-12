@@ -135,6 +135,15 @@ public sealed class ApplicantsControllerTests
         Assert.False(row.ContainsKey("committee"));
         Assert.Equal("محمد إبراهيم سعيد", row["family"]?["father"]?["fullName"]?.GetValue<string>());
         Assert.Equal("مهندس", row["family"]?["father"]?["occupation"]?.GetValue<string>());
+        Assert.Equal("الأب", row["family"]?["father"]?["relationshipId"]?.GetValue<string>());
+        Assert.Equal("الأم", row["family"]?["mother"]?["relationshipId"]?.GetValue<string>());
+        Assert.Equal("الجدة لأب", row["family"]?["paternalGrandmother"]?["relationshipId"]?.GetValue<string>());
+        Assert.Equal("مسلم", row["family"]?["father"]?["religion"]?.GetValue<string>());
+        Assert.Equal("1979-03-08", row["family"]?["father"]?["dateOfBirth"]?.GetValue<string>());
+        Assert.Equal("الجيزة", row["family"]?["father"]?["birthGovernorate"]?.GetValue<string>());
+        Assert.Equal("القاهرة", row["family"]?["father"]?["residenceGovernorate"]?.GetValue<string>());
+        Assert.Equal("مدينة نصر", row["family"]?["father"]?["residenceDistrict"]?.GetValue<string>());
+        Assert.Equal("12 شارع عباس العقاد", row["family"]?["father"]?["address"]?.GetValue<string>());
         Assert.Equal("أمينة محمد حسن", row["family"]?["paternalGrandmother"]?["fullName"]?.GetValue<string>());
         Assert.Equal("ليلى حسن محمود", row["family"]?["fatherWives"]?[0]?["fullName"]?.GetValue<string>());
         Assert.Equal("الأخ", row["family"]?["siblings"]?[0]?["relationshipId"]?.GetValue<string>());
@@ -143,6 +152,58 @@ public sealed class ApplicantsControllerTests
         Assert.Equal(9, row["familySize"]?.GetValue<int>());
         Assert.Equal(1, row["relativesCount"]?.GetValue<int>());
         Assert.Equal("applicant-portal", row["source"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public void ApplicantManagementProjectionPassesThroughAdminShapedFamilyMembers()
+    {
+        var createdAt = new DateTimeOffset(2026, 5, 31, 8, 30, 0, TimeSpan.Zero);
+        var identity = new ApplicantIdentityProjection(
+            TableId: "8b1c40de-2a9f-4f1f-9f30-1c5a7f10aa01",
+            AdminRecordId: null,
+            NationalId: "29801011235101",
+            PhoneNumber: "01098765432",
+            FullName: "متقدم مستورد",
+            Email: null,
+            Gender: "male",
+            Religion: "مسلم",
+            BirthDate: "1998-01-01",
+            BirthGovernorate: "القاهرة",
+            BirthDistrict: "مدينة نصر",
+            CertificateType: null,
+            Source: "data-exchange-import",
+            CreatedAt: createdAt,
+            UpdatedAt: createdAt);
+        var payload = new JsonObject
+        {
+            ["family"] = new JsonObject
+            {
+                ["father"] = new JsonObject
+                {
+                    ["fullName"] = "أحمد عبد السلام إبراهيم",
+                    ["nationalId"] = "27001011235001",
+                    ["occupation"] = "ضابط شرطة",
+                    ["education"] = "بكالوريوس / ليسانس",
+                    ["governorate"] = "محافظة القاهرة",
+                    ["religion"] = "مسلم",
+                    ["dateOfBirth"] = "1970-01-01",
+                    ["address"] = "القاهرة — مدينة نصر",
+                    ["alive"] = false
+                }
+            }
+        };
+
+        var row = OperationalRecordsService.ProjectApplicantManagementPayload(payload, identity);
+        var father = Assert.IsType<JsonObject>(row["family"]?["father"]);
+
+        Assert.Equal("أحمد عبد السلام إبراهيم", father["fullName"]?.GetValue<string>());
+        Assert.Equal("ضابط شرطة", father["occupation"]?.GetValue<string>());
+        Assert.Equal("بكالوريوس / ليسانس", father["education"]?.GetValue<string>());
+        Assert.Equal("محافظة القاهرة", father["governorate"]?.GetValue<string>());
+        Assert.Equal("القاهرة — مدينة نصر", father["address"]?.GetValue<string>());
+        Assert.Equal("1970-01-01", father["dateOfBirth"]?.GetValue<string>());
+        Assert.Equal("الأب", father["relationshipId"]?.GetValue<string>());
+        Assert.False(father["alive"]?.GetValue<bool>());
     }
 
     [Fact]
@@ -337,7 +398,12 @@ public sealed class ApplicantsControllerTests
             ["nationalId"] = nationalId,
             ["profession"] = profession,
             ["qualification"] = "bachelor",
+            ["religion"] = "مسلم",
+            ["dateOfBirth"] = "1979-03-08",
+            ["birthGovernorate"] = "الجيزة",
             ["residenceGovernorate"] = "القاهرة",
+            ["residenceDistrict"] = "مدينة نصر",
+            ["residenceDetail"] = "12 شارع عباس العقاد",
             ["deceased"] = false
         };
 }
