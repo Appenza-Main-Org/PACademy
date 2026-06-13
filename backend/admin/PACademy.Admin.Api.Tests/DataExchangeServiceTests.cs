@@ -184,6 +184,61 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
+    public async Task Reconcile_preview_accepts_curated_snapshot_columns()
+    {
+        var (svc, db) = Create();
+        db.LookupRows.Add(new LookupRowEntity
+        {
+            LookupKey = "test-results", Code = "RES-02", Name = "راسب", IsActive = true,
+            PayloadJson = """{"code":"RES-02","name":"راسب","outcome":"fail"}""",
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+        await SeedOperationalAsync(db, "applicants", "APP-1",
+            """{"id":"APP-1","nationalId":"29801011230501","fullName":"اسم قديم","status":"exam_scheduled"}""");
+        await SeedOperationalAsync(db, "applicants", "APP-2",
+            """{"id":"APP-2","nationalId":"30001011239901","fullName":"اسم قديم ثان","status":"exam_scheduled"}""");
+
+        var applicantsSheet = new ImportSheetInput("Applicants",
+            [
+                new(StringComparer.Ordinal)
+                {
+                    ["applicant_id"] = "APP-1",
+                    ["national_id"] = "29801011230501",
+                    ["full_name"] = "اسم مُصحَّح",
+                },
+                new(StringComparer.Ordinal)
+                {
+                    ["applicant_id"] = "APP-2",
+                    ["national_id"] = "30001011239901",
+                    ["full_name"] = "اسم مُصحَّح ثان",
+                },
+            ]);
+        var resultsSheet = new ImportSheetInput("ExamResults",
+            [
+                new(StringComparer.Ordinal)
+                {
+                    ["applicant_id"] = "APP-1",
+                    ["exam_id"] = "TST-01",
+                    ["result"] = "راسب",
+                },
+            ]);
+
+        var preview = await svc.PreviewApplicantsReconciliationAsync([applicantsSheet, resultsSheet], default);
+
+        Assert.Equal(2, preview.Rows.Count);
+        Assert.Equal(2, preview.Counts["matched"]);
+        Assert.All(preview.Rows, row => Assert.False(row.Unmatched));
+        var row = preview.Rows.Single(r => r.NationalId == "29801011230501");
+        Assert.False(row.Unmatched);
+        var nameDiff = Assert.Single(row.FieldDiffs, d => d.Field == "fullName");
+        Assert.Equal("اسم قديم", nameDiff.Before);
+        Assert.Equal("اسم مُصحَّح", nameDiff.After);
+        Assert.Equal("failed", row.Writeback?.Outcome);
+        Assert.Equal("TST-01", row.Writeback?.TestCode);
+    }
+
+    [Fact]
     public async Task Reconcile_preview_unknown_result_value_records_typed_error()
     {
         var (svc, db) = Create();
