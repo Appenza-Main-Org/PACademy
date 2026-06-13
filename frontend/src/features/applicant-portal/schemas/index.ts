@@ -213,9 +213,10 @@ export function collectEducationScoreErrors(
   for (const rule of rules) {
     if (!rule.isActive || !visibleSections.has(rule.sectionKey)) continue;
     const fieldKey = rule.fieldKey;
-    const raw = isKnownScoreFieldKey(fieldKey)
+    const rawValue = isKnownScoreFieldKey(fieldKey)
       ? values[fieldKey]
       : values.educationScores?.[fieldKey];
+    const raw = typeof rawValue === 'string' ? rawValue.trim() : rawValue;
     const path = isKnownScoreFieldKey(fieldKey) ? fieldKey : `educationScores.${fieldKey}`;
     const isEmpty = raw === undefined || raw === null || raw === '';
     if (isEmpty) {
