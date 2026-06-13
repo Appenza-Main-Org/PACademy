@@ -205,11 +205,12 @@ public sealed class DataExchangeService(
     // ROSTER (booked applicants — drives the selectable export list)
     // ──────────────────────────────────────────────────────────────────────
     /// <summary>
-    /// Lists the applicants currently eligible for export — those who have
-    /// booked the first exam appointment (`IsApplicantBooked` true). Projects
-    /// the identity columns the admin selects against on the data-exchange
-    /// page. Reads through <see cref="OperationalRecordsService.ListAsync"/>;
-    /// no mock fallback.
+    /// Lists the applicants currently eligible for export — every registered,
+    /// in-cycle applicant (`IsApplicantExportable` true), booked or not, so the
+    /// external admin can hand pre-booking applicants to the internal plane.
+    /// Projects the identity columns the admin selects against on the
+    /// data-exchange page. Reads through
+    /// <see cref="OperationalRecordsService.ListAsync"/>; no mock fallback.
     /// </summary>
     public async Task<IReadOnlyList<ApplicantRosterRow>> ListBookedApplicantsAsync(string? cycleId, CancellationToken ct)
     {
@@ -229,7 +230,7 @@ public sealed class DataExchangeService(
         {
             if (AdminRecordJson.IsSoftDeleted(payload)) continue;
             if (!IsApplicantInCycleScope(payload, resolvedCycleId, activeCategoryKeys)) continue;
-            if (!IsApplicantBooked(payload)) continue;
+            if (!IsApplicantExportable(payload)) continue;
 
             var slot = payload["examSlot"] as JsonObject;
             var nid = payload["nationalId"]?.ToString();
@@ -566,9 +567,10 @@ public sealed class DataExchangeService(
         return new ApplicantWritebackResult(raw, outcome, testCode, round, nextExamDate, errors);
     }
 
-    /// <summary>Booked applicants indexed by nationalId, used as the diff base.
-    /// Mirrors LoadDocStoreAsync's eligibility gate (only booked applicants
-    /// participate in reconciliation).</summary>
+    /// <summary>Exportable applicants indexed by nationalId, used as the diff
+    /// base. Mirrors the export's eligibility gate (`IsApplicantExportable`) so
+    /// pre-booking applicants seeded to the internal plane can still be matched
+    /// when their results return.</summary>
     private async Task<IReadOnlyDictionary<string, JsonObject>> LoadBookedApplicantsByNidAsync(string? cycleId, CancellationToken ct)
     {
         IReadOnlyList<JsonObject> payloads;
@@ -581,7 +583,7 @@ public sealed class DataExchangeService(
         {
             if (AdminRecordJson.IsSoftDeleted(payload)) continue;
             if (!IsApplicantInCycleScope(payload, resolvedCycleId, activeCategoryKeys)) continue;
-            if (!IsApplicantBooked(payload)) continue;
+            if (!IsApplicantExportable(payload)) continue;
             var nid = payload["nationalId"]?.ToString();
             if (!string.IsNullOrWhiteSpace(nid)) map[nid] = payload;
         }
@@ -1068,10 +1070,10 @@ public sealed class DataExchangeService(
             if (AdminRecordJson.IsSoftDeleted(payload)) continue;
             if (spec.Domain == ExchangeDomain.Applicants &&
                 !IsApplicantInCycleScope(payload, cycleId, activeCategoryKeys)) continue;
-            // Applicants are only exported once the first exam appointment is booked.
-            // Draft / incomplete / awaiting-booking rows are intentionally withheld so
-            // external consumers receive officially scheduled applicants only.
-            if (spec.Domain == ExchangeDomain.Applicants && !IsApplicantBooked(payload)) continue;
+            // Registered applicants export before booking so the internal plane
+            // (which performs booking + results in this flow) has a seed. Only
+            // bare drafts with no submitted data are withheld — see IsApplicantExportable.
+            if (spec.Domain == ExchangeDomain.Applicants && !IsApplicantExportable(payload)) continue;
             // For the Applicants sheet, prune branches that have their own dedicated
             // sheets so we don't ship `family.father.…` columns next to the dedicated
             // Relatives sheet. Also drop the original `profile.*` shape — the
@@ -1128,6 +1130,32 @@ public sealed class DataExchangeService(
         var status = payload["status"]?.ToString();
         return !string.IsNullOrWhiteSpace(status) && BookedOrLaterStatuses.Contains(status);
     }
+
+    /// <summary>
+    /// Applicant-export eligibility for the external→internal seed handoff. The
+    /// external admin creates and registers applicants; the internal plane then
+    /// performs exam booking + records results — so the export must hand over
+    /// registered applicants <em>before</em> they are booked, otherwise the
+    /// internal side has nothing to seed from. An applicant qualifies once they
+    /// advance past the initial <c>draft</c> state (or already carry a booking).
+    /// Bare drafts (registration begun, no submitted data) stay withheld; a
+    /// missing status is treated as registered (admin-created rows may omit it).
+    /// </summary>
+    private static bool IsApplicantExportable(JsonObject payload)
+    {
+        if (IsApplicantBooked(payload)) return true;
+        var status = payload["status"]?.ToString();
+        if (string.IsNullOrWhiteSpace(status)) return true;
+        return !DraftStatuses.Contains(status);
+    }
+
+    /// <summary>Pre-registration statuses withheld from the export — the
+    /// applicant has only begun the portal flow and carries no submitted data
+    /// worth seeding to the internal plane.</summary>
+    private static readonly IReadOnlySet<string> DraftStatuses = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "draft",
+    };
 
     private async Task<string?> ResolveCycleIdAsync(string? requestedCycleId, CancellationToken ct)
     {
@@ -1476,7 +1504,7 @@ public sealed class DataExchangeService(
         {
             if (AdminRecordJson.IsSoftDeleted(applicant)) continue;
             if (!IsApplicantInCycleScope(applicant, cycleId, activeCategoryKeys)) continue;
-            if (!IsApplicantBooked(applicant)) continue;
+            if (!IsApplicantExportable(applicant)) continue;
             var nid = applicant["nationalId"]?.ToString();
             if (string.IsNullOrWhiteSpace(nid)) continue;
             var family = applicant["family"] as JsonObject;
@@ -2410,7 +2438,7 @@ public sealed class DataExchangeService(
         {
             if (AdminRecordJson.IsSoftDeleted(payload)) continue;
             if (!IsApplicantInCycleScope(payload, cycleId, ctx.ActiveCategoryKeys)) continue;
-            if (!IsApplicantBooked(payload)) continue;
+            if (!IsApplicantExportable(payload)) continue;
             var nid = payload["nationalId"]?.ToString();
             if (string.IsNullOrWhiteSpace(nid)) continue;
 
@@ -2447,7 +2475,7 @@ public sealed class DataExchangeService(
         {
             if (AdminRecordJson.IsSoftDeleted(p)) continue;
             if (!IsApplicantInCycleScope(p, cycleId, ctx.ActiveCategoryKeys)) continue;
-            if (!IsApplicantBooked(p)) continue;
+            if (!IsApplicantExportable(p)) continue;
             var nid = p["nationalId"]?.ToString();
             if (string.IsNullOrWhiteSpace(nid)) continue;
             var (created, updated) = Timestamps(p);
@@ -2495,7 +2523,7 @@ public sealed class DataExchangeService(
         {
             if (AdminRecordJson.IsSoftDeleted(a)) continue;
             if (!IsApplicantInCycleScope(a, cycleId, ctx.ActiveCategoryKeys)) continue;
-            if (!IsApplicantBooked(a)) continue;
+            if (!IsApplicantExportable(a)) continue;
             var nid = a["nationalId"]?.ToString();
             if (string.IsNullOrWhiteSpace(nid)) continue;
             if (a["family"] is not JsonObject family) continue;
