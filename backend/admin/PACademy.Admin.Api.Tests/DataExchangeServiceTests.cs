@@ -841,13 +841,15 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
-    public async Task Applicants_export_excludes_unbooked_and_includes_booked()
+    public async Task Applicants_export_includes_registered_and_booked_excludes_only_drafts()
     {
         var (svc, db) = Create();
-        // Draft applicant — no examSlot, status `draft` ⇒ MUST be withheld.
+        // Bare draft — registration begun, status `draft`, no submitted data ⇒ MUST be withheld.
         await SeedOperationalAsync(db, "applicants", "APP-DRAFT",
             """{"id":"APP-DRAFT","nationalId":"29801011234001","fullName":"مسودة","status":"draft"}""");
-        // Has paid but not yet booked the first exam ⇒ still withheld.
+        // Registered but not yet booked. In the external→internal flow, applicants are
+        // created on the external admin and booking happens on the internal plane, so a
+        // pre-booking registered applicant MUST export to seed the internal side.
         await SeedOperationalAsync(db, "applicants", "APP-AWAITING",
             """{"id":"APP-AWAITING","nationalId":"29801011234002","fullName":"بانتظار الحجز","status":"awaiting_exam_booking"}""");
         // Booked via examSlot — exported.
@@ -861,11 +863,34 @@ public sealed class DataExchangeServiceTests
         var sheet = result.Sheets[0];
         var businessKeys = sheet.Rows.Select(r => r["business_key"]).ToHashSet();
 
-        Assert.Equal(2, sheet.Rows.Count);
-        Assert.Contains("29801011234003", businessKeys);
-        Assert.Contains("29801011234004", businessKeys);
-        Assert.DoesNotContain("29801011234001", businessKeys);
-        Assert.DoesNotContain("29801011234002", businessKeys);
+        Assert.Equal(3, sheet.Rows.Count);
+        Assert.Contains("29801011234002", businessKeys);     // registered, pre-booking → now exported
+        Assert.Contains("29801011234003", businessKeys);     // booked via slot
+        Assert.Contains("29801011234004", businessKeys);     // booked via status
+        Assert.DoesNotContain("29801011234001", businessKeys); // bare draft → withheld
+    }
+
+    [Fact]
+    public async Task Snapshot_export_includes_registered_pre_booking_applicants()
+    {
+        // The curated snapshot (download button) is what the external admin hands to the
+        // internal plane. A registered-but-unbooked applicant must appear in it so the
+        // internal side can take over booking + results; only bare drafts are withheld.
+        var (svc, db) = Create();
+        await SeedCycleAsync(db, "CYC-ACTIVE", true);
+        await SeedOperationalAsync(db, "committeeInstances", "CI-ACTIVE-LAW",
+            """{"id":"CI-ACTIVE-LAW","cycleId":"CYC-ACTIVE","categoryKey":"law_bachelor","definitionCode":"CMT-LAW","date":"2026-06-17"}""");
+        await SeedOperationalAsync(db, "applicants", "APP-REGISTERED",
+            """{"id":"APP-REGISTERED","nationalId":"29801011239001","fullName":"نشط قانون","status":"fees_paid","cycleId":"CYC-ACTIVE","categoryKey":"law_bachelor"}""");
+        await SeedOperationalAsync(db, "applicants", "APP-DRAFT",
+            """{"id":"APP-DRAFT","nationalId":"29801011239002","fullName":"مسودة","status":"draft","cycleId":"CYC-ACTIVE","categoryKey":"law_bachelor"}""");
+
+        var result = await svc.ExportSnapshotAsync([ExchangeDomain.Applicants], "single-workbook", ExportFilter.Default, default);
+        var sheet = result.Sheets.Single(s => s.Domain == "Applicants");
+        var nids = sheet.Rows.Select(r => r["national_id"]).ToHashSet();
+
+        Assert.Contains("29801011239001", nids);       // registered, pre-booking → exported
+        Assert.DoesNotContain("29801011239002", nids);  // bare draft → withheld
     }
 
     [Fact]
