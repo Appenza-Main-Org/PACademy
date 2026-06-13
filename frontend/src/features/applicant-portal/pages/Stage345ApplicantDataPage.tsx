@@ -666,13 +666,20 @@ export function Stage345ApplicantDataPage(): JSX.Element {
   }, [academicDegreeOptions, showBachelor, qualificationLevel]);
 
   useEffect(() => {
+    /* Keeps the manual نوع الشهادة select within the cycle's allowed
+     * school-category options. On the imported-grades path the select is
+     * not rendered and thanawiType carries the imported branch (synced
+     * below) — clearing it here dead-locked the submit: the schema
+     * requires the value while no input exists to surface the error
+     * (Issue 6, NID 30808080179994). */
+    if (externalImport) return;
     if (!watchedThanawiType) return;
     const currentAllowed = manualCertificateTypeOptions.some(
       (option) => option.value === watchedThanawiType,
     );
     if (currentAllowed) return;
     setValue('thanawiType', '');
-  }, [manualCertificateTypeOptions, watchedThanawiType, setValue]);
+  }, [externalImport, manualCertificateTypeOptions, watchedThanawiType, setValue]);
 
   /* Cycle-configured graduation-year guard. The eligibility endpoint
    *  returns the set of years the active cycle's matched rules accept;
@@ -810,6 +817,16 @@ export function Stage345ApplicantDataPage(): JSX.Element {
       setValue('thanawiType', known.value);
     }
   }, [matchedGradeRow, matchedSchoolExtras, setValue]);
+
+  /* Schema-level failures focus the first invalid field but historically
+   * gave no page-level feedback — when the failing field wasn't rendered
+   * (or was off-screen) the submit looked like a dead click. Mirror the
+   * imperative phase's toast so every blocked submit tells the applicant
+   * something is missing. */
+  const onInvalidSubmit = (): void => {
+    setProfileComplete(false);
+    toast('استكمل البيانات الشخصية والدراسية المطلوبة قبل الانتقال إلى السداد.', 'danger');
+  };
 
   const onSubmit = async (values: Stage345Values): Promise<void> => {
     const formValidationErrors: Partial<Record<keyof Stage345Values, string>> = {};
@@ -977,7 +994,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
+    <form onSubmit={handleSubmit(onSubmit, onInvalidSubmit)} className="flex flex-col gap-5">
       {/* Client direction 2026-05-19: page now starts directly with
        *  البيانات الشخصية — the page header card, MOI verification card,
        *  and eligibility-gate card were dropped per client request. */}
