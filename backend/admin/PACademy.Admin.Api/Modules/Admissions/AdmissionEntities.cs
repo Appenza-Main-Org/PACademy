@@ -103,6 +103,38 @@ public sealed class ApplicationSettingsGraduationYearEntity : IChangeTracked
     public string? Checksum { get; set; }
 }
 
+/// <summary>
+/// One renderable educational score field for an applicant category. Drives
+/// the portal profile's educational sections (config-driven rendering +
+/// validation — no hardcoded score fields on the page). `InputKind` and
+/// `SectionKey` are registry-validated strings, not enums, so new values
+/// remain a data change.
+/// </summary>
+public sealed class CategoryEducationFieldEntity : IChangeTracked
+{
+    public required string Id { get; set; }
+    /// <summary>FK → applicant-categories lookup code (e.g. officers_general).</summary>
+    public required string CategoryKey { get; set; }
+    /// <summary>Storage key on the portal profile payload (e.g. thanawiTotal).</summary>
+    public required string FieldKey { get; set; }
+    public required string LabelAr { get; set; }
+    /// <summary>number | percentage | academic-grade | text.</summary>
+    public required string InputKind { get; set; }
+    /// <summary>secondary | university | postgraduate | doctorate.</summary>
+    public required string SectionKey { get; set; }
+    public bool IsRequired { get; set; }
+    public decimal? MinValue { get; set; }
+    public decimal? MaxValue { get; set; }
+    public int SortOrder { get; set; }
+    public bool IsActive { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+    public string? LastModifiedBy { get; set; }
+    public string? SourceSystem { get; set; } = ChangeTrackingColumns.DefaultSourceSystem;
+    public string? Checksum { get; set; }
+}
+
 public interface IAdmissionsDbContext
 {
     DbSet<AdmissionCycleEntity> AdmissionCycles { get; }
@@ -111,6 +143,7 @@ public interface IAdmissionsDbContext
     DbSet<ApplicationSettingsCategoryConfigEntity> ApplicationSettingsCategoryConfigs { get; }
     DbSet<ApplicationSettingsCategorySpecializationEntity> ApplicationSettingsCategorySpecializations { get; }
     DbSet<ApplicationSettingsGraduationYearEntity> ApplicationSettingsGraduationYears { get; }
+    DbSet<CategoryEducationFieldEntity> CategoryEducationFields { get; }
     DbSet<LookupRowEntity> LookupRows { get; }
     DbSet<AuditRowEntity> AuditRows { get; }
     Task<int> SaveChangesAsync(CancellationToken ct = default);

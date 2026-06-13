@@ -212,7 +212,7 @@ public sealed class ApiRegressionTests
     {
         await using var db = CreateDb();
         var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
-        var controller = new AdmissionSetupController(records, null!);
+        var controller = new AdmissionSetupController(records, null!, null!);
 
         var response = await controller.Declaration("CYC-TEST", TestContext.Current.CancellationToken);
 
@@ -233,7 +233,7 @@ public sealed class ApiRegressionTests
     {
         await using var db = CreateDb();
         var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
-        var controller = new AdmissionSetupController(records, null!);
+        var controller = new AdmissionSetupController(records, null!, null!);
 
         await controller.SaveDeclaration("CYC-REQUESTED", new JsonObject
         {
@@ -267,7 +267,7 @@ public sealed class ApiRegressionTests
     {
         await using var db = CreateDb();
         var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
-        var controller = new AdmissionSetupController(records, null!);
+        var controller = new AdmissionSetupController(records, null!, null!);
         await using var stream = new MemoryStream([0x25, 0x50, 0x44, 0x46]);
         var file = new FormFile(stream, 0, stream.Length, "document", "declaration.pdf")
         {
@@ -298,7 +298,7 @@ public sealed class ApiRegressionTests
     {
         await using var db = CreateDb();
         var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
-        var controller = new AdmissionSetupController(records, null!);
+        var controller = new AdmissionSetupController(records, null!, null!);
         await using var stream = new MemoryStream([0x25, 0x50, 0x44, 0x46]);
         var file = new FormFile(stream, 0, stream.Length, "document", "declaration.pdf")
         {
@@ -333,7 +333,7 @@ public sealed class ApiRegressionTests
     {
         await using var db = CreateDb();
         var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
-        var controller = new AdmissionSetupController(records, null!);
+        var controller = new AdmissionSetupController(records, null!, null!);
         await using var stream = new MemoryStream([0x25, 0x50, 0x44, 0x46]);
         var file = new FormFile(stream, 0, stream.Length, "document", "declaration.pdf")
         {

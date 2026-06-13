@@ -10,9 +10,25 @@ namespace PACademy.Admin.Api.Controllers;
 [Route("")]
 public sealed class AdmissionSetupController(
     OperationalRecordsService records,
-    ApplicationSettingsService appSettings) : ControllerBase
+    ApplicationSettingsService appSettings,
+    CategoryEducationFieldsService educationFields) : ControllerBase
 {
     private const int MaxDeclarationPdfBytes = 10 * 1024 * 1024;
+
+    /* ── Category education fields (config-driven profile score fields) ── */
+
+    [HttpGet("api/admission-setup/education-fields")]
+    public async Task<ActionResult<IReadOnlyList<CategoryEducationFieldsService.CategoryEducationFieldDto>>> EducationFields(
+        [FromQuery] string? categoryKey,
+        CancellationToken ct) =>
+        Ok(await educationFields.ListAsync(categoryKey, ct));
+
+    [HttpPut("api/admission-setup/education-fields/{categoryKey}")]
+    public async Task<ActionResult<IReadOnlyList<CategoryEducationFieldsService.CategoryEducationFieldDto>>> SaveEducationFields(
+        string categoryKey,
+        [FromBody] IReadOnlyList<CategoryEducationFieldsService.CategoryEducationFieldDto> rows,
+        CancellationToken ct) =>
+        Ok(await educationFields.SaveCategoryAsync(categoryKey, rows, ct));
 
     [HttpGet("api/admission-setup/cycles/{cycleId}/exam-dates")]
     public async Task<ActionResult<JsonObject>> ExamDates(string cycleId, CancellationToken ct) =>

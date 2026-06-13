@@ -13,6 +13,7 @@ public static class AdmissionsModule
         services.AddScoped<CategoriesService>();
         services.AddScoped<AdmissionRulesService>();
         services.AddScoped<ApplicationSettingsService>();
+        services.AddScoped<CategoryEducationFieldsService>();
         services.AddScoped<ApplicantEligibilityService>();
         return services;
     }
