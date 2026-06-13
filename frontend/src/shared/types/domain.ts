@@ -134,6 +134,30 @@ export type ApplicantEducation =
       };
     };
 
+/**
+ * One renderable educational score field for an applicant category —
+ * config rows that drive the portal profile's educational sections
+ * (labels, input kind, validation) with no hardcoded fields on the page.
+ * `inputKind`/`sectionKey` are registry-validated strings, not enums.
+ */
+export interface CategoryEducationField {
+  id: string;
+  /** FK → applicant-categories lookup code (e.g. officers_general). */
+  categoryKey: string;
+  /** Storage key on the portal profile payload (e.g. thanawiTotal). */
+  fieldKey: string;
+  labelAr: string;
+  /** number | percentage | academic-grade | text. */
+  inputKind: string;
+  /** secondary | university | postgraduate | doctorate. */
+  sectionKey: string;
+  isRequired: boolean;
+  minValue: number | null;
+  maxValue: number | null;
+  sortOrder: number;
+  isActive: boolean;
+}
+
 export interface ApplicantFamilyMember {
   fullName: string;
   nationalId?: string;

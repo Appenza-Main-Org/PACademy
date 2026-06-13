@@ -67,14 +67,17 @@ export const stage345Schema = z
     bachelorPercentage: z.union([z.coerce.number().min(0).max(100), z.literal('')]).optional(),
     bachelorYear: z.union([z.coerce.number().int().min(1990).max(2099), z.literal('')]).optional(),
 
-    /* Thanaweya block — always required. `thanawiType` accepts any string
-     * because the manual-entry path sources it from the `school-categories`
-     * lookup (e.g. الشهادات المعادلة من الخارج); the matched-by-grades path
-     * carries the branch from the imported row. */
+    /* Thanaweya block. `thanawiType` accepts any string because the
+     * manual-entry path sources it from the `school-categories` lookup
+     * (e.g. الشهادات المعادلة من الخارج); the matched-by-grades path
+     * carries the branch from the imported row.
+     * Score fields (total/percentage) are permissive at schema level —
+     * required-ness and ranges come from the category education-field
+     * config, applied via collectEducationScoreErrors below. */
     thanawiCountry: z.string().min(1, 'مطلوب'),
-    thanawiTotal: z.coerce.number().min(0, 'مطلوب'),
+    thanawiTotal: z.union([z.coerce.number(), z.literal('')]).optional(),
     thanawiType: z.string().min(1, 'مطلوب'),
-    thanawiPercentage: z.coerce.number().min(0).max(100),
+    thanawiPercentage: z.union([z.coerce.number(), z.literal('')]).optional(),
     schoolNameAr: z.string().min(1, 'مطلوب'),
     schoolAddress: z.string().min(1, 'مطلوب'),
 
@@ -148,12 +151,96 @@ export const stage345Schema = z
       .optional()
       .or(z.literal('')),
 
+    /* Config-driven score values for fieldKeys that are NOT one of the
+     * legacy keys above — admin-added fields land here so a new field is
+     * a data change, never a code change. */
+    educationScores: z.record(z.union([z.string(), z.number()])).optional(),
+
     /* Footer attestation — must be checked before حفظ والمتابعة is enabled. */
     declaration: z.literal(true, {
       errorMap: () => ({ message: 'يجب الموافقة على شروط الإلتحاق والإقرار الإلكتروني' }),
     }),
   });
 export type Stage345Values = z.infer<typeof stage345Schema>;
+
+/* ── Category education-field validation (config-driven) ─────────────── */
+
+/** Legacy score-field storage keys that live as top-level form values. */
+export const KNOWN_SCORE_FIELD_KEYS = [
+  'thanawiTotal',
+  'thanawiPercentage',
+  'thanawiGrade',
+  'bachelorPercentage',
+  'bachelorGrade',
+  'postgradGrade',
+  'doctorateGrade',
+] as const;
+export type KnownScoreFieldKey = (typeof KNOWN_SCORE_FIELD_KEYS)[number];
+
+export function isKnownScoreFieldKey(fieldKey: string): fieldKey is KnownScoreFieldKey {
+  return (KNOWN_SCORE_FIELD_KEYS as readonly string[]).includes(fieldKey);
+}
+
+export interface EducationScoreError {
+  /** Dotted react-hook-form path (e.g. `thanawiTotal` or `educationScores.gpa`). */
+  path: string;
+  message: string;
+}
+
+/**
+ * Validate the form values against the category's education-field config —
+ * the config-driven replacement for the previously hardcoded score-field
+ * rules. Rules apply only to active rows in currently-visible sections;
+ * `skipRequiredKeys` waives required-ness for fields whose value source is
+ * external (e.g. التقدير when grades were imported).
+ */
+export function collectEducationScoreErrors(
+  rules: ReadonlyArray<{
+    fieldKey: string;
+    labelAr: string;
+    inputKind: string;
+    sectionKey: string;
+    isRequired: boolean;
+    minValue: number | null;
+    maxValue: number | null;
+    isActive: boolean;
+  }>,
+  values: Stage345Values,
+  visibleSections: ReadonlySet<string>,
+  skipRequiredKeys: ReadonlySet<string>,
+): EducationScoreError[] {
+  const errors: EducationScoreError[] = [];
+  for (const rule of rules) {
+    if (!rule.isActive || !visibleSections.has(rule.sectionKey)) continue;
+    const fieldKey = rule.fieldKey;
+    const raw = isKnownScoreFieldKey(fieldKey)
+      ? values[fieldKey]
+      : values.educationScores?.[fieldKey];
+    const path = isKnownScoreFieldKey(fieldKey) ? fieldKey : `educationScores.${fieldKey}`;
+    const isEmpty = raw === undefined || raw === null || raw === '';
+    if (isEmpty) {
+      if (rule.isRequired && !skipRequiredKeys.has(rule.fieldKey)) {
+        errors.push({ path, message: 'مطلوب' });
+      }
+      continue;
+    }
+    if (rule.inputKind === 'number' || rule.inputKind === 'percentage') {
+      const numeric = typeof raw === 'number' ? raw : Number(raw);
+      if (Number.isNaN(numeric)) {
+        errors.push({ path, message: 'يجب إدخال قيمة رقمية' });
+        continue;
+      }
+      const min = rule.minValue ?? (rule.inputKind === 'percentage' ? 0 : null);
+      const max = rule.maxValue ?? (rule.inputKind === 'percentage' ? 100 : null);
+      if (min !== null && numeric < min) {
+        errors.push({ path, message: `القيمة لا تقل عن ${min}` });
+      } else if (max !== null && numeric > max) {
+        errors.push({ path, message: `القيمة لا تتجاوز ${max}` });
+      }
+    }
+  }
+  return errors;
+}
 
 /** Verify step (PDF p.5 lower) — applicant re-enters NID + mobile. */
 export const verifyApplicantSchema = z.object({

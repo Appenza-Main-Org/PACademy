@@ -48,8 +48,15 @@ import type { SearchSelectOption } from '@/shared/components';
 import { isBackendEnabled } from '@/shared/lib/api-client';
 import { zodResolver } from '@/shared/lib/zod-resolver';
 import { ROUTES } from '@/config/routes';
-import { stage345Schema, type Stage345Values } from '../schemas';
-import { usePublishedDeclaration } from '../api/applicantPortal.queries';
+import {
+  collectEducationScoreErrors,
+  isKnownScoreFieldKey,
+  stage345Schema,
+  type Stage345Values,
+} from '../schemas';
+import { useCategoryEducationFields } from '../api/educationFields.queries';
+import type { CategoryEducationField } from '@/shared/types/domain';
+import { useDraft, usePublishedDeclaration } from '../api/applicantPortal.queries';
 import { useCategories, useEligibleCategories } from '../api/categories.queries';
 import { applicantPortalService } from '../api/applicantPortal.service';
 import type { PublishedDeclaration } from '../api/applicantPortal.service';
@@ -236,7 +243,6 @@ export function Stage345ApplicantDataPage(): JSX.Element {
   }, [auditKey, gateLoading, lastAuditKey, selectedCategoryKey, nid, selectedCycleId, gradesMatched]);
 
   const showBachelor = selectedCategoryKey !== 'officers_general';
-  const isLawBachelor = selectedCategoryKey === 'law_bachelor';
   const hasPreselectedAcademicProgram = Boolean(selectedFaculty || selectedSpecialization);
   const selectedCategoryEligibility = useMemo(
     () =>
@@ -458,6 +464,38 @@ export function Stage345ApplicantDataPage(): JSX.Element {
   }, [eligibilityGradeRow, gradeByNidQuery.data, session.nationalId, session.fullName, session.gender]);
   const externalImport = matchedGradeRow !== null;
 
+  /* Category education-field config — drives which score fields render in
+   * each educational section and their validation rules (config-driven;
+   * the page holds no hardcoded score-field definitions). Falls back to
+   * the saved draft's category for sessions that land here without the
+   * start-page pick (same precedent as ApplicantPortalPage/Stage10). */
+  const { data: educationDraft } = useDraft(APPLICANT_ID);
+  const educationCategoryKey =
+    selectedCategoryKey
+    ?? (typeof educationDraft?.categoryKey === 'string' ? educationDraft.categoryKey : null);
+  const educationFieldsQuery = useCategoryEducationFields(educationCategoryKey);
+  const educationFieldRules = educationFieldsQuery.data ?? null;
+  const educationSectionRows = useMemo(() => {
+    const active = (educationFieldRules ?? [])
+      .filter((row) => row.isActive)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+    const bySection = (sectionKey: string): CategoryEducationField[] =>
+      active.filter((row) => row.sectionKey === sectionKey);
+    return {
+      secondary: bySection('secondary'),
+      university: bySection('university'),
+      postgraduate: bySection('postgraduate'),
+      doctorate: bySection('doctorate'),
+    };
+  }, [educationFieldRules]);
+  const visibleEducationSections = useMemo(() => {
+    const sections = new Set<string>(['secondary']);
+    if (showUniversityQualificationFields) sections.add('university');
+    if (showPostgrad) sections.add('postgraduate');
+    if (qualificationLevel === 'doctorate') sections.add('doctorate');
+    return sections;
+  }, [showUniversityQualificationFields, showPostgrad, qualificationLevel]);
+
   const manualCertificateTypeOptions = useMemo(
     () =>
       buildManualCertificateTypeOptions(
@@ -501,6 +539,7 @@ export function Stage345ApplicantDataPage(): JSX.Element {
       postgradGrade: '',
       doctorateYear: '',
       doctorateGrade: '',
+      educationScores: {},
       birthDistrict: '',
       birthAddressDetail: '',
       currentAddressDetail: '',
@@ -812,20 +851,14 @@ export function Stage345ApplicantDataPage(): JSX.Element {
           requireFormField('bachelorFaculty', values.bachelorFaculty);
           requireFormField('bachelorSpecialization', values.bachelorSpecialization);
         }
-        if (!isLawBachelor) {
-          requireFormField('bachelorPercentage', values.bachelorPercentage);
-        }
         requireFormField('bachelorYear', values.bachelorYear);
-        requireFormField('bachelorGrade', values.bachelorGrade);
       }
     }
     if (showPostgrad) {
       requireFormField('postgradYear', values.postgradYear);
-      requireFormField('postgradGrade', values.postgradGrade);
     }
     if (qualificationLevel === 'doctorate') {
       requireFormField('doctorateYear', values.doctorateYear);
-      requireFormField('doctorateGrade', values.doctorateGrade);
     }
 
     requireFormField('thanawiCountry', values.thanawiCountry);
@@ -833,9 +866,6 @@ export function Stage345ApplicantDataPage(): JSX.Element {
     requireFormField('schoolNameAr', values.schoolNameAr);
     requireFormField('schoolAddress', values.schoolAddress);
     requireFormField('thanawiGradDate', values.thanawiGradDate);
-    if (!externalImport) requireFormField('thanawiGrade', values.thanawiGrade);
-    requireFormField('thanawiTotal', values.thanawiTotal);
-    requireFormField('thanawiPercentage', values.thanawiPercentage);
     requireFormField('birthDistrict', values.birthDistrict);
     requireFormField('birthAddressDetail', values.birthAddressDetail);
     requireFormField('addressGovernorate', values.addressGovernorate);
@@ -843,13 +873,36 @@ export function Stage345ApplicantDataPage(): JSX.Element {
     requireFormField('currentAddressDetail', values.currentAddressDetail);
     requireFormField('declaration', values.declaration);
 
+    /* Config-driven score-field validation — required/min/max rules come
+     * from the category education-field config and flow through the same
+     * inline-error plumbing as the hardcoded requires above. */
+    if (!educationFieldRules) {
+      toast('تعذر تحميل إعدادات حقول الدرجات — أعد المحاولة.', 'danger');
+      return;
+    }
+    const educationScoreErrors = collectEducationScoreErrors(
+      educationFieldRules,
+      values,
+      visibleEducationSections,
+      /* التقدير is manual-entry only — when grades arrived from the
+       * official import the field isn't rendered, so don't require it. */
+      externalImport ? new Set(['thanawiGrade']) : new Set(),
+    );
+    for (const scoreError of educationScoreErrors) {
+      setError(scoreError.path as Parameters<typeof setError>[0], {
+        type: 'config',
+        message: scoreError.message,
+      });
+    }
+
     for (const [field, message] of Object.entries(formValidationErrors)) {
       setError(field as keyof Stage345Values, { type: 'required', message });
     }
     setManualErrors(localValidationErrors);
     if (
       Object.keys(formValidationErrors).length > 0 ||
-      Object.keys(localValidationErrors).length > 0
+      Object.keys(localValidationErrors).length > 0 ||
+      educationScoreErrors.length > 0
     ) {
       setProfileComplete(false);
       toast('استكمل البيانات الشخصية والدراسية المطلوبة قبل الانتقال إلى السداد.', 'danger');
@@ -1021,19 +1074,6 @@ export function Stage345ApplicantDataPage(): JSX.Element {
                   />
                 </Field>
               )}
-              {!isLawBachelor && (
-                <Input
-                  label="النسبة المئوية للجامعة"
-                  required
-                  type="number"
-                  min={0}
-                  max={100}
-                  step="0.01"
-                  dir="ltr"
-                  {...register('bachelorPercentage')}
-                  error={errors.bachelorPercentage?.message as string | undefined}
-                />
-              )}
               <Input
                 label="سنة التخرج"
                 required
@@ -1045,12 +1085,13 @@ export function Stage345ApplicantDataPage(): JSX.Element {
                 error={errors.bachelorYear?.message as string | undefined}
                 helper={helperForYear('bachelorYear')}
               />
-              <Select
-                label="تقدير الجامعة"
-                required
-                {...register('bachelorGrade')}
-                options={universityGradeSelectOptions}
-                error={errors.bachelorGrade?.message as string | undefined}
+              <ConfigScoreFields
+                rows={educationSectionRows.university}
+                register={register}
+                control={control}
+                errors={errors}
+                gradeOptions={universityGradeSelectOptions}
+                isLoading={educationFieldsQuery.isLoading}
               />
             </div>
           )}
@@ -1079,12 +1120,13 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               error={errors.postgradYear?.message as string | undefined}
               helper={helperForYear('postgradYear')}
             />
-            <Select
-              label="التقدير"
-              required
-              {...register('postgradGrade')}
-              options={universityGradeSelectOptions}
-              error={errors.postgradGrade?.message as string | undefined}
+            <ConfigScoreFields
+              rows={educationSectionRows.postgraduate}
+              register={register}
+              control={control}
+              errors={errors}
+              gradeOptions={universityGradeSelectOptions}
+              isLoading={educationFieldsQuery.isLoading}
             />
           </div>
         </Card>
@@ -1111,12 +1153,13 @@ export function Stage345ApplicantDataPage(): JSX.Element {
               error={errors.doctorateYear?.message as string | undefined}
               helper={helperForYear('doctorateYear')}
             />
-            <Select
-              label="التقدير"
-              required
-              {...register('doctorateGrade')}
-              options={universityGradeSelectOptions}
-              error={errors.doctorateGrade?.message as string | undefined}
+            <ConfigScoreFields
+              rows={educationSectionRows.doctorate}
+              register={register}
+              control={control}
+              errors={errors}
+              gradeOptions={universityGradeSelectOptions}
+              isLoading={educationFieldsQuery.isLoading}
             />
           </div>
         </Card>
@@ -1155,6 +1198,8 @@ export function Stage345ApplicantDataPage(): JSX.Element {
             certificateTypeOptions={manualCertificateTypeOptions}
             showNotFoundMessage={showSecondaryCertificateNotFoundMessage}
             gradDateHelper={helperForYear('thanawiGradDate')}
+            scoreFields={educationSectionRows.secondary}
+            scoreFieldsLoading={educationFieldsQuery.isLoading}
           />
         )}
       </Card>
@@ -1805,6 +1850,8 @@ function ManualThanawiFields({
   certificateTypeOptions,
   showNotFoundMessage,
   gradDateHelper,
+  scoreFields,
+  scoreFieldsLoading,
 }: {
   register: ReturnType<typeof useForm<Stage345Values>>['register'];
   control: ReturnType<typeof useForm<Stage345Values>>['control'];
@@ -1812,6 +1859,8 @@ function ManualThanawiFields({
   certificateTypeOptions: ReadonlyArray<{ value: string; label: string }>;
   showNotFoundMessage: boolean;
   gradDateHelper?: string;
+  scoreFields: readonly CategoryEducationField[];
+  scoreFieldsLoading: boolean;
 }): JSX.Element {
   return (
     <div className="flex flex-col gap-3">
@@ -1869,33 +1918,126 @@ function ManualThanawiFields({
           error={errors.thanawiGradDate?.message}
           helper={gradDateHelper}
         />
-        <Select
-          label="التقدير"
-          required
-          {...register('thanawiGrade')}
-          options={GRADE_RATING_OPTIONS as unknown as { value: string; label: string }[]}
-          error={errors.thanawiGrade?.message as string | undefined}
-        />
-        <Input
-          label="مجموع الثانوية العامة"
-          type="number"
-          required
-          dir="ltr"
-          {...register('thanawiTotal')}
-          error={errors.thanawiTotal?.message}
-        />
-        <Input
-          label="النسبة المئوية للثانوية العامة"
-          type="number"
-          min={0}
-          max={100}
-          step="0.01"
-          required
-          dir="ltr"
-          {...register('thanawiPercentage')}
-          error={errors.thanawiPercentage?.message}
+        <ConfigScoreFields
+          rows={scoreFields}
+          register={register}
+          control={control}
+          errors={errors}
+          gradeOptions={GRADE_RATING_OPTIONS as unknown as ReadonlyArray<{ value: string; label: string }>}
+          isLoading={scoreFieldsLoading}
         />
       </div>
     </div>
+  );
+}
+
+/**
+ * Config-driven educational score fields — renders the category's
+ * education-field rows for one section. Known legacy fieldKeys bind to
+ * their top-level form values (so prefill/sync/persistence paths stay
+ * unchanged); admin-added custom keys bind into the `educationScores`
+ * record. Zero hardcoded field definitions — labels, kinds, requiredness,
+ * and ranges all come from the config rows.
+ */
+function ConfigScoreFields({
+  rows,
+  register,
+  control,
+  errors,
+  gradeOptions,
+  isLoading,
+}: {
+  rows: readonly CategoryEducationField[];
+  register: ReturnType<typeof useForm<Stage345Values>>['register'];
+  control: ReturnType<typeof useForm<Stage345Values>>['control'];
+  errors: ReturnType<typeof useForm<Stage345Values>>['formState']['errors'];
+  gradeOptions: ReadonlyArray<{ value: string; label: string }>;
+  isLoading: boolean;
+}): JSX.Element | null {
+  if (isLoading) {
+    return <p className="text-2xs text-ink-500">جارٍ تحميل حقول الدرجات…</p>;
+  }
+  if (rows.length === 0) return null;
+
+  const errorFor = (fieldKey: string): string | undefined => {
+    if (isKnownScoreFieldKey(fieldKey)) {
+      return errors[fieldKey]?.message as string | undefined;
+    }
+    const bag = errors.educationScores as
+      | Record<string, { message?: string } | undefined>
+      | undefined;
+    return bag?.[fieldKey]?.message;
+  };
+
+  return (
+    <>
+      {rows.map((row) => {
+        const error = errorFor(row.fieldKey);
+        const isNumeric = row.inputKind === 'number' || row.inputKind === 'percentage';
+        const numericProps = isNumeric
+          ? {
+              type: 'number',
+              min: row.minValue ?? (row.inputKind === 'percentage' ? 0 : undefined),
+              max: row.maxValue ?? (row.inputKind === 'percentage' ? 100 : undefined),
+              step: row.inputKind === 'percentage' ? '0.01' : undefined,
+              dir: 'ltr' as const,
+            }
+          : {};
+
+        if (isKnownScoreFieldKey(row.fieldKey)) {
+          if (row.inputKind === 'academic-grade') {
+            return (
+              <Select
+                key={row.fieldKey}
+                label={row.labelAr}
+                required={row.isRequired}
+                {...register(row.fieldKey)}
+                options={[...gradeOptions]}
+                error={error}
+              />
+            );
+          }
+          return (
+            <Input
+              key={row.fieldKey}
+              label={row.labelAr}
+              required={row.isRequired}
+              {...numericProps}
+              {...register(row.fieldKey)}
+              error={error}
+            />
+          );
+        }
+
+        return (
+          <Controller
+            key={row.fieldKey}
+            control={control}
+            name={`educationScores.${row.fieldKey}`}
+            render={({ field }) =>
+              row.inputKind === 'academic-grade' ? (
+                <Select
+                  label={row.labelAr}
+                  required={row.isRequired}
+                  value={typeof field.value === 'string' ? field.value : ''}
+                  onChange={(e) => field.onChange(e.target.value)}
+                  options={[...gradeOptions]}
+                  error={error}
+                />
+              ) : (
+                <Input
+                  label={row.labelAr}
+                  required={row.isRequired}
+                  {...numericProps}
+                  value={field.value === undefined || field.value === null ? '' : String(field.value)}
+                  onChange={(e) => field.onChange(e.target.value)}
+                  error={error}
+                />
+              )
+            }
+          />
+        );
+      })}
+    </>
   );
 }
