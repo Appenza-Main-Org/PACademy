@@ -144,6 +144,22 @@ const THANAWI_BRANCH_OPTIONS = [
   { value: 'علمي', label: 'علمي' },
 ] as const;
 
+/* The official grade feeds carry their own branch vocabulary (general
+ * «الشعبة العلمية - رياضيات», azhar «الأدبى» with alef maqsura, …) —
+ * map it onto the canonical branch set above so the persisted الشعبة
+ * matches what admin views and reports filter on. Unknown non-empty
+ * values pass through verbatim; the submit never dead-locks on an
+ * unmapped feed. */
+const IMPORTED_BRANCH_CANONICAL: Record<string, string> = {
+  'الشعبة العلمية - علوم': 'علمي علوم',
+  'الشعبة العلمية - رياضيات': 'علمي رياضة',
+  'الشعبة الأدبية': 'أدبي',
+  'العلمى': 'علمي',
+  'العلمي': 'علمي',
+  'الأدبى': 'أدبي',
+  'الأدبي': 'أدبي',
+};
+
 export function Stage345ApplicantDataPage(): JSX.Element {
   const navigate = useNavigate();
   const storeNid = useApplicantPortalStore((s) => s.nationalId);
@@ -810,11 +826,17 @@ export function Stage345ApplicantDataPage(): JSX.Element {
       setValue('thanawiCountry', matchedSchoolExtras.country);
       setValue('thanawiGradDate', matchedSchoolExtras.gradDate);
     }
-    /* Branch maps from the imported grade row's branch field. */
+    /* Branch maps from the imported grade row's branch field — canonical
+     * values pass as-is, feed vocabulary normalizes via
+     * IMPORTED_BRANCH_CANONICAL, anything else carries verbatim so
+     * thanawiType is never left empty on the imported path. */
     const branch = matchedGradeRow.branch.trim();
-    const known = THANAWI_BRANCH_OPTIONS.find((b) => b.value === branch);
-    if (known) {
-      setValue('thanawiType', known.value);
+    const canonicalBranch =
+      THANAWI_BRANCH_OPTIONS.find((b) => b.value === branch)?.value
+      ?? IMPORTED_BRANCH_CANONICAL[branch]
+      ?? branch;
+    if (canonicalBranch) {
+      setValue('thanawiType', canonicalBranch);
     }
   }, [matchedGradeRow, matchedSchoolExtras, setValue]);
 
