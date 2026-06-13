@@ -2572,17 +2572,69 @@ public sealed class DataExchangeService(
 
     private async Task<IReadOnlyList<CuratedRow>> LoadCuratedExamsAsync(string? cycleId, CancellationToken ct)
     {
+        var rows = new List<CuratedRow>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // Concrete Question-Bank exam entities, when the cycle has any.
         var exams = await db.Exams.AsNoTracking()
             .Where(x => string.IsNullOrWhiteSpace(cycleId) || x.CycleId == cycleId)
             .ToListAsync(ct);
-        return exams.Select(x => new CuratedRow(Cells(
-            ("exam_id", x.Id),
-            ("exam_name", x.NameAr),
-            ("cycle_id", x.CycleId),
-            ("scheduled_for", x.ScheduledFor),
-            ("duration_minutes", x.DurationMinutes?.ToString(CultureInfo.InvariantCulture)),
-            ("question_count", x.QuestionCount?.ToString(CultureInfo.InvariantCulture)),
-            ("status", x.Status)), x.CreatedAt, x.UpdatedAt, null)).ToList();
+        foreach (var x in exams)
+        {
+            if (!string.IsNullOrWhiteSpace(x.Id)) seen.Add(x.Id);
+            rows.Add(new CuratedRow(Cells(
+                ("exam_id", x.Id),
+                ("exam_name", x.NameAr),
+                ("cycle_id", x.CycleId),
+                ("scheduled_for", x.ScheduledFor),
+                ("duration_minutes", x.DurationMinutes?.ToString(CultureInfo.InvariantCulture)),
+                ("question_count", x.QuestionCount?.ToString(CultureInfo.InvariantCulture)),
+                ("status", x.Status)), x.CreatedAt, x.UpdatedAt, null));
+        }
+
+        // The cycle's configured exam plan (admission-setup `examPlans`). Cloud
+        // cycles are configured through the wizard, so `db.Exams` is usually empty;
+        // the planned tests are the real exam list. Emit each distinct planned exam
+        // once, in plan order — the same `examPlans` source `ExamSchedules` resolves
+        // exam_id/exam_name from, so the two sheets never disagree. The per-category
+        // breakdown lives on the ExamSchedules sheet (which carries `category`).
+        rows.AddRange(await LoadCuratedPlanExamsAsync(cycleId, seen, ct));
+        return rows;
+    }
+
+    private async Task<IReadOnlyList<CuratedRow>> LoadCuratedPlanExamsAsync(
+        string? cycleId, ISet<string> seen, CancellationToken ct)
+    {
+        IReadOnlyList<JsonObject> plans;
+        try { plans = await records.ListAsync("examPlans", ct); }
+        catch (InvalidOperationException) { return []; }
+
+        var nameByCode = await LoadExamNameByCodeAsync(ct);
+        var byCode = new Dictionary<string, (int Order, DateTimeOffset Created, DateTimeOffset Updated)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var plan in plans)
+        {
+            if (AdminRecordJson.IsSoftDeleted(plan)) continue;
+            if (!MatchesCycle(FirstString(plan, "cycleId", "admissionCycleId", "cycle_id"), cycleId)) continue;
+            var (created, updated) = Timestamps(plan);
+            foreach (var node in plan["exams"] as JsonArray ?? [])
+            {
+                if (node is not JsonObject exam) continue;
+                var code = FirstString(exam, "examId", "id", "key", "code");
+                if (string.IsNullOrWhiteSpace(code) || seen.Contains(code)) continue;
+                var order = int.TryParse(exam["order"]?.ToString(), out var o) ? o : int.MaxValue;
+                if (!byCode.TryGetValue(code, out var existing) || order < existing.Order)
+                    byCode[code] = (order, created, updated);
+            }
+        }
+
+        return byCode
+            .OrderBy(kv => kv.Value.Order)
+            .Select(kv => new CuratedRow(Cells(
+                ("exam_id", kv.Key),
+                ("exam_name", nameByCode.GetValueOrDefault(kv.Key) ?? kv.Key),
+                ("cycle_id", cycleId),
+                ("status", "active")), kv.Value.Created, kv.Value.Updated, null))
+            .ToList();
     }
 
     private async Task<IReadOnlyList<CuratedRow>> LoadCuratedExamSchedulesAsync(string? cycleId, CuratedContext ctx, CancellationToken ct)
