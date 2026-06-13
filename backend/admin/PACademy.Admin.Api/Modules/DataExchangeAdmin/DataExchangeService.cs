@@ -297,12 +297,37 @@ public sealed class DataExchangeService(
         "address.governorate", "address.city", "address.detail", "address.street",
     };
 
+    private static readonly IReadOnlyDictionary<string, string> ApplicantFieldAliases =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["full_name"] = "fullName",
+            ["phone_number"] = "phoneNumber",
+            ["date_of_birth"] = "birthDate",
+            ["birth_governorate"] = "birthGovernorate",
+            ["marital_status"] = "maritalStatus",
+        };
+
     /// <summary>Reserved writeback columns — parsed into ApplicantWritebackResult,
     /// never diffed as a regular field.</summary>
     private static readonly IReadOnlySet<string> WritebackColumns = new HashSet<string>(StringComparer.Ordinal)
     {
         "result", "next_exam_date", "round", "test_code",
     };
+
+    private static string CanonicalApplicantField(string field)
+        => ApplicantFieldAliases.TryGetValue(field, out var canonical) ? canonical : field;
+
+    private static string? ApplicantNationalId(IReadOnlyDictionary<string, string?> row)
+        => Get(row, "nationalId")
+            ?? Get(row, "national_id")
+            ?? Get(row, "applicant_national_id")
+            ?? Get(row, "business_key");
+
+    private static string? ApplicantDisplayName(IReadOnlyDictionary<string, string?> row)
+        => Get(row, "fullName")
+            ?? Get(row, "full_name")
+            ?? Get(row, "name")
+            ?? Get(row, "applicant_name");
 
     /// <summary>Computes the per-applicant field diff for a parsed Applicants
     /// sheet. Writes nothing; the admin chooses which fields to accept on the
@@ -321,7 +346,7 @@ public sealed class DataExchangeService(
         for (var i = 0; i < sheet.Rows.Count; i++)
         {
             var importRow = sheet.Rows[i];
-            var nid = Get(importRow, "nationalId") ?? Get(importRow, "business_key") ?? "";
+            var nid = ApplicantNationalId(importRow) ?? "";
             var errors = new List<string>();
             if (string.IsNullOrWhiteSpace(nid))
             {
@@ -340,7 +365,7 @@ public sealed class DataExchangeService(
             if (!booked.TryGetValue(nid, out var payload))
             {
                 rows.Add(new ApplicantReconciliationRow(
-                    nid, null, Get(importRow, "fullName") ?? Get(importRow, "name"),
+                    nid, null, ApplicantDisplayName(importRow),
                     true, [], writeback, ["APPLICANT_NID_UNMATCHED"]));
                 continue;
             }
@@ -375,11 +400,12 @@ public sealed class DataExchangeService(
         IReadOnlyList<ImportSheetInput> sheets)
     {
         var map = new Dictionary<string, List<IReadOnlyDictionary<string, string?>>>(StringComparer.Ordinal);
+        var applicantNidById = ApplicantNidByImportedId(sheets);
         var sheet = sheets.FirstOrDefault(s => string.Equals(s.SheetName, "ExamResults", StringComparison.Ordinal));
         if (sheet is null) return map;
         foreach (var row in sheet.Rows)
         {
-            var nid = NationalIdFromResultRow(row);
+            var nid = NationalIdFromResultRow(row, applicantNidById);
             if (nid is null) continue;
             if (!map.TryGetValue(nid, out var rows)) map[nid] = rows = [];
             rows.Add(row);
@@ -387,12 +413,36 @@ public sealed class DataExchangeService(
         return map;
     }
 
+    private static IReadOnlyDictionary<string, string> ApplicantNidByImportedId(IReadOnlyList<ImportSheetInput> sheets)
+    {
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        var sheet = sheets.FirstOrDefault(s => string.Equals(s.SheetName, "Applicants", StringComparison.Ordinal));
+        if (sheet is null) return map;
+        foreach (var row in sheet.Rows)
+        {
+            var nid = ApplicantNationalId(row);
+            if (string.IsNullOrWhiteSpace(nid)) continue;
+            foreach (var id in ApplicantImportedIds(row))
+                map[id] = nid;
+        }
+        return map;
+    }
+
+    private static IEnumerable<string> ApplicantImportedIds(IReadOnlyDictionary<string, string?> row)
+    {
+        foreach (var key in new[] { "applicant_id", "applicantId", "id" })
+        {
+            var id = Get(row, key);
+            if (!string.IsNullOrWhiteSpace(id)) yield return id;
+        }
+    }
+
     private static ApplicantWritebackResult ResolveWriteback(
         IReadOnlyDictionary<string, string?> applicantRow,
         IReadOnlyDictionary<string, List<IReadOnlyDictionary<string, string?>>> examResultsByNid,
         IReadOnlyDictionary<string, string> resultLookup)
     {
-        var nid = Get(applicantRow, "nationalId") ?? Get(applicantRow, "business_key");
+        var nid = ApplicantNationalId(applicantRow);
         var resultRow = nid is not null && examResultsByNid.TryGetValue(nid, out var rows)
             ? SelectResultRow(rows, applicantRow)
             : null;
@@ -423,11 +473,16 @@ public sealed class DataExchangeService(
         return rows.FirstOrDefault(r => Get(r, "result") is not null) ?? rows.FirstOrDefault();
     }
 
-    private static string? NationalIdFromResultRow(IReadOnlyDictionary<string, string?> row)
+    private static string? NationalIdFromResultRow(
+        IReadOnlyDictionary<string, string?> row,
+        IReadOnlyDictionary<string, string> applicantNidById)
         => Get(row, "applicantNationalId")
             ?? Get(row, "applicant_national_id")
             ?? Get(row, "nationalId")
-            ?? Get(row, "national_id");
+            ?? Get(row, "national_id")
+            ?? (Get(row, "applicant_id") is { } applicantId && applicantNidById.TryGetValue(applicantId, out var nid)
+                ? nid
+                : null);
 
     private static string? TestCodeFromRow(IReadOnlyDictionary<string, string?>? row)
         => row is null
@@ -456,16 +511,19 @@ public sealed class DataExchangeService(
     {
         var dbFlat = JsonFlatten.Flatten(dbPayload).ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
         var diffs = new List<ApplicantFieldDiff>();
+        var seenFields = new HashSet<string>(StringComparer.Ordinal);
         foreach (var (field, importedRaw) in importRow)
         {
-            if (!EditableApplicantFields.Contains(field)) continue;
+            var canonicalField = CanonicalApplicantField(field);
+            if (!EditableApplicantFields.Contains(canonicalField)) continue;
             if (NonDataColumns.Contains(field)) continue;
             if (WritebackColumns.Contains(field)) continue;
+            if (!seenFields.Add(canonicalField)) continue;
             var imported = importedRaw?.Trim();
             if (string.IsNullOrEmpty(imported)) continue;
-            var current = dbFlat.TryGetValue(field, out var v) ? (v ?? "") : "";
+            var current = dbFlat.TryGetValue(canonicalField, out var v) ? (v ?? "") : "";
             if (string.Equals(current.Trim(), imported, StringComparison.Ordinal)) continue;
-            diffs.Add(new ApplicantFieldDiff(field, current, imported));
+            diffs.Add(new ApplicantFieldDiff(canonicalField, current, imported));
         }
         return diffs;
     }
@@ -587,8 +645,8 @@ public sealed class DataExchangeService(
         var preview = await PreviewApplicantsReconciliationAsync(request.Sheets, ct);
         var rowByNid = preview.Rows.ToDictionary(r => r.NationalId, r => r, StringComparer.Ordinal);
         var importByNid = sheet.Rows
-            .Where(r => !string.IsNullOrWhiteSpace(Get(r, "nationalId")))
-            .ToDictionary(r => Get(r, "nationalId")!, r => r, StringComparer.Ordinal);
+            .Where(r => !string.IsNullOrWhiteSpace(ApplicantNationalId(r)))
+            .ToDictionary(r => ApplicantNationalId(r)!, r => r, StringComparer.Ordinal);
 
         var attempted = 0; var successCount = 0; var fieldsWritten = 0; var writebacksApplied = 0;
         var failed = new List<ImportFailedRow>();
@@ -2151,6 +2209,8 @@ public sealed class DataExchangeService(
                     ?? Get(row, "applicantId")
                     ?? Get(row, "applicant_table_id"),
                     Get(row, "exam_id") ?? Get(row, "exam_name")),
+            ExchangeStorage.DocStore when spec.Domain == ExchangeDomain.Applicants
+                => ApplicantNationalId(row) ?? "",
             ExchangeStorage.DocStore when spec.BusinessKeyFields.Count > 0
                 => string.Join("|", spec.BusinessKeyFields.Select(f => Get(row, f) ?? "")),
             _ => Get(row, "id") ?? "",
@@ -2160,7 +2220,7 @@ public sealed class DataExchangeService(
 
         if (spec.Domain == ExchangeDomain.Applicants)
         {
-            var nid = Get(row, "nationalId");
+            var nid = ApplicantNationalId(row);
             if (!string.IsNullOrEmpty(nid) && (nid.Length != 14 || !nid.All(char.IsDigit)))
                 errors.Add("الرقم القومي غير صالح (14 رقمًا)");
         }

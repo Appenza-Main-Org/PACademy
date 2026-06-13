@@ -16,6 +16,18 @@ const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.s
 
 type XlsxModule = typeof import('xlsx');
 
+const IMPORT_COLUMN_ALIASES: Partial<Record<keyof typeof SHEET_NAMES, Record<string, string>>> = {
+  Applicants: {
+    applicant_id: 'id',
+    national_id: 'nationalId',
+    full_name: 'fullName',
+    phone_number: 'phoneNumber',
+    date_of_birth: 'birthDate',
+    birth_governorate: 'birthGovernorate',
+    marital_status: 'maritalStatus',
+  },
+};
+
 /** Per-column width hints (auto-fit, clamped). SheetJS community supports `!cols`. */
 function autoColumnWidths(aoa: unknown[][]): Array<{ wch: number }> {
   const widths: number[] = [];
@@ -107,11 +119,30 @@ export async function parseWorkbook(file: File): Promise<ParsedWorkbook> {
       headers.forEach((h, j) => {
         row[h] = cells[j] === undefined || cells[j] === null ? '' : String(cells[j]);
       });
-      rows.push(row);
+      rows.push(withImportColumnAliases(sheetName, row));
     }
     sheets.push({ sheetName, rows });
   }
   return { sheets, unknownSheets };
+}
+
+function withImportColumnAliases(sheetName: string, row: ExchangeCellMap): ExchangeCellMap {
+  const aliases = importAliasesForSheet(sheetName);
+  if (!aliases) return row;
+  const next: ExchangeCellMap = { ...row };
+  for (const [sourceColumn, targetColumn] of Object.entries(aliases)) {
+    if (next[targetColumn] !== undefined && next[targetColumn] !== null && next[targetColumn] !== '') continue;
+    const sourceValue = next[sourceColumn];
+    if (sourceValue === undefined) continue;
+    next[targetColumn] = sourceValue;
+  }
+  return next;
+}
+
+function importAliasesForSheet(sheetName: string): Record<string, string> | undefined {
+  const domain = Object.entries(SHEET_NAMES).find(([, registeredSheet]) => registeredSheet === sheetName)?.[0];
+  if (!domain) return undefined;
+  return IMPORT_COLUMN_ALIASES[domain as keyof typeof SHEET_NAMES];
 }
 
 /** Build a validation-errors workbook for download (one row per failed/invalid row). */

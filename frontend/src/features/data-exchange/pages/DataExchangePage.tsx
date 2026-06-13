@@ -36,6 +36,7 @@ import type { UploadFile } from '@/shared/components/FileUpload';
 import { useAuthStore } from '@/features/auth';
 import { useLookup } from '@/features/lookups';
 import { emitAudit } from '@/shared/lib/audit';
+import { isValidationError } from '@/shared/lib/errors';
 import {
   type ApplicantReconciliationDecision,
   type ApplicantReconciliationPreview,
@@ -71,6 +72,13 @@ import { ApplicationSettingsCycleExportCard, useAdmissionSetupCycle } from '@/fe
 type FilterKind = 'all' | 'changedAfter' | 'modifiedSinceCreation' | 'sinceLastExport';
 type ExchangeTab = 'export' | 'import' | 'history';
 type ExportPreset = 'all' | 'applicants' | 'operations' | 'configuration';
+type ImportNoticeTone = 'danger' | 'warning';
+
+interface ImportNotice {
+  title: string;
+  detail: string | null;
+  tone: ImportNoticeTone;
+}
 
 /** Parse a `<input type="date">` value to an ISO timestamp, or null when it
  *  is empty / not a valid date. Guards against `new Date('').toISOString()`
@@ -87,6 +95,43 @@ function toIsoOrNull(dateStr: string): string | null {
 function sanitizeFileLabel(raw: string): string {
   const cleaned = raw.trim().replace(/[\\/:*?"<>|\s]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
   return cleaned.length > 0 ? cleaned : 'export';
+}
+
+function errorMessage(error: unknown): string | null {
+  if (isValidationError(error)) {
+    const message = error.message.trim();
+    const fields = validationFieldsMessage(error.fields);
+    if (message && fields) return `${message}: ${fields}`;
+    return message || fields;
+  }
+  return error instanceof Error && error.message.trim() ? error.message.trim() : null;
+}
+
+function withDetail(title: string, detail: string | null): string {
+  return detail ? `${title} ${detail}` : title;
+}
+
+function validationFieldsMessage(fields: unknown): string | null {
+  if (!isObjectRecord(fields)) return null;
+  const messages = Object.entries(fields)
+    .flatMap(([field, rawMessages]) => validationMessageList(rawMessages).map((message) => `${field}: ${message}`))
+    .slice(0, 4);
+  return messages.length > 0 ? messages.join('، ') : null;
+}
+
+function validationMessageList(rawMessages: unknown): string[] {
+  const values = Array.isArray(rawMessages) ? rawMessages : [rawMessages];
+  return values.flatMap((value) => {
+    if (typeof value === 'string' && value.trim()) return [value.trim()];
+    if (isObjectRecord(value) && typeof value.message === 'string' && value.message.trim()) {
+      return [value.message.trim()];
+    }
+    return [];
+  });
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
 const LAYOUT_OPTIONS: Array<{ value: ExportLayout; label: string }> = [
@@ -142,6 +187,9 @@ const EXPORT_PRESETS: Array<{ value: ExportPreset; label: string; domains: Excha
   },
 ];
 
+const IMPORT_PREVIEW_ERROR_TITLE = 'تعذّرت قراءة الملف أو معاينته.';
+const RECONCILIATION_PREVIEW_ERROR_TITLE = 'تمت قراءة الجداول، لكن تعذّرت مراجعة بيانات المتقدمين.';
+
 const DOMAIN_GROUPS: Array<{ label: string; domains: ExchangeDomain[] }> = [
   {
     label: 'ملف المتقدم',
@@ -181,6 +229,7 @@ export function DataExchangePage(): JSX.Element {
   const [parsedSheets, setParsedSheets] = useState<ImportSheetInput[]>([]);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [applicantsPreview, setApplicantsPreview] = useState<ApplicantReconciliationPreview | null>(null);
+  const [importNotice, setImportNotice] = useState<ImportNotice | null>(null);
   const previewMutation = usePreviewMutation();
   const applyMutation = useApplyMutation();
   const reconcilePreviewMutation = useApplicantsReconciliationPreviewMutation();
@@ -334,9 +383,12 @@ export function DataExchangePage(): JSX.Element {
     if (!target) {
       setPreview(null);
       setParsedSheets([]);
+      setApplicantsPreview(null);
+      setImportNotice(null);
       return;
     }
     try {
+      setImportNotice(null);
       const { sheets, unknownSheets } = await parseWorkbook(target.file);
       setParsedSheets(sheets);
       if (unknownSheets.length > 0) {
@@ -346,6 +398,11 @@ export function DataExchangePage(): JSX.Element {
         toast('لا توجد جداول مطابقة لأسماء النظام في الملف.', 'danger');
         setPreview(null);
         setApplicantsPreview(null);
+        setImportNotice({
+          title: IMPORT_PREVIEW_ERROR_TITLE,
+          detail: 'لا توجد جداول مطابقة لأسماء النظام في الملف.',
+          tone: 'danger',
+        });
         return;
       }
       // Generic 6-class change-detection — runs for all sheets.
@@ -356,15 +413,29 @@ export function DataExchangePage(): JSX.Element {
       // and a per-round result + next-exam writeback per applicant.
       const applicantsSheet = sheets.find((s) => s.sheetName === SHEET_NAMES.Applicants);
       if (applicantsSheet) {
-        const recon = await reconcilePreviewMutation.mutateAsync(sheets);
-        setApplicantsPreview(recon);
+        await previewApplicantsReconciliation(sheets);
       } else {
         setApplicantsPreview(null);
       }
-    } catch {
-      toast('تعذّرت قراءة الملف أو معاينته.', 'danger');
+    } catch (error) {
+      const detail = errorMessage(error);
+      setImportNotice({ title: IMPORT_PREVIEW_ERROR_TITLE, detail, tone: 'danger' });
+      toast(withDetail(IMPORT_PREVIEW_ERROR_TITLE, detail), 'danger');
       setPreview(null);
       setApplicantsPreview(null);
+    }
+  }
+
+  async function previewApplicantsReconciliation(sheets: ImportSheetInput[]): Promise<void> {
+    try {
+      const reconciliationPreview = await reconcilePreviewMutation.mutateAsync(sheets);
+      setApplicantsPreview(reconciliationPreview);
+      setImportNotice(null);
+    } catch (error) {
+      const detail = errorMessage(error);
+      setApplicantsPreview(null);
+      setImportNotice({ title: RECONCILIATION_PREVIEW_ERROR_TITLE, detail, tone: 'warning' });
+      toast(withDetail(RECONCILIATION_PREVIEW_ERROR_TITLE, detail), 'warning');
     }
   }
 
@@ -418,8 +489,7 @@ export function DataExchangePage(): JSX.Element {
       setPreview(refreshed);
       const applicantsSheet = parsedSheets.find((s) => s.sheetName === SHEET_NAMES.Applicants);
       if (applicantsSheet) {
-        const refreshedApplicants = await reconcilePreviewMutation.mutateAsync(parsedSheets);
-        setApplicantsPreview(refreshedApplicants);
+        await previewApplicantsReconciliation(parsedSheets);
       }
     } catch {
       toast('تعذّر تطبيق الاستيراد.', 'danger');
@@ -644,12 +714,13 @@ export function DataExchangePage(): JSX.Element {
                   title="اسحب مصنّف Excel هنا أو انقر للاختيار"
                   helper="يجب أن تطابق أسماء الجداول سجل النظام الثابت."
                 />
-                {previewMutation.isPending && (
+                {(previewMutation.isPending || reconcilePreviewMutation.isPending) && (
                   <p className="mt-3 flex items-center gap-2 text-2xs text-ink-500">
                     <CalendarClock size={14} />
                     جارٍ تحليل الملف وكشف التغييرات...
                   </p>
                 )}
+                {importNotice && <ImportNoticeAlert notice={importNotice} />}
               </div>
               <div className="rounded-lg border border-border-subtle bg-ink-50 p-4">
                 <p className="text-2xs font-semibold text-ink-700">قواعد الاستيراد</p>
@@ -764,6 +835,26 @@ export function DataExchangePage(): JSX.Element {
           </Card>
         </Tabs.Panel>
       </Tabs>
+    </div>
+  );
+}
+
+function ImportNoticeAlert({ notice }: { notice: ImportNotice }): JSX.Element {
+  const toneClassName = notice.tone === 'danger'
+    ? 'border-terra-300 bg-terra-50 text-terra-700'
+    : 'border-gold-300 bg-gold-50 text-gold-700';
+  const iconClassName = notice.tone === 'danger' ? 'text-terra-500' : 'text-gold-600';
+
+  return (
+    <div
+      role="alert"
+      className={`mt-3 flex items-start gap-2 rounded-md border px-3 py-2.5 text-2xs leading-6 ${toneClassName}`}
+    >
+      <AlertTriangle size={15} className={`mt-0.5 shrink-0 ${iconClassName}`} />
+      <div>
+        <p className="font-semibold">{notice.title}</p>
+        {notice.detail && <p>{notice.detail}</p>}
+      </div>
     </div>
   );
 }

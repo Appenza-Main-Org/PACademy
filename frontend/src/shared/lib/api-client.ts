@@ -22,6 +22,8 @@ interface ApiEnvelopeError {
   payload?: unknown;
   result?: DependencyResult;
   message?: string;
+  title?: string;
+  detail?: string;
   errors?: unknown;
 }
 
@@ -171,6 +173,8 @@ function normalizeErrorPayload(status: number, parsed: unknown): ApiEnvelopeErro
       payload: parsed.payload,
       result: isRecord(parsed.result) ? (parsed.result as unknown as DependencyResult) : undefined,
       message: typeof parsed.message === 'string' ? parsed.message : undefined,
+      title: typeof parsed.title === 'string' ? parsed.title : undefined,
+      detail: typeof parsed.detail === 'string' ? parsed.detail : undefined,
       errors: parsed.errors,
     };
   }
@@ -187,11 +191,12 @@ function isDeleteBlockedPayload(parsed: unknown): parsed is { deleted: false; re
 
 function toServiceError(status: number, parsed: unknown): Error {
   const err = normalizeErrorPayload(status, parsed);
+  const message = err.message ?? err.detail ?? err.title;
   if (err.code === 'CONFLICT' && err.conflictCode) {
     return new ConflictError(
       err.conflictCode as ConflictCode,
       err.payload,
-      err.message,
+      message,
     );
   }
   if (err.code === 'ACCOUNT_INACTIVE') {
@@ -199,18 +204,25 @@ function toServiceError(status: number, parsed: unknown): Error {
       isRecord(err.payload) && typeof err.payload.userId === 'string'
         ? err.payload.userId
         : 'unknown';
-    return new AccountInactiveError(userId, err.message);
+    return new AccountInactiveError(userId, message);
   }
   if (err.code === 'DEPENDENCY_BLOCKED' && err.result) {
     return new DependencyBlockedError(err.result, 'هذا السجل', {});
   }
   if (err.code === 'NOT_FOUND' || status === 404) {
-    return new NotFoundError(err.message ?? 'السجل غير موجود');
+    return new NotFoundError(message ?? 'السجل غير موجود');
   }
-  if (err.code === 'VALIDATION_ERROR' || err.code === 'FIELD_VALIDATION' || status === 422) {
-    return new ValidationError(err.errors ?? err.payload, err.message);
+  if (
+    err.code === 'VALIDATION_ERROR' ||
+    err.code === 'VALIDATION_FAILED' ||
+    err.code === 'FIELD_VALIDATION' ||
+    err.code === 'VALIDATION' ||
+    status === 422 ||
+    (status === 400 && err.errors !== undefined)
+  ) {
+    return new ValidationError(err.errors ?? err.payload, message);
   }
-  const generic = new Error(err.message ?? `HTTP ${status}`);
+  const generic = new Error(message ?? `HTTP ${status}`);
   generic.name = err.code ?? 'ApiError';
   return generic;
 }
