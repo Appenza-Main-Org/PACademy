@@ -59,6 +59,7 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
     public DbSet<ApplicationSettingsCategoryConfigEntity> ApplicationSettingsCategoryConfigs => Set<ApplicationSettingsCategoryConfigEntity>();
     public DbSet<ApplicationSettingsCategorySpecializationEntity> ApplicationSettingsCategorySpecializations => Set<ApplicationSettingsCategorySpecializationEntity>();
     public DbSet<ApplicationSettingsGraduationYearEntity> ApplicationSettingsGraduationYears => Set<ApplicationSettingsGraduationYearEntity>();
+    public DbSet<CategoryEducationFieldEntity> CategoryEducationFields => Set<CategoryEducationFieldEntity>();
     public DbSet<UserEntity> Users => Set<UserEntity>();
     public DbSet<RoleEntity> Roles => Set<RoleEntity>();
     public DbSet<OfficerEntity> Officers => Set<OfficerEntity>();
@@ -614,6 +615,28 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
             entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
             entity.HasIndex(x => x.CategorySpecializationId).HasDatabaseName("ix_app_settings_years_category_specialization_id");
             entity.HasIndex(x => new { x.CategorySpecializationId, x.ApplicationStartDate, x.ApplicationEndDate }).HasDatabaseName("ix_app_settings_years_window");
+        });
+
+        modelBuilder.Entity<CategoryEducationFieldEntity>(entity =>
+        {
+            entity.ToTable("category_education_fields");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).HasColumnName("id").HasMaxLength(96);
+            entity.Property(x => x.CategoryKey).HasColumnName("category_key").HasMaxLength(96);
+            entity.Property(x => x.FieldKey).HasColumnName("field_key").HasMaxLength(96);
+            entity.Property(x => x.LabelAr).HasColumnName("label_ar").HasMaxLength(256);
+            entity.Property(x => x.InputKind).HasColumnName("input_kind").HasMaxLength(32);
+            entity.Property(x => x.SectionKey).HasColumnName("section_key").HasMaxLength(32);
+            entity.Property(x => x.IsRequired).HasColumnName("is_required");
+            entity.Property(x => x.MinValue).HasColumnName("min_value").HasPrecision(9, 2);
+            entity.Property(x => x.MaxValue).HasColumnName("max_value").HasPrecision(9, 2);
+            entity.Property(x => x.SortOrder).HasColumnName("sort_order");
+            entity.Property(x => x.IsActive).HasColumnName("is_active");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
+            entity.HasIndex(x => new { x.CategoryKey, x.SortOrder }).HasDatabaseName("ix_category_education_fields_category_sort");
+            entity.HasIndex(x => new { x.CategoryKey, x.FieldKey }).IsUnique().HasDatabaseName("ux_category_education_fields_category_field");
         });
 
         modelBuilder.Entity<UserEntity>(entity =>
