@@ -16,6 +16,7 @@
 import { useEffect } from 'react';
 import { PageHeader } from '@/shared/components';
 import { AdmissionSetupShell } from '../components/AdmissionSetupShell';
+import { CategoryEducationFieldsCard } from '../components/applicationSettings/CategoryEducationFieldsCard';
 import { CategoryTabs } from '../components/applicationSettings/CategoryTabs';
 import { StickyBulkSaveBar } from '../components/applicationSettings/StickyBulkSaveBar';
 import { UnsavedChangesPrompt } from '../components/applicationSettings/UnsavedChangesPrompt';
@@ -47,6 +48,7 @@ export function ApplicationSettingsPage(): JSX.Element {
           subtitle="مساحة عمل منظمة لإضافة شروط اللجنة لكل فئة على حدة مع متابعة حالة الاكتمال."
         />
         <CategoryTabs />
+        <CategoryEducationFieldsCard />
         <StickyBulkSaveBar />
         <UnsavedChangesPrompt />
       </div>
