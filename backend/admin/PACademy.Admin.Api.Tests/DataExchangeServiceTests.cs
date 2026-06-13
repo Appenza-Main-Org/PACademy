@@ -894,6 +894,28 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
+    public async Task Snapshot_export_lists_configured_exam_plan_in_Exams_sheet()
+    {
+        // db.Exams is empty for wizard-configured cycles; the Exams sheet must still
+        // list the cycle's planned tests (from the examPlans bucket) — distinct, in
+        // plan order — instead of coming back empty. Mirrors the ExamSchedules source.
+        var (svc, db) = Create();
+        await SeedCycleAsync(db, "CYC-ACTIVE", true);
+        await SeedOperationalAsync(db, "examPlans", "PLAN-LAW",
+            """{"id":"PLAN-LAW","cycleId":"CYC-ACTIVE","categoryId":"law_bachelor","exams":[{"examId":"TST-02","order":2},{"examId":"TST-01","order":1}]}""");
+        await SeedOperationalAsync(db, "examPlans", "PLAN-OFF",
+            """{"id":"PLAN-OFF","cycleId":"CYC-ACTIVE","categoryId":"officers_general","exams":[{"examId":"TST-01","order":1}]}""");
+
+        var result = await svc.ExportSnapshotAsync([ExchangeDomain.Exams], "single-workbook", ExportFilter.Default, default);
+        var sheet = result.Sheets.Single(s => s.Domain == "Exams");
+        var examIds = sheet.Rows.Select(r => r["exam_id"]).ToList();
+
+        Assert.Equal(2, examIds.Count);          // TST-01 deduped across the two categories
+        Assert.Equal("TST-01", examIds[0]);      // plan order (order=1) wins
+        Assert.Equal("TST-02", examIds[1]);
+    }
+
+    [Fact]
     public async Task Preview_classifies_unchanged_skipped_edited_changed_new_new()
     {
         var (svc, db) = Create();
