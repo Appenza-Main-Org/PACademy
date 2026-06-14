@@ -2933,7 +2933,7 @@ public sealed class DataExchangeService(
             ["applicant_id", "national_id", "full_name", "gender", "phone_number", "email", "date_of_birth", "birth_governorate",
              "qualification_type", "university", "faculty", "specialization", "graduation_year", "grade", "percentage",
              "school_name", "school_category", "secondary_total_score", "secondary_percentage", "secondary_graduation_year",
-             "category", "cycle_id", "status"],
+             "category", "cycle_id", "status", "barcode"],
             CycleScoped: true, PersonScoped: true),
         new(ExchangeDomain.Relatives, "Relatives", "أقارب المتقدمين",
             ["relative_id", "applicant_id", "relation_type", "relation_label", "full_name", "national_id", "gender", "qualification", "occupation", "phone", "governorate", "address"],
@@ -3083,7 +3083,12 @@ public sealed class DataExchangeService(
                 ("secondary_graduation_year", SecondaryEducationField(p, "graduationYear") ?? ThanawiGraduationYear(p)),
                 ("category", CategoryKey(p)),
                 ("cycle_id", FirstString(p, "cycleId", "admissionCycleId", "cycle_id") ?? cycleId),
-                ("status", ApplicantField(p, "status"))), created, updated, nid));
+                ("status", ApplicantField(p, "status")),
+                // Permanent applicant barcode (generated at payment/booking, see
+                // PortalService + AddBarcodeSequences). Exported so the internal
+                // app can scan it to inquire on the applicant instead of falling
+                // back to the national id.
+                ("barcode", ApplicantField(p, "barcode"))), created, updated, nid));
         }
         return rows;
     }
