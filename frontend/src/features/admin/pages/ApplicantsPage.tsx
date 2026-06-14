@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FilterX, Search, UserPlus } from 'lucide-react';
 import {
   Badge,
@@ -76,6 +76,7 @@ function residenceCity(applicant: Applicant): string {
 }
 
 export function ApplicantsPage(): JSX.Element {
+  const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<ApplicantStatus | 'all'>('all');
@@ -161,7 +162,13 @@ export function ApplicantsPage(): JSX.Element {
         getSortValue: (a) => a.name,
         filter: { kind: 'text', getValue: (a) => a.name },
         render: (a) => (
-          <Link to={ROUTES.admin.applicantDetail(a.id)} className="flex min-w-0 flex-col gap-1">
+          <Link
+            to={ROUTES.admin.applicantDetail(a.id)}
+            className="flex min-w-0 flex-col gap-1"
+            /* the whole row navigates too — keep the link for middle-click /
+             * new-tab, but don't let one click push history twice */
+            onClick={(e) => e.stopPropagation()}
+          >
             <span className="truncate text-sm font-medium text-ink-900">{shortName(a.name, 3)}</span>
             <span className="block truncate text-end font-mono text-2xs text-ink-500" dir="ltr">{displayValue(a.adminRecordId ?? a.id)}</span>
             <Badge tone="neutral" className="w-fit">{sourceLabel(a.source)}</Badge>
@@ -200,7 +207,6 @@ export function ApplicantsPage(): JSX.Element {
         key: 'contact',
         label: 'الاتصال',
         width: '16%',
-        hideOn: 'md',
         sortable: true,
         getSortValue: (a) => a.phoneNumber ?? a.contact?.mobilePhone,
         filter: { kind: 'text', getValue: (a) => `${a.phoneNumber ?? a.contact?.mobilePhone ?? ''} ${a.email ?? a.contact?.email ?? ''}` },
@@ -217,7 +223,6 @@ export function ApplicantsPage(): JSX.Element {
         key: 'birthGovernorate',
         label: 'محافظة الميلاد',
         width: '12%',
-        hideOn: 'md',
         sortable: true,
         getSortValue: (a) => a.birthGovernorate ?? '',
         filter: {
@@ -235,7 +240,6 @@ export function ApplicantsPage(): JSX.Element {
         key: 'residenceGovernorate',
         label: 'محافظة الإقامة',
         width: '12%',
-        hideOn: 'md',
         sortable: true,
         getSortValue: (a) => residenceGovernorate(a),
         filter: {
@@ -253,7 +257,6 @@ export function ApplicantsPage(): JSX.Element {
         key: 'certType',
         label: 'الشهادة',
         width: '13%',
-        hideOn: 'md',
         sortable: true,
         getSortValue: (a) => a.certType,
         filter: { kind: 'text', getValue: (a) => a.certType },
@@ -292,7 +295,6 @@ export function ApplicantsPage(): JSX.Element {
         key: 'registeredAt',
         label: 'التسجيل',
         width: '10%',
-        hideOn: 'sm',
         sortable: true,
         getSortValue: (a) => a.registeredAt,
         filter: { kind: 'date', getValue: (a) => a.registeredAt },
@@ -374,6 +376,7 @@ export function ApplicantsPage(): JSX.Element {
       rowActions: {
         labelAr: 'إجراءات',
         width: 72,
+        sticky: true,
         render: (applicant) => (
           <ApplicantRowActions
             applicant={applicant}
@@ -558,6 +561,8 @@ export function ApplicantsPage(): JSX.Element {
             zebraStripes
             stickyHeader
             density="compact"
+            onRowClick={(a) => navigate(ROUTES.admin.applicantDetail(a.id))}
+            tableClassName="min-w-[80rem]"
             pagination={data ? { page: data.page, pageSize: PAGE_SIZE, total: data.total, onPageChange: setPage } : undefined}
             listActions={listActions}
           />
