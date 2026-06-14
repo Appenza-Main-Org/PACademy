@@ -130,7 +130,8 @@ export function policeStationMatchesGovernorate(
 ): boolean {
   if (!governorate) return false;
 
-  const stationCode = station.governorateCode.trim();
+  const stationCode = (station.governorateCode ?? '').trim();
+  if (!stationCode) return false;
   const civilCode = governorateCivilCode(governorate);
   const candidates = new Set<string>([
     governorate.code,

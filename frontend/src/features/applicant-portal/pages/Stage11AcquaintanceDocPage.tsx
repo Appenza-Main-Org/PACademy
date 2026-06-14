@@ -835,8 +835,22 @@ function normalizeBackendDocument(partial: Partial<VothiqaTaarufDocument>): Voth
     ...partial,
     personal: { ...empty.personal, ...partial.personal },
     applicantFamily: { ...empty.applicantFamily, ...partial.applicantFamily },
-    parents: { ...empty.parents, ...partial.parents },
-    grandparents: { ...empty.grandparents, ...partial.grandparents },
+    /* Parents + grandparents are prefilled from the Stage-7 family snapshot by
+     * the backend, which emits only the fields that carry data. Deep-merge each
+     * record over its empty default so omitted fields (homePhone, mobile,
+     * nationality, …) keep their defaults instead of becoming `undefined` and
+     * tripping controlled-input warnings. */
+    parents: {
+      father: { ...empty.parents.father, ...partial.parents?.father },
+      mother: { ...empty.parents.mother, ...partial.parents?.mother },
+      guardian: { ...empty.parents.guardian, ...partial.parents?.guardian },
+    },
+    grandparents: {
+      paternalGrandfather: { ...empty.grandparents.paternalGrandfather, ...partial.grandparents?.paternalGrandfather },
+      paternalGrandmother: { ...empty.grandparents.paternalGrandmother, ...partial.grandparents?.paternalGrandmother },
+      maternalGrandfather: { ...empty.grandparents.maternalGrandfather, ...partial.grandparents?.maternalGrandfather },
+      maternalGrandmother: { ...empty.grandparents.maternalGrandmother, ...partial.grandparents?.maternalGrandmother },
+    },
     siblings: { ...empty.siblings, ...partial.siblings },
     paternalRelatives: { ...empty.paternalRelatives, ...partial.paternalRelatives },
     maternalRelatives: { ...empty.maternalRelatives, ...partial.maternalRelatives },

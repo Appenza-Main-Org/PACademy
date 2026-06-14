@@ -1240,7 +1240,10 @@ public sealed class PortalService(PortalDbContext db, ILogger<PortalService> log
     private async Task<JsonObject> BuildInitialAcquaintanceDocPayloadAsync(string applicantId, string cycleId, CancellationToken ct)
     {
         var draft = await GetOrCreateDraftAsync(applicantId, ct);
-        var family = await GetFamilyAsync(applicantId, ct);
+        // Stage 7 persists the family blob into the draft (`draft.family`) via
+        // SaveDraftAsync — NOT into the dedicated "family" PortalRecord. Read the
+        // draft first; fall back to the standalone record for legacy data.
+        var family = draft["family"] as JsonObject ?? await GetFamilyAsync(applicantId, ct);
         var profile = draft["profile"] as JsonObject;
         var committeeName = CommitteeNameFromDraft(draft);
 
@@ -1301,13 +1304,207 @@ public sealed class PortalService(PortalDbContext db, ILogger<PortalService> log
             ["section"] = "general",
             ["personal"] = personal,
             ["applicantFamily"] = new JsonObject(),
-            ["parents"] = family is null ? new JsonObject() : family.DeepClone(),
-            ["grandparents"] = new JsonObject(),
+            ["parents"] = BuildParentsSectionFromFamily(family),
+            ["grandparents"] = BuildGrandparentsSectionFromFamily(family),
             ["siblings"] = new JsonObject(),
             ["paternalRelatives"] = new JsonObject(),
             ["maternalRelatives"] = new JsonObject(),
             ["foreignAndCases"] = new JsonObject(),
         };
+    }
+
+    /* ── Family prefill (mirrors frontend vothiqaTaaruf.derive.ts) ──────────
+     * The Stage-7 family snapshot stores each member in the FamilyMemberForm
+     * shape (split firstName/secondName/thirdName, birthGovernorate/District,
+     * residence*, qualificationDetail/professionDetail). The وثيقة تعارف
+     * sections use the FatherRecord/MotherRecord/GrandparentRecord/Guardian
+     * shapes (joined fullName, birthPlace, workplace/workNature, address).
+     * These mappers translate one to the other so previously-entered family
+     * data is reflected in the acquaintance document. Scope matches the
+     * frontend derive: parents + guardian + grandparents (siblings/relatives
+     * are collected fresh in the document, which captures more detail). */
+
+    private static JsonObject BuildParentsSectionFromFamily(JsonObject? family)
+    {
+        var parents = new JsonObject();
+        if (family is null) return parents;
+
+        if (ObjectProp(family, "father") is { } father)
+        {
+            var firstWife = (family["fatherWives"] as JsonArray) is { Count: > 0 } wives
+                ? wives[0] as JsonObject
+                : null;
+            parents["father"] = MapFatherRecord(father, firstWife);
+        }
+        if (ObjectProp(family, "mother") is { } mother)
+        {
+            var firstHusband = (family["motherHusbands"] as JsonArray) is { Count: > 0 } husbands
+                ? husbands[0] as JsonObject
+                : null;
+            parents["mother"] = MapMotherRecord(mother, firstHusband);
+        }
+        if (MapGuardianRecord(ObjectProp(family, "guardian")) is { } guardian)
+        {
+            parents["guardian"] = guardian;
+        }
+        return parents;
+    }
+
+    private static JsonObject BuildGrandparentsSectionFromFamily(JsonObject? family)
+    {
+        var section = new JsonObject();
+        if (ObjectProp(family, "grandparents") is not { } grandparents) return section;
+        foreach (var slot in new[]
+                 {
+                     "paternalGrandfather", "paternalGrandmother",
+                     "maternalGrandfather", "maternalGrandmother",
+                 })
+        {
+            if (ObjectProp(grandparents, slot) is { } member)
+            {
+                section[slot] = MapGrandparentRecord(member);
+            }
+        }
+        return section;
+    }
+
+    private static JsonObject MapFatherRecord(JsonObject father, JsonObject? firstWife)
+    {
+        var record = new JsonObject
+        {
+            ["fullName"] = FamilyMemberName(father),
+            ["shuhraName"] = StringFrom(father, "shuhra"),
+            ["dateOfBirth"] = StringFrom(father, "dateOfBirth"),
+            ["birthPlace"] = JoinWithDash(StringFrom(father, "birthDistrict"), StringFrom(father, "birthGovernorate")),
+            ["qualification"] = StringFrom(father, "qualification"),
+            ["profession"] = StringFrom(father, "profession"),
+            ["seniorityNumber"] = StringFrom(father, "seniorityNumber"),
+            ["workplace"] = StringFrom(father, "professionDetail"),
+            ["workNature"] = StringFrom(father, "qualificationDetail"),
+            ["address"] = JoinWithDash(
+                StringFrom(father, "residenceDetail"),
+                StringFrom(father, "residenceDistrict"),
+                StringFrom(father, "residenceGovernorate")),
+            ["nationalId"] = StringFrom(father, "nationalId"),
+            ["deceased"] = BoolFrom(father, "deceased"),
+        };
+        if (firstWife is not null)
+        {
+            record["hasCurrentWife"] = true;
+            record["currentWifeCount"] = "1";
+            record["currentWife"] = MapSpouseSubRecord(firstWife);
+        }
+        return record;
+    }
+
+    private static JsonObject MapMotherRecord(JsonObject mother, JsonObject? firstHusband)
+    {
+        var record = new JsonObject
+        {
+            ["fullName"] = FamilyMemberName(mother),
+            ["dateOfBirth"] = StringFrom(mother, "dateOfBirth"),
+            ["birthPlace"] = JoinWithDash(StringFrom(mother, "birthDistrict"), StringFrom(mother, "birthGovernorate")),
+            ["qualification"] = StringFrom(mother, "qualification"),
+            ["religion"] = StringFrom(mother, "religion"),
+            ["profession"] = StringFrom(mother, "profession"),
+            ["seniorityNumber"] = StringFrom(mother, "seniorityNumber"),
+            ["workplace"] = StringFrom(mother, "professionDetail"),
+            ["workNature"] = StringFrom(mother, "qualificationDetail"),
+            ["address"] = JoinWithDash(
+                StringFrom(mother, "residenceDetail"),
+                StringFrom(mother, "residenceDistrict"),
+                StringFrom(mother, "residenceGovernorate")),
+            ["nationalId"] = StringFrom(mother, "nationalId"),
+            ["deceased"] = BoolFrom(mother, "deceased"),
+        };
+        if (firstHusband is not null)
+        {
+            record["hasCurrentHusband"] = true;
+            record["currentHusbandCount"] = "1";
+            record["currentHusband"] = MapSpouseSubRecord(firstHusband);
+        }
+        return record;
+    }
+
+    private static JsonObject MapGrandparentRecord(JsonObject src) => new()
+    {
+        ["fullName"] = FamilyMemberName(src),
+        ["shuhraName"] = StringFrom(src, "shuhra"),
+        ["dateOfBirth"] = StringFrom(src, "dateOfBirth"),
+        ["birthPlace"] = StringFrom(src, "birthDistrict"),
+        ["governorate"] = StringFrom(src, "birthGovernorate"),
+        ["religion"] = StringFrom(src, "religion"),
+        ["alive"] = BoolFrom(src, "deceased") ? "deceased" : "alive",
+        ["nationalId"] = StringFrom(src, "nationalId"),
+        ["nidUnavailable"] = BoolFrom(src, "nidUnavailable"),
+        ["nidUnavailableReason"] = StringFrom(src, "nidUnavailableReason"),
+        ["qualification"] = StringFrom(src, "qualification"),
+        ["profession"] = StringFrom(src, "profession"),
+        ["seniorityNumber"] = StringFrom(src, "seniorityNumber"),
+        ["workplace"] = StringFrom(src, "professionDetail"),
+        ["workNature"] = StringFrom(src, "qualificationDetail"),
+        ["address"] = JoinWithDash(
+            StringFrom(src, "residenceDetail"),
+            StringFrom(src, "residenceDistrict"),
+            StringFrom(src, "residenceGovernorate")),
+    };
+
+    /// <summary>Guardian (نموذج 3) — only emitted when a name was entered,
+    /// mirroring the frontend's `savedGuardian` gate.</summary>
+    private static JsonObject? MapGuardianRecord(JsonObject? guardian)
+    {
+        if (guardian is null) return null;
+        var name = FamilyMemberName(guardian);
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        return new JsonObject
+        {
+            ["fullName"] = name,
+            ["qualification"] = StringFrom(guardian, "qualification"),
+            ["profession"] = StringFrom(guardian, "profession"),
+            ["workNature"] = StringFrom(guardian, "workplaceDetail"),
+        };
+    }
+
+    private static JsonObject MapSpouseSubRecord(JsonObject member) => new()
+    {
+        ["fullName"] = FamilyMemberName(member),
+        ["dateOfBirth"] = StringFrom(member, "dateOfBirth"),
+        ["nationalId"] = StringFrom(member, "nationalId"),
+        ["qualification"] = StringFrom(member, "qualification"),
+        ["birthPlace"] = JoinWithDash(StringFrom(member, "birthDistrict"), StringFrom(member, "birthGovernorate")),
+        ["profession"] = StringFrom(member, "profession"),
+        ["seniorityNumber"] = StringFrom(member, "seniorityNumber"),
+        ["workplace"] = StringFrom(member, "professionDetail"),
+        ["workNature"] = StringFrom(member, "qualificationDetail"),
+    };
+
+    /// <summary>Join the three Arabic name parts (first/father/grandfather)
+    /// into the canonical display form, dropping empties. Mirrors
+    /// formatMemberName in familyData.ts (without the "—" placeholder —
+    /// blank stays blank so the document field shows empty, not a dash).</summary>
+    private static string FamilyMemberName(JsonObject? member)
+    {
+        if (member is null) return "";
+        var parts = new[]
+        {
+            StringFrom(member, "firstName"),
+            StringFrom(member, "secondName"),
+            StringFrom(member, "thirdName"),
+        }
+            .Select(p => p.Trim())
+            .Where(p => p.Length > 0);
+        return string.Join(" ", parts);
+    }
+
+    /// <summary>Join non-blank values with " — " preserving order.</summary>
+    private static string JoinWithDash(params string[] values) =>
+        string.Join(" — ", values.Where(v => !string.IsNullOrWhiteSpace(v)).Select(v => v.Trim()));
+
+    private static bool BoolFrom(JsonObject? obj, string key)
+    {
+        if (obj is null || obj[key] is null) return false;
+        try { return obj[key]!.GetValue<bool>(); }
+        catch { return false; }
     }
 
     private static string CommitteeNameFromDraft(JsonObject draft) =>

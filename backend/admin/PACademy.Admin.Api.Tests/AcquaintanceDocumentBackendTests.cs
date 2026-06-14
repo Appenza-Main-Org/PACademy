@@ -53,6 +53,28 @@ public sealed class AcquaintanceDocumentBackendTests
         Assert.DoesNotContain("[\"address\"] = \"\"", source);
     }
 
+    [Fact]
+    public void InitialAcquaintanceDocPrefillsFamilyFromDraft()
+    {
+        var source = File.ReadAllText(FindRepoFile(
+            "backend/applicant/PACademy.Applicant.Api/Modules/ApplicantPortal/PortalService.cs"));
+
+        // Stage 7 saves the family blob into the draft (draft.family), not the
+        // standalone "family" record — the initial doc must read it from there.
+        Assert.Contains("draft[\"family\"] as JsonObject ?? await GetFamilyAsync", source);
+
+        // Family must be mapped into the وثيقة تعارف record shapes (parents +
+        // grandparents), not dumped raw — guards against the blank-family regression.
+        Assert.Contains("[\"parents\"] = BuildParentsSectionFromFamily(family)", source);
+        Assert.Contains("[\"grandparents\"] = BuildGrandparentsSectionFromFamily(family)", source);
+        Assert.Contains("MapFatherRecord(", source);
+        Assert.Contains("MapMotherRecord(", source);
+        Assert.Contains("MapGrandparentRecord(", source);
+
+        // Regression guard: the raw snapshot must no longer be dumped into parents.
+        Assert.DoesNotContain("[\"parents\"] = family is null ? new JsonObject() : family.DeepClone()", source);
+    }
+
     private static string FindRepoFile(string relativePath)
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
