@@ -1,4 +1,5 @@
 import { useMemo, useState, type ChangeEvent } from 'react';
+import { flushSync } from 'react-dom';
 import { CalendarRange, Hash, IdCard, Printer, RefreshCw, ScanBarcode, Search, Sparkles, User } from 'lucide-react';
 import { PageHeader, Card, CardHeader, CardBody, Button, Badge, EmptyState, ErrorState, LoadingState, KhayameyaStripe, Code128Barcode, LogoMark, Select, toast } from '@/shared/components';
 import { MOCK } from '@/shared/mock-data';
@@ -14,6 +15,7 @@ import {
   BARCODE_EXAM_TYPE_OPTIONS,
   BARCODE_QUALIFICATION_OPTIONS,
   EMPTY_GROUP_SELECTION,
+  batchCardCode,
   type GroupSelection,
 } from '../lib/barcodeGroups';
 import { isApplicantInScope, scopeForRole, type OperatorScope } from '../lib/barcodeScope';
@@ -35,6 +37,25 @@ const COMMITTEE_NAME_TO_INDEX: Record<string, number> = {
 function buildPayload(applicant: Applicant, cardCode: string): string {
   const committeeIdx = COMMITTEE_NAME_TO_INDEX[applicant.committee] ?? 0;
   return ['PA', applicant.id, applicant.nationalId, cardCode, `C${committeeIdx}`].join('|');
+}
+
+/**
+ * The printable card record for a search hit. Uses the applicant's real
+ * active card when one exists; otherwise synthesizes one from the
+ * deterministic batch code so any searched applicant is printable as a
+ * single card (matches the code shown in the batch grid).
+ */
+function recordForHit(hit: BarcodeSearchHit): BarcodeRecord {
+  if (hit.record) return hit.record;
+  const a = hit.applicant;
+  return {
+    applicantId: a.id,
+    code: batchCardCode(a),
+    cycleId: 'CYC-2026-M',
+    governorateCode: (a.nationalId ?? '').slice(7, 9) || '00',
+    issuedAt: Date.now(),
+    void: false,
+  };
 }
 
 /** Copy-count options for individual print (US-BC-002). */
@@ -294,6 +315,10 @@ export function BarcodeLookupPage(): JSX.Element {
   const [mode, setMode] = useState<BarcodeSearchMode>('barcode');
   const [query, setQuery] = useState('');
   const [submitted, setSubmitted] = useState<{ mode: BarcodeSearchMode; query: string } | null>(null);
+  /* The searched applicant whose existing card is being reprinted. Set (via
+   * flushSync) immediately before window.print() so the single-card surface
+   * is in the DOM; cleared on `afterprint` to restore the screen. */
+  const [reprintHit, setReprintHit] = useState<BarcodeSearchHit | null>(null);
 
   const meta = SEARCH_MODES.find((m) => m.mode === mode)!;
   const { data: hits, isFetching, isError, error, refetch } = useBarcodeSearch(submitted);
@@ -313,8 +338,26 @@ export function BarcodeLookupPage(): JSX.Element {
     setSubmitted(null);
   };
 
+  /* Reprint the applicant's EXISTING card (same code — never regenerated;
+   * the lookup never mints or mutates a barcode). Renders the printable card
+   * synchronously, prints it alone, then restores the screen. */
+  const handleReprint = (hit: BarcodeSearchHit): void => {
+    if (hit.record?.void) {
+      toast('هذا الكارت ملغى — استخدم «بدل فاقد» لإصدار كود جديد بدلاً من إعادة الطباعة.', 'warning');
+      return;
+    }
+    flushSync(() => setReprintHit(hit));
+    const cleanup = (): void => {
+      setReprintHit(null);
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+  };
+
   return (
-    <>
+    <div data-barcode-print={reprintHit ? 'single' : undefined}>
+      <div className="barcode-lookup-screen">
       <PageHeader title="استعلام واسترجاع" subtitle="ابحث عن كارت التردد بالكود أو الرقم القومي أو اسم المتقدم" />
       <Card>
         <CardBody>
@@ -382,17 +425,25 @@ export function BarcodeLookupPage(): JSX.Element {
             ) : !hits || hits.length === 0 ? (
               <EmptyState variant="no-results-search" title="لا توجد نتائج" description="تأكد من القيمة المُدخلة وحاول مرة أخرى." />
             ) : hits.length === 1 ? (
-              <BarcodeHitCard hit={hits[0]!} />
+              <BarcodeHitCard hit={hits[0]!} onPrint={handleReprint} />
             ) : (
               <div className="flex flex-col gap-2">
-                <p className="text-2xs text-ink-500">{num(hits.length)} نتيجة — اختر متقدماً لعرض كارته.</p>
-                {hits.map((h) => <BarcodeHitRow key={h.applicant.id} hit={h} />)}
+                <p className="text-2xs text-ink-500">{num(hits.length)} نتيجة — اختر متقدماً لإعادة طباعة كارته.</p>
+                {hits.map((h) => <BarcodeHitRow key={h.applicant.id} hit={h} onPrint={handleReprint} />)}
               </div>
             )}
           </div>
         </CardBody>
       </Card>
-    </>
+      </div>
+
+      {/* Single-card reprint surface — hidden on screen; revealed by print.css
+          only when data-barcode-print="single". Carries the applicant's
+          existing card (same code), never a freshly generated one. */}
+      <div className="barcode-single-print hidden" aria-hidden>
+        {reprintHit && <FrequencyCard applicant={reprintHit.applicant} record={recordForHit(reprintHit)} />}
+      </div>
+    </div>
   );
 }
 
@@ -403,9 +454,16 @@ function CardStatusBadge({ record }: { record: BarcodeRecord | null }): JSX.Elem
   return <Badge tone="success">سارٍ</Badge>;
 }
 
-/** Full single-result panel: applicant details + card preview. */
-function BarcodeHitCard({ hit }: { hit: BarcodeSearchHit }): JSX.Element {
+/**
+ * Full single-result panel: applicant details + card preview.
+ * When `onPrint` is supplied (the batch page's individual-print flow) the
+ * panel always shows a printable code (synthesized when none was issued)
+ * and a «طباعة الكارت» action; without it the panel keeps the lookup
+ * page's read-only behaviour.
+ */
+function BarcodeHitCard({ hit, onPrint }: { hit: BarcodeSearchHit; onPrint?: (hit: BarcodeSearchHit) => void }): JSX.Element {
   const { applicant, record } = hit;
+  const printable = onPrint ? recordForHit(hit) : record;
   return (
     <div className="grid gap-4 rounded-lg border border-border-subtle bg-ink-50 p-4 lg:grid-cols-[1.4fr_1fr]">
       <div className="grid grid-cols-2 gap-3 text-2xs">
@@ -419,15 +477,22 @@ function BarcodeHitCard({ hit }: { hit: BarcodeSearchHit }): JSX.Element {
           <span className="text-ink-500">حالة الكارت</span>
           <CardStatusBadge record={record} />
         </div>
+        {onPrint && (
+          <div className="col-span-2 flex flex-wrap gap-2 pt-1 no-print">
+            <Button variant="primary" size="sm" leadingIcon={<Printer size={14} strokeWidth={1.75} />} onClick={() => onPrint(hit)}>
+              طباعة الكارت
+            </Button>
+          </div>
+        )}
       </div>
       <div className="flex flex-col items-center justify-center gap-2 rounded-md border border-border-subtle bg-white p-3 text-center">
-        {record ? (
+        {printable ? (
           <>
-            <Code128Barcode value={buildPayload(applicant, record.code)} height={52} moduleWidth={1.3} showText={false} />
-            <p className="font-mono text-xs text-ink-700" dir="ltr">{record.code.replace(/(.{4})/g, '$1 ').trim()}</p>
+            <Code128Barcode value={buildPayload(applicant, printable.code)} height={52} moduleWidth={1.3} showText={false} />
+            <p className="font-mono text-xs text-ink-700" dir="ltr">{printable.code.replace(/(.{4})/g, '$1 ').trim()}</p>
             <p className="inline-flex items-center gap-1 text-2xs text-ink-500">
               <CalendarRange size={11} strokeWidth={1.75} />
-              صادر {fmtDate(record.issuedAt, 'short')}
+              {record ? `صادر ${fmtDate(record.issuedAt, 'short')}` : 'كود الدفعة المبدئي'}
             </p>
           </>
         ) : (
@@ -438,8 +503,9 @@ function BarcodeHitCard({ hit }: { hit: BarcodeSearchHit }): JSX.Element {
   );
 }
 
-/** Compact one-line hit used when a name search returns many matches. */
-function BarcodeHitRow({ hit }: { hit: BarcodeSearchHit }): JSX.Element {
+/** Compact one-line hit used when a name search returns many matches.
+ *  `onPrint`, when supplied, adds a direct single-card print action. */
+function BarcodeHitRow({ hit, onPrint }: { hit: BarcodeSearchHit; onPrint?: (hit: BarcodeSearchHit) => void }): JSX.Element {
   const { applicant, record } = hit;
   return (
     <div className="flex items-center justify-between gap-3 rounded-md border border-border-subtle bg-surface-card px-3 py-2.5">
@@ -452,6 +518,11 @@ function BarcodeHitRow({ hit }: { hit: BarcodeSearchHit }): JSX.Element {
       <div className="flex items-center gap-2">
         {record && <span className="hidden font-mono text-2xs text-ink-500 sm:inline" dir="ltr">{record.code}</span>}
         <CardStatusBadge record={record} />
+        {onPrint && (
+          <Button variant="secondary" size="sm" leadingIcon={<Printer size={14} strokeWidth={1.75} />} onClick={() => onPrint(hit)} className="no-print">
+            طباعة
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -460,10 +531,129 @@ function BarcodeHitRow({ hit }: { hit: BarcodeSearchHit }): JSX.Element {
 /** "All" sentinel for a group filter (empty value). */
 const ALL_OPTION = { value: '', label: 'الكل' } as const;
 
+/**
+ * Top-of-page search panel for the batch surface: find one applicant by
+ * National ID / name / barcode code and print just their card — without
+ * generating or printing the whole batch (the common "reprint a lost
+ * card" path). Mirrors the lookup page's proven search controls; each
+ * result exposes a direct single-card print action via `onPrintHit`.
+ */
+function BatchSearchSection({ onPrintHit }: { onPrintHit: (hit: BarcodeSearchHit) => void }): JSX.Element {
+  const [mode, setMode] = useState<BarcodeSearchMode>('national-id');
+  const [query, setQuery] = useState('');
+  const [submitted, setSubmitted] = useState<{ mode: BarcodeSearchMode; query: string } | null>(null);
+
+  const meta = SEARCH_MODES.find((m) => m.mode === mode)!;
+  const { data: hits, isFetching, isError, error, refetch } = useBarcodeSearch(submitted);
+
+  const nidError = mode === 'national-id' && query.trim().length > 0 ? nationalIdErrorMessage(query.trim()) : undefined;
+  const canSubmit = query.trim().length > 0 && !nidError;
+
+  const handleSubmit = (): void => {
+    if (!canSubmit) return;
+    setSubmitted({ mode, query: query.trim() });
+  };
+
+  const switchMode = (next: BarcodeSearchMode): void => {
+    setMode(next);
+    setQuery('');
+    setSubmitted(null);
+  };
+
+  return (
+    <Card className="no-print">
+      <CardHeader
+        title="طباعة كارت فردي"
+        subtitle="ابحث عن متقدم بالرقم القومي أو الاسم أو كود الباركود واطبع كارته مباشرةً دون توليد الدفعة كاملة"
+      />
+      <CardBody>
+        {/* Mode toggle */}
+        <div role="radiogroup" aria-label="طريقة البحث" className="mb-4 grid grid-cols-3 gap-2">
+          {SEARCH_MODES.map(({ mode: m, label, Icon }) => {
+            const selected = mode === m;
+            return (
+              <button
+                key={m}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => switchMode(m)}
+                className={cn(
+                  'flex items-center justify-center gap-2 rounded-md border px-3 py-2.5 text-sm font-medium transition-colors duration-fast ease-standard',
+                  'focus-visible:shadow-focus-teal focus-visible:outline-none',
+                  selected
+                    ? 'text-white'
+                    : 'border-border-default text-ink-700 hover:border-border-strong hover:bg-ink-50',
+                )}
+                style={selected ? { background: 'var(--accent-600)', borderColor: 'var(--accent-600)' } : undefined}
+              >
+                <Icon size={16} strokeWidth={1.75} />
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Query input + submit */}
+        <form
+          className="flex flex-col gap-1 sm:flex-row sm:items-start"
+          onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}
+        >
+          <div className="flex-1">
+            <div className="search">
+              <input
+                className="input"
+                dir={meta.dir}
+                inputMode={mode === 'name' ? 'text' : 'numeric'}
+                placeholder={meta.placeholder}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                aria-label={`بحث بـ ${meta.label}`}
+                aria-invalid={Boolean(nidError)}
+              />
+              <Search size={18} />
+            </div>
+            {nidError && <p className="mt-1 text-2xs text-terra-600">{nidError}</p>}
+          </div>
+          <Button type="submit" variant="primary" disabled={!canSubmit} isLoading={isFetching}>
+            بحث
+          </Button>
+        </form>
+
+        {/* Results */}
+        {submitted && (
+          <div className="mt-5">
+            {isFetching ? (
+              <LoadingState variant="list" />
+            ) : isError ? (
+              <ErrorState error={error} onRetry={() => refetch()} />
+            ) : !hits || hits.length === 0 ? (
+              <EmptyState variant="no-results-search" title="لا توجد نتائج" description="تأكد من القيمة المُدخلة وحاول مرة أخرى." />
+            ) : hits.length === 1 ? (
+              <BarcodeHitCard hit={hits[0]!} onPrint={onPrintHit} />
+            ) : (
+              <div className="flex flex-col gap-2">
+                <p className="text-2xs text-ink-500">{num(hits.length)} نتيجة — اطبع كارت أي متقدم مباشرةً.</p>
+                {hits.map((h) => <BarcodeHitRow key={h.applicant.id} hit={h} onPrint={onPrintHit} />)}
+              </div>
+            )}
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
 export function BarcodeBatchPage(): JSX.Element {
   const { scope, setScope, locked, canOverride } = useOperatorScope();
   const [selection, setSelection] = useState<GroupSelection>(EMPTY_GROUP_SELECTION);
   const { data, isFetching, isError, error, refetch } = useBarcodeGroupPrint(selection);
+
+  /* Which region the next window.print() emits — the full batch grid or a
+   * single searched applicant's card. Toggled (via flushSync) immediately
+   * before printing; only affects @media print output, not the screen. */
+  const [printScope, setPrintScope] = useState<'batch' | 'single'>('batch');
+  const [singleHit, setSingleHit] = useState<BarcodeSearchHit | null>(null);
 
   /* Bulk print is restricted to applicants inside the operator's scope. */
   const candidates = useMemo(
@@ -478,84 +668,121 @@ export function BarcodeBatchPage(): JSX.Element {
   const count = candidates.length;
   const hasFilter = Object.values(selection).some(Boolean);
 
+  const handlePrintBatch = (): void => {
+    flushSync(() => setPrintScope('batch'));
+    window.print();
+  };
+
+  /* Print one searched applicant's existing card. Renders the single-card
+   * surface synchronously, prints it alone, then restores the batch screen
+   * on `afterprint`. Voided cards are not reprintable (use «بدل فاقد»). */
+  const handlePrintSingle = (hit: BarcodeSearchHit): void => {
+    if (hit.record?.void) {
+      toast('هذا الكارت ملغى — استخدم «بدل فاقد» لإصدار كود جديد بدلاً من إعادة الطباعة.', 'warning');
+      return;
+    }
+    flushSync(() => { setSingleHit(hit); setPrintScope('single'); });
+    const cleanup = (): void => {
+      setSingleHit(null);
+      setPrintScope('batch');
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+  };
+
   return (
-    <>
-      <PageHeader title="دفعة كروت" subtitle="توليد كروت لمجموعة متقدمين دفعة واحدة بتصفية حسب الفئة أو نوع الاختبار أو اللجنة أو المؤهل" />
-      <BarcodeScopeBar scope={scope} onChange={setScope} locked={locked} canOverride={canOverride} />
-      <Card>
-        <CardBody>
-          <div className="alert alert-info mb-4">
-            <span className="alert-icon">ℹ️</span>
-            <div className="alert-body">يمكن طباعة دفعة كاملة (40 كارت في الصفحة الواحدة) لتوزيعها على لجان الفحص.</div>
-          </div>
+    <div data-barcode-print={printScope}>
+      <div className="barcode-batch-print">
+        <PageHeader title="دفعة كروت وطباعة فردية" subtitle="اطبع كارت متقدم واحد بالبحث عنه، أو وَلِّد دفعة كروت لمجموعة بتصفية حسب الفئة أو نوع الاختبار أو اللجنة أو المؤهل" />
+        <div className="no-print">
+          <BarcodeScopeBar scope={scope} onChange={setScope} locked={locked} canOverride={canOverride} />
+        </div>
 
-          {/* Lookup-driven group filters */}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Select
-              label="الفئة"
-              value={selection.category}
-              onChange={setDim('category')}
-              options={[ALL_OPTION, ...BARCODE_CATEGORY_OPTIONS]}
-            />
-            <Select
-              label="نوع الاختبار"
-              value={selection.examType}
-              onChange={setDim('examType')}
-              options={[ALL_OPTION, ...BARCODE_EXAM_TYPE_OPTIONS]}
-            />
-            <Select
-              label="اللجنة"
-              value={selection.committee}
-              onChange={setDim('committee')}
-              options={[ALL_OPTION, ...BARCODE_COMMITTEE_OPTIONS]}
-            />
-            <Select
-              label="المؤهل"
-              value={selection.qualification}
-              onChange={setDim('qualification')}
-              options={[ALL_OPTION, ...BARCODE_QUALIFICATION_OPTIONS]}
-            />
-          </div>
+        <BatchSearchSection onPrintHit={handlePrintSingle} />
 
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <p className="text-2xs text-ink-500">
-              {isFetching ? 'جارٍ الحساب…' : `${num(count)} متقدم ضمن التصفية الحالية`}
-            </p>
-            {hasFilter && (
-              <Button variant="ghost" size="sm" onClick={() => setSelection(EMPTY_GROUP_SELECTION)}>
-                مسح التصفية
+        <Card className="mt-5">
+          <CardHeader title="طباعة دفعة كروت" subtitle="توليد كروت لمجموعة متقدمين دفعة واحدة" />
+          <CardBody>
+            <div className="alert alert-info mb-4 no-print">
+              <span className="alert-icon">ℹ️</span>
+              <div className="alert-body">يمكن طباعة دفعة كاملة (40 كارت في الصفحة الواحدة) لتوزيعها على لجان الفحص.</div>
+            </div>
+
+            {/* Lookup-driven group filters */}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 no-print">
+              <Select
+                label="الفئة"
+                value={selection.category}
+                onChange={setDim('category')}
+                options={[ALL_OPTION, ...BARCODE_CATEGORY_OPTIONS]}
+              />
+              <Select
+                label="نوع الاختبار"
+                value={selection.examType}
+                onChange={setDim('examType')}
+                options={[ALL_OPTION, ...BARCODE_EXAM_TYPE_OPTIONS]}
+              />
+              <Select
+                label="اللجنة"
+                value={selection.committee}
+                onChange={setDim('committee')}
+                options={[ALL_OPTION, ...BARCODE_COMMITTEE_OPTIONS]}
+              />
+              <Select
+                label="المؤهل"
+                value={selection.qualification}
+                onChange={setDim('qualification')}
+                options={[ALL_OPTION, ...BARCODE_QUALIFICATION_OPTIONS]}
+              />
+            </div>
+
+            <div className="mt-3 flex items-center justify-between gap-3 no-print">
+              <p className="text-2xs text-ink-500">
+                {isFetching ? 'جارٍ الحساب…' : `${num(count)} متقدم ضمن التصفية الحالية`}
+              </p>
+              {hasFilter && (
+                <Button variant="ghost" size="sm" onClick={() => setSelection(EMPTY_GROUP_SELECTION)}>
+                  مسح التصفية
+                </Button>
+              )}
+            </div>
+
+            {/* Candidate grid */}
+            <div className="mt-4">
+              {isFetching ? (
+                <LoadingState variant="card-grid" />
+              ) : isError ? (
+                <ErrorState error={error} onRetry={() => refetch()} />
+              ) : count === 0 ? (
+                <EmptyState variant="no-applicants-yet" title="لا يوجد متقدمون" description="عدّل التصفية لعرض كروت قابلة للطباعة." />
+              ) : (
+                <div className="grid grid-cols-auto" style={{ gap: 12 }}>
+                  {candidates.map(({ applicant, cardCode }) => (
+                    <div key={applicant.id} className="barcode-display flex flex-col items-center gap-1">
+                      <div className="text-xs text-tertiary mb-2">{shortName(applicant.name, 2)}</div>
+                      <Code128Barcode value={buildPayload(applicant, cardCode)} height={44} moduleWidth={1} showText={false} />
+                      <div className="barcode-num">{cardCode.replace(/(.{4})/g, '$1 ').trim()}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 flex justify-center no-print">
+              <Button variant="primary" leadingIcon={<Printer size={16} />} disabled={count === 0} onClick={handlePrintBatch}>
+                طباعة {num(count)} كارت
               </Button>
-            )}
-          </div>
+            </div>
+          </CardBody>
+        </Card>
+      </div>
 
-          {/* Candidate grid */}
-          <div className="mt-4">
-            {isFetching ? (
-              <LoadingState variant="card-grid" />
-            ) : isError ? (
-              <ErrorState error={error} onRetry={() => refetch()} />
-            ) : count === 0 ? (
-              <EmptyState variant="no-applicants-yet" title="لا يوجد متقدمون" description="عدّل التصفية لعرض كروت قابلة للطباعة." />
-            ) : (
-              <div className="grid grid-cols-auto" style={{ gap: 12 }}>
-                {candidates.map(({ applicant, cardCode }) => (
-                  <div key={applicant.id} className="barcode-display flex flex-col items-center gap-1">
-                    <div className="text-xs text-tertiary mb-2">{shortName(applicant.name, 2)}</div>
-                    <Code128Barcode value={buildPayload(applicant, cardCode)} height={44} moduleWidth={1} showText={false} />
-                    <div className="barcode-num">{cardCode.replace(/(.{4})/g, '$1 ').trim()}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="mt-4 flex justify-center">
-            <Button variant="primary" leadingIcon={<Printer size={16} />} disabled={count === 0} onClick={() => window.print()}>
-              طباعة {num(count)} كارت
-            </Button>
-          </div>
-        </CardBody>
-      </Card>
-    </>
+      {/* Single-card print surface — hidden on screen; revealed by print.css
+          only when data-barcode-print="single". */}
+      <div className="barcode-single-print hidden" aria-hidden>
+        {singleHit && <FrequencyCard applicant={singleHit.applicant} record={recordForHit(singleHit)} />}
+      </div>
+    </div>
   );
 }

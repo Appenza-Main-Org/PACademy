@@ -781,6 +781,10 @@ function MemberFormCard({
   });
   const { register, handleSubmit, control, watch, setValue, formState: { errors } } = form_;
   const profession = watch('profession');
+  const qualification = watch('qualification');
+  /* «بدون مؤهل» carries no qualification, so the detail textarea is hidden
+   * (and its value cleared below) when that option is picked. */
+  const showQualificationDetail = qualification !== 'none';
   const professionDetailOptional = isProfessionDetailOptional?.(watch()) ?? false;
   const professionOptions = useMemo(
     () => PROFESSION_OPTIONS.filter(
@@ -862,6 +866,10 @@ function MemberFormCard({
     setValue('profession', '');
     setValue('professionDetail', '');
   }, [gender, profession, setValue]);
+  useEffect(() => {
+    if (showQualificationDetail) return;
+    setValue('qualificationDetail', '');
+  }, [showQualificationDetail, setValue]);
   useEffect(() => {
     if (prevResidenceGov.current === residenceGov) return;
     prevResidenceGov.current = residenceGov;
@@ -1075,16 +1083,19 @@ function MemberFormCard({
           error={errors.professionDetail?.message}
           containerClassName="md:col-span-2"
         />
-        <Textarea
-          label="وصف تفصيلي للمؤهل"
-          rows={2}
-          required
-          {...register('qualificationDetail', {
-            validate: (v: string) => v.trim().length > 0 || 'مطلوب',
-          })}
-          error={errors.qualificationDetail?.message}
-          containerClassName="md:col-span-2"
-        />
+        {showQualificationDetail && (
+          <Textarea
+            label="وصف تفصيلي للمؤهل"
+            rows={2}
+            required
+            {...register('qualificationDetail', {
+              validate: (v: string, values: FamilyMemberForm) =>
+                values.qualification === 'none' || v.trim().length > 0 || 'مطلوب',
+            })}
+            error={errors.qualificationDetail?.message}
+            containerClassName="md:col-span-2"
+          />
+        )}
 
         {/* Residence block — always shown (even for deceased members,
             who carry their last known residence). */}
@@ -1374,11 +1385,18 @@ function GuardianFormCard({
   onSave: (values: GuardianForm) => void;
   familyMemberOptions: GuardianMemberOption[];
 }): JSX.Element {
-  const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<GuardianForm>({
+  const { register, handleSubmit, watch, reset, setValue, formState: { errors } } = useForm<GuardianForm>({
     defaultValues: value,
   });
   const guardianProfession = watch('profession');
   const showGuardianSeniority = MEMBERSHIP_PROFESSIONS.has(guardianProfession);
+  const guardianQualification = watch('qualification');
+  /* Hide + clear the qualification detail when «بدون مؤهل» is picked. */
+  const showGuardianQualificationDetail = guardianQualification !== 'none';
+  useEffect(() => {
+    if (showGuardianQualificationDetail) return;
+    setValue('qualificationDetail', '');
+  }, [showGuardianQualificationDetail, setValue]);
   /* Stream live values to the parent so the summary tab reflects edits
    * before the explicit حفظ click. */
   const onChangeRef = useRef(onChange);
@@ -1517,14 +1535,16 @@ function GuardianFormCard({
           options={[...QUALIFICATION_OPTIONS]}
           error={errors.qualification?.message}
         />
-        <Textarea
-          label="وصف تفصيلي للمؤهل"
-          rows={2}
-          disabled={guardianLocked}
-          {...register('qualificationDetail')}
-          error={errors.qualificationDetail?.message}
-          containerClassName="md:col-span-2"
-        />
+        {showGuardianQualificationDetail && (
+          <Textarea
+            label="وصف تفصيلي للمؤهل"
+            rows={2}
+            disabled={guardianLocked}
+            {...register('qualificationDetail')}
+            error={errors.qualificationDetail?.message}
+            containerClassName="md:col-span-2"
+          />
+        )}
         <Textarea
           label="وصف تفصيلي للوظيفة"
           rows={2}

@@ -79,6 +79,14 @@
     page-break-inside: avoid;
   }
 
+  /* Barcode batch + lookup pages: isolate the single-card print from the rest
+     of the screen. The on-screen surface (batch grid or lookup search) and the
+     searched single card both live on the page; data-barcode-print (toggled
+     before window.print()) picks which prints. */
+  [data-barcode-print="single"] .barcode-batch-print,
+  [data-barcode-print="single"] .barcode-lookup-screen { display: none !important; }
+  [data-barcode-print="single"] .barcode-single-print { display: block !important; }
+
   /* Tables: keep header on each page */
   table { page-break-inside: auto; }
   thead { display: table-header-group; }

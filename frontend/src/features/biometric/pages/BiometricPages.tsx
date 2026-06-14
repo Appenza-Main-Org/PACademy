@@ -78,11 +78,14 @@ const AUDIT_LABEL: Record<BiometricAuditLog['action'], string> = {
   enrollment: 'تسجيل بيومتري',
   re_enrollment: 'إعادة تسجيل',
   link_previous: 'ربط بيانات سابقة',
+  device_bind: 'ربط جهاز',
   verification: 'تحقق',
   failed_verification: 'تحقق فاشل',
   manual_review: 'مراجعة يدوية',
   gate_entry: 'دخول بوابة',
   gate_exit: 'خروج بوابة',
+  assignment: 'تعيين موقع',
+  committee_attendance: 'حضور لجنة',
 };
 
 const SEARCH_OPTIONS: ReadonlyArray<{ value: SearchField; label: string }> = [

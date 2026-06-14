@@ -39,7 +39,9 @@ const ROUTES = [
   // Barcode
   '/barcode', '/barcode/lookup', '/barcode/batch', '/barcode/scan', '/barcode/replace', '/barcode/scans',
   // Biometric
-  '/biometric', '/biometric/enroll', '/biometric/history', '/biometric/verify-ops', '/biometric/monitoring',
+  '/biometric', '/biometric/verify', '/biometric/assignment', '/biometric/enroll',
+  '/biometric/committee-attendance', '/biometric/gate-verification', '/biometric/attendance',
+  '/biometric/history', '/biometric/verification-log', '/biometric/monitoring',
   // Exams
   '/question-bank', '/question-bank/manage', '/question-bank/exams',
   '/question-bank/exams/create', '/question-bank/results',

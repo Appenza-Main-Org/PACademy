@@ -1,39 +1,42 @@
 import { Outlet } from 'react-router-dom';
-import { Activity, Cpu, DoorOpen, History, LayoutGrid, MoveRight, ShieldCheck, UserPlus, Search, Users } from 'lucide-react';
+import {
+  Activity,
+  ClipboardCheck,
+  DoorOpen,
+  History,
+  MapPin,
+  ScrollText,
+  Search,
+  ShieldCheck,
+  UserPlus,
+} from 'lucide-react';
 import { AppShell } from '@/app/layouts/AppShell';
 import type { SidebarSection } from '@/app/layouts/Sidebar';
 import { ROUTES } from '@/config/routes';
 
 const SIDEBAR: SidebarSection[] = [
   {
-    label: 'منظومة ZKBioTime',
-    items: [
-      { key: 'zkDirectory', label: 'الأجهزة والأفراد', icon: <Cpu size={18} />, to: ROUTES.biometric.zkDirectory },
-      { key: 'zkGates', label: 'الأجهزة والبوابات', icon: <LayoutGrid size={18} />, to: ROUTES.biometric.zkGates },
-      { key: 'zkAreaTransfer', label: 'نقل بين المناطق', icon: <MoveRight size={18} />, to: ROUTES.biometric.zkAreaTransfer },
-    ],
-  },
-  {
     label: 'الاستعلام والتحقق',
     items: [
-      { key: 'lookup',     label: 'استعلام متقدم', icon: <Search size={18} />, to: ROUTES.biometric.overview, end: true },
-      { key: 'verify',     label: 'التحقق من الهوية', icon: <ShieldCheck size={18} />, to: ROUTES.biometric.verify },
-      { key: 'roleInquiry', label: 'استعلام حسب الدور', icon: <Users size={18} />, to: ROUTES.biometric.roleInquiry },
+      { key: 'lookup', label: 'استعلام متقدم', icon: <Search size={18} />, to: ROUTES.biometric.overview, end: true },
+      { key: 'verify', label: 'التحقق من الهوية', icon: <ShieldCheck size={18} />, to: ROUTES.biometric.verify },
     ],
   },
   {
     label: 'التسجيل والحركة',
     items: [
-      { key: 'enroll',     label: 'تسجيل البصمة', icon: <UserPlus size={18} />, to: ROUTES.biometric.enroll },
-      { key: 'gate',       label: 'بوابة الدخول والخروج', icon: <DoorOpen size={18} />, to: ROUTES.biometric.gate },
-      { key: 'attendance', label: 'الحضور والتواجد', icon: <Users size={18} />, to: ROUTES.biometric.attendance },
+      { key: 'assignment', label: 'تعيين المتقدمين', icon: <MapPin size={18} />, to: ROUTES.biometric.assignment },
+      { key: 'enroll', label: 'تسجيل البصمة', icon: <UserPlus size={18} />, to: ROUTES.biometric.enroll },
+      { key: 'committeeAttendance', label: 'حضور اللجان', icon: <ClipboardCheck size={18} />, to: ROUTES.biometric.committeeAttendance },
+      { key: 'gateVerification', label: 'تحقق البوابات', icon: <DoorOpen size={18} />, to: ROUTES.biometric.gateVerification },
     ],
   },
   {
     label: 'السجلات والرقابة',
     items: [
-      { key: 'history',    label: 'سجل التحقق',   icon: <History size={18} />,  to: ROUTES.biometric.history },
-      { key: 'monitoring', label: 'المراقبة',     icon: <Activity size={18} />, to: ROUTES.biometric.monitoring },
+      { key: 'history', label: 'سجل التسجيل', icon: <ScrollText size={18} />, to: ROUTES.biometric.history },
+      { key: 'verificationLog', label: 'سجل التحقق', icon: <History size={18} />, to: ROUTES.biometric.verificationLog },
+      { key: 'monitoring', label: 'مراقبة الأجهزة', icon: <Activity size={18} />, to: ROUTES.biometric.monitoring },
     ],
   },
 ];

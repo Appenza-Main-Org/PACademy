@@ -83,6 +83,14 @@ function isOfficer(profession: string | undefined): boolean {
   return profession ? OFFICER_PROFESSIONS.has(profession) : false;
 }
 
+/* National-ID exemption reasons — mirrors the Stage-7 family escape hatch
+ * so a grandparent with no NID (deceased elder / born abroad) can still be
+ * recorded. Label map drives the printable mirror. */
+const NID_UNAVAILABLE_REASON_OPTIONS = [
+  { value: 'fallen_record', label: 'ساقط قيد' },
+  { value: 'born_abroad', label: 'مواليد الخارج' },
+] as const;
+
 const MALE_RELATIVE_LIST_KEYS = new Set([
   'fullBrothers',
   'halfBrothers',
@@ -1105,13 +1113,15 @@ function ApplicantFamilyGroup({
         <Cell label="تاريخ الميلاد" required type="date" value={value.spouse.dateOfBirth} onChange={(v) => setSpouse({ dateOfBirth: v })} disabled={readOnly} />
         <Cell label="محل الميلاد" required value={value.spouse.birthPlace} onChange={(v) => setSpouse({ birthPlace: v })} disabled={readOnly} />
         <Cell label="الديانة" required type="select" options={gender === 'female' ? RELIGION_OPTIONS : RELIGION_OPTIONS_FEMALE} value={value.spouse.religion} onChange={(v) => setSpouse({ religion: v })} disabled={readOnly} />
-        <Cell label="المؤهل" required type="select" options={QUALIFICATION_OPTIONS} value={value.spouse.qualification} onChange={(v) => setSpouse({ qualification: v })} disabled={readOnly} />
+        <Cell label="المؤهل" required type="select" options={QUALIFICATION_OPTIONS} value={value.spouse.qualification} onChange={(v) => setSpouse(v === 'none' ? { qualification: v, workNature: '' } : { qualification: v })} disabled={readOnly} />
         <Cell label="الوظيفة" required type="select" options={PROFESSION_OPTIONS} value={value.spouse.profession} onChange={(v) => setSpouse({ profession: v })} disabled={readOnly} />
         {isOfficer(value.spouse.profession) && (
           <Cell label="رقم الأقدمية" required dir="ltr" value={value.spouse.seniorityNumber} onChange={(v) => setSpouse({ seniorityNumber: v })} disabled={readOnly} />
         )}
         <Cell label="جهة العمل" value={value.spouse.workplace} onChange={(v) => setSpouse({ workplace: v })} disabled={readOnly} />
-        <Cell label="العمل القائم به" value={value.spouse.workNature} onChange={(v) => setSpouse({ workNature: v })} disabled={readOnly} />
+        {value.spouse.qualification !== 'none' && (
+          <Cell label="العمل القائم به" value={value.spouse.workNature} onChange={(v) => setSpouse({ workNature: v })} disabled={readOnly} />
+        )}
         <Cell label="العنوان" required type="textarea" value={value.spouse.address} onChange={(v) => setSpouse({ address: v })} disabled={readOnly} colSpan={2} />
         <Cell label="التليفون" dir="ltr" value={value.spouse.homePhone} onChange={(v) => setSpouse({ homePhone: v })} disabled={readOnly} />
         <Cell label="المحمول" dir="ltr" value={value.spouse.mobile} onChange={(v) => setSpouse({ mobile: v })} disabled={readOnly} />
@@ -1236,13 +1246,15 @@ function ParentsGroup({ value, onChange, studentDob, readOnly }: ParentsGroupPro
         <Cell label="اسم الشهرة" value={value.father.shuhraName} onChange={(v) => setFather({ shuhraName: v })} disabled={readOnly} />
         <Cell label="تاريخ الميلاد" required type="date" value={value.father.dateOfBirth} onChange={(v) => setFather({ dateOfBirth: v })} disabled={readOnly} error={fatherDobError} />
         <Cell label="محل الميلاد" required value={value.father.birthPlace} onChange={(v) => setFather({ birthPlace: v })} disabled={readOnly} />
-        <Cell label="المؤهل" required type="select" options={QUALIFICATION_OPTIONS} value={value.father.qualification} onChange={(v) => setFather({ qualification: v })} disabled={readOnly} />
+        <Cell label="المؤهل" required type="select" options={QUALIFICATION_OPTIONS} value={value.father.qualification} onChange={(v) => setFather(v === 'none' ? { qualification: v, workNature: '' } : { qualification: v })} disabled={readOnly} />
         <Cell label="الوظيفة" required type="select" options={PROFESSION_OPTIONS} value={value.father.profession} onChange={(v) => setFather({ profession: v })} disabled={readOnly} />
         {isOfficer(value.father.profession) && (
           <Cell label="رقم الأقدمية" required dir="ltr" value={value.father.seniorityNumber} onChange={(v) => setFather({ seniorityNumber: v })} disabled={readOnly} />
         )}
         <Cell label="جهة العمل" value={value.father.workplace} onChange={(v) => setFather({ workplace: v })} disabled={readOnly} />
-        <Cell label="العمل القائم به" value={value.father.workNature} onChange={(v) => setFather({ workNature: v })} disabled={readOnly} />
+        {value.father.qualification !== 'none' && (
+          <Cell label="العمل القائم به" value={value.father.workNature} onChange={(v) => setFather({ workNature: v })} disabled={readOnly} />
+        )}
         <Cell label="العنوان" required type="textarea" value={value.father.address} onChange={(v) => setFather({ address: v })} disabled={readOnly} colSpan={2} />
         <Cell label="التليفون" dir="ltr" value={value.father.homePhone} onChange={(v) => setFather({ homePhone: v })} disabled={readOnly} />
         <Cell label="المحمول" dir="ltr" value={value.father.mobile} onChange={(v) => setFather({ mobile: v })} disabled={readOnly} />
@@ -1267,13 +1279,15 @@ function ParentsGroup({ value, onChange, studentDob, readOnly }: ParentsGroupPro
             <Cell label="تاريخ الميلاد" type="date" value={value.father.currentWife.dateOfBirth} onChange={(v) => setFather({ currentWife: { ...value.father.currentWife, dateOfBirth: v } })} disabled={readOnly} />
             <Cell label="محل الميلاد" value={value.father.currentWife.birthPlace} onChange={(v) => setFather({ currentWife: { ...value.father.currentWife, birthPlace: v } })} disabled={readOnly} />
             <Cell label="الرقم القومي" dir="ltr" value={value.father.currentWife.nationalId} onChange={(v) => setFather({ currentWife: { ...value.father.currentWife, nationalId: v } })} disabled={readOnly} />
-            <Cell label="المؤهل" type="select" options={QUALIFICATION_OPTIONS} value={value.father.currentWife.qualification} onChange={(v) => setFather({ currentWife: { ...value.father.currentWife, qualification: v } })} disabled={readOnly} />
+            <Cell label="المؤهل" type="select" options={QUALIFICATION_OPTIONS} value={value.father.currentWife.qualification} onChange={(v) => setFather({ currentWife: { ...value.father.currentWife, qualification: v, ...(v === 'none' ? { workNature: '' } : {}) } })} disabled={readOnly} />
             <Cell label="الوظيفة" type="select" options={PROFESSION_OPTIONS} value={value.father.currentWife.profession} onChange={(v) => setFather({ currentWife: { ...value.father.currentWife, profession: v } })} disabled={readOnly} />
             {isOfficer(value.father.currentWife.profession) && (
               <Cell label="رقم الأقدمية" required dir="ltr" value={value.father.currentWife.seniorityNumber} onChange={(v) => setFather({ currentWife: { ...value.father.currentWife, seniorityNumber: v } })} disabled={readOnly} />
             )}
             <Cell label="جهة العمل" value={value.father.currentWife.workplace} onChange={(v) => setFather({ currentWife: { ...value.father.currentWife, workplace: v } })} disabled={readOnly} />
-            <Cell label="العمل القائم به" value={value.father.currentWife.workNature} onChange={(v) => setFather({ currentWife: { ...value.father.currentWife, workNature: v } })} disabled={readOnly} colSpan={2} />
+            {value.father.currentWife.qualification !== 'none' && (
+              <Cell label="العمل القائم به" value={value.father.currentWife.workNature} onChange={(v) => setFather({ currentWife: { ...value.father.currentWife, workNature: v } })} disabled={readOnly} colSpan={2} />
+            )}
           </>
         )}
       </RecordGrid>
@@ -1302,13 +1316,15 @@ function ParentsGroup({ value, onChange, studentDob, readOnly }: ParentsGroupPro
           <Cell label="اسم الشهرة" value={value.guardian.shuhraName} onChange={(v) => setGuardian({ shuhraName: v })} disabled={guardianLocked} />
           <Cell label="تاريخ الميلاد" required type="date" value={value.guardian.dateOfBirth} onChange={(v) => setGuardian({ dateOfBirth: v })} disabled={guardianLocked} />
           <Cell label="محل الميلاد" required value={value.guardian.birthPlace} onChange={(v) => setGuardian({ birthPlace: v })} disabled={guardianLocked} />
-          <Cell label="المؤهل" required type="select" options={QUALIFICATION_OPTIONS} value={value.guardian.qualification} onChange={(v) => setGuardian({ qualification: v })} disabled={guardianLocked} />
+          <Cell label="المؤهل" required type="select" options={QUALIFICATION_OPTIONS} value={value.guardian.qualification} onChange={(v) => setGuardian(v === 'none' ? { qualification: v, workNature: '' } : { qualification: v })} disabled={guardianLocked} />
           <Cell label="الوظيفة" required type="select" options={PROFESSION_OPTIONS} value={value.guardian.profession} onChange={(v) => setGuardian({ profession: v })} disabled={guardianLocked} />
           {isOfficer(value.guardian.profession) && (
             <Cell label="رقم الأقدمية" required dir="ltr" value={value.guardian.seniorityNumber} onChange={(v) => setGuardian({ seniorityNumber: v })} disabled={guardianLocked} />
           )}
           <Cell label="جهة العمل" value={value.guardian.workplace} onChange={(v) => setGuardian({ workplace: v })} disabled={guardianLocked} />
-          <Cell label="العمل القائم به" value={value.guardian.workNature} onChange={(v) => setGuardian({ workNature: v })} disabled={guardianLocked} />
+          {value.guardian.qualification !== 'none' && (
+            <Cell label="العمل القائم به" value={value.guardian.workNature} onChange={(v) => setGuardian({ workNature: v })} disabled={guardianLocked} />
+          )}
           <Cell label="العنوان" required type="textarea" value={value.guardian.address} onChange={(v) => setGuardian({ address: v })} disabled={guardianLocked} colSpan={2} />
           <Cell label="الجنسية" required type="select" options={NATIONALITY_OPTIONS} value={value.guardian.nationality} onChange={(v) => setGuardian({ nationality: v })} disabled={guardianLocked} />
           <Cell label="المحافظة" required type="select" options={GOVERNORATE_OPTIONS} value={value.guardian.governorate} onChange={(v) => setGuardian({ governorate: v })} disabled={guardianLocked} />
@@ -1338,13 +1354,15 @@ function ParentsGroup({ value, onChange, studentDob, readOnly }: ParentsGroupPro
         <Cell label="تاريخ الميلاد" required type="date" value={value.mother.dateOfBirth} onChange={(v) => setMother({ dateOfBirth: v })} disabled={readOnly} error={motherDobError} />
         <Cell label="محل الميلاد" required value={value.mother.birthPlace} onChange={(v) => setMother({ birthPlace: v })} disabled={readOnly} />
         <Cell label="الديانة" required type="select" options={RELIGION_OPTIONS_FEMALE} value={value.mother.religion} onChange={(v) => setMother({ religion: v })} disabled={readOnly} />
-        <Cell label="المؤهل" required type="select" options={QUALIFICATION_OPTIONS} value={value.mother.qualification} onChange={(v) => setMother({ qualification: v })} disabled={readOnly} />
+        <Cell label="المؤهل" required type="select" options={QUALIFICATION_OPTIONS} value={value.mother.qualification} onChange={(v) => setMother(v === 'none' ? { qualification: v, workNature: '' } : { qualification: v })} disabled={readOnly} />
         <Cell label="الوظيفة" required type="select" options={PROFESSION_OPTIONS} value={value.mother.profession} onChange={(v) => setMother({ profession: v })} disabled={readOnly} />
         {isOfficer(value.mother.profession) && (
           <Cell label="رقم الأقدمية" required dir="ltr" value={value.mother.seniorityNumber} onChange={(v) => setMother({ seniorityNumber: v })} disabled={readOnly} />
         )}
         <Cell label="جهة العمل" value={value.mother.workplace} onChange={(v) => setMother({ workplace: v })} disabled={readOnly} />
-        <Cell label="العمل القائم به" value={value.mother.workNature} onChange={(v) => setMother({ workNature: v })} disabled={readOnly} />
+        {value.mother.qualification !== 'none' && (
+          <Cell label="العمل القائم به" value={value.mother.workNature} onChange={(v) => setMother({ workNature: v })} disabled={readOnly} />
+        )}
         <Cell label="العنوان" required type="textarea" value={value.mother.address} onChange={(v) => setMother({ address: v })} disabled={readOnly} colSpan={2} />
         <Cell label="التليفون" dir="ltr" value={value.mother.homePhone} onChange={(v) => setMother({ homePhone: v })} disabled={readOnly} />
         <Cell label="المحمول" dir="ltr" value={value.mother.mobile} onChange={(v) => setMother({ mobile: v })} disabled={readOnly} />
@@ -1369,13 +1387,15 @@ function ParentsGroup({ value, onChange, studentDob, readOnly }: ParentsGroupPro
             <Cell label="تاريخ الميلاد" type="date" value={value.mother.currentHusband.dateOfBirth} onChange={(v) => setMother({ currentHusband: { ...value.mother.currentHusband, dateOfBirth: v } })} disabled={readOnly} />
             <Cell label="محل الميلاد" value={value.mother.currentHusband.birthPlace} onChange={(v) => setMother({ currentHusband: { ...value.mother.currentHusband, birthPlace: v } })} disabled={readOnly} />
             <Cell label="الرقم القومي" dir="ltr" value={value.mother.currentHusband.nationalId} onChange={(v) => setMother({ currentHusband: { ...value.mother.currentHusband, nationalId: v } })} disabled={readOnly} />
-            <Cell label="المؤهل" type="select" options={QUALIFICATION_OPTIONS} value={value.mother.currentHusband.qualification} onChange={(v) => setMother({ currentHusband: { ...value.mother.currentHusband, qualification: v } })} disabled={readOnly} />
+            <Cell label="المؤهل" type="select" options={QUALIFICATION_OPTIONS} value={value.mother.currentHusband.qualification} onChange={(v) => setMother({ currentHusband: { ...value.mother.currentHusband, qualification: v, ...(v === 'none' ? { workNature: '' } : {}) } })} disabled={readOnly} />
             <Cell label="الوظيفة" type="select" options={PROFESSION_OPTIONS} value={value.mother.currentHusband.profession} onChange={(v) => setMother({ currentHusband: { ...value.mother.currentHusband, profession: v } })} disabled={readOnly} />
             {isOfficer(value.mother.currentHusband.profession) && (
               <Cell label="رقم الأقدمية" required dir="ltr" value={value.mother.currentHusband.seniorityNumber} onChange={(v) => setMother({ currentHusband: { ...value.mother.currentHusband, seniorityNumber: v } })} disabled={readOnly} />
             )}
             <Cell label="جهة العمل" value={value.mother.currentHusband.workplace} onChange={(v) => setMother({ currentHusband: { ...value.mother.currentHusband, workplace: v } })} disabled={readOnly} />
-            <Cell label="العمل القائم به" value={value.mother.currentHusband.workNature} onChange={(v) => setMother({ currentHusband: { ...value.mother.currentHusband, workNature: v } })} disabled={readOnly} colSpan={2} />
+            {value.mother.currentHusband.qualification !== 'none' && (
+              <Cell label="العمل القائم به" value={value.mother.currentHusband.workNature} onChange={(v) => setMother({ currentHusband: { ...value.mother.currentHusband, workNature: v } })} disabled={readOnly} colSpan={2} />
+            )}
           </>
         )}
       </RecordGrid>
@@ -1490,14 +1510,40 @@ function GrandparentCard({
         ]}
         disabled={readOnly}
       />
-      <Cell label="الرقم القومي" dir="ltr" value={person.nationalId} onChange={(v) => onPatch({ nationalId: v })} disabled={readOnly} />
-      <Cell label="المؤهل" type="select" options={QUALIFICATION_OPTIONS} value={person.qualification} onChange={(v) => onPatch({ qualification: v })} disabled={readOnly} />
+      <Cell
+        label="الرقم القومي"
+        type="checkbox"
+        checkboxLabel="تعذر وجود الرقم القومي"
+        value={Boolean(person.nidUnavailable)}
+        onChange={(v) =>
+          onPatch(v ? { nidUnavailable: true, nationalId: '' } : { nidUnavailable: false, nidUnavailableReason: '' })
+        }
+        disabled={readOnly}
+        colSpan={2}
+      />
+      {person.nidUnavailable ? (
+        <Cell
+          label="سبب عدم وجود الرقم القومي"
+          required
+          type="select"
+          options={NID_UNAVAILABLE_REASON_OPTIONS}
+          value={person.nidUnavailableReason ?? ''}
+          onChange={(v) => onPatch({ nidUnavailableReason: v as GrandparentCardProps['person']['nidUnavailableReason'] })}
+          disabled={readOnly}
+          colSpan={2}
+        />
+      ) : (
+        <Cell label="الرقم القومي" dir="ltr" value={person.nationalId} onChange={(v) => onPatch({ nationalId: v })} disabled={readOnly} colSpan={2} />
+      )}
+      <Cell label="المؤهل" type="select" options={QUALIFICATION_OPTIONS} value={person.qualification} onChange={(v) => onPatch(v === 'none' ? { qualification: v, workNature: '' } : { qualification: v })} disabled={readOnly} />
       <Cell label="الوظيفة" type="select" options={PROFESSION_OPTIONS} value={person.profession} onChange={(v) => onPatch({ profession: v })} disabled={readOnly} />
       {isOfficer(person.profession) && (
         <Cell label="رقم الأقدمية" required dir="ltr" value={person.seniorityNumber} onChange={(v) => onPatch({ seniorityNumber: v })} disabled={readOnly} />
       )}
       <Cell label="جهة العمل" value={person.workplace} onChange={(v) => onPatch({ workplace: v })} disabled={readOnly} />
-      <Cell label="العمل القائم به" value={person.workNature} onChange={(v) => onPatch({ workNature: v })} disabled={readOnly} />
+      {person.qualification !== 'none' && (
+        <Cell label="العمل القائم به" value={person.workNature} onChange={(v) => onPatch({ workNature: v })} disabled={readOnly} />
+      )}
       <Cell label="العنوان" type="textarea" value={person.address} onChange={(v) => onPatch({ address: v })} disabled={readOnly} colSpan={2} />
     </RecordGrid>
   );
@@ -1793,8 +1839,14 @@ function validateGrandparents(doc: VothiqaTaarufDocument): string | null {
       const dobCheck = validateParentDob(g.dateOfBirth, childDob);
       if (dobCheck !== true) return dobCheck;
     }
-    const nationalIdError = nationalIdGenderError(g.nationalId, expectedGender);
-    if (nationalIdError) return nationalIdError;
+    if (g.nidUnavailable) {
+      if (!isFilled(g.nidUnavailableReason)) {
+        return `يرجى تحديد سبب عدم وجود الرقم القومي لـ${label}.`;
+      }
+    } else {
+      const nationalIdError = nationalIdGenderError(g.nationalId, expectedGender);
+      if (nationalIdError) return nationalIdError;
+    }
     if (isOfficer(g.profession) && !isFilled(g.seniorityNumber)) {
       return `يرجى إدخال رقم الأقدمية لـ${label} (ضابط).`;
     }

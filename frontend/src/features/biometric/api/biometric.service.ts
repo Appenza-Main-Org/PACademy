@@ -36,11 +36,16 @@ export type BiometricAuditAction =
   | 'enrollment'
   | 're_enrollment'
   | 'link_previous'
+  | 'device_bind'
   | 'verification'
   | 'failed_verification'
   | 'manual_review'
   | 'gate_entry'
-  | 'gate_exit';
+  | 'gate_exit'
+  | 'assignment'
+  | 'committee_attendance';
+
+export type AssignmentKind = 'gate' | 'committee' | 'checkpoint';
 
 export interface BiometricApplicantLookup {
   applicant: Applicant;
@@ -477,6 +482,68 @@ export interface AdjustAreaResult {
   skipped: string[];
   message?: string;
 }
+
+/** A pickable assignment target (a gate, committee, or checkpoint). */
+export interface AssignmentTarget {
+  id: string;
+  label: string;
+  kind: AssignmentKind;
+}
+
+/** An applicant→location assignment record (assignment history is append-only). */
+export interface AssignmentRecord {
+  id: string;
+  applicantId: string;
+  applicantName: string;
+  nationalId: string;
+  kind: AssignmentKind;
+  targetId: string;
+  targetLabel: string;
+  operator: string;
+  at: number;
+}
+
+/** A committee-attendance registration (one per applicant + committee + day). */
+export interface CommitteeAttendanceRecord {
+  id: string;
+  applicantId: string;
+  applicantName: string;
+  nationalId: string;
+  committeeId: string;
+  committeeLabel: string;
+  operator: string;
+  at: number;
+  /** yyyy-MM-dd of the attendance day (used for the duplicate guard). */
+  date: string;
+}
+
+/** One enrollment-activity entry (enroll / re-enroll / link-previous / device-bind). */
+export interface EnrollmentHistoryEntry {
+  id: string;
+  applicantId: string;
+  applicantName: string;
+  nationalId?: string | null;
+  action: BiometricAuditAction;
+  result: string;
+  at: number;
+  deviceEmpCode?: string | null;
+  status?: EnrollmentStatus | null;
+}
+
+const ASSIGN_STATE: AssignmentRecord[] = [];
+const COMMITTEE_ATTENDANCE_STATE: CommitteeAttendanceRecord[] = [];
+let assignId = 1;
+let committeeAttendanceId = 1;
+
+const STATIC_ASSIGNMENT_TARGETS: AssignmentTarget[] = [
+  { id: 'GATE-MAIN', label: 'بوابة التأمين الرئيسية', kind: 'gate' },
+  { id: 'GATE-1', label: 'بوابة رقم ١', kind: 'gate' },
+  { id: 'GATE-2', label: 'بوابة رقم ٢', kind: 'gate' },
+  { id: 'GATE-3', label: 'بوابة رقم ٣', kind: 'gate' },
+  { id: 'CHK-FRONT', label: 'نقطة تفتيش أمامية', kind: 'checkpoint' },
+  { id: 'CHK-REAR', label: 'نقطة تفتيش خلفية', kind: 'checkpoint' },
+  { id: 'CHK-EXAM', label: 'نقطة تفتيش قاعات الاختبار', kind: 'checkpoint' },
+];
 
 export const biometricService = {
   /**
@@ -980,5 +1047,175 @@ export const biometricService = {
         confidence: v.confidence,
       }));
     return { last24h, perStation, recentFailures };
+  },
+
+  /* ── Applicant assignment (gate / committee / checkpoint) ──────── */
+
+  /** Pickable assignment targets: fixed gates + checkpoints plus live committees. */
+  async listAssignmentTargets(): Promise<AssignmentTarget[]> {
+    if (isBackendEnabled()) {
+      return apiClient.get<AssignmentTarget[]>('/api/biometric/assignment-targets');
+    }
+    await simulateLatency();
+    const committees = [...new Set(MOCK.applicants.map((a) => a.committee).filter(Boolean))]
+      .sort()
+      .map<AssignmentTarget>((committee) => ({ id: committee, label: committee, kind: 'committee' }));
+    return [...STATIC_ASSIGNMENT_TARGETS, ...committees];
+  },
+
+  /** Assignment history for an applicant (newest first). */
+  async listAssignments(input: { applicantId?: string; nationalId?: string } = {}): Promise<AssignmentRecord[]> {
+    if (isBackendEnabled()) {
+      return apiClient.get<AssignmentRecord[]>('/api/biometric/assignments', {
+        query: { applicantId: input.applicantId, nationalId: input.nationalId },
+      });
+    }
+    await simulateLatency();
+    const applicant = input.applicantId || input.nationalId ? findApplicant(input) : null;
+    const id = applicant?.id ?? input.applicantId;
+    const rows = id ? ASSIGN_STATE.filter((r) => r.applicantId === id) : ASSIGN_STATE;
+    return [...rows].sort((a, b) => b.at - a.at);
+  },
+
+  /** Append an applicant→location assignment. */
+  async assignApplicant(input: {
+    applicantId: string;
+    nationalId: string;
+    kind: AssignmentKind;
+    targetId: string;
+    targetLabel: string;
+    operator: string;
+  }): Promise<AssignmentRecord> {
+    if (isBackendEnabled()) {
+      return apiClient.post<AssignmentRecord>('/api/biometric/assignments', input);
+    }
+    await simulateLatency(250, 500);
+    const applicant = findApplicant({ applicantId: input.applicantId });
+    const next: AssignmentRecord = {
+      id: `ASSIGN-${String(assignId++).padStart(5, '0')}`,
+      applicantId: input.applicantId,
+      applicantName: applicant?.name ?? 'متقدم غير معروف',
+      nationalId: input.nationalId || applicant?.nationalId || '',
+      kind: input.kind,
+      targetId: input.targetId,
+      targetLabel: input.targetLabel,
+      operator: input.operator,
+      at: Date.now(),
+    };
+    ASSIGN_STATE.unshift(next);
+    pushAudit({
+      user: input.operator,
+      timestamp: next.at,
+      applicantId: input.applicantId,
+      applicantName: next.applicantName,
+      action: 'assignment',
+      result: 'match',
+    });
+    return next;
+  },
+
+  /* ── Committee attendance ──────────────────────────────────────── */
+
+  /** Committee-attendance rows, optionally scoped to a committee and/or day. */
+  async listCommitteeAttendance(input: { committeeId?: string; date?: string } = {}): Promise<CommitteeAttendanceRecord[]> {
+    if (isBackendEnabled()) {
+      return apiClient.get<CommitteeAttendanceRecord[]>('/api/biometric/committee-attendance', {
+        query: { committeeId: input.committeeId, date: input.date },
+      });
+    }
+    await simulateLatency();
+    let rows = COMMITTEE_ATTENDANCE_STATE;
+    if (input.committeeId) rows = rows.filter((r) => r.committeeId === input.committeeId);
+    if (input.date) rows = rows.filter((r) => r.date === input.date);
+    return [...rows].sort((a, b) => b.at - a.at);
+  },
+
+  /**
+   * Register committee attendance after an identity verification. Throws when the
+   * applicant is already marked present in this committee today (the backend maps
+   * this to a 409 with conflict code BIOMETRIC_DUPLICATE_ATTENDANCE).
+   */
+  async registerCommitteeAttendance(input: {
+    applicantId: string;
+    nationalId: string;
+    committeeId: string;
+    committeeLabel: string;
+    operator: string;
+  }): Promise<CommitteeAttendanceRecord> {
+    if (isBackendEnabled()) {
+      return apiClient.post<CommitteeAttendanceRecord>('/api/biometric/committee-attendance', input);
+    }
+    await simulateLatency(250, 500);
+    const date = new Date().toISOString().slice(0, 10);
+    const duplicate = COMMITTEE_ATTENDANCE_STATE.find(
+      (r) => r.applicantId === input.applicantId && r.committeeId === input.committeeId && r.date === date,
+    );
+    if (duplicate) throw new Error('تم تسجيل حضور هذا المتقدم في اللجنة اليوم بالفعل');
+
+    const applicant = findApplicant({ applicantId: input.applicantId });
+    const next: CommitteeAttendanceRecord = {
+      id: `CATT-${String(committeeAttendanceId++).padStart(5, '0')}`,
+      applicantId: input.applicantId,
+      applicantName: applicant?.name ?? 'متقدم غير معروف',
+      nationalId: input.nationalId || applicant?.nationalId || '',
+      committeeId: input.committeeId,
+      committeeLabel: input.committeeLabel || input.committeeId,
+      operator: input.operator,
+      at: Date.now(),
+      date,
+    };
+    COMMITTEE_ATTENDANCE_STATE.unshift(next);
+    pushAudit({
+      user: input.operator,
+      timestamp: next.at,
+      applicantId: input.applicantId,
+      applicantName: next.applicantName,
+      action: 'committee_attendance',
+      result: 'match',
+    });
+    return next;
+  },
+
+  /* ── Enrollment history ────────────────────────────────────────── */
+
+  /**
+   * Enrollment-activity trail (enroll / re-enroll / link-previous / device-bind),
+   * optionally scoped to one applicant, newest first.
+   */
+  async listEnrollmentHistory(input: { applicantId?: string; nationalId?: string } = {}): Promise<EnrollmentHistoryEntry[]> {
+    if (isBackendEnabled()) {
+      return apiClient.get<EnrollmentHistoryEntry[]>('/api/biometric/enrollment-history', {
+        query: { applicantId: input.applicantId, nationalId: input.nationalId },
+      });
+    }
+    await simulateLatency();
+    const applicant = input.applicantId || input.nationalId ? findApplicant(input) : null;
+    const id = applicant?.id ?? input.applicantId;
+
+    const fromEnrollments: EnrollmentHistoryEntry[] = ENROLL_STATE.map((e) => ({
+      id: `ENH-${e.id}`,
+      applicantId: e.applicantId,
+      applicantName: findApplicant({ applicantId: e.applicantId })?.name ?? 'متقدم غير معروف',
+      nationalId: e.nationalId,
+      action: e.source === 'linked_previous' ? 'link_previous' : e.retake ? 're_enrollment' : 'enrollment',
+      result: e.status,
+      at: e.enrolledAt,
+      deviceEmpCode: e.nationalId,
+      status: e.status,
+    }));
+    const fromAudit: EnrollmentHistoryEntry[] = AUDIT_STATE
+      .filter((a) => a.action === 'device_bind' || a.action === 'link_previous')
+      .map((a) => ({
+        id: `ENH-${a.id}`,
+        applicantId: a.applicantId,
+        applicantName: a.applicantName,
+        action: a.action,
+        result: String(a.result),
+        at: a.timestamp,
+      }));
+
+    const merged = [...fromEnrollments, ...fromAudit];
+    const scoped = id ? merged.filter((r) => r.applicantId === id) : merged;
+    return scoped.sort((a, b) => b.at - a.at).slice(0, id ? 50 : 100);
   },
 };

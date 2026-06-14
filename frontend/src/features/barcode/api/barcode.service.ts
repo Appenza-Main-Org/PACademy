@@ -97,7 +97,9 @@ export const barcodeService = {
    *   - `national-id` — exact 14-digit NID match (US-BC-005)
    *   - `name`        — Arabic-normalized substring match (US-BC-006)
    *
-   * Returns every matching applicant paired with their active card. The
+   * Only applicants that already have a generated barcode are retrievable
+   * (Barcode-Lookup business rule 1) — applicants without a card are filtered
+   * out, so a lookup never surfaces (or reprints) a card-less applicant. The
    * caller validates the NID / name before calling (the page blocks an
    * invalid NID at the form layer).
    */
@@ -115,7 +117,8 @@ export const barcodeService = {
 
     if (mode === 'national-id') {
       const applicant = MOCK.applicants.find((a) => a.nationalId === q);
-      return applicant ? [{ applicant, record: activeRecordFor(applicant.id) }] : [];
+      const record = applicant ? activeRecordFor(applicant.id) : null;
+      return applicant && record ? [{ applicant, record }] : [];
     }
 
     /* name */
@@ -123,8 +126,9 @@ export const barcodeService = {
     if (nq.length === 0) return [];
     return MOCK.applicants
       .filter((a) => normalizeArabic(a.name).includes(nq))
-      .slice(0, NAME_SEARCH_LIMIT)
-      .map((applicant) => ({ applicant, record: activeRecordFor(applicant.id) }));
+      .map((applicant) => ({ applicant, record: activeRecordFor(applicant.id) }))
+      .filter((hit): hit is { applicant: Applicant; record: BarcodeRecord } => hit.record !== null)
+      .slice(0, NAME_SEARCH_LIMIT);
   },
 
   /**

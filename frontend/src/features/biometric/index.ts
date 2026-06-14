@@ -8,6 +8,11 @@ export {
   BiometricRoleInquiryPage,
   BiometricVerifyPage,
 } from './pages/BiometricPages';
+export {
+  BiometricAssignmentPage,
+  BiometricCommitteeAttendancePage,
+  BiometricEnrollmentHistoryPage,
+} from './pages/BiometricFlowPages';
 export { BiometricVerifyOpsPage, BiometricMonitoringPage } from './pages/Sprint8Pages';
 export { BiometricZkDirectoryPage } from './pages/BiometricZkDirectoryPage';
 export { BiometricZkGatesPage } from './pages/BiometricZkGatesPage';

@@ -42,3 +42,10 @@ public sealed class BiometricDeviceException(string message) : Exception(message
 /// (conflict code <c>BIOMETRIC_ALREADY_ENROLLED</c>).
 /// </summary>
 public sealed class BiometricAlreadyEnrolledException(string message) : Exception(message);
+
+/// <summary>
+/// Raised when a committee-attendance registration would duplicate an existing
+/// attendance for the same applicant + committee on the same day; mapped to a
+/// 409 CONFLICT envelope (conflict code <c>BIOMETRIC_DUPLICATE_ATTENDANCE</c>).
+/// </summary>
+public sealed class BiometricDuplicateAttendanceException(string message) : Exception(message);

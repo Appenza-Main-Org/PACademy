@@ -17,6 +17,12 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
     public const string VerificationsModule = "biometric-verifications";
     public const string GateLogsModule = "biometric-gate-logs";
     public const string AuditModule = "biometric-audit";
+    public const string AssignmentsModule = "biometric-assignments";
+    public const string CommitteeAttendanceModule = "biometric-committee-attendance";
+
+    /// <summary>Enrollment-activity actions surfaced on the enrollment-history screen.</summary>
+    private static readonly HashSet<string> EnrollmentActions =
+        new(StringComparer.Ordinal) { "enrollment", "re_enrollment", "link_previous", "device_bind" };
 
     private const string DefaultCycleId = "CYC-2026-M";
 
@@ -594,6 +600,197 @@ public sealed class BiometricService(OperationalRecordsService records, IBiometr
     {
         var gateLogs = await ListGateLogsAsync(ct);
         return BuildPresence(gateLogs);
+    }
+
+    /* ── Applicant assignment (gate / committee / checkpoint) ──────── */
+
+    /// <summary>
+    /// Pickable assignment targets: a fixed gate + checkpoint roster plus the
+    /// distinct committees resolved from applicant records (so the picker tracks
+    /// the active cycle's committees without a separate seed).
+    /// </summary>
+    public async Task<IReadOnlyList<JsonObject>> ListAssignmentTargetsAsync(CancellationToken ct)
+    {
+        var targets = new List<JsonObject>();
+        foreach (var (id, label) in StaticGates) targets.Add(Target(id, label, "gate"));
+        foreach (var (id, label) in StaticCheckpoints) targets.Add(Target(id, label, "checkpoint"));
+
+        var applicants = await records.ListAsync("applicants", ct);
+        var committees = applicants
+            .Select(a => AdminRecordJson.StringProp(a, "committeeName"))
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Select(c => c!)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(c => c, StringComparer.Ordinal);
+        foreach (var committee in committees) targets.Add(Target(committee, committee, "committee"));
+        return targets;
+
+        static JsonObject Target(string id, string label, string kind) =>
+            new() { ["id"] = id, ["label"] = label, ["kind"] = kind };
+    }
+
+    /// <summary>Assignment history for an applicant (newest first).</summary>
+    public async Task<IReadOnlyList<JsonObject>> ListAssignmentsAsync(string? applicantId, string? nationalId, CancellationToken ct)
+    {
+        var resolvedId = applicantId;
+        if (string.IsNullOrWhiteSpace(resolvedId) && !string.IsNullOrWhiteSpace(nationalId))
+            resolvedId = await ApplicantIdByNationalIdAsync(nationalId, ct);
+
+        var rows = await records.ListAsync(AssignmentsModule, ct);
+        IEnumerable<JsonObject> filtered = rows;
+        if (!string.IsNullOrWhiteSpace(resolvedId))
+            filtered = filtered.Where(r => AdminRecordJson.StringProp(r, "applicantId") == resolvedId);
+        return filtered.OrderByDescending(r => AdminRecordJson.NumberProp(r, "at") ?? 0).ToList();
+    }
+
+    /// <summary>Append an assignment record (gate / committee / checkpoint).</summary>
+    public async Task<JsonObject> AssignApplicantAsync(JsonObject input, CancellationToken ct)
+    {
+        var applicantId = AdminRecordJson.StringProp(input, "applicantId") ?? "unknown";
+        var operatorId = AdminRecordJson.StringProp(input, "operator") ?? "system";
+        var kind = AdminRecordJson.StringProp(input, "kind") ?? "committee";
+        var now = NowMs();
+        var applicantName = await ApplicantNameByIdAsync(applicantId, ct);
+        var nationalId = AdminRecordJson.StringProp(input, "nationalId")
+            ?? await ApplicantNationalIdByIdAsync(applicantId, ct);
+        var id = $"ASSIGN-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+
+        var record = new JsonObject
+        {
+            ["id"] = id,
+            ["applicantId"] = applicantId,
+            ["applicantName"] = applicantName,
+            ["nationalId"] = nationalId ?? "",
+            ["kind"] = kind,
+            ["targetId"] = AdminRecordJson.StringProp(input, "targetId") ?? "",
+            ["targetLabel"] = AdminRecordJson.StringProp(input, "targetLabel") ?? "",
+            ["operator"] = operatorId,
+            ["at"] = now,
+        };
+        await records.UpsertAsync(AssignmentsModule, id, record, ct);
+        await AppendAuditAsync(operatorId, applicantId, applicantName, "assignment", kind, now, ct);
+        return record;
+    }
+
+    /* ── Committee attendance ──────────────────────────────────────── */
+
+    /// <summary>Committee-attendance rows, optionally scoped to a committee and/or day.</summary>
+    public async Task<IReadOnlyList<JsonObject>> ListCommitteeAttendanceAsync(string? committeeId, string? date, CancellationToken ct)
+    {
+        var rows = await records.ListAsync(CommitteeAttendanceModule, ct);
+        IEnumerable<JsonObject> filtered = rows;
+        if (!string.IsNullOrWhiteSpace(committeeId))
+            filtered = filtered.Where(r => AdminRecordJson.StringProp(r, "committeeId") == committeeId);
+        if (!string.IsNullOrWhiteSpace(date))
+            filtered = filtered.Where(r => AdminRecordJson.StringProp(r, "date") == date);
+        return filtered.OrderByDescending(r => AdminRecordJson.NumberProp(r, "at") ?? 0).ToList();
+    }
+
+    /// <summary>
+    /// Register committee attendance after an identity verification. Rejects a
+    /// duplicate for the same applicant + committee on the same day.
+    /// </summary>
+    public async Task<JsonObject> RegisterCommitteeAttendanceAsync(JsonObject input, CancellationToken ct)
+    {
+        var applicantId = AdminRecordJson.StringProp(input, "applicantId") ?? "unknown";
+        var committeeId = AdminRecordJson.StringProp(input, "committeeId") ?? "";
+        var operatorId = AdminRecordJson.StringProp(input, "operator") ?? "system";
+        var now = NowMs();
+        var today = DateTimeOffset.UtcNow.ToString("yyyy-MM-dd");
+
+        var existing = (await records.ListAsync(CommitteeAttendanceModule, ct))
+            .FirstOrDefault(r => AdminRecordJson.StringProp(r, "applicantId") == applicantId
+                && AdminRecordJson.StringProp(r, "committeeId") == committeeId
+                && AdminRecordJson.StringProp(r, "date") == today);
+        if (existing is not null)
+            throw new BiometricDuplicateAttendanceException("تم تسجيل حضور هذا المتقدم في اللجنة اليوم بالفعل");
+
+        var applicantName = await ApplicantNameByIdAsync(applicantId, ct);
+        var nationalId = AdminRecordJson.StringProp(input, "nationalId")
+            ?? await ApplicantNationalIdByIdAsync(applicantId, ct);
+        var id = $"CATT-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+
+        var record = new JsonObject
+        {
+            ["id"] = id,
+            ["applicantId"] = applicantId,
+            ["applicantName"] = applicantName,
+            ["nationalId"] = nationalId ?? "",
+            ["committeeId"] = committeeId,
+            ["committeeLabel"] = AdminRecordJson.StringProp(input, "committeeLabel") ?? committeeId,
+            ["operator"] = operatorId,
+            ["at"] = now,
+            ["date"] = today,
+        };
+        await records.UpsertAsync(CommitteeAttendanceModule, id, record, ct);
+        await AppendAuditAsync(operatorId, applicantId, applicantName, "committee_attendance", "registered", now, ct);
+        return record;
+    }
+
+    /* ── Enrollment history ────────────────────────────────────────── */
+
+    /// <summary>
+    /// Enrollment-activity trail (enroll / re-enroll / link-previous / device-bind)
+    /// from the audit log, optionally scoped to one applicant and enriched with the
+    /// applicant's enrolled device code (newest first).
+    /// </summary>
+    public async Task<IReadOnlyList<JsonObject>> ListEnrollmentHistoryAsync(string? applicantId, string? nationalId, CancellationToken ct)
+    {
+        var resolvedId = applicantId;
+        if (string.IsNullOrWhiteSpace(resolvedId) && !string.IsNullOrWhiteSpace(nationalId))
+            resolvedId = await ApplicantIdByNationalIdAsync(nationalId, ct);
+
+        var audit = await records.ListAsync(AuditModule, ct);
+        var enrollments = await records.ListAsync(EnrollmentsModule, ct);
+
+        IEnumerable<JsonObject> rows = audit
+            .Where(r => EnrollmentActions.Contains(AdminRecordJson.StringProp(r, "action") ?? ""));
+        if (!string.IsNullOrWhiteSpace(resolvedId))
+            rows = rows.Where(r => AdminRecordJson.StringProp(r, "applicantId") == resolvedId);
+
+        return rows
+            .OrderByDescending(r => AdminRecordJson.NumberProp(r, "timestamp") ?? 0)
+            .Take(resolvedId is null ? 100 : 50)
+            .Select(r =>
+            {
+                var appId = AdminRecordJson.StringProp(r, "applicantId") ?? "";
+                var enrollment = LatestEnrollment(enrollments, appId);
+                return new JsonObject
+                {
+                    ["id"] = AdminRecordJson.StringProp(r, "id"),
+                    ["applicantId"] = appId,
+                    ["applicantName"] = AdminRecordJson.StringProp(r, "applicantName"),
+                    ["nationalId"] = enrollment is not null ? AdminRecordJson.StringProp(enrollment, "nationalId") : null,
+                    ["action"] = AdminRecordJson.StringProp(r, "action"),
+                    ["result"] = AdminRecordJson.StringProp(r, "result"),
+                    ["at"] = AdminRecordJson.NumberProp(r, "timestamp") ?? 0,
+                    ["deviceEmpCode"] = enrollment is not null ? AdminRecordJson.StringProp(enrollment, "deviceEmpCode") : null,
+                    ["status"] = enrollment is not null ? AdminRecordJson.StringProp(enrollment, "status") : null,
+                };
+            })
+            .ToList();
+    }
+
+    private static readonly (string Id, string Label)[] StaticGates =
+    [
+        ("GATE-MAIN", "بوابة التأمين الرئيسية"),
+        ("GATE-1", "بوابة رقم ١"),
+        ("GATE-2", "بوابة رقم ٢"),
+        ("GATE-3", "بوابة رقم ٣"),
+    ];
+
+    private static readonly (string Id, string Label)[] StaticCheckpoints =
+    [
+        ("CHK-FRONT", "نقطة تفتيش أمامية"),
+        ("CHK-REAR", "نقطة تفتيش خلفية"),
+        ("CHK-EXAM", "نقطة تفتيش قاعات الاختبار"),
+    ];
+
+    private async Task<string?> ApplicantIdByNationalIdAsync(string nationalId, CancellationToken ct)
+    {
+        var applicants = await records.ListAsync("applicants", ct);
+        var applicant = applicants.FirstOrDefault(a => AdminRecordJson.StringProp(a, "nationalId") == nationalId);
+        return applicant is null ? null : AdminRecordJson.StringProp(applicant, "id");
     }
 
     /* ── Internals ─────────────────────────────────────────────────── */

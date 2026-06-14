@@ -128,7 +128,10 @@ import {
   BarcodeScansHistoryPage,
 } from '@/features/barcode';
 import {
+  BiometricAssignmentPage,
   BiometricAttendancePage,
+  BiometricCommitteeAttendancePage,
+  BiometricEnrollmentHistoryPage,
   BiometricEnrollPage,
   BiometricGatePage,
   BiometricHistoryPage,
@@ -432,17 +435,22 @@ export const routes: RouteObject[] = [
     element: <AuthGuard app="biometric"><BiometricLayout /></AuthGuard>,
     children: [
       { index: true, element: <BiometricVerifyPage /> },
-      { path: 'enroll', element: <BiometricEnrollPage /> },
       { path: 'verify', element: <BiometricIdentityVerifyPage /> },
-      { path: 'gate', element: <BiometricGatePage /> },
+      { path: 'assignment', element: <BiometricAssignmentPage /> },
+      { path: 'enroll', element: <BiometricEnrollPage /> },
+      { path: 'committee-attendance', element: <BiometricCommitteeAttendancePage /> },
+      { path: 'gate-verification', element: <BiometricGatePage /> },
       { path: 'attendance', element: <BiometricAttendancePage /> },
+      { path: 'history', element: <BiometricEnrollmentHistoryPage /> },
+      { path: 'verification-log', element: <BiometricHistoryPage /> },
       { path: 'role-inquiry', element: <BiometricRoleInquiryPage /> },
-      { path: 'history', element: <BiometricHistoryPage /> },
       { path: 'verify-ops', element: <BiometricVerifyOpsPage /> },
       { path: 'monitoring', element: <BiometricMonitoringPage /> },
       { path: 'zk-directory', element: <BiometricZkDirectoryPage /> },
       { path: 'zk-gates', element: <BiometricZkGatesPage /> },
       { path: 'zk-area-transfer', element: <BiometricAreaTransferPage /> },
+      // Legacy URL → new spec URL (the old /gate path is now /gate-verification).
+      { path: 'gate', element: <Navigate to={ROUTES.biometric.gateVerification} replace /> },
     ],
   },
 

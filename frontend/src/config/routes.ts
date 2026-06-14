@@ -172,12 +172,17 @@ export const ROUTES = {
   },
   biometric: {
     overview: '/biometric',
-    enroll: '/biometric/enroll',
     verify: '/biometric/verify',
-    gate: '/biometric/gate',
+    assignment: '/biometric/assignment',
+    enroll: '/biometric/enroll',
+    committeeAttendance: '/biometric/committee-attendance',
+    gateVerification: '/biometric/gate-verification',
     attendance: '/biometric/attendance',
-    roleInquiry: '/biometric/role-inquiry',
+    /** Enrollment history (سجل التسجيل). */
     history: '/biometric/history',
+    /** Verification transactions (سجل التحقق). */
+    verificationLog: '/biometric/verification-log',
+    roleInquiry: '/biometric/role-inquiry',
     verifyOps: '/biometric/verify-ops',
     monitoring: '/biometric/monitoring',
     zkDirectory: '/biometric/zk-directory',

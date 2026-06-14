@@ -530,4 +530,52 @@ public sealed class BiometricController(BiometricService service, IServiceProvid
     [HttpGet("api/biometric/monitoring")]
     public async Task<ActionResult<object>> Monitoring(CancellationToken ct)
         => Ok(await service.MonitoringAsync(ct));
+
+    /* ── Applicant assignment (gate / committee / checkpoint) ──────── */
+
+    [HttpGet("api/biometric/assignment-targets")]
+    public async Task<ActionResult<IReadOnlyList<JsonObject>>> AssignmentTargets(CancellationToken ct)
+        => Ok(await service.ListAssignmentTargetsAsync(ct));
+
+    [HttpGet("api/biometric/assignments")]
+    public async Task<ActionResult<IReadOnlyList<JsonObject>>> Assignments(
+        [FromQuery] string? applicantId,
+        [FromQuery] string? nationalId,
+        CancellationToken ct)
+        => Ok(await service.ListAssignmentsAsync(applicantId, nationalId, ct));
+
+    [HttpPost("api/biometric/assignments")]
+    [RequireBearerAuth]
+    public async Task<ActionResult<JsonObject>> Assign([FromBody] JsonObject input, CancellationToken ct)
+        => Ok(await service.AssignApplicantAsync(input, ct));
+
+    /* ── Committee attendance ──────────────────────────────────────── */
+
+    [HttpGet("api/biometric/committee-attendance")]
+    public async Task<ActionResult<IReadOnlyList<JsonObject>>> CommitteeAttendance(
+        [FromQuery] string? committeeId,
+        [FromQuery] string? date,
+        CancellationToken ct)
+        => Ok(await service.ListCommitteeAttendanceAsync(committeeId, date, ct));
+
+    [HttpPost("api/biometric/committee-attendance")]
+    [RequireBearerAuth]
+    public async Task<ActionResult<JsonObject>> RegisterCommitteeAttendance([FromBody] JsonObject input, CancellationToken ct)
+    {
+        try { return Ok(await service.RegisterCommitteeAttendanceAsync(input, ct)); }
+        catch (BiometricDuplicateAttendanceException ex)
+        {
+            return Conflict(new ApiErrorEnvelope(
+                "CONFLICT", ConflictCode: "BIOMETRIC_DUPLICATE_ATTENDANCE", Message: ex.Message));
+        }
+    }
+
+    /* ── Enrollment history ────────────────────────────────────────── */
+
+    [HttpGet("api/biometric/enrollment-history")]
+    public async Task<ActionResult<IReadOnlyList<JsonObject>>> EnrollmentHistory(
+        [FromQuery] string? applicantId,
+        [FromQuery] string? nationalId,
+        CancellationToken ct)
+        => Ok(await service.ListEnrollmentHistoryAsync(applicantId, nationalId, ct));
 }
