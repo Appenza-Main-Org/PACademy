@@ -114,9 +114,8 @@ public sealed class DataExchangeService(
     // Legacy round-trip cycle-owned config sheets: a row without a matching cycle is
     // intentionally excluded (legacy/no-cycle rows don't belong to a live export).
     // People-derived sheets (Applicants, Relatives, ExamResults, AcquaintanceDocs)
-    // are deliberately NOT here — they are scoped leniently at load time so a
-    // booked applicant is never silently dropped just because their record carries
-    // a blank or stale cycle id. See IsApplicantInCycleScope / BelongsToDifferentCycle.
+    // are deliberately NOT here — their loaders scope through the applicant's
+    // active-cycle membership so related rows cannot leak from an old cycle.
     private static readonly IReadOnlySet<ExchangeDomain> LegacyCycleScopedDomains = new HashSet<ExchangeDomain>
     {
         ExchangeDomain.Exams,
@@ -785,7 +784,7 @@ public sealed class DataExchangeService(
                     $"اسم جدول غير معروف: {sheet.SheetName}"));
                 continue;
             }
-            outcomes.AddRange((await ClassifySheetAsync(spec, sheet, ct)).Outcomes);
+            outcomes.AddRange((await ClassifySheetAsync(spec, NormalizeSheetForImport(spec, sheet), ct)).Outcomes);
         }
 
         var counts = Enum.GetValues<ImportRowClass>().ToDictionary(Camel, c => outcomes.Count(o => o.Class == Camel(c)));
@@ -870,6 +869,107 @@ public sealed class DataExchangeService(
 
     private static string Camel(ImportRowClass c) => char.ToLowerInvariant(c.ToString()[0]) + c.ToString()[1..];
 
+    /// <summary>
+    /// Curated snapshot exports use human-readable column names, while the
+    /// operational import path writes canonical applicant payload fields. Normalize
+    /// every imported row before classification/apply so preview and commit agree.
+    /// </summary>
+    private static ImportSheetInput NormalizeSheetForImport(DomainSpec spec, ImportSheetInput sheet)
+        => sheet with { Rows = sheet.Rows.Select(row => NormalizeRowForImport(spec, row)).ToList() };
+
+    private static Dictionary<string, string?> NormalizeRowForImport(
+        DomainSpec spec,
+        IReadOnlyDictionary<string, string?> row)
+    {
+        var next = new Dictionary<string, string?>(row, StringComparer.Ordinal);
+        switch (spec.Domain)
+        {
+            case ExchangeDomain.Applicants: NormalizeApplicantImportRow(next); break;
+            case ExchangeDomain.Relatives: NormalizeRelativeImportRow(next); break;
+            case ExchangeDomain.Exams: NormalizeExamImportRow(next); break;
+            case ExchangeDomain.ExamSchedules: NormalizeExamScheduleImportRow(next); break;
+            case ExchangeDomain.ExamResults: NormalizeExamResultImportRow(next); break;
+            case ExchangeDomain.ExamReservations: NormalizeExamReservationImportRow(next); break;
+        }
+        return next;
+    }
+
+    private static void NormalizeApplicantImportRow(Dictionary<string, string?> row)
+    {
+        CopyIfMissing(row, "applicant_id", "id");
+        CopyIfMissing(row, "national_id", "nationalId");
+        CopyIfMissing(row, "full_name", "name");
+        CopyIfMissing(row, "phone_number", "phoneNumber");
+        CopyIfMissing(row, "date_of_birth", "birthDate");
+        CopyIfMissing(row, "birth_governorate", "birthGovernorate");
+        CopyIfMissing(row, "cycle_id", "cycleId");
+        CopyIfMissing(row, "category", "categoryKey");
+        CopyIfMissing(row, "qualification_type", "certType");
+    }
+
+    private static void NormalizeRelativeImportRow(Dictionary<string, string?> row)
+    {
+        CopyIfMissing(row, "relative_id", "id");
+        CopyIfMissing(row, "relation_type", "kinship");
+        CopyIfMissing(row, "relation_label", "relationshipLabel");
+        CopyIfMissing(row, "full_name", "name");
+        CopyIfMissing(row, "national_id", "nationalId");
+        CopyIfMissing(row, "qualification", "education");
+        if (Get(row, "applicant_id") is not { } applicantId) return;
+        SetIfMissing(row, LooksLikeNationalId(applicantId) ? "applicantNationalId" : "applicantId", applicantId);
+    }
+
+    private static void NormalizeExamImportRow(Dictionary<string, string?> row)
+    {
+        CopyIfMissing(row, "exam_id", "id");
+        CopyIfMissing(row, "exam_name", "name_ar");
+        CopyIfMissing(row, "category", "categoryId");
+    }
+
+    private static void NormalizeExamScheduleImportRow(Dictionary<string, string?> row)
+    {
+        CopyIfMissing(row, "slot_id", "id");
+        CopyIfMissing(row, "exam_id", "examPlanId");
+        CopyIfMissing(row, "exam_name", "examPlanName");
+        CopyIfMissing(row, "category", "categoryKey");
+        CopyIfMissing(row, "committee_name", "committeeName");
+    }
+
+    private static void NormalizeExamResultImportRow(Dictionary<string, string?> row)
+    {
+        CopyIfMissing(row, "result_id", "id");
+        CopyIfMissing(row, "exam_id", "examCode");
+        CopyIfMissing(row, "exam_id", "examId");
+        CopyIfMissing(row, "exam_name", "examName");
+        if (Get(row, "applicant_id") is not { } applicantId) return;
+        SetIfMissing(row, LooksLikeNationalId(applicantId) ? "applicantNationalId" : "applicantId", applicantId);
+        if (LooksLikeNationalId(applicantId)) SetIfMissing(row, "nationalId", applicantId);
+    }
+
+    private static void NormalizeExamReservationImportRow(Dictionary<string, string?> row)
+    {
+        CopyIfMissing(row, "nationalId", "applicant_national_id");
+        CopyIfMissing(row, "applicantNationalId", "applicant_national_id");
+        CopyIfMissing(row, "examCode", "exam_id");
+        CopyIfMissing(row, "examSlot.slotId", "slot_id");
+        CopyIfMissing(row, "examSlot.date", "appointment_date");
+        CopyIfMissing(row, "examSlot.time", "appointment_time");
+    }
+
+    private static void CopyIfMissing(Dictionary<string, string?> row, string sourceKey, string targetKey)
+    {
+        if (Get(row, targetKey) is not null) return;
+        if (Get(row, sourceKey) is { } value) row[targetKey] = value;
+    }
+
+    private static void SetIfMissing(Dictionary<string, string?> row, string key, string value)
+    {
+        if (Get(row, key) is null) row[key] = value;
+    }
+
+    private static bool LooksLikeNationalId(string value)
+        => value.Length == 14 && value.All(char.IsDigit);
+
     // ──────────────────────────────────────────────────────────────────────
     // APPLY (transactional)
     // ──────────────────────────────────────────────────────────────────────
@@ -887,11 +987,12 @@ public sealed class DataExchangeService(
                 if (!DataExchangeRegistry.BySheetName.TryGetValue(sheet.SheetName, out var spec))
                 { failed.Add(new ImportFailedRow(-1, sheet.SheetName, ["اسم جدول غير معروف"])); continue; }
 
-                var (outcomes, _, dbByKey) = await ClassifySheetAsync(spec, sheet, ct);
-                for (var i = 0; i < sheet.Rows.Count; i++)
+                var importSheet = NormalizeSheetForImport(spec, sheet);
+                var (outcomes, _, dbByKey) = await ClassifySheetAsync(spec, importSheet, ct);
+                for (var i = 0; i < importSheet.Rows.Count; i++)
                 {
                     var outcome = outcomes[i];
-                    var row = sheet.Rows[i];
+                    var row = importSheet.Rows[i];
                     attempted++;
                     var existing = dbByKey.TryGetValue(outcome.BusinessKey, out var m) && m.Count == 1 ? m[0] : null;
 
@@ -1084,6 +1185,10 @@ public sealed class DataExchangeService(
             var data = new Dictionary<string, string?>(StringComparer.Ordinal);
             foreach (var (k, v) in JsonFlatten.Flatten(flattenSource))
                 if (!NonDataColumns.Contains(k)) data[k] = v; // payload "id" mirrors record id — drop the dup
+            if (spec.Domain == ExchangeDomain.Applicants && data.TryGetValue("nationalId", out var nationalId))
+            {
+                data["nationalId"] = CleanNationalId(nationalId) ?? nationalId;
+            }
             var id = payload["id"]?.ToString() ?? "";
             var bk = ResolveDocBusinessKey(spec, payload, id);
             if (string.IsNullOrEmpty(id)) id = bk;
@@ -1132,14 +1237,11 @@ public sealed class DataExchangeService(
     }
 
     /// <summary>
-    /// Applicant-export eligibility for the external→internal seed handoff. The
-    /// external admin creates and registers applicants; the internal plane then
-    /// performs exam booking + records results — so the export must hand over
-    /// registered applicants <em>before</em> they are booked, otherwise the
-    /// internal side has nothing to seed from. An applicant qualifies once they
-    /// advance past the initial <c>draft</c> state (or already carry a booking).
-    /// Bare drafts (registration begun, no submitted data) stay withheld; a
-    /// missing status is treated as registered (admin-created rows may omit it).
+    /// Applicant-export eligibility within the already-resolved active cycle.
+    /// Registered applicants can export before booking, because booking and
+    /// result workflows may happen after the first package is exchanged. Bare
+    /// drafts (registration begun, no submitted data) stay withheld; a missing
+    /// status is treated as registered (admin-created rows may omit it).
     /// </summary>
     private static bool IsApplicantExportable(JsonObject payload)
     {
@@ -1159,12 +1261,13 @@ public sealed class DataExchangeService(
 
     private async Task<string?> ResolveCycleIdAsync(string? requestedCycleId, CancellationToken ct)
     {
-        if (!string.IsNullOrWhiteSpace(requestedCycleId)) return requestedCycleId.Trim();
-        return await db.AdmissionCycles
+        var activeCycleId = await db.AdmissionCycles
             .AsNoTracking()
             .Where(x => x.IsActive)
             .Select(x => x.Id)
             .FirstOrDefaultAsync(ct);
+        if (!string.IsNullOrWhiteSpace(activeCycleId)) return activeCycleId;
+        return string.IsNullOrWhiteSpace(requestedCycleId) ? null : requestedCycleId.Trim();
     }
 
     private async Task<IReadOnlySet<string>?> LoadCycleCategoryKeysAsync(string? cycleId, CancellationToken ct)
@@ -1236,16 +1339,11 @@ public sealed class DataExchangeService(
         string? cycleId,
         IReadOnlySet<string>? activeCategoryKeys)
     {
-        // Lenient on purpose: only drop an applicant when their record positively
-        // declares a DIFFERENT cycle. A blank/stale cycle id is treated as in-scope
-        // so booked applicants are never silently missing from the export.
-        if (BelongsToDifferentCycle(FirstString(applicant, "cycleId", "admissionCycleId", "cycle_id"), cycleId))
-        {
-            return false;
-        }
+        if (!MatchesCycle(FirstString(applicant, "cycleId", "admissionCycleId", "cycle_id"), cycleId)) return false;
 
-        // Likewise for category: exclude only when the category is known AND outside
-        // the active set. A missing category never removes an otherwise-booked row.
+        // Category scoping stays tolerant: the active-cycle id is the hard
+        // boundary, while a missing category should not drop an otherwise valid
+        // active-cycle applicant.
         if (activeCategoryKeys is { Count: > 0 })
         {
             var category = CategoryKey(applicant);
@@ -1254,13 +1352,6 @@ public sealed class DataExchangeService(
 
         return true;
     }
-
-    /// <summary>True only when both ids are present and differ — i.e. the row
-    /// positively belongs to another cycle. Missing ids are never "different".</summary>
-    private static bool BelongsToDifferentCycle(string? rowCycleId, string? cycleId)
-        => !string.IsNullOrWhiteSpace(cycleId)
-            && !string.IsNullOrWhiteSpace(rowCycleId)
-            && !string.Equals(rowCycleId, cycleId, StringComparison.OrdinalIgnoreCase);
 
     private static bool LoadedRowMatchesCycle(LoadedRow row, string cycleId)
     {
@@ -1643,7 +1734,7 @@ public sealed class DataExchangeService(
         var result = new List<LoadedRow>(docs.Count);
         foreach (var doc in docs)
         {
-            if (BelongsToDifferentCycle(doc.CycleId, cycleId)) continue;
+            if (!MatchesCycle(doc.CycleId, cycleId)) continue;
             if (!nidById.TryGetValue(doc.ApplicantId, out var nid)) continue;
             var data = new Dictionary<string, string?>(StringComparer.Ordinal)
             {
@@ -1684,8 +1775,18 @@ public sealed class DataExchangeService(
         switch (spec.Storage)
         {
             case ExchangeStorage.DocStore:
-                await UpsertDocStoreAsync(spec, row, ct);
-                if (spec.Domain == ExchangeDomain.Applicants) await ApplyApplicantScheduleFromRowAsync(row, ct);
+                if (spec.Domain == ExchangeDomain.Applicants)
+                {
+                    await UpsertApplicantAsync(row, existing, ct);
+                    await ApplyApplicantScheduleFromRowAsync(row, ct);
+                    break;
+                }
+                if (spec.Domain == ExchangeDomain.Relatives)
+                {
+                    await ApplyRelativeToApplicantAsync(row, ct);
+                    break;
+                }
+                await UpsertDocStoreAsync(spec, row, existing, ct);
                 // The ExamResults bucket alone is invisible to the applicant
                 // screens — outcomes live in the applicant's followUp map. Mirror
                 // the imported result there so the timeline updates too.
@@ -1716,9 +1817,13 @@ public sealed class DataExchangeService(
     private static IReadOnlySet<string> SkipKeys(params string[] extra)
         => new HashSet<string>(NonDataColumns.Concat(extra), StringComparer.Ordinal);
 
-    private async Task UpsertDocStoreAsync(DomainSpec spec, IReadOnlyDictionary<string, string?> row, CancellationToken ct)
+    private async Task UpsertDocStoreAsync(
+        DomainSpec spec,
+        IReadOnlyDictionary<string, string?> row,
+        LoadedRow? existing,
+        CancellationToken ct)
     {
-        var id = Get(row, "id") ?? Get(row, "business_key") ?? throw Invalid("id مفقود");
+        var id = existing?.Id ?? Get(row, "id") ?? Get(row, "business_key") ?? throw Invalid("id مفقود");
         // Merge edited normalized columns into the existing payload (type-safe),
         // then write through OperationalRecordsService so normalized-table domains
         // (applicants) take the correct write path.
@@ -1727,6 +1832,278 @@ public sealed class DataExchangeService(
         payload["id"] = id;
         payload["sourceSystem"] = ImportSource;
         await records.UpsertAsync(spec.DocModule!, id, payload, ct);
+    }
+
+    private async Task UpsertApplicantAsync(
+        IReadOnlyDictionary<string, string?> row,
+        LoadedRow? existing,
+        CancellationToken ct)
+    {
+        var nid = ApplicantNationalId(row);
+        var id = existing?.Id
+            ?? Get(row, "id")
+            ?? Get(row, "applicant_id")
+            ?? nid
+            ?? Get(row, "business_key")
+            ?? throw Invalid("id مفقود");
+        var original = await records.GetAsync("applicants", id, ct)
+            ?? (nid is null ? null : await FindApplicantByNationalIdAsync(nid, ct));
+        if (original is not null)
+        {
+            id = AdminRecordJson.StringProp(original, "id") ?? id;
+        }
+
+        var payload = JsonFlatten.Unflatten(row, original, ApplicantPayloadSkipKeys);
+        ApplyApplicantSnapshotColumns(payload, row);
+        payload["id"] = id;
+        payload["sourceSystem"] = ImportSource;
+        await records.UpsertAsync("applicants", id, payload, ct);
+    }
+
+    private static readonly IReadOnlySet<string> ApplicantPayloadSkipKeys =
+        new HashSet<string>(NonDataColumns.Concat([
+            "applicant_id", "national_id", "full_name", "phone_number", "date_of_birth",
+            "birth_governorate", "qualification_type", "university", "faculty", "specialization",
+            "graduation_year", "grade", "percentage", "school_name", "school_category",
+            "secondary_total_score", "secondary_percentage", "secondary_graduation_year",
+            "category", "cycle_id",
+        ]), StringComparer.Ordinal);
+
+    private static void ApplyApplicantSnapshotColumns(
+        JsonObject payload,
+        IReadOnlyDictionary<string, string?> row)
+    {
+        SetText(payload, "nationalId", ApplicantNationalId(row));
+        SetText(payload, "name", ApplicantDisplayName(row));
+        SetText(payload, "phoneNumber", Get(row, "phoneNumber") ?? Get(row, "phone_number"));
+        SetText(payload, "email", Get(row, "email"));
+        SetText(payload, "gender", Get(row, "gender"));
+        SetText(payload, "birthDate", Get(row, "birthDate") ?? Get(row, "date_of_birth"));
+        SetText(payload, "birthGovernorate", Get(row, "birthGovernorate") ?? Get(row, "birth_governorate"));
+        SetText(payload, "categoryKey", Get(row, "categoryKey") ?? Get(row, "category"));
+        SetText(payload, "cycleId", Get(row, "cycleId") ?? Get(row, "cycle_id"));
+        SetText(payload, "status", Get(row, "status"));
+        SetText(payload, "certType", Get(row, "certType") ?? Get(row, "qualification_type"));
+
+        var education = BuildApplicantEducation(row);
+        if (education is not null) payload["education"] = education;
+    }
+
+    private static JsonObject? BuildApplicantEducation(IReadOnlyDictionary<string, string?> row)
+    {
+        var hasHigher = HasHigherEducation(row);
+        var hasSecondary = HasSecondaryEducation(row);
+        if (!hasHigher && !hasSecondary && Get(row, "qualification_type") is null) return null;
+
+        return hasHigher
+            ? BuildHigherEducation(row, hasSecondary)
+            : BuildGeneralEducation(row);
+    }
+
+    private static bool HasHigherEducation(IReadOnlyDictionary<string, string?> row)
+        => Get(row, "university") is not null
+            || Get(row, "faculty") is not null
+            || Get(row, "specialization") is not null;
+
+    private static bool HasSecondaryEducation(IReadOnlyDictionary<string, string?> row)
+        => Get(row, "school_name") is not null
+            || Get(row, "school_category") is not null
+            || Get(row, "secondary_total_score") is not null
+            || Get(row, "secondary_percentage") is not null
+            || Get(row, "secondary_graduation_year") is not null;
+
+    private static JsonObject BuildHigherEducation(IReadOnlyDictionary<string, string?> row, bool includeSecondary)
+    {
+        var education = new JsonObject { ["kind"] = "higher" };
+        SetText(education, "university", Get(row, "university"));
+        SetText(education, "faculty", Get(row, "faculty"));
+        SetText(education, "specialization", Get(row, "specialization"));
+        SetText(education, "grade", Get(row, "grade"));
+        SetText(education, "higherSpecialization", Get(row, "qualification_type"));
+        SetNumberOrText(education, "graduationYear", Get(row, "graduation_year"));
+        SetNumberOrText(education, "percentage", Get(row, "percentage"));
+        if (includeSecondary) education["secondary"] = BuildSecondaryEducation(row);
+        return education;
+    }
+
+    private static JsonObject BuildSecondaryEducation(IReadOnlyDictionary<string, string?> row)
+    {
+        var secondary = new JsonObject();
+        SetText(secondary, "certificateName", "الثانوية العامة أو ما يعادلها");
+        SetText(secondary, "schoolName", Get(row, "school_name"));
+        SetText(secondary, "schoolCategory", Get(row, "school_category"));
+        SetText(secondary, "branch", Get(row, "school_category"));
+        SetNumberOrText(secondary, "totalScore", Get(row, "secondary_total_score"));
+        SetNumberOrText(secondary, "percentage", Get(row, "secondary_percentage"));
+        SetNumberOrText(secondary, "graduationYear", Get(row, "secondary_graduation_year"));
+        return secondary;
+    }
+
+    private static JsonObject BuildGeneralEducation(IReadOnlyDictionary<string, string?> row)
+    {
+        var general = new JsonObject { ["kind"] = "general" };
+        SetText(general, "certificateName", Get(row, "qualification_type") ?? "الثانوية العامة أو ما يعادلها");
+        SetText(general, "schoolName", Get(row, "school_name"));
+        SetText(general, "schoolCategory", Get(row, "school_category"));
+        SetText(general, "branch", Get(row, "school_category"));
+        SetText(general, "grade", Get(row, "grade"));
+        SetNumberOrText(general, "totalScore", Get(row, "secondary_total_score") ?? Get(row, "percentage"));
+        SetNumberOrText(general, "percentage", Get(row, "secondary_percentage") ?? Get(row, "percentage"));
+        SetNumberOrText(general, "graduationYear", Get(row, "secondary_graduation_year") ?? Get(row, "graduation_year"));
+        return general;
+    }
+
+    private async Task ApplyRelativeToApplicantAsync(IReadOnlyDictionary<string, string?> row, CancellationToken ct)
+    {
+        var applicant = await FindApplicantForRelatedRowAsync(row, ct)
+            ?? throw Invalid($"المتقدم غير موجود: {Get(row, "applicantNationalId") ?? Get(row, "applicant_id") ?? "—"}");
+        var applicantId = AdminRecordJson.StringProp(applicant, "id")
+            ?? Get(row, "applicantId")
+            ?? Get(row, "applicant_id")
+            ?? throw Invalid("applicant_id مفقود");
+
+        var family = applicant["family"] as JsonObject ?? new JsonObject();
+        var member = BuildImportedFamilyMember(row);
+        var kinship = Get(row, "kinship") ?? Get(row, "relation_type") ?? "relative";
+        MergeFamilyMember(family, kinship, member);
+        applicant["family"] = family;
+        applicant["familySize"] = CountImportedFamilyMembers(family);
+        applicant["relativesCount"] = (family["relatives"] as JsonArray)?.Count ?? 0;
+        applicant["sourceSystem"] = ImportSource;
+        await records.UpsertAsync("applicants", applicantId, applicant, ct);
+    }
+
+    private async Task<JsonObject?> FindApplicantForRelatedRowAsync(
+        IReadOnlyDictionary<string, string?> row,
+        CancellationToken ct)
+    {
+        if (Get(row, "applicantId") is { } applicantId
+            && await records.GetAsync("applicants", applicantId, ct) is { } byApplicantId)
+        {
+            return byApplicantId;
+        }
+        if (Get(row, "applicant_id") is { } rawApplicantId
+            && !LooksLikeNationalId(rawApplicantId)
+            && await records.GetAsync("applicants", rawApplicantId, ct) is { } byRawApplicantId)
+        {
+            return byRawApplicantId;
+        }
+        var nid = Get(row, "applicantNationalId")
+            ?? (Get(row, "applicant_id") is { } maybeNid && LooksLikeNationalId(maybeNid) ? maybeNid : null);
+        return nid is null ? null : await FindApplicantByNationalIdAsync(nid, ct);
+    }
+
+    private async Task<JsonObject?> FindApplicantByNationalIdAsync(string nationalId, CancellationToken ct)
+    {
+        if (await records.GetAsync("applicants", nationalId, ct) is { } direct) return direct;
+        try
+        {
+            return (await records.ListAsync("applicants", enrichApplicantCommitteeNames: false, ct))
+                .FirstOrDefault(applicant => TextEquals(AdminRecordJson.StringProp(applicant, "nationalId"), nationalId));
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    private static JsonObject BuildImportedFamilyMember(IReadOnlyDictionary<string, string?> row)
+    {
+        var member = new JsonObject();
+        SetText(member, "id", Get(row, "id") ?? Get(row, "relative_id"));
+        SetText(member, "fullName", Get(row, "name") ?? Get(row, "full_name"));
+        SetText(member, "nationalId", Get(row, "nationalId") ?? Get(row, "national_id"));
+        SetText(member, "gender", Get(row, "gender"));
+        SetText(member, "education", Get(row, "education") ?? Get(row, "qualification"));
+        SetText(member, "occupation", Get(row, "occupation"));
+        SetText(member, "phone", Get(row, "phone"));
+        SetText(member, "governorate", Get(row, "governorate"));
+        SetText(member, "address", Get(row, "address"));
+        SetText(member, "relationshipId",
+            Get(row, "relationshipLabel")
+            ?? Get(row, "relation_label")
+            ?? RelationLabelAr(Get(row, "kinship") ?? Get(row, "relation_type") ?? "relative"));
+        if (ParseBool(Get(row, "alive")) is { } alive) member["alive"] = alive;
+        else member["alive"] = true;
+        return member;
+    }
+
+    private static void MergeFamilyMember(JsonObject family, string kinship, JsonObject member)
+    {
+        if (FamilyObjectKey(kinship) is { } objectKey)
+        {
+            family[objectKey] = member;
+            return;
+        }
+        UpsertFamilyArrayMember(family, FamilyArrayKey(kinship), member);
+    }
+
+    private static string? FamilyObjectKey(string kinship) => kinship switch
+    {
+        "father" => "father",
+        "mother" => "mother",
+        "paternal_grandfather" => "paternalGrandfather",
+        "paternal_grandmother" => "paternalGrandmother",
+        "maternal_grandfather" => "maternalGrandfather",
+        "maternal_grandmother" => "maternalGrandmother",
+        "guardian" => "guardian",
+        _ => null,
+    };
+
+    private static string FamilyArrayKey(string kinship) => kinship switch
+    {
+        "father_wife" => "fatherWives",
+        "mother_husband" => "motherHusbands",
+        "brother" or "sister" or "sibling" => "siblings",
+        _ => "relatives",
+    };
+
+    private static void UpsertFamilyArrayMember(JsonObject family, string key, JsonObject member)
+    {
+        if (family[key] is not JsonArray rows)
+        {
+            rows = [];
+            family[key] = rows;
+        }
+
+        for (var i = 0; i < rows.Count; i++)
+        {
+            if (rows[i] is JsonObject existing && SameFamilyMember(existing, member))
+            {
+                rows[i] = member;
+                return;
+            }
+        }
+        rows.Add(member);
+    }
+
+    private static bool SameFamilyMember(JsonObject left, JsonObject right)
+    {
+        foreach (var key in new[] { "id", "nationalId", "fullName" })
+        {
+            var leftValue = AdminRecordJson.StringProp(left, key);
+            var rightValue = AdminRecordJson.StringProp(right, key);
+            if (TextEquals(leftValue, rightValue)) return true;
+        }
+        return false;
+    }
+
+    private static int CountImportedFamilyMembers(JsonObject family)
+    {
+        var count = 0;
+        foreach (var key in new[]
+        {
+            "father", "mother", "paternalGrandfather", "paternalGrandmother",
+            "maternalGrandfather", "maternalGrandmother", "guardian"
+        })
+        {
+            if (family[key] is JsonObject) count++;
+        }
+        count += (family["fatherWives"] as JsonArray)?.Count ?? 0;
+        count += (family["motherHusbands"] as JsonArray)?.Count ?? 0;
+        count += (family["siblings"] as JsonArray)?.Count ?? 0;
+        count += (family["relatives"] as JsonArray)?.Count ?? 0;
+        return count;
     }
 
     private async Task ApplyApplicantScheduleFromRowAsync(
@@ -1830,7 +2207,11 @@ public sealed class DataExchangeService(
         }
 
         var payload = new JsonObject { ["id"] = id, ["updatedAt"] = DateTimeOffset.UtcNow.ToString("O") };
-        foreach (var key in new[] { "cycleId", "categoryKey", "definitionCode", "date", "time" })
+        foreach (var key in new[]
+        {
+            "cycleId", "categoryKey", "definitionCode", "date", "time",
+            "examPlanId", "examPlanName", "committeeName",
+        })
         {
             if (Get(row, key) is { } value) payload[key] = value;
         }
@@ -2182,19 +2563,18 @@ public sealed class DataExchangeService(
     /// test-results lookup; rows without a result are bucket-only.</summary>
     private async Task ApplyExamResultFollowUpAsync(IReadOnlyDictionary<string, string?> row, CancellationToken ct)
     {
-        var nid = Get(row, "applicantNationalId") ?? Get(row, "applicant_national_id");
-        var examCode = Get(row, "examCode") ?? Get(row, "exam_id") ?? Get(row, "testCode");
+        var examCode = TestCodeFromRow(row);
         var resultRaw = Get(row, "result");
-        if (nid is null || examCode is null || resultRaw is null) return;
+        if (examCode is null || resultRaw is null) return;
 
         var resultLookup = examResultLookup ??= await LoadResultLookupAsync(ct);
         if (!resultLookup.TryGetValue(resultRaw.Trim(), out var outcome))
             throw Invalid($"نتيجة غير معروفة: {resultRaw}");
 
         var ctx = await GetReservationImportContextAsync(ct);
-        if (!ctx.ApplicantsByNid.TryGetValue(nid, out var applicant))
-            throw Invalid($"المتقدم غير موجود بالرقم القومي {nid}");
-        var applicantId = applicant["id"]?.ToString() ?? nid;
+        var applicant = ResolveExamResultApplicant(ctx, row)
+            ?? throw Invalid($"المتقدم غير موجود: {ExamResultApplicantLabel(row)}");
+        var applicantId = applicant["id"]?.ToString() ?? applicant["nationalId"]?.ToString() ?? ExamResultApplicantLabel(row);
         if (db.Database.IsRelational())
         {
             try
@@ -2218,6 +2598,33 @@ public sealed class DataExchangeService(
         await records.UpsertAsync("applicants", applicantId, payload, ct);
     }
 
+    private static JsonObject? ResolveExamResultApplicant(
+        ReservationImportContext ctx,
+        IReadOnlyDictionary<string, string?> row)
+    {
+        var nid = Get(row, "applicantNationalId")
+            ?? Get(row, "applicant_national_id")
+            ?? Get(row, "nationalId")
+            ?? Get(row, "national_id");
+        if (nid is not null && ctx.ApplicantsByNid.TryGetValue(nid, out var byNid)) return byNid;
+
+        var applicantId = Get(row, "applicant_id") ?? Get(row, "applicantId") ?? Get(row, "applicant_table_id");
+        if (applicantId is not null && ctx.ApplicantsById.TryGetValue(applicantId, out var byId)) return byId;
+        return applicantId is not null && ctx.ApplicantsByNid.TryGetValue(applicantId, out var byNidFromId)
+            ? byNidFromId
+            : null;
+    }
+
+    private static string ExamResultApplicantLabel(IReadOnlyDictionary<string, string?> row)
+        => Get(row, "applicantNationalId")
+            ?? Get(row, "applicant_national_id")
+            ?? Get(row, "nationalId")
+            ?? Get(row, "national_id")
+            ?? Get(row, "applicant_id")
+            ?? Get(row, "applicantId")
+            ?? Get(row, "applicant_table_id")
+            ?? "—";
+
     private IReadOnlyDictionary<string, string>? examResultLookup;
 
     // ──────────────────────────────────────────────────────────────────────
@@ -2231,6 +2638,8 @@ public sealed class DataExchangeService(
         {
             ExchangeStorage.Lookups => Compose(Get(row, "lookup_key"), Get(row, "code")),
             ExchangeStorage.AdmissionRules => Compose(Get(row, "cycle_id"), Get(row, "version")),
+            ExchangeStorage.Exams => Get(row, "id") ?? Get(row, "exam_id") ?? "",
+            ExchangeStorage.ExamSlots => Get(row, "id") ?? Get(row, "slot_id") ?? "",
             ExchangeStorage.ExamReservations
                 => Compose(Get(row, "applicant_national_id")
                     ?? Get(row, "applicant_id")
@@ -2239,6 +2648,21 @@ public sealed class DataExchangeService(
                     Get(row, "exam_id") ?? Get(row, "exam_name")),
             ExchangeStorage.DocStore when spec.Domain == ExchangeDomain.Applicants
                 => ApplicantNationalId(row) ?? "",
+            ExchangeStorage.DocStore when spec.Domain == ExchangeDomain.Relatives
+                => Get(row, "id")
+                    ?? Get(row, "relative_id")
+                    ?? Compose(
+                        Get(row, "applicantNationalId") ?? Get(row, "applicant_id"),
+                        Get(row, "kinship") ?? Get(row, "relation_type") ?? Get(row, "nationalId") ?? Get(row, "name")),
+            ExchangeStorage.DocStore when spec.Domain == ExchangeDomain.ExamResults
+                => Get(row, "id")
+                    ?? Get(row, "result_id")
+                    ?? Compose(
+                        Get(row, "applicantNationalId")
+                            ?? Get(row, "applicant_national_id")
+                            ?? Get(row, "nationalId")
+                            ?? Get(row, "applicant_id"),
+                        Get(row, "examCode") ?? Get(row, "exam_id") ?? Get(row, "examId")),
             ExchangeStorage.DocStore when spec.BusinessKeyFields.Count > 0
                 => string.Join("|", spec.BusinessKeyFields.Select(f => Get(row, f) ?? "")),
             _ => Get(row, "id") ?? "",
@@ -2272,8 +2696,23 @@ public sealed class DataExchangeService(
     private static string ResolveDocBusinessKey(DomainSpec spec, JsonObject payload, string id)
     {
         if (spec.BusinessKeyFields.Count == 0) return id;
+        if (spec.Domain == ExchangeDomain.Applicants)
+        {
+            var nationalId = FirstString(payload, "nationalId", "national_id", "applicant_national_id");
+            if (nationalId is not null) return CleanNationalId(nationalId) ?? nationalId;
+        }
         var parts = spec.BusinessKeyFields.Select(f => payload[f]?.ToString() ?? "").ToList();
         return parts.All(string.IsNullOrEmpty) ? id : string.Join("|", parts);
+    }
+
+    private static string? CleanNationalId(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var trimmed = value.Trim();
+        if (trimmed.Length == 14 && trimmed.All(char.IsDigit)) return trimmed;
+        var metadataIndex = trimmed.IndexOf('|', StringComparison.Ordinal);
+        if (metadataIndex == 14 && trimmed[..14].All(char.IsDigit)) return trimmed[..14];
+        return null;
     }
 
     // ── helpers ─────────────────────────────────────────────────────────────
@@ -2295,6 +2734,27 @@ public sealed class DataExchangeService(
     private static bool? ParseBool(string? s) => bool.TryParse(s, out var v) ? v : (s == "1" ? true : s == "0" ? false : null);
     private static DateOnly? ParseDateOnly(string? s) => DateOnly.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.None, out var v) ? v : null;
     private static InvalidOperationException Invalid(string message) => new(message);
+
+    private static void SetText(JsonObject payload, string key, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value)) payload[key] = value.Trim();
+    }
+
+    private static void SetNumberOrText(JsonObject payload, string key, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return;
+        if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intValue))
+        {
+            payload[key] = intValue;
+            return;
+        }
+        if (decimal.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var decimalValue))
+        {
+            payload[key] = decimalValue;
+            return;
+        }
+        payload[key] = value.Trim();
+    }
 
     private static bool TryDecodeRowVersion(string? raw, out byte[] value)
     {
@@ -2948,7 +3408,7 @@ public sealed class DataExchangeService(
         var rows = new List<CuratedRow>();
         foreach (var doc in docs)
         {
-            if (BelongsToDifferentCycle(doc.CycleId, cycleId)) continue;
+            if (!MatchesCycle(doc.CycleId, cycleId)) continue;
             if (!nidById.TryGetValue(doc.ApplicantId, out var nid)) continue;
 
             var docRevisions = revisionsByDoc.TryGetValue(doc.Id, out var revs) ? revs : [];
@@ -3345,7 +3805,7 @@ public sealed class DataExchangeService(
     {
         var hasCycle = !string.IsNullOrWhiteSpace(cycleId);
         var list = await set.AsNoTracking()
-            .Where(x => !hasCycle || x.CycleId == null || x.CycleId == cycleId)
+            .Where(x => !hasCycle || x.CycleId == cycleId)
             .ToListAsync(ct);
         return list.Select(x =>
         {
@@ -3379,8 +3839,9 @@ public sealed class DataExchangeService(
     ///     stuck `pending` (ConfirmPayment updates the FIRST record by
     ///     applicant, so an older attempt can shadow the confirmed one).
     /// Rows dedupe by Fawry reference across all sources; source 3 additionally
-    /// dedupes by applicant. Cycle scoping is lenient — a payment whose
-    /// applicant carries no cycle id is never dropped.
+    /// dedupes by applicant. Cycle scoping is strict once an active cycle is
+    /// known, so payments without an active-cycle ledger or applicant link are
+    /// withheld from the synchronization package.
     /// </summary>
     private async Task<IReadOnlyList<CuratedRow>> LoadCuratedPaymentsAsync(string? cycleId, CuratedContext ctx, CancellationToken ct)
     {
@@ -3495,12 +3956,10 @@ public sealed class DataExchangeService(
             ("cycle_id", rowCycle)), created, updated, personKey);
     }
 
-    /// <summary>Lenient cycle scope: only a row that names a DIFFERENT cycle is
-    /// excluded — blank/unknown cycle ids stay in so no payment is dropped.</summary>
+    /// <summary>Strict cycle scope for cycle-dependent export rows: once an
+    /// active cycle is known, blank or different cycle ids are both out of scope.</summary>
     private static bool CycleMismatch(string? rowCycle, string? cycleId)
-        => !string.IsNullOrWhiteSpace(cycleId)
-            && !string.IsNullOrWhiteSpace(rowCycle)
-            && !string.Equals(rowCycle, cycleId, StringComparison.OrdinalIgnoreCase);
+        => !MatchesCycle(rowCycle, cycleId);
 
     /// <summary>Portal payment timestamps are Unix-milliseconds numbers; durable
     /// rows carry ISO strings. Accepts both.</summary>
@@ -3538,6 +3997,9 @@ public sealed class DataExchangeService(
             .Where(x => x.LookupKey == "tests" || x.LookupKey == "exam-plan-tests" || x.LookupKey == "test-results")
             .ToListAsync(ct);
         foreach (var r in rows) map.TryAdd(r.Code, r.Name);
+        var exams = await db.Exams.AsNoTracking().Select(x => new { x.Id, x.NameAr }).ToListAsync(ct);
+        foreach (var exam in exams)
+            if (!string.IsNullOrWhiteSpace(exam.Id)) map.TryAdd(exam.Id, exam.NameAr);
         return map;
     }
 
