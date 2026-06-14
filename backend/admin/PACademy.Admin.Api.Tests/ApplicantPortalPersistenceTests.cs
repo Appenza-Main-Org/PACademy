@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 using PACademy.Applicant.Api.Modules.ApplicantPortal;
 
 namespace PACademy.Admin.Api.Tests;
@@ -11,7 +12,7 @@ public sealed class ApplicantPortalPersistenceTests
     public async Task SavingStartedDraftMirrorsApplicantManagementRecord()
     {
         await using var db = CreateDb();
-        var service = new PortalService(db);
+        var service = CreateService(db);
         const string applicantId = "5d4f19bc-6b75-41da-bfe2-3374ecde9a4f";
 
         await service.SaveDraftAsync(applicantId, new JsonObject
@@ -59,7 +60,7 @@ public sealed class ApplicantPortalPersistenceTests
     {
         await using var db = CreateDb();
         await SeedCommitteeSchedule(db, "2026-07-15");
-        var service = new PortalService(db);
+        var service = CreateService(db);
         var applicantId = Guid.NewGuid().ToString("D");
 
         await service.SaveDraftAsync(applicantId, new JsonObject
@@ -140,7 +141,7 @@ public sealed class ApplicantPortalPersistenceTests
     {
         await using var db = CreateDb();
         await SeedCommitteeSchedule(db, "2026-07-15");
-        var service = new PortalService(db);
+        var service = CreateService(db);
         var applicantId = Guid.NewGuid().ToString("D");
 
         await service.SaveDraftAsync(applicantId, new JsonObject
@@ -160,7 +161,7 @@ public sealed class ApplicantPortalPersistenceTests
     {
         await using var db = CreateDb();
         await SeedCommitteeSchedule(db, "2026-07-15");
-        var service = new PortalService(db);
+        var service = CreateService(db);
         var applicantId = Guid.NewGuid().ToString("D");
 
         await service.SaveDraftAsync(applicantId, new JsonObject
@@ -219,7 +220,7 @@ public sealed class ApplicantPortalPersistenceTests
     public async Task PickExamDateRejectsExpiredDate()
     {
         await using var db = CreateDb();
-        var service = new PortalService(db);
+        var service = CreateService(db);
         var applicantId = Guid.NewGuid().ToString("D");
         var expiredDate = DateOnly
             .FromDateTime(DateTime.UtcNow.AddDays(-1))
@@ -237,7 +238,7 @@ public sealed class ApplicantPortalPersistenceTests
     public async Task AcquaintanceDocLifecycleOpensAutosavesAndClosesFromConfiguredRules()
     {
         await using var db = CreateDb();
-        var service = new PortalService(db);
+        var service = CreateService(db);
         var applicantId = Guid.NewGuid().ToString("D");
 
         db.AcquaintanceDocSettings.Add(new AcquaintanceDocSettingsEntity
@@ -317,7 +318,7 @@ public sealed class ApplicantPortalPersistenceTests
     public async Task AcquaintanceDocDoesNotCloseOnFirstExamDateWhenClosingTestHasNotStarted()
     {
         await using var db = CreateDb();
-        var service = new PortalService(db);
+        var service = CreateService(db);
         var applicantId = Guid.NewGuid().ToString("D");
         const string cycleId = "CYC-2026-M";
 
@@ -390,7 +391,7 @@ public sealed class ApplicantPortalPersistenceTests
     public async Task AcquaintanceDocOpensWhenAptitudePassIsStoredUnderLegacyPipelineKey()
     {
         await using var db = CreateDb();
-        var service = new PortalService(db);
+        var service = CreateService(db);
         var applicantId = Guid.NewGuid().ToString("D");
         const string cycleId = "CYC-2026-M";
 
@@ -426,6 +427,111 @@ public sealed class ApplicantPortalPersistenceTests
         Assert.True(status["canEdit"]?.GetValue<bool>());
         Assert.Equal("AX-01", status["openingTestKey"]?.GetValue<string>());
     }
+
+    [Fact]
+    public async Task BarcodeIsGeneratedOnExamBookingInCorrectFormatAndIsImmutable()
+    {
+        await using var db = CreateDb();
+        await SeedCommitteeSchedule(db, "2026-07-15");
+        var service = CreateService(db);
+        var applicantId = Guid.NewGuid().ToString("D");
+
+        // Paid officers_general applicant born 2006-07-13, male, committee CMT-12.
+        await SeedPaidApplicant(service, applicantId, "30607130103451", "2006-07-13", "male");
+        await service.PickExamDateAsync(applicantId, "2026-07-15",
+            new PickedCommittee("CMT-12", "اللجنة الأولى قسم عام"), TestContext.Current.CancellationToken);
+
+        var draft = await service.GetOrCreateDraftAsync(applicantId, TestContext.Current.CancellationToken);
+        var barcode = draft["barcode"]?.GetValue<string>();
+
+        // YY=26 BYY=06 MM=07 DD=13 G=1(male) CC=12(CMT-12) SSSSS=00001.
+        Assert.Equal("26" + "06" + "07" + "13" + "1" + "12" + "00001", barcode);
+        Assert.Matches("^[0-9]{16}$", barcode!);
+        Assert.False(draft["barcodeRetry"]?.GetValue<bool>() ?? false);
+
+        // Re-picking the same date keeps the identical barcode (immutable; no new
+        // sequence consumed).
+        await service.PickExamDateAsync(applicantId, "2026-07-15",
+            new PickedCommittee("CMT-12", "اللجنة الأولى قسم عام"), TestContext.Current.CancellationToken);
+        var redrawn = await service.GetOrCreateDraftAsync(applicantId, TestContext.Current.CancellationToken);
+        Assert.Equal(barcode, redrawn["barcode"]?.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task BarcodeSequenceIncrementsPerCommittee()
+    {
+        await using var db = CreateDb();
+        await SeedCommitteeSchedule(db, "2026-07-15");
+        var service = CreateService(db);
+
+        var first = await BookOfficersGeneralAndGetBarcode(service, "30607130103451", "2006-07-13");
+        var second = await BookOfficersGeneralAndGetBarcode(service, "30607130103452", "2007-03-04");
+
+        // Both resolve to CMT-12 → committee code 12; the sequence advances 1 → 2.
+        Assert.EndsWith("1200001", first);
+        Assert.EndsWith("1200002", second);
+    }
+
+    [Fact]
+    public async Task BarcodeIsNotGeneratedWhenPaymentMissing()
+    {
+        await using var db = CreateDb();
+        await SeedCommitteeSchedule(db, "2026-07-15");
+        var service = CreateService(db);
+        var applicantId = Guid.NewGuid().ToString("D");
+
+        await service.SaveDraftAsync(applicantId, new JsonObject
+        {
+            ["cycleId"] = "CYC-2026-M",
+            ["categoryKey"] = "officers_general",
+            ["profile"] = new JsonObject
+            {
+                ["dateOfBirth"] = "2006-07-13",
+                ["gender"] = "male",
+            },
+        }, TestContext.Current.CancellationToken);
+        await service.PickExamDateAsync(applicantId, "2026-07-15",
+            new PickedCommittee("CMT-12", "اللجنة الأولى قسم عام"), TestContext.Current.CancellationToken);
+
+        var draft = await service.GetOrCreateDraftAsync(applicantId, TestContext.Current.CancellationToken);
+        Assert.Null(draft["barcode"]);
+    }
+
+    private static async Task<string> BookOfficersGeneralAndGetBarcode(
+        PortalService service, string nationalId, string dateOfBirth)
+    {
+        var applicantId = Guid.NewGuid().ToString("D");
+        await SeedPaidApplicant(service, applicantId, nationalId, dateOfBirth, "male");
+        await service.PickExamDateAsync(applicantId, "2026-07-15",
+            new PickedCommittee("CMT-12", "اللجنة الأولى قسم عام"), TestContext.Current.CancellationToken);
+        var draft = await service.GetOrCreateDraftAsync(applicantId, TestContext.Current.CancellationToken);
+        return draft["barcode"]!.GetValue<string>();
+    }
+
+    private static Task SeedPaidApplicant(
+        PortalService service, string applicantId, string nationalId, string dateOfBirth, string gender) =>
+        service.SaveDraftAsync(applicantId, new JsonObject
+        {
+            ["cycleId"] = "CYC-2026-M",
+            ["categoryKey"] = "officers_general",
+            ["furthestStage"] = 6,
+            ["profile"] = new JsonObject
+            {
+                ["fullName"] = "متقدم باركود",
+                ["nationalId"] = nationalId,
+                ["dateOfBirth"] = dateOfBirth,
+                ["gender"] = gender,
+            },
+            ["payment"] = new JsonObject
+            {
+                ["method"] = "fawry-code",
+                ["refNumber"] = $"PAY-{nationalId[^4..]}",
+                ["paidAt"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            },
+        }, TestContext.Current.CancellationToken);
+
+    private static PortalService CreateService(PortalDbContext db) =>
+        new(db, NullLogger<PortalService>.Instance);
 
     private static PortalDbContext CreateDb()
     {

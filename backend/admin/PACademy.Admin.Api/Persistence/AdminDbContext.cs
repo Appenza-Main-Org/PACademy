@@ -77,6 +77,7 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
     public DbSet<ApplicantAcquaintanceDocEntity> ApplicantAcquaintanceDocs => Set<ApplicantAcquaintanceDocEntity>();
     public DbSet<ApplicantAcquaintanceDocSectionEntity> ApplicantAcquaintanceDocSections => Set<ApplicantAcquaintanceDocSectionEntity>();
     public DbSet<ApplicantAcquaintanceDocRevisionEntity> ApplicantAcquaintanceDocRevisions => Set<ApplicantAcquaintanceDocRevisionEntity>();
+    public DbSet<BarcodeSequenceEntity> BarcodeSequences => Set<BarcodeSequenceEntity>();
     public DbSet<GeneralSettingsEntity> GeneralSettings => Set<GeneralSettingsEntity>();
     public DbSet<PaymentRecordEntity> PaymentRecords => Set<PaymentRecordEntity>();
     public DbSet<ApplicantManagementRecordEntity> ApplicantManagementRecords => Set<ApplicantManagementRecordEntity>();
@@ -925,6 +926,18 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
                 .WithMany()
                 .HasForeignKey(x => x.AcquaintanceDocId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<BarcodeSequenceEntity>(entity =>
+        {
+            entity.ToTable("barcode_sequences");
+            entity.HasKey(x => new { x.CycleId, x.CommitteeCode });
+            entity.Property(x => x.CycleId).HasColumnName("cycle_id").HasMaxLength(96);
+            entity.Property(x => x.CommitteeCode).HasColumnName("committee_code").HasMaxLength(96);
+            entity.Property(x => x.NextSequence).HasColumnName("next_sequence");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
         });
 
         modelBuilder.Entity<GeneralSettingsEntity>(entity =>

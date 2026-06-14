@@ -25,6 +25,7 @@ public sealed class PortalDbContext(DbContextOptions<PortalDbContext> options, I
     public DbSet<ApplicantAcquaintanceDocEntity> AcquaintanceDocs => Set<ApplicantAcquaintanceDocEntity>();
     public DbSet<ApplicantAcquaintanceDocSectionEntity> AcquaintanceDocSections => Set<ApplicantAcquaintanceDocSectionEntity>();
     public DbSet<ApplicantAcquaintanceDocRevisionEntity> AcquaintanceDocRevisions => Set<ApplicantAcquaintanceDocRevisionEntity>();
+    public DbSet<BarcodeSequenceEntity> BarcodeSequences => Set<BarcodeSequenceEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -172,6 +173,18 @@ public sealed class PortalDbContext(DbContextOptions<PortalDbContext> options, I
                 .WithMany(x => x.Sections)
                 .HasForeignKey(x => x.AcquaintanceDocId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<BarcodeSequenceEntity>(entity =>
+        {
+            entity.ToTable("barcode_sequences");
+            entity.HasKey(x => new { x.CycleId, x.CommitteeCode });
+            entity.Property(x => x.CycleId).HasColumnName("cycle_id").HasMaxLength(96);
+            entity.Property(x => x.CommitteeCode).HasColumnName("committee_code").HasMaxLength(96);
+            entity.Property(x => x.NextSequence).HasColumnName("next_sequence");
+            entity.Property(x => x.CreatedAt).HasColumnName("created_at");
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.Property(x => x.RowVersion).HasColumnName("row_version").IsRowVersion();
         });
 
         modelBuilder.Entity<ApplicantAcquaintanceDocRevisionEntity>(entity =>

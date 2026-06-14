@@ -1,7 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Globalization;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using PACademy.Shared.Contracts;
 
 namespace PACademy.Applicant.Api.Modules.ApplicantPortal;
@@ -11,7 +13,7 @@ namespace PACademy.Applicant.Api.Modules.ApplicantPortal;
 /// payment, exam-slot reservation, family approval, follow-up.
 /// Keeps each concern as a private method; controller delegates here.
 /// </summary>
-public sealed class PortalService(PortalDbContext db)
+public sealed class PortalService(PortalDbContext db, ILogger<PortalService> logger)
 {
     private static readonly string[] AcquaintanceDocSectionKeys =
     [
@@ -376,6 +378,7 @@ public sealed class PortalService(PortalDbContext db)
             ["examSlot"] = examSlot,
         };
         ApplyPickedCommittee(patch, examSlot, resolvedCommittee);
+        await EnsureBarcodeAsync(applicantId, draft, resolvedCommittee, patch, ct);
         await SaveDraftAsync(applicantId, patch, ct);
         return resolvedDate.ToString("yyyy-MM-dd");
     }
@@ -464,6 +467,158 @@ public sealed class PortalService(PortalDbContext db)
             patch["assignedCommitteeName"] = committee.CommitteeName;
             examSlot["committeeName"] = committee.CommitteeName;
         }
+    }
+
+    // ── Barcode ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Issues the applicant's permanent barcode the first time an exam
+    /// committee is assigned (the post-payment trigger). Format
+    /// <c>YY BYY MM DD G CC SSSSS</c> (16 digits): intake year, birth yy/mm/dd,
+    /// gender (male=1 / female=2), committee code (trailing digits) and a
+    /// per-(cycle × committee) sequential number. The value is written exactly
+    /// once — a later re-pick or payment reversal never changes it. Missing
+    /// prerequisites are a silent skip; an allocation failure is logged and
+    /// flags the draft for retry (acceptance criterion 4) without blocking the
+    /// booking. The patch is persisted by the caller's SaveDraftAsync.
+    /// </summary>
+    private async Task EnsureBarcodeAsync(
+        string applicantId,
+        JsonObject draft,
+        PickedCommittee committee,
+        JsonObject patch,
+        CancellationToken ct)
+    {
+        // Immutable once issued.
+        if (!string.IsNullOrWhiteSpace(StringProp(draft, "barcode"))) return;
+
+        var paid = ObjectProp(draft, "payment") is { } payment && payment.ContainsKey("paidAt");
+        var profile = ObjectProp(draft, "profile");
+        var dob = StringProp(profile, "dateOfBirth");
+        var gender = StringProp(profile, "gender");
+        var committeeCode = committee.CommitteeId?.Trim();
+        var cycleId = StringProp(draft, "cycleId") ?? "CYC-2026-M";
+
+        if (!paid
+            || !TryBuildBirthSegments(dob, out var byy, out var mm, out var dd)
+            || GenderDigit(gender) is not { } g
+            || string.IsNullOrWhiteSpace(committeeCode)
+            || CommitteeDigits(committeeCode) is not { } cc)
+        {
+            logger.LogWarning(
+                "Skipping barcode for applicant {ApplicantId}: paid={Paid}, hasDob={HasDob}, hasGender={HasGender}, committee={Committee}",
+                applicantId, paid, dob is not null, gender is not null, committeeCode);
+            return;
+        }
+
+        try
+        {
+            var sequence = await AllocateSequenceAsync(cycleId, committeeCode, ct);
+            patch["barcode"] = FormatBarcode(IntakeYearDigits(cycleId), byy, mm, dd, g, cc, sequence);
+            patch["barcodeGeneratedAt"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            patch["barcodeRetry"] = false;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // A genuine failure (e.g. exhausted allocation retries) is logged and
+            // flagged for retry without blocking the booking. Request cancellation
+            // must propagate, not be recorded as a barcode failure.
+            logger.LogError(ex, "Failed to generate barcode for applicant {ApplicantId}", applicantId);
+            patch["barcodeRetry"] = true;
+        }
+    }
+
+    /// <summary>
+    /// Atomically allocates the next 1-based sequence for a (cycle × committee)
+    /// pair. The row is created on first use; concurrent allocations that lose
+    /// the RowVersion/insert race are retried. A consumed number is never
+    /// returned to the pool, so a reversed payment cannot reassign it.
+    /// </summary>
+    private async Task<int> AllocateSequenceAsync(string cycleId, string committeeCode, CancellationToken ct)
+    {
+        const int maxAttempts = 5;
+        for (var attempt = 1; ; attempt++)
+        {
+            var now = DateTimeOffset.UtcNow;
+            var row = await db.BarcodeSequences
+                .FirstOrDefaultAsync(x => x.CycleId == cycleId && x.CommitteeCode == committeeCode, ct);
+
+            int allocated;
+            if (row is null)
+            {
+                allocated = 1;
+                db.BarcodeSequences.Add(new BarcodeSequenceEntity
+                {
+                    CycleId = cycleId,
+                    CommitteeCode = committeeCode,
+                    NextSequence = 2,
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                });
+            }
+            else
+            {
+                allocated = row.NextSequence;
+                row.NextSequence += 1;
+                row.UpdatedAt = now;
+            }
+
+            try
+            {
+                await db.SaveChangesAsync(ct);
+                return allocated;
+            }
+            catch (DbUpdateException) when (attempt < maxAttempts)
+            {
+                // Lost the race — drop the stale tracked rows and re-read.
+                foreach (var entry in db.ChangeTracker.Entries<BarcodeSequenceEntity>().ToList())
+                    entry.State = EntityState.Detached;
+            }
+        }
+    }
+
+    private static string IntakeYearDigits(string? cycleId)
+    {
+        // "CYC-2026-M" → "26". Fall back to the current Gregorian year.
+        var match = Regex.Match(cycleId ?? "", @"\d{4}");
+        var year = match.Success ? int.Parse(match.Value, CultureInfo.InvariantCulture) : DateTimeOffset.UtcNow.Year;
+        return (year % 100).ToString("D2", CultureInfo.InvariantCulture);
+    }
+
+    private static bool TryBuildBirthSegments(string? dob, out string byy, out string mm, out string dd)
+    {
+        byy = mm = dd = "";
+        if (string.IsNullOrWhiteSpace(dob)) return false;
+        if (!DateOnly.TryParseExact(dob, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+            && !DateOnly.TryParse(dob, CultureInfo.InvariantCulture, DateTimeStyles.None, out date))
+            return false;
+        byy = (date.Year % 100).ToString("D2", CultureInfo.InvariantCulture);
+        mm = date.Month.ToString("D2", CultureInfo.InvariantCulture);
+        dd = date.Day.ToString("D2", CultureInfo.InvariantCulture);
+        return true;
+    }
+
+    private static string? GenderDigit(string? gender) => gender?.Trim().ToLowerInvariant() switch
+    {
+        "male" or "m" or "ذكر" => "1",
+        "female" or "f" or "أنثى" => "2",
+        _ => null,
+    };
+
+    private static string? CommitteeDigits(string? committeeCode)
+    {
+        // CC = the trailing digit run, last 2 digits, zero-padded.
+        // "CMT-12" → "12", "CMT-LAW-2" → "02", "COM-GEN-01" → "01".
+        var match = Regex.Match(committeeCode ?? "", @"(\d+)\s*$");
+        if (!match.Success) return null;
+        var digits = match.Groups[1].Value;
+        return (digits.Length <= 2 ? digits : digits[^2..]).PadLeft(2, '0');
+    }
+
+    private static string FormatBarcode(string yy, string byy, string mm, string dd, string g, string cc, int sequence)
+    {
+        var sssss = (sequence % 100_000).ToString("D5", CultureInfo.InvariantCulture);
+        return $"{yy}{byy}{mm}{dd}{g}{cc}{sssss}";
     }
 
     private static string[] CandidateSlotIds(string slotId)
