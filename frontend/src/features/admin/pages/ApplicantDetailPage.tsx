@@ -51,6 +51,7 @@ import {
   type ApplicantFamilyMember,
 } from '@/shared/types/domain';
 import { ApplicantPortalExamsCard } from '@/features/admin/components/applicants/ApplicantPortalExamsCard';
+import { ApplicantAcquaintanceDocCard } from '@/features/admin/components/applicants/ApplicantAcquaintanceDocCard';
 import { SECTION_LABELS } from '@/features/applicants/schemas';
 
 function displayValue(value: React.ReactNode | null | undefined): React.ReactNode {
@@ -333,6 +334,9 @@ export function ApplicantDetailPage(): JSX.Element {
             categoryKey={applicantCategoryKey(applicant)}
             cycleId={applicant.cycleId ?? null}
           />
+
+          {/* Submitted acquaintance-document data (وثيقة التعارف) */}
+          <ApplicantAcquaintanceDocCard applicantId={id} />
 
           {/* Investigation */}
           <Card>

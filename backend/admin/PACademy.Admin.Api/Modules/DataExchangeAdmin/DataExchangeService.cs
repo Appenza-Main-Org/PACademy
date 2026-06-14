@@ -2929,7 +2929,18 @@ public sealed class DataExchangeService(
             CycleScoped: true, PersonScoped: true),
         new(ExchangeDomain.AcquaintanceDocs, "AcquaintanceDocs", "وثائق التعارف",
             ["record_id", "applicant_national_id", "cycle_id", "doc_status", "version", "opened_at", "closed_at", "last_autosaved_at",
-             "section_key", "section_data", "revision_count", "last_revision_kind", "last_revision_at"],
+             // Personal section (نموذج 1 / 5 / 6) flattened to readable columns.
+             "student_full_name", "student_shuhra_name", "student_national_id", "student_dob", "student_birth_place",
+             "student_governorate", "student_nationality", "student_religion", "student_qualification", "student_qualification_year",
+             "student_total_grades", "student_grades_percent", "student_marital_status", "student_home_phone", "student_mobile", "student_address",
+             "housing_type", "housing_rooms_count", "housing_residents_count", "income_details", "income_total",
+             // Parents section (نموذج 2 / 3 / 4) flattened to readable columns.
+             "father_full_name", "father_national_id", "father_dob", "father_qualification", "father_profession", "father_workplace", "father_mobile", "father_deceased",
+             "mother_full_name", "mother_national_id", "mother_dob", "mother_qualification", "mother_profession", "mother_workplace", "mother_mobile", "mother_deceased",
+             "guardian_full_name", "guardian_national_id", "guardian_qualification", "guardian_profession", "guardian_mobile",
+             // Multi-relative sections kept as JSON so no submitted data is dropped.
+             "applicant_family_json", "grandparents_json", "siblings_json", "paternal_relatives_json", "maternal_relatives_json", "foreign_and_cases_json",
+             "revision_count", "last_revision_kind", "last_revision_at"],
             CycleScoped: true, PersonScoped: true),
         new(ExchangeDomain.AdmissionConditions, "AdmissionConditions", "شروط القبول",
             ["condition_id", "category", "category_name", "faculty", "specialization", "academic_degree", "graduation_year", "gender",
@@ -3492,11 +3503,24 @@ public sealed class DataExchangeService(
             var docRevisions = revisionsByDoc.TryGetValue(doc.Id, out var revs) ? revs : [];
             var latestRevision = docRevisions.Count > 0 ? docRevisions[0] : null;
             var docSections = sectionsByDoc.TryGetValue(doc.Id, out var secs) ? secs : [];
+            var rawByKey = docSections.ToDictionary(s => s.SectionKey, s => s.DataJson, StringComparer.Ordinal);
 
-            CuratedRow Row(string? sectionKey, string? sectionData) => new(Cells(
-                // One row per (document, section): the doc id alone identifies
-                // the lifecycle-only row; section rows suffix their section key.
-                ("record_id", sectionKey is null ? doc.Id : $"{doc.Id}:{sectionKey}"),
+            // The personal + parents sections are flattened into readable columns;
+            // the multi-relative sections are kept as raw JSON so no submitted
+            // field is dropped from the export.
+            var personal = SectionObject(rawByKey, "personal");
+            var student = ChildObject(personal, "personal");
+            var housing = ChildObject(personal, "housing");
+            var income = ChildObject(personal, "income");
+            var parents = SectionObject(rawByKey, "parents");
+            var father = ChildObject(parents, "father");
+            var mother = ChildObject(parents, "mother");
+            var guardian = ChildObject(parents, "guardian");
+
+            string? RawJson(string key) => rawByKey.TryGetValue(key, out var raw) ? raw : null;
+
+            rows.Add(new CuratedRow(Cells(
+                ("record_id", doc.Id),
                 ("applicant_national_id", nid),
                 ("cycle_id", doc.CycleId),
                 ("doc_status", doc.Status),
@@ -3504,22 +3528,100 @@ public sealed class DataExchangeService(
                 ("opened_at", DtoString(doc.OpenedAt)),
                 ("closed_at", DtoString(doc.ClosedAt)),
                 ("last_autosaved_at", DtoString(doc.LastAutosavedAt)),
-                ("section_key", sectionKey),
-                ("section_data", sectionData),
+                ("student_full_name", JsonStr(student, "fullName")),
+                ("student_shuhra_name", JsonStr(student, "shuhraName")),
+                ("student_national_id", JsonStr(student, "nationalId")),
+                ("student_dob", JsonStr(student, "dateOfBirth")),
+                ("student_birth_place", JsonStr(student, "birthPlace")),
+                ("student_governorate", JsonStr(student, "governorate")),
+                ("student_nationality", JsonStr(student, "nationality")),
+                ("student_religion", JsonStr(student, "religion")),
+                ("student_qualification", JsonStr(student, "qualificationOrTrack")),
+                ("student_qualification_year", JsonStr(student, "qualificationYear")),
+                ("student_total_grades", JsonStr(student, "totalGrades")),
+                ("student_grades_percent", JsonStr(student, "gradesPercent")),
+                ("student_marital_status", MaritalStatusAr(JsonStr(student, "maritalStatus"))),
+                ("student_home_phone", JsonStr(student, "homePhone")),
+                ("student_mobile", JsonStr(student, "mobile")),
+                ("student_address", JsonStr(student, "address")),
+                ("housing_type", JsonStr(housing, "housingType")),
+                ("housing_rooms_count", JsonStr(housing, "roomsCount")),
+                ("housing_residents_count", JsonStr(housing, "residentsCount")),
+                ("income_details", JsonStr(income, "incomeDetails")),
+                ("income_total", JsonStr(income, "totalIncome")),
+                ("father_full_name", JsonStr(father, "fullName")),
+                ("father_national_id", JsonStr(father, "nationalId")),
+                ("father_dob", JsonStr(father, "dateOfBirth")),
+                ("father_qualification", JsonStr(father, "qualification")),
+                ("father_profession", JsonStr(father, "profession")),
+                ("father_workplace", JsonStr(father, "workplace")),
+                ("father_mobile", JsonStr(father, "mobile")),
+                ("father_deceased", JsonBoolAr(father, "deceased")),
+                ("mother_full_name", JsonStr(mother, "fullName")),
+                ("mother_national_id", JsonStr(mother, "nationalId")),
+                ("mother_dob", JsonStr(mother, "dateOfBirth")),
+                ("mother_qualification", JsonStr(mother, "qualification")),
+                ("mother_profession", JsonStr(mother, "profession")),
+                ("mother_workplace", JsonStr(mother, "workplace")),
+                ("mother_mobile", JsonStr(mother, "mobile")),
+                ("mother_deceased", JsonBoolAr(mother, "deceased")),
+                ("guardian_full_name", JsonStr(guardian, "fullName")),
+                ("guardian_national_id", JsonStr(guardian, "nationalId")),
+                ("guardian_qualification", JsonStr(guardian, "qualification")),
+                ("guardian_profession", JsonStr(guardian, "profession")),
+                ("guardian_mobile", JsonStr(guardian, "mobile")),
+                ("applicant_family_json", RawJson("applicantFamily")),
+                ("grandparents_json", RawJson("grandparents")),
+                ("siblings_json", RawJson("siblings")),
+                ("paternal_relatives_json", RawJson("paternalRelatives")),
+                ("maternal_relatives_json", RawJson("maternalRelatives")),
+                ("foreign_and_cases_json", RawJson("foreignAndCases")),
                 ("revision_count", docRevisions.Count.ToString(CultureInfo.InvariantCulture)),
                 ("last_revision_kind", latestRevision?.ChangeKind),
-                ("last_revision_at", DtoString(latestRevision?.CreatedAt))), doc.CreatedAt, doc.UpdatedAt, nid);
-
-            if (docSections.Count == 0)
-            {
-                rows.Add(Row(null, null));
-                continue;
-            }
-            foreach (var section in docSections)
-                rows.Add(Row(section.SectionKey, section.DataJson));
+                ("last_revision_at", DtoString(latestRevision?.CreatedAt))), doc.CreatedAt, doc.UpdatedAt, nid));
         }
         return rows;
     }
+
+    /// <summary>Parses one acquaintance-doc section's stored JSON into an object,
+    /// tolerating malformed payloads (returns null so callers fall back to empty
+    /// cells rather than throwing mid-export).</summary>
+    private static JsonObject? SectionObject(IReadOnlyDictionary<string, string> rawByKey, string sectionKey)
+    {
+        if (!rawByKey.TryGetValue(sectionKey, out var raw) || string.IsNullOrWhiteSpace(raw)) return null;
+        try { return JsonNode.Parse(raw) as JsonObject; }
+        catch (System.Text.Json.JsonException) { return null; }
+    }
+
+    private static JsonObject? ChildObject(JsonObject? parent, string key) =>
+        parent is not null && parent.TryGetPropertyValue(key, out var node) ? node as JsonObject : null;
+
+    private static string? JsonStr(JsonObject? obj, string key)
+    {
+        if (obj is null || !obj.TryGetPropertyValue(key, out var node) || node is null) return null;
+        var value = node.GetValueKind() == System.Text.Json.JsonValueKind.String
+            ? node.GetValue<string>()
+            : node.ToJsonString();
+        return string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
+    private static string? JsonBoolAr(JsonObject? obj, string key)
+    {
+        if (obj is null || !obj.TryGetPropertyValue(key, out var node) || node is null) return null;
+        return node.GetValueKind() switch
+        {
+            System.Text.Json.JsonValueKind.True => "نعم",
+            System.Text.Json.JsonValueKind.False => "لا",
+            _ => null,
+        };
+    }
+
+    private static string? MaritalStatusAr(string? value) => value switch
+    {
+        "single" => "أعزب",
+        "married" => "متزوج",
+        _ => string.IsNullOrWhiteSpace(value) ? null : value,
+    };
 
     /// <summary>Lookup-resolution maps shared by both condition planes:
     /// per-lookup-key code→Arabic-name, the applicant-categories lookup

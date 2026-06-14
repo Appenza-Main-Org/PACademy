@@ -5,7 +5,7 @@
  */
 
 export { applicantService, ApplicantTransitionError, diffApplicants } from './api/applicant.service';
-export type { ApplicantFilters } from './api/applicant.service';
+export type { ApplicantFilters, AdminAcquaintanceDoc } from './api/applicant.service';
 
 export {
   applicantKeys,
@@ -13,6 +13,7 @@ export {
   useApplicant,
   useApplicantStats,
   useApplicantTimeline,
+  useApplicantAcquaintanceDoc,
   useApplicantDistribution,
   useApplicantProgress,
   useApplicantWorkflow,

@@ -14,6 +14,7 @@
  */
 
 import type { MoiApplicantSession } from './moi-session.mock';
+import type { ProfileSnapshot } from './profileData';
 import {
   formatMemberName,
   type FamilyDataSnapshot,
@@ -32,6 +33,10 @@ import {
 interface DeriveInput {
   moiSession: MoiApplicantSession | null;
   familySnapshot: FamilyDataSnapshot | null;
+  /** Submitted application data (Stage 3/4/5 form + manual personal block).
+   *  Source for the education / residence / marital fields that the MOI
+   *  session doesn't carry. Optional — empty leaves those fields blank. */
+  profileSnapshot?: ProfileSnapshot | null;
   /** Optional cover-page hints (file number, admission year). */
   fileNumber?: string;
   admissionYear?: string;
@@ -40,7 +45,7 @@ interface DeriveInput {
 
 export function deriveInitialDocument(input: DeriveInput): VothiqaTaarufDocument {
   const doc = emptyDocument();
-  const { moiSession, familySnapshot, fileNumber, admissionYear, committee } = input;
+  const { moiSession, familySnapshot, profileSnapshot, fileNumber, admissionYear, committee } = input;
 
   /* ── Cover + personal (نموذج 1) ── */
   doc.personal.cover.fullName = moiSession?.fullName ?? '';
@@ -54,6 +59,7 @@ export function deriveInitialDocument(input: DeriveInput): VothiqaTaarufDocument
     fileNumber,
     committee,
   );
+  doc.personal.personal = prefillFromProfile(doc.personal.personal, profileSnapshot);
 
   /* ── Father + Mother (نموذج 2 + 4) ── */
   if (familySnapshot) {
@@ -110,6 +116,52 @@ function prefillStudentPersonal(
     nationalId: moi.nationalId,
     mobile: moi.mobile,
   };
+}
+
+/**
+ * Layer the submitted application data (education / residence / marital /
+ * contact) onto the student personal record. The MOI session already
+ * supplied identity fields; this fills the rest the applicant entered in
+ * Stage 3/4/5 so the وثيقة تعارف never re-asks for it. Only writes a field
+ * when the snapshot has a value — existing prefill is preserved otherwise.
+ */
+function prefillFromProfile(
+  base: StudentPersonalRecord,
+  snapshot: ProfileSnapshot | null | undefined,
+): StudentPersonalRecord {
+  if (!snapshot) return base;
+  const { values, manualPersonal } = snapshot;
+  const str = (v: unknown): string =>
+    v === undefined || v === null || v === '' ? '' : String(v);
+  const firstNonEmpty = (...vals: string[]): string =>
+    vals.find((v) => v.trim().length > 0) ?? '';
+  const yearOf = (value: string): string => {
+    const match = value.match(/(?:19|20)\d{2}/);
+    return match ? match[0] : '';
+  };
+
+  const out = { ...base };
+  const setIfEmpty = (key: keyof StudentPersonalRecord, value: string): void => {
+    if (value && !out[key]) (out[key] as string) = value;
+  };
+
+  setIfEmpty('shuhraName', str(manualPersonal?.shuhra));
+  setIfEmpty('qualificationOrTrack', str(values?.thanawiType));
+  setIfEmpty(
+    'qualificationYear',
+    firstNonEmpty(yearOf(str(values?.thanawiGradDate)), str(values?.bachelorYear)),
+  );
+  setIfEmpty('totalGrades', str(values?.thanawiTotal));
+  setIfEmpty(
+    'gradesPercent',
+    firstNonEmpty(str(values?.thanawiPercentage), str(values?.bachelorPercentage)),
+  );
+  setIfEmpty('homePhone', str(values?.homePhone));
+  setIfEmpty('address', str(values?.currentAddressDetail));
+  if (!out.maritalStatus && (manualPersonal?.maritalStatus === 'single' || manualPersonal?.maritalStatus === 'married')) {
+    out.maritalStatus = manualPersonal.maritalStatus;
+  }
+  return out;
 }
 
 function prefillFather(

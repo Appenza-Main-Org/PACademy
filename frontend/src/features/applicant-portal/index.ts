@@ -41,3 +41,12 @@ export {
 } from './api/applicantPortal.queries';
 export type { AdminPortalStatus } from './api/applicantPortal.service';
 export type { FollowUpExam, FollowUpExamPlan } from './lib/follow-up-exam-plan';
+
+/* Acquaintance-document (وثيقة التعارف) section taxonomy — consumed read-only
+ * by the admin applicant-detail mirror so the portal, admin, and export planes
+ * share one section ordering + labels. */
+export {
+  GROUP_KEYS as ACQUAINTANCE_GROUP_KEYS,
+  GROUP_LABELS as ACQUAINTANCE_GROUP_LABELS,
+} from './lib/vothiqaTaaruf.types';
+export type { GroupKey as AcquaintanceGroupKey } from './lib/vothiqaTaaruf.types';

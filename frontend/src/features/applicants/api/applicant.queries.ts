@@ -21,6 +21,7 @@ export const applicantKeys = {
   stats: () => [...applicantKeys.all, 'stats'] as const,
   statusOptions: () => [...applicantKeys.all, 'status-options'] as const,
   timeline: (id: string) => [...applicantKeys.all, 'timeline', id] as const,
+  acquaintanceDoc: (id: string) => [...applicantKeys.all, 'acquaintance-doc', id] as const,
   distribution: (field: 'governorate' | 'certType' | 'status') =>
     [...applicantKeys.all, 'distribution', field] as const,
   progress: (id: string) => [...applicantKeys.all, 'progress', id] as const,
@@ -75,6 +76,15 @@ export function useApplicantTimeline(id: string) {
   return useQuery({
     queryKey: applicantKeys.timeline(id),
     queryFn: () => applicantService.getTimeline(id),
+    enabled: Boolean(id),
+    ...noServerStateCacheOptions,
+  });
+}
+
+export function useApplicantAcquaintanceDoc(id: string) {
+  return useQuery({
+    queryKey: applicantKeys.acquaintanceDoc(id),
+    queryFn: () => applicantService.getAcquaintanceDoc(id),
     enabled: Boolean(id),
     ...noServerStateCacheOptions,
   });

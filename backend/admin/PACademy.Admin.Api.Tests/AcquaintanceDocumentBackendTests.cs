@@ -31,6 +31,28 @@ public sealed class AcquaintanceDocumentBackendTests
         Assert.Contains("GetPrintable", source);
     }
 
+    [Fact]
+    public void InitialAcquaintanceDocReusesSubmittedPersonalData()
+    {
+        var source = File.ReadAllText(FindRepoFile(
+            "backend/applicant/PACademy.Applicant.Api/Modules/ApplicantPortal/PortalService.cs"));
+
+        // The وثيقة تعارف must reuse data the applicant already submitted —
+        // these personal fields used to be hardcoded empty in the initial payload.
+        Assert.Contains("[\"maritalStatus\"] = StringFrom(profile, \"maritalStatus\")", source);
+        Assert.Contains("[\"homePhone\"] = StringFrom(profile, \"homePhone\")", source);
+        Assert.Contains("[\"shuhraName\"] = StringFrom(profile, \"shuhra\")", source);
+        Assert.Contains("[\"qualificationYear\"] = qualificationYear", source);
+        Assert.Contains("[\"totalGrades\"] = totalGrades", source);
+        Assert.Contains("[\"gradesPercent\"] = gradesPercent", source);
+        Assert.Contains("[\"address\"] = address", source);
+
+        // Regression guard: none of the reused fields may be hardcoded empty again.
+        Assert.DoesNotContain("[\"maritalStatus\"] = \"\"", source);
+        Assert.DoesNotContain("[\"totalGrades\"] = \"\"", source);
+        Assert.DoesNotContain("[\"address\"] = \"\"", source);
+    }
+
     private static string FindRepoFile(string relativePath)
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

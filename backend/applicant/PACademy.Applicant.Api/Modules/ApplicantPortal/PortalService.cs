@@ -1088,6 +1088,26 @@ public sealed class PortalService(PortalDbContext db)
         var family = await GetFamilyAsync(applicantId, ct);
         var profile = draft["profile"] as JsonObject;
         var committeeName = CommitteeNameFromDraft(draft);
+
+        // The وثيقة تعارف is a review-and-complete step: every personal /
+        // identity field the applicant already submitted during registration
+        // is reused here (and locked on the frontend). Pull the remaining
+        // education / residence / contact fields from the saved draft profile
+        // so the document never asks for data the applicant already provided.
+        var qualificationOrTrack = FirstNonEmpty(
+            StringFrom(profile, "certificateName"),
+            StringFrom(profile, "thanawiType"));
+        var qualificationYear = FirstNonEmpty(
+            YearFromValue(StringFrom(profile, "thanawiGradDate")),
+            StringFrom(profile, "bachelorYear"));
+        var totalGrades = StringFrom(profile, "thanawiTotal");
+        var gradesPercent = FirstNonEmpty(
+            StringFrom(profile, "thanawiPercentage"),
+            StringFrom(profile, "bachelorPercentage"));
+        var address = FirstNonEmpty(
+            StringFrom(profile, "currentAddressDetail"),
+            StringFrom(profile, "address"));
+
         var personal = new JsonObject
         {
             ["cover"] = new JsonObject
@@ -1102,7 +1122,7 @@ public sealed class PortalService(PortalDbContext db)
             {
                 ["fullName"] = StringFrom(profile, "fullName"),
                 ["fileNumber"] = applicantId,
-                ["shuhraName"] = "",
+                ["shuhraName"] = StringFrom(profile, "shuhra"),
                 ["committee"] = committeeName,
                 ["dateOfBirth"] = StringFrom(profile, "dateOfBirth"),
                 ["nationality"] = "مصرية",
@@ -1110,14 +1130,14 @@ public sealed class PortalService(PortalDbContext db)
                 ["birthPlace"] = StringFrom(profile, "birthDistrict"),
                 ["religion"] = StringFrom(profile, "religion"),
                 ["nationalId"] = StringFrom(profile, "nationalId"),
-                ["qualificationOrTrack"] = StringFrom(profile, "certificateName"),
-                ["qualificationYear"] = "",
-                ["totalGrades"] = "",
-                ["gradesPercent"] = "",
-                ["homePhone"] = "",
+                ["qualificationOrTrack"] = qualificationOrTrack,
+                ["qualificationYear"] = qualificationYear,
+                ["totalGrades"] = totalGrades,
+                ["gradesPercent"] = gradesPercent,
+                ["homePhone"] = StringFrom(profile, "homePhone"),
                 ["mobile"] = StringFrom(profile, "mobile"),
-                ["maritalStatus"] = "",
-                ["address"] = "",
+                ["maritalStatus"] = StringFrom(profile, "maritalStatus"),
+                ["address"] = address,
             },
         };
 
@@ -1428,6 +1448,25 @@ public sealed class PortalService(PortalDbContext db)
         if (obj is null || obj[key] is null) return "";
         try { return obj[key]!.GetValue<string>() ?? ""; }
         catch { return obj[key]!.ToString(); }
+    }
+
+    /// <summary>First non-blank value, or "" when all are blank.</summary>
+    private static string FirstNonEmpty(params string[] values)
+    {
+        foreach (var value in values)
+        {
+            if (!string.IsNullOrWhiteSpace(value)) return value.Trim();
+        }
+        return "";
+    }
+
+    /// <summary>Extract a 4-digit calendar year from a date / year string
+    /// (e.g. "2024-06-30" → "2024"); "" when none is present.</summary>
+    private static string YearFromValue(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "";
+        var match = System.Text.RegularExpressions.Regex.Match(value, "(19|20)\\d{2}");
+        return match.Success ? match.Value : "";
     }
 
     private static void MergeJson(JsonObject target, JsonObject source)
