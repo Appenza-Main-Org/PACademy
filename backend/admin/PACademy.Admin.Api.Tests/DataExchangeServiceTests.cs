@@ -1035,6 +1035,60 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
+    public async Task Return_workbook_apply_writes_only_allowed_internal_diff_sheets()
+    {
+        var (svc, db) = Create();
+        await SeedOperationalAsync(db, "applicants", "APP-RETURN",
+            """{"id":"APP-RETURN","nationalId":"29801011239901","fullName":"اسم قبل العودة","status":"exam_scheduled"}""");
+
+        var applicants = new List<Dictionary<string, string?>>
+        {
+            new(StringComparer.Ordinal)
+            {
+                ["applicant_id"] = "APP-RETURN",
+                ["national_id"] = "29801011239901",
+                ["full_name"] = "اسم بعد العودة",
+                ["status"] = "exam_scheduled",
+            },
+        };
+        var lookupRows = new List<Dictionary<string, string?>>
+        {
+            new(StringComparer.Ordinal)
+            {
+                ["lookup_row_id"] = "academic-grades|EXC-RETURN",
+                ["lookup_key"] = "academic-grades",
+                ["code"] = "EXC-RETURN",
+                ["name"] = "لا يجب استيراده",
+                ["is_active"] = "true",
+            },
+        };
+        var examSchedules = new List<Dictionary<string, string?>>
+        {
+            new(StringComparer.Ordinal)
+            {
+                ["slot_id"] = "SLOT-RETURN",
+                ["exam_id"] = "TST-01",
+                ["exam_name"] = "القدرات",
+                ["date"] = "2026-07-01",
+                ["capacity"] = "10",
+                ["reserved"] = "0",
+            },
+        };
+
+        var apply = await svc.ApplyAsync(new ImportApplyRequest(
+            [new("Applicants", applicants), new("LookupRows", lookupRows), new("ExamSchedules", examSchedules)],
+            "new-and-changed", false, false), default);
+
+        Assert.Equal(0, apply.FailedCount);
+        Assert.Equal(1, apply.UpdatedCount);
+        Assert.Equal(2, apply.SkippedCount);
+        Assert.DoesNotContain(db.LookupRows, row => row.Code == "EXC-RETURN");
+
+        var refreshed = (await new OperationalRecordStore(db).GetAsync("applicants", "APP-RETURN", default))!;
+        Assert.Equal("اسم بعد العودة", refreshed["name"]!.GetValue<string>());
+    }
+
+    [Fact]
     public async Task Applicants_import_syncs_exam_slot_columns_into_schedule_records()
     {
         var (svc, db) = Create();
