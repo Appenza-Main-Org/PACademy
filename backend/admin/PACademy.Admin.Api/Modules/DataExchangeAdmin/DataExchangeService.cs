@@ -52,6 +52,14 @@ public sealed class DataExchangeService(
         "id", "business_key", "created_at", "updated_at", "row_version", "last_modified_by", "source_system", "checksum",
     };
 
+    private static readonly IReadOnlySet<ExchangeDomain> ReturnWorkbookWritableDomains =
+        new HashSet<ExchangeDomain>
+        {
+            ExchangeDomain.Applicants,
+            ExchangeDomain.ExamReservations,
+            ExchangeDomain.ExamResults,
+        };
+
     private static readonly JsonSerializerOptions Json = new()
     {
         WriteIndented = false,
@@ -775,6 +783,7 @@ public sealed class DataExchangeService(
     {
         var outcomes = new List<ImportRowOutcome>();
         var sheetIssues = new List<SheetIssue>();
+        var isReturnWorkbook = IsReturnWorkbook(request.Sheets);
 
         foreach (var sheet in request.Sheets)
         {
@@ -782,6 +791,11 @@ public sealed class DataExchangeService(
             {
                 sheetIssues.Add(new SheetIssue(sheet.SheetName, "DATA_EXCHANGE_INVALID_WORKBOOK",
                     $"اسم جدول غير معروف: {sheet.SheetName}"));
+                continue;
+            }
+            if (isReturnWorkbook && !ReturnWorkbookWritableDomains.Contains(spec.Domain))
+            {
+                outcomes.AddRange(SkippedReturnSheetOutcomes(spec, sheet));
                 continue;
             }
             outcomes.AddRange((await ClassifySheetAsync(spec, NormalizeSheetForImport(spec, sheet), ct)).Outcomes);
@@ -982,10 +996,18 @@ public sealed class DataExchangeService(
         await using var tx = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(ct) : null;
         try
         {
+            var isReturnWorkbook = IsReturnWorkbook(request.Sheets);
             foreach (var sheet in request.Sheets)
             {
                 if (!DataExchangeRegistry.BySheetName.TryGetValue(sheet.SheetName, out var spec))
                 { failed.Add(new ImportFailedRow(-1, sheet.SheetName, ["اسم جدول غير معروف"])); continue; }
+
+                if (isReturnWorkbook && !ReturnWorkbookWritableDomains.Contains(spec.Domain))
+                {
+                    attempted += sheet.Rows.Count;
+                    skipped += sheet.Rows.Count;
+                    continue;
+                }
 
                 var importSheet = NormalizeSheetForImport(spec, sheet);
                 var (outcomes, _, dbByKey) = await ClassifySheetAsync(spec, importSheet, ct);
@@ -1045,6 +1067,24 @@ public sealed class DataExchangeService(
 
         await EmitAuditAsync("import", $"استيراد · {inserted} إضافة · {updated} تحديث", attempted, inserted, updated, skipped, failed.Count, ct);
         return new ImportApplyResult(attempted, inserted + updated, inserted, updated, skipped, failed.Count, failed);
+    }
+
+    /// <summary>A return workbook from the internal admin includes curated
+    /// reference/setup sheets such as LookupRows or GeneralSettings. In that
+    /// flow, only applicant identity, exam reservations, and exam results are
+    /// writable; every other sheet is context and must not mutate cloud data.</summary>
+    private static bool IsReturnWorkbook(IReadOnlyList<ImportSheetInput> sheets)
+        => sheets.Any(sheet =>
+            DataExchangeRegistry.BySheetName.TryGetValue(sheet.SheetName, out var spec) &&
+            spec.Storage == ExchangeStorage.ReadOnlyExport);
+
+    private static IEnumerable<ImportRowOutcome> SkippedReturnSheetOutcomes(DomainSpec spec, ImportSheetInput sheet)
+    {
+        for (var i = 0; i < sheet.Rows.Count; i++)
+        {
+            var (businessKey, _) = ResolveBusinessKey(spec, sheet.Rows[i]);
+            yield return Outcome(spec, i, string.IsNullOrWhiteSpace(businessKey) ? (i + 1).ToString(CultureInfo.InvariantCulture) : businessKey, ImportRowClass.Skipped);
+        }
     }
 
     // ──────────────────────────────────────────────────────────────────────
