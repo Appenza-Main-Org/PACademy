@@ -1849,12 +1849,12 @@ public sealed class DataExchangeServiceTests
         db.ApplicantAcquaintanceDocSections.Add(new ApplicantAcquaintanceDocSectionEntity
         {
             Id = "SEC-1", AcquaintanceDocId = "DOC-1", SectionKey = "personal",
-            DataJson = """{"fullName":"متقدم"}""", CreatedAt = now, UpdatedAt = now,
+            DataJson = """{"personal":{"fullName":"متقدم","governorate":"القاهرة"}}""", CreatedAt = now, UpdatedAt = now,
         });
         db.ApplicantAcquaintanceDocSections.Add(new ApplicantAcquaintanceDocSectionEntity
         {
-            Id = "SEC-2", AcquaintanceDocId = "DOC-1", SectionKey = "residence",
-            DataJson = """{"governorate":"القاهرة"}""", CreatedAt = now, UpdatedAt = now,
+            Id = "SEC-2", AcquaintanceDocId = "DOC-1", SectionKey = "siblings",
+            DataJson = """{"items":[{"fullName":"أخ"}]}""", CreatedAt = now, UpdatedAt = now,
         });
         db.ApplicantAcquaintanceDocRevisions.Add(new ApplicantAcquaintanceDocRevisionEntity
         {
@@ -1872,14 +1872,15 @@ public sealed class DataExchangeServiceTests
             [ExchangeDomain.AcquaintanceDocs], "single-workbook", ExportFilter.Default, default);
         var sheet = Assert.Single(result.Sheets);
 
-        Assert.Equal(2, sheet.Rows.Count); // one row per section
-        var personal = sheet.Rows.Single(r => r["section_key"] == "personal");
-        Assert.Equal("29801011234567", personal["applicant_national_id"]);
-        Assert.Equal("open", personal["doc_status"]);
-        Assert.Equal("3", personal["version"]);
-        Assert.Contains("متقدم", personal["section_data"]);
-        Assert.Equal("2", personal["revision_count"]);
-        Assert.Equal("submit", personal["last_revision_kind"]); // latest version wins
+        var row = Assert.Single(sheet.Rows); // one row per document, sections flattened to columns
+        Assert.Equal("DOC-1", row["record_id"]);
+        Assert.Equal("29801011234567", row["applicant_national_id"]);
+        Assert.Equal("open", row["doc_status"]);
+        Assert.Equal("3", row["version"]);
+        Assert.Equal("متقدم", row["student_full_name"]); // personal section flattened
+        Assert.Contains("أخ", row["siblings_json"]); // multi-relative section kept as raw JSON
+        Assert.Equal("2", row["revision_count"]);
+        Assert.Equal("submit", row["last_revision_kind"]); // latest version wins
     }
 
     [Fact]
