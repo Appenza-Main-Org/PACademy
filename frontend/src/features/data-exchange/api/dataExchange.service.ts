@@ -4,6 +4,8 @@
  * INTEGRATION CONTRACT (admin backend `:5101`):
  *   GET  /api/admin/data-exchange/export?type=<csv|all>&layout=<single-workbook|file-per-type>&filter=<all|changedAfter|modifiedSinceCreation|sinceLastExport>&changedAfter=<iso>&cycleId=<id>
  *   GET  /api/admin/data-exchange/applicants/roster?cycleId=<id>
+ *   POST /api/admin/data-exchange/applicants/reconcile/preview body: { sheets: Applicants + optional ExamResults }
+ *   POST /api/admin/data-exchange/applicants/reconcile/commit  body: { decisions, sheets: Applicants + optional ExamResults }
  *   POST /api/admin/data-exchange/import/preview   body: { sheets: ImportSheetInput[] }
  *   POST /api/admin/data-exchange/import/apply      body: ImportApplyRequest
  *   GET  /api/admin/data-exchange/history
@@ -46,6 +48,10 @@ import {
 const BASE = '/api/admin/data-exchange';
 
 const TRACKING = ['created_at', 'updated_at', 'row_version', 'last_modified_by', 'source_system', 'checksum'];
+const APPLICANT_RECONCILIATION_SHEETS = new Set<string>([
+  SHEET_NAMES.Applicants,
+  SHEET_NAMES.ExamResults,
+]);
 
 export interface ExportParams {
   domains: ExchangeDomain[];
@@ -146,27 +152,33 @@ export const dataExchangeService = {
   async previewApplicantsReconciliation(
     sheets: ImportSheetInput[],
   ): Promise<ApplicantReconciliationPreview> {
+    const reconciliationSheets = filterApplicantReconciliationSheets(sheets);
     if (isBackendEnabled()) {
       return apiClient.post<ApplicantReconciliationPreview>(
         `${BASE}/applicants/reconcile/preview`,
-        { sheets },
+        { sheets: reconciliationSheets },
       );
     }
-    return mockReconcilePreview(sheets);
+    return mockReconcilePreview(reconciliationSheets);
   },
 
   async commitApplicantsReconciliation(
     request: ApplicantReconciliationCommitRequest,
   ): Promise<ApplicantReconciliationCommitResult> {
+    const reconciliationSheets = filterApplicantReconciliationSheets(request.sheets);
     if (isBackendEnabled()) {
       return apiClient.post<ApplicantReconciliationCommitResult>(
         `${BASE}/applicants/reconcile/commit`,
-        request,
+        { ...request, sheets: reconciliationSheets },
       );
     }
-    return mockReconcileCommit(request);
+    return mockReconcileCommit({ ...request, sheets: reconciliationSheets });
   },
 };
+
+function filterApplicantReconciliationSheets(sheets: ImportSheetInput[]): ImportSheetInput[] {
+  return sheets.filter((sheet) => APPLICANT_RECONCILIATION_SHEETS.has(sheet.sheetName));
+}
 
 // ──────────────────────────────────────────────────────────────────────────
 // Mock (seed-42 deterministic; checksum mirrors backend RowChecksum)
