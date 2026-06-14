@@ -36,7 +36,8 @@ internal sealed record ApplicantIdentityProjection(
     string? CertificateType,
     string? Source,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    string? CycleId = null);
 
 public sealed class OperationalRecordsService(
     IAdminRecordsDbContext db,
@@ -1089,12 +1090,12 @@ public sealed class OperationalRecordsService(
                 $"""
                 SELECT [payload_json], [table_id], [admin_record_id], [national_id], [phone_number], [full_name], [email], [gender],
                        [religion], [date_of_birth], [birth_governorate], [birth_district], [certificate_type], [source],
-                       [created_at], [updated_at]
+                       [created_at], [updated_at], [cycle_id]
                 FROM (
                     SELECT
                         [payload_json], [table_id], [admin_record_id], [national_id], [phone_number], [full_name], [email], [gender],
                         [religion], [date_of_birth], [birth_governorate], [birth_district], [certificate_type], [source],
-                        [created_at], [updated_at],
+                        [created_at], [updated_at], [cycle_id],
                         ROW_NUMBER() OVER (
                             PARTITION BY COALESCE([national_id], [table_id], [admin_record_id])
                             ORDER BY [updated_at] DESC, [row_priority] DESC
@@ -1121,7 +1122,12 @@ public sealed class OperationalRecordsService(
                             ) AS [certificate_type],
                             N'applicant-portal' AS [source],
                             applicant.[created_at],
-                            draft.[updated_at]
+                            draft.[updated_at],
+                            COALESCE(
+                                JSON_VALUE(draft.[payload_json], '$.cycleId'),
+                                JSON_VALUE(draft.[payload_json], '$.admissionCycleId'),
+                                JSON_VALUE(draft.[payload_json], '$.cycle_id')
+                            ) AS [cycle_id]
                         FROM {ApplicantsIdentityTableName} applicant
                         INNER JOIN {AdminDbContext.QualifiedTableName("applicant_portal_records")} draft
                             ON draft.[type] = N'draft'
@@ -1147,7 +1153,13 @@ public sealed class OperationalRecordsService(
                             COALESCE(JSON_VALUE(document.[payload_json], '$.certType'), JSON_VALUE(document.[payload_json], '$.education.certificateName')) AS [certificate_type],
                             COALESCE(applicant.[source], JSON_VALUE(document.[payload_json], '$.source'), N'api') AS [source],
                             COALESCE(applicant.[created_at], document.[created_at]) AS [created_at],
-                            document.[updated_at]
+                            document.[updated_at],
+                            COALESCE(
+                                NULLIF(document.[cycle_id], N''),
+                                JSON_VALUE(document.[payload_json], '$.cycleId'),
+                                JSON_VALUE(document.[payload_json], '$.admissionCycleId'),
+                                JSON_VALUE(document.[payload_json], '$.cycle_id')
+                            ) AS [cycle_id]
                         FROM {AdminDbContext.QualifiedTableName("applicant_management_records")} document
                         LEFT JOIN {ApplicantsIdentityTableName} applicant
                             ON applicant.[national_id] = JSON_VALUE(document.[payload_json], '$.nationalId')
@@ -1253,7 +1265,7 @@ public sealed class OperationalRecordsService(
                 $"""
                 SELECT TOP (1) [payload_json], [table_id], [admin_record_id], [national_id], [phone_number], [full_name], [email], [gender],
                        [religion], [date_of_birth], [birth_governorate], [birth_district], [certificate_type], [source],
-                       [created_at], [updated_at]
+                       [created_at], [updated_at], [cycle_id]
                 FROM (
                     SELECT
                         0 AS [row_priority],
@@ -1276,7 +1288,12 @@ public sealed class OperationalRecordsService(
                         ) AS [certificate_type],
                         N'applicant-portal' AS [source],
                         applicant.[created_at],
-                        draft.[updated_at]
+                        draft.[updated_at],
+                        COALESCE(
+                            JSON_VALUE(draft.[payload_json], '$.cycleId'),
+                            JSON_VALUE(draft.[payload_json], '$.admissionCycleId'),
+                            JSON_VALUE(draft.[payload_json], '$.cycle_id')
+                        ) AS [cycle_id]
                     FROM {ApplicantsIdentityTableName} applicant
                     INNER JOIN {AdminDbContext.QualifiedTableName("applicant_portal_records")} draft
                         ON draft.[type] = N'draft'
@@ -1302,7 +1319,13 @@ public sealed class OperationalRecordsService(
                         COALESCE(JSON_VALUE(document.[payload_json], '$.certType'), JSON_VALUE(document.[payload_json], '$.education.certificateName')) AS [certificate_type],
                         COALESCE(applicant.[source], JSON_VALUE(document.[payload_json], '$.source'), N'api') AS [source],
                         COALESCE(applicant.[created_at], document.[created_at]) AS [created_at],
-                        document.[updated_at]
+                        document.[updated_at],
+                        COALESCE(
+                            NULLIF(document.[cycle_id], N''),
+                            JSON_VALUE(document.[payload_json], '$.cycleId'),
+                            JSON_VALUE(document.[payload_json], '$.admissionCycleId'),
+                            JSON_VALUE(document.[payload_json], '$.cycle_id')
+                        ) AS [cycle_id]
                     FROM {AdminDbContext.QualifiedTableName("applicant_management_records")} document
                     LEFT JOIN {ApplicantsIdentityTableName} applicant
                         ON applicant.[national_id] = JSON_VALUE(document.[payload_json], '$.nationalId')
@@ -2171,7 +2194,8 @@ public sealed class OperationalRecordsService(
                 CertificateType: ReadString(reader, 12),
                 Source: ReadString(reader, 13),
                 CreatedAt: reader.GetFieldValue<DateTimeOffset>(14),
-                UpdatedAt: reader.GetFieldValue<DateTimeOffset>(15));
+                UpdatedAt: reader.GetFieldValue<DateTimeOffset>(15),
+                CycleId: ReadString(reader, 16));
 
             return ProjectApplicantManagementPayload(payload, identity);
         }, ct);
@@ -2189,6 +2213,7 @@ public sealed class OperationalRecordsService(
         projected["applicantTableId"] = identity.TableId;
         if (!string.IsNullOrWhiteSpace(identity.AdminRecordId)) projected["adminRecordId"] = identity.AdminRecordId;
         projected["id"] ??= identity.AdminRecordId ?? identity.TableId;
+        SetIfPresent(projected, "cycleId", identity.CycleId);
         SetIfPresent(projected, "nationalId", StringProp(profile, "nationalId") ?? identity.NationalId);
         SetIfPresent(projected, "phoneNumber", StringProp(profile, "mobile") ?? identity.PhoneNumber);
         SetIfPresent(projected, "name", StringProp(profile, "fullName") ?? identity.FullName);

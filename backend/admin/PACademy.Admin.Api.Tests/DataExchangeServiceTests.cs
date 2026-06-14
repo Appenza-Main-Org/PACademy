@@ -753,16 +753,16 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
-    public async Task Applicants_export_includes_booked_rows_with_missing_cycle_or_category()
+    public async Task Applicants_export_excludes_rows_outside_active_cycle()
     {
-        // Regression: booked applicants whose record carried a blank/stale cycle id
-        // (e.g. the portal default vs the admin's timestamp cycle id) were silently
-        // dropped from the export. A missing cycle/category must not remove a booked
-        // row; only a positively-different cycle does.
+        // Data exchange packages are sync payloads for the active cycle only:
+        // a missing cycle id is no longer safe to export.
         var (svc, db) = Create();
         await SeedCycleAsync(db, "CYC-ACTIVE", true);
         await SeedOperationalAsync(db, "committeeInstances", "CI-ACTIVE-LAW",
             """{"id":"CI-ACTIVE-LAW","cycleId":"CYC-ACTIVE","categoryKey":"law_bachelor","definitionCode":"CMT-LAW","date":"2026-06-17"}""");
+        await SeedOperationalAsync(db, "applicants", "APP-ACTIVE",
+            """{"id":"APP-ACTIVE","nationalId":"29801011230300","fullName":"دورة نشطة","status":"exam_scheduled","cycleId":"CYC-ACTIVE","categoryKey":"law_bachelor","examSlot":{"slotId":"SLOT-0","date":"2026-06-17"}}""");
         await SeedOperationalAsync(db, "applicants", "APP-NO-CYCLE",
             """{"id":"APP-NO-CYCLE","nationalId":"29801011230301","fullName":"بدون دورة","status":"exam_scheduled","examSlot":{"slotId":"SLOT-1","date":"2026-06-17"}}""");
         await SeedOperationalAsync(db, "applicants", "APP-OTHER-CYCLE",
@@ -771,8 +771,10 @@ public sealed class DataExchangeServiceTests
         var export = await svc.ExportAsync([ExchangeDomain.Applicants], "single-workbook", ExportFilter.Default, default);
         var keys = export.Sheets.Single(s => s.Domain == "Applicants").Rows.Select(r => r["business_key"]).ToHashSet();
 
-        Assert.Contains("29801011230301", keys);       // missing cycle + category → kept
-        Assert.DoesNotContain("29801011230302", keys);  // positively different cycle → dropped
+        var key = Assert.Single(keys);
+        Assert.Equal("29801011230300", key);
+        Assert.DoesNotContain("29801011230301", keys);
+        Assert.DoesNotContain("29801011230302", keys);
     }
 
     [Fact]
@@ -873,9 +875,8 @@ public sealed class DataExchangeServiceTests
     [Fact]
     public async Task Snapshot_export_includes_registered_pre_booking_applicants()
     {
-        // The curated snapshot (download button) is what the external admin hands to the
-        // internal plane. A registered-but-unbooked applicant must appear in it so the
-        // internal side can take over booking + results; only bare drafts are withheld.
+        // Registered-but-unbooked applicants still belong to the active cycle's
+        // synchronization package; only bare drafts are withheld.
         var (svc, db) = Create();
         await SeedCycleAsync(db, "CYC-ACTIVE", true);
         await SeedOperationalAsync(db, "committeeInstances", "CI-ACTIVE-LAW",
@@ -891,6 +892,58 @@ public sealed class DataExchangeServiceTests
 
         Assert.Contains("29801011239001", nids);       // registered, pre-booking → exported
         Assert.DoesNotContain("29801011239002", nids);  // bare draft → withheld
+    }
+
+    [Fact]
+    public async Task Snapshot_export_scopes_cycle_dependent_sheets_to_active_cycle()
+    {
+        var (svc, db) = Create();
+        await SeedCycleAsync(db, "CYC-ACTIVE", true);
+        await SeedCycleAsync(db, "CYC-CLOSED", false);
+        await SeedCommitteeLookupAsync(db, "CMT-LAW", "لجنة الحقوق");
+        await SeedOperationalAsync(db, "committeeInstances", "CI-ACTIVE",
+            """{"id":"CI-ACTIVE","cycleId":"CYC-ACTIVE","categoryKey":"law_bachelor","definitionCode":"CMT-LAW","date":"2026-06-17","capacity":50,"reserved":1}""");
+        await SeedOperationalAsync(db, "committeeInstances", "CI-CLOSED",
+            """{"id":"CI-CLOSED","cycleId":"CYC-CLOSED","categoryKey":"law_bachelor","definitionCode":"CMT-LAW","date":"2025-06-17","capacity":50,"reserved":1}""");
+        await SeedOperationalAsync(db, "applicants", "APP-ACTIVE",
+            """
+            {"id":"APP-ACTIVE","nationalId":"29801011239401","fullName":"متقدم نشط","cycleId":"CYC-ACTIVE","categoryKey":"law_bachelor",
+             "status":"exam_scheduled","paymentStatus":"paid","payment":{"method":"fawry-code","refNumber":"ACT-REF","amount":250},
+             "examSlot":{"slotId":"CI-ACTIVE","date":"2026-06-17"},"family":{"father":{"fullName":"والد نشط"}},"followUp":{"TST-01":"passed"}}
+            """);
+        await SeedOperationalAsync(db, "applicants", "APP-CLOSED",
+            """
+            {"id":"APP-CLOSED","nationalId":"29801011239402","fullName":"متقدم مغلق","cycleId":"CYC-CLOSED","categoryKey":"law_bachelor",
+             "status":"exam_scheduled","paymentStatus":"paid","payment":{"method":"fawry-code","refNumber":"CLS-REF","amount":250},
+             "examSlot":{"slotId":"CI-CLOSED","date":"2025-06-17"},"family":{"father":{"fullName":"والد مغلق"}},"followUp":{"TST-01":"failed"}}
+            """);
+        await SeedOperationalAsync(db, "applicants", "APP-NO-CYCLE",
+            """
+            {"id":"APP-NO-CYCLE","nationalId":"29801011239403","fullName":"متقدم بلا دورة","categoryKey":"law_bachelor",
+             "status":"exam_scheduled","paymentStatus":"paid","payment":{"method":"fawry-code","refNumber":"MISS-REF","amount":250},
+             "examSlot":{"slotId":"CI-ACTIVE","date":"2026-06-17"},"family":{"father":{"fullName":"والد بلا دورة"}},"followUp":{"TST-01":"passed"}}
+            """);
+
+        var result = await svc.ExportSnapshotAsync(
+            [ExchangeDomain.Applicants, ExchangeDomain.Relatives, ExchangeDomain.ExamSchedules,
+             ExchangeDomain.ExamReservations, ExchangeDomain.ExamResults, ExchangeDomain.Payments],
+            "single-workbook",
+            ExportFilter.Default with { CycleId = "CYC-CLOSED" },
+            default);
+
+        string[] Column(string domain, string key) => result.Sheets
+            .Single(s => s.Domain == domain)
+            .Rows
+            .Select(r => r.GetValueOrDefault(key) ?? "")
+            .ToArray();
+
+        Assert.Equal("CYC-ACTIVE", result.Info!.CycleId);
+        Assert.Equal(["29801011239401"], Column("Applicants", "national_id"));
+        Assert.Equal(["29801011239401"], Column("Relatives", "applicant_id"));
+        Assert.Equal(["CI-ACTIVE"], Column("ExamSchedules", "slot_id"));
+        Assert.Equal(["29801011239401"], Column("ExamReservations", "applicant_national_id"));
+        Assert.Equal(["29801011239401"], Column("ExamResults", "applicant_id"));
+        Assert.Equal(["29801011239401"], Column("Payments", "national_id"));
     }
 
     [Fact]
@@ -1071,6 +1124,169 @@ public sealed class DataExchangeServiceTests
         var schedule = Assert.IsType<JsonObject>(Assert.Single(schedules));
         Assert.Equal("TST-01", schedule["examId"]?.ToString());
         Assert.Equal("2026-06-14", schedule["date"]?.ToString());
+        var followUp = Assert.IsType<JsonObject>(applicant["followUp"]);
+        Assert.Equal("passed", followUp["TST-01"]?.ToString());
+    }
+
+    [Fact]
+    public async Task Apply_curated_snapshot_maps_applicant_tabs_into_canonical_payload()
+    {
+        // Regression for Issue #1: imported snapshot sheets must hydrate the
+        // applicant profile tabs, not just store disconnected exchange rows.
+        var (svc, db) = Create();
+        await SeedLookupAsync(db, "tests", "TST-01", "اختبار القدرات");
+        db.LookupRows.Add(new LookupRowEntity
+        {
+            LookupKey = "test-results", Code = "RES-01", Name = "ناجح", IsActive = true,
+            PayloadJson = """{"code":"RES-01","name":"ناجح","outcome":"pass"}""",
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+
+        var sheets = new List<ImportSheetInput>
+        {
+            new("Applicants",
+            [
+                new(StringComparer.Ordinal)
+                {
+                    ["applicant_id"] = "APP-FULL-1",
+                    ["national_id"] = "29801011234567",
+                    ["full_name"] = "متقدم كامل",
+                    ["gender"] = "male",
+                    ["phone_number"] = "01000000000",
+                    ["email"] = "full@example.test",
+                    ["date_of_birth"] = "1998-01-01",
+                    ["birth_governorate"] = "القاهرة",
+                    ["qualification_type"] = "مؤهل جامعي",
+                    ["university"] = "جامعة القاهرة",
+                    ["faculty"] = "كلية الحقوق",
+                    ["specialization"] = "القانون العام",
+                    ["graduation_year"] = "2024",
+                    ["grade"] = "جيد جداً",
+                    ["percentage"] = "82.5",
+                    ["school_name"] = "مدرسة النصر الثانوية",
+                    ["school_category"] = "علمي علوم",
+                    ["secondary_total_score"] = "390",
+                    ["secondary_percentage"] = "95.1",
+                    ["secondary_graduation_year"] = "2020",
+                    ["category"] = "law_bachelor",
+                    ["cycle_id"] = "CYC-1",
+                    ["status"] = "fees_paid",
+                },
+            ]),
+            new("Relatives",
+            [
+                new(StringComparer.Ordinal)
+                {
+                    ["relative_id"] = "REL-FATHER-1",
+                    ["applicant_id"] = "29801011234567",
+                    ["relation_type"] = "father",
+                    ["relation_label"] = "الأب",
+                    ["full_name"] = "أحمد محمد",
+                    ["national_id"] = "27001011235001",
+                    ["qualification"] = "بكالوريوس",
+                    ["occupation"] = "ضابط شرطة",
+                    ["governorate"] = "القاهرة",
+                    ["address"] = "مدينة نصر",
+                },
+                new(StringComparer.Ordinal)
+                {
+                    ["relative_id"] = "REL-MOTHER-1",
+                    ["applicant_id"] = "29801011234567",
+                    ["relation_type"] = "mother",
+                    ["relation_label"] = "الأم",
+                    ["full_name"] = "فاطمة علي",
+                    ["national_id"] = "27201011235002",
+                },
+            ]),
+            new("Exams",
+            [
+                new(StringComparer.Ordinal)
+                {
+                    ["exam_id"] = "TST-01",
+                    ["exam_name"] = "اختبار القدرات",
+                    ["category"] = "law_bachelor",
+                    ["order"] = "1",
+                    ["cycle_id"] = "CYC-1",
+                    ["status"] = "active",
+                },
+            ]),
+            new("ExamSchedules",
+            [
+                new(StringComparer.Ordinal)
+                {
+                    ["slot_id"] = "CI-1",
+                    ["exam_id"] = "TST-01",
+                    ["exam_name"] = "اختبار القدرات",
+                    ["category"] = "law_bachelor",
+                    ["date"] = "2026-06-15",
+                    ["committee_name"] = "اللجنة الأولى",
+                    ["capacity"] = "30",
+                    ["reserved"] = "12",
+                },
+            ]),
+            new("ExamReservations",
+            [
+                new(StringComparer.Ordinal)
+                {
+                    ["applicant_national_id"] = "29801011234567",
+                    ["applicant_name"] = "متقدم كامل",
+                    ["slot_id"] = "CI-1",
+                    ["exam_id"] = "TST-01",
+                    ["exam_name"] = "اختبار القدرات",
+                    ["appointment_date"] = "2026-06-15",
+                    ["appointment_time"] = "09:30",
+                    ["committee_name"] = "اللجنة الأولى",
+                    ["reservation_status"] = "محجوز",
+                },
+            ]),
+            new("ExamResults",
+            [
+                new(StringComparer.Ordinal)
+                {
+                    ["result_id"] = "29801011234567:TST-01",
+                    ["applicant_id"] = "29801011234567",
+                    ["exam_id"] = "TST-01",
+                    ["exam_name"] = "اختبار القدرات",
+                    ["result"] = "RES-01",
+                    ["exam_date"] = "2026-06-15",
+                },
+            ]),
+        };
+
+        var apply = await svc.ApplyAsync(new ImportApplyRequest(sheets, "new-and-changed", false, false), default);
+
+        Assert.Equal(0, apply.FailedCount);
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new DbAuditSink(db), new OperationalRecordStore(db));
+        var applicant = await records.GetAsync("applicants", "APP-FULL-1", default);
+        Assert.NotNull(applicant);
+        Assert.Equal("29801011234567", applicant!["nationalId"]?.ToString());
+        Assert.Equal("متقدم كامل", applicant["name"]?.ToString());
+        Assert.Equal("law_bachelor", applicant["categoryKey"]?.ToString());
+        Assert.Equal("CYC-1", applicant["cycleId"]?.ToString());
+
+        var education = Assert.IsType<JsonObject>(applicant["education"]);
+        Assert.Equal("higher", education["kind"]?.ToString());
+        Assert.Equal("جامعة القاهرة", education["university"]?.ToString());
+        Assert.Equal("كلية الحقوق", education["faculty"]?.ToString());
+        Assert.Equal("القانون العام", education["specialization"]?.ToString());
+        Assert.Equal("2024", education["graduationYear"]?.ToString());
+        var secondary = Assert.IsType<JsonObject>(education["secondary"]);
+        Assert.Equal("مدرسة النصر الثانوية", secondary["schoolName"]?.ToString());
+        Assert.Equal("390", secondary["totalScore"]?.ToString());
+
+        var family = Assert.IsType<JsonObject>(applicant["family"]);
+        Assert.Equal("أحمد محمد", family["father"]?["fullName"]?.ToString());
+        Assert.Equal("فاطمة علي", family["mother"]?["fullName"]?.ToString());
+
+        var slot = Assert.IsType<JsonObject>(applicant["examSlot"]);
+        Assert.Equal("CI-1", slot["slotId"]?.ToString());
+        Assert.Equal("2026-06-15", slot["date"]?.ToString());
+        Assert.Equal("09:30", slot["time"]?.ToString());
+        var schedules = Assert.IsType<JsonArray>(applicant["testSchedules"]);
+        var schedule = Assert.IsType<JsonObject>(Assert.Single(schedules));
+        Assert.Equal("TST-01", schedule["examId"]?.ToString());
+        Assert.Equal("اللجنة الأولى", schedule["committeeName"]?.ToString());
         var followUp = Assert.IsType<JsonObject>(applicant["followUp"]);
         Assert.Equal("passed", followUp["TST-01"]?.ToString());
     }
@@ -1388,7 +1604,7 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
-    public async Task Snapshot_admission_conditions_are_withheld_for_non_active_cycle()
+    public async Task Snapshot_export_ignores_requested_inactive_cycle_and_uses_active_cycle()
     {
         var (svc, db) = Create();
         var now = DateTimeOffset.UtcNow;
@@ -1415,14 +1631,16 @@ public sealed class DataExchangeServiceTests
 
         var active = await svc.ExportSnapshotAsync(
             [ExchangeDomain.AdmissionConditions], "single-workbook", ExportFilter.Default with { CycleId = "CYC-ACTIVE" }, default);
-        var closed = await svc.ExportSnapshotAsync(
+        var inactiveRequest = await svc.ExportSnapshotAsync(
             [ExchangeDomain.AdmissionConditions], "single-workbook", ExportFilter.Default with { CycleId = "CYC-CLOSED" }, default);
 
         var activeRow = Assert.Single(active.Sheets[0].Rows);
         Assert.Equal("law_bachelor", activeRow["category"]);
         Assert.Equal("2026", activeRow["graduation_year"]);
         Assert.Equal("65", activeRow["min_percentage"]);
-        Assert.Empty(closed.Sheets[0].Rows); // normalized settings belong to the active cycle only
+        var inactiveRequestRow = Assert.Single(inactiveRequest.Sheets[0].Rows);
+        Assert.Equal(activeRow["condition_id"], inactiveRequestRow["condition_id"]);
+        Assert.Equal("CYC-ACTIVE", inactiveRequest.Info!.CycleId);
     }
 
     [Fact]
@@ -1887,7 +2105,7 @@ public sealed class DataExchangeServiceTests
         await SeedOperationalAsync(db, "examPlans", "PLAN-1",
             """{"id":"PLAN-1","cycleId":"CYC-1","categoryId":"officers_general","exams":[{"examId":"TST-01","order":1},{"examId":"TST-09","order":2}]}""");
         await SeedOperationalAsync(db, "applicants", "APP-1",
-            """{"id":"APP-1","nationalId":"29801011230001","fullName":"متقدم الحجز","categoryKey":"officers_general"}""");
+            """{"id":"APP-1","nationalId":"29801011230001","fullName":"متقدم الحجز","cycleId":"CYC-1","categoryKey":"officers_general"}""");
     }
 
     private static Dictionary<string, string?> ReservationRow(
@@ -2006,6 +2224,42 @@ public sealed class DataExchangeServiceTests
         var applicant = await records.GetAsync("applicants", "APP-1", default);
         var followUp = Assert.IsType<JsonObject>(applicant!["followUp"]);
         Assert.Equal("passed", followUp["TST-01"]?.ToString());
+    }
+
+    [Theory]
+    [InlineData("APP-1")]
+    [InlineData("29801011230001")]
+    public async Task Issue2_ExamResults_import_maps_applicant_id_to_existing_applicant(string applicantIdentifier)
+    {
+        // Issue #2: Internal Admin exports result rows keyed by applicant_id; External Admin must
+        // update the existing applicant follow-up record instead of leaving the old result intact.
+        var (svc, db) = Create();
+        await SeedReservationFixturesAsync(db);
+        db.LookupRows.Add(new LookupRowEntity
+        {
+            LookupKey = "test-results", Code = "RES-02", Name = "راسب", IsActive = true,
+            PayloadJson = """{"code":"RES-02","name":"راسب","outcome":"fail"}""",
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new DbAuditSink(db), new OperationalRecordStore(db));
+
+        var rows = new List<Dictionary<string, string?>>
+        {
+            new(StringComparer.Ordinal)
+            {
+                ["result_id"] = $"{applicantIdentifier}:TST-01",
+                ["applicant_id"] = applicantIdentifier,
+                ["exam_id"] = "TST-01",
+                ["result"] = "RES-02",
+            },
+        };
+        var apply = await svc.ApplyAsync(new ImportApplyRequest([new("ExamResults", rows)], "new-and-changed", false, false), default);
+
+        Assert.Equal(0, apply.FailedCount);
+        var applicant = await records.GetAsync("applicants", "APP-1", default);
+        var followUp = Assert.IsType<JsonObject>(applicant!["followUp"]);
+        Assert.Equal("failed", followUp["TST-01"]?.ToString());
     }
 
     [Fact]
