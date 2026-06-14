@@ -13,6 +13,8 @@
  *  - Multi-row selection (checkboxes) via `selectionMode`.
  *  - Density: compact / default / comfortable.
  *  - Sticky header.
+ *  - Sticky inline-end actions column (`listActions.rowActions.sticky`) —
+ *    pair with a `tableClassName` min-width for horizontal scrolling.
  *  - Zebra stripes (optional).
  *  - Custom empty/loading/error states.
  *
@@ -141,6 +143,11 @@ interface DataTableProps<TRow> {
 
   caption?: string;
   className?: string;
+  /** Extra classes for the inner `<table>` element. Set a `min-w-*` here to
+   *  force horizontal scrolling instead of column crushing on narrow
+   *  viewports — pair with `listActions.rowActions.sticky` so the actions
+   *  column stays visible while the rest scrolls. */
+  tableClassName?: string;
   /** Optional ribbon rendered above the table (filters, bulk actions). */
   toolbar?: ReactNode;
   /**
@@ -180,6 +187,7 @@ export function DataTable<TRow>({
   sequenceStart,
   caption,
   className,
+  tableClassName,
   toolbar,
   listActions,
   onImported,
@@ -250,6 +258,7 @@ export function DataTable<TRow>({
 
   const selectedSet = useMemo(() => new Set(selectedRowKeys), [selectedRowKeys]);
   const highlightedSet = useMemo(() => new Set(highlightedRowKeys), [highlightedRowKeys]);
+  const stickyActions = Boolean(listActions?.rowActions?.sticky);
 
   const allKeys = useMemo(
     () => processed.map((row, i) => rowKey?.(row, i) ?? i),
@@ -305,7 +314,7 @@ export function DataTable<TRow>({
 
       <div className="overflow-hidden rounded-lg border border-border-subtle bg-surface-card">
         <div className="overflow-auto">
-          <table className="w-full border-collapse">
+          <table className={cn('w-full border-collapse', tableClassName)}>
             {caption && <caption className="sr-only">{caption}</caption>}
             <thead
               className={cn(
@@ -405,7 +414,12 @@ export function DataTable<TRow>({
                   <th
                     scope="col"
                     style={{ width: listActions.rowActions.width ?? 72 }}
-                    className={cn(headerPad, 'text-center')}
+                    className={cn(
+                      headerPad,
+                      'text-center',
+                      stickyActions &&
+                        'sticky end-0 bg-surface-sunken shadow-[inset_-1px_0_0_var(--border-subtle)]',
+                    )}
                   >
                     {listActions.rowActions.labelAr ?? 'إجراءات'}
                   </th>
@@ -460,7 +474,7 @@ export function DataTable<TRow>({
                       onClick={onRowClick ? () => onRowClick(row, i) : undefined}
                       aria-selected={isSelected || undefined}
                       className={cn(
-                        'border-b border-border-subtle last:border-b-0 transition-colors duration-fast ease-standard',
+                        'group border-b border-border-subtle last:border-b-0 transition-colors duration-fast ease-standard',
                         interactive && 'cursor-pointer',
                         zebraStripes && i % 2 === 1 && 'bg-ink-50',
                         interactive && 'hover:bg-teal-50',
@@ -524,7 +538,24 @@ export function DataTable<TRow>({
                       })}
                       {listActions?.rowActions && (
                         <td
-                          className={cn(cellPad, 'text-center align-middle')}
+                          className={cn(
+                            cellPad,
+                            'text-center align-middle',
+                            /* Pinned cell needs its own opaque bg per row state —
+                             * the row beneath it keeps scrolling. Hairlines are
+                             * box-shadows: collapsed borders don't follow sticky
+                             * cells. */
+                            stickyActions &&
+                              cn(
+                                'sticky end-0 bg-surface-card',
+                                'shadow-[inset_-1px_0_0_var(--border-subtle),inset_0_-1px_0_var(--border-subtle)] group-last:shadow-[inset_-1px_0_0_var(--border-subtle)]',
+                                zebraStripes && i % 2 === 1 && 'bg-ink-50',
+                                interactive && 'group-hover:bg-teal-50',
+                                isDeletedRow && 'bg-warning-bg group-hover:bg-warning-bg',
+                                (isSelected || isHighlighted) &&
+                                  'bg-accent-50 group-hover:bg-accent-50',
+                              ),
+                          )}
                           onClick={(e) => e.stopPropagation()}
                         >
                           {listActions.rowActions.render(row)}

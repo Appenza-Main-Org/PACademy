@@ -117,6 +117,10 @@ export interface RowActionsConfig<TRow> {
   labelAr?: string;
   /** Fixed column width; defaults to a compact icon-menu column. */
   width?: string | number;
+  /** Pin the actions column at the inline-end edge so it stays visible
+   *  while the rest of the table scrolls horizontally. Pair with a
+   *  `tableClassName` min-width on the host `DataTable`. */
+  sticky?: boolean;
   /** Render the row-level action primitive for this row. */
   render: (row: TRow) => ReactNode;
 }
