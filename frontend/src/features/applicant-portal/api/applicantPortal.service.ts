@@ -594,9 +594,12 @@ export const applicantPortalService = {
   async saveAcquaintanceDoc(
     applicantId: string,
     partial: AcquaintanceDocSaveInput,
+    options?: { keepalive?: boolean },
   ): Promise<AcquaintanceDocResponse> {
     if (isBackendEnabled()) {
-      return applicantApiClient.patch<AcquaintanceDocResponse>('/api/applicant/acquaintance-doc', partial);
+      return applicantApiClient.patch<AcquaintanceDocResponse>('/api/applicant/acquaintance-doc', partial, {
+        keepalive: options?.keepalive,
+      });
     }
     await simulateLatency(180, 320);
     const status = await this.getAcquaintanceDocStatus(applicantId);

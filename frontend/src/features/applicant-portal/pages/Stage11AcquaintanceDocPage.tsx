@@ -27,6 +27,7 @@ import { Eye, FileCheck, Lock, Printer, Save } from 'lucide-react';
 import { Button, Drawer, ErrorState, LoadingState, toast } from '@/shared/components';
 import { validateNationalIdGenderField } from '@/shared/lib/national-id';
 import { useApplicantPortalStore } from '../store/applicantPortal.store';
+import { applicantPortalService } from '../api/applicantPortal.service';
 import {
   useAcquaintanceDoc,
   usePrintableAcquaintanceDoc,
@@ -268,6 +269,13 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
   const blockedConflictDocJsonRef = useRef<string | null>(null);
   const forceHydrateFromServerRef = useRef(false);
   const hasShownConflictToastRef = useRef(false);
+  /* Pending debounced-autosave timer + latest-render snapshots, so the
+   * last-chance flush (unmount / logout / tab-close) can cancel the debounce
+   * and persist whatever the applicant typed without waiting out the 900ms. */
+  const pendingAutosaveTimerRef = useRef<number | null>(null);
+  const latestDocRef = useRef(doc);
+  const latestVersionRef = useRef(docVersion);
+  const canFlushRef = useRef(false);
 
   useEffect(() => {
     if (!docQuery.data?.document) return;
@@ -309,6 +317,7 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
       return;
     }
     const timeoutId = window.setTimeout(() => {
+      pendingAutosaveTimerRef.current = null;
       const savedEditSeq = localEditSeqRef.current;
       saveDoc.mutate(withDocumentVersion(doc, docVersion), {
         onSuccess: (result) => {
@@ -337,8 +346,70 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
         },
       });
     }, 900);
-    return () => window.clearTimeout(timeoutId);
+    pendingAutosaveTimerRef.current = timeoutId;
+    return () => {
+      window.clearTimeout(timeoutId);
+      if (pendingAutosaveTimerRef.current === timeoutId) pendingAutosaveTimerRef.current = null;
+    };
   }, [backendStatus?.canEdit, doc, docQuery.refetch, docVersion, hasHydratedBackendDoc, saveDoc]);
+
+  /* Keep latest-render snapshots in refs for the last-chance flush below. */
+  useEffect(() => {
+    latestDocRef.current = doc;
+    latestVersionRef.current = docVersion;
+    canFlushRef.current = hasHydratedBackendDoc && Boolean(backendStatus?.canEdit);
+  });
+
+  /* Last-chance autosave: fire any pending edits immediately instead of
+   * losing them when the applicant navigates between sections, logs out, or
+   * closes the tab inside the 900ms debounce window. Calls the service
+   * directly (not the React-Query mutation) so it works while the component
+   * is unmounting; `keepalive` lets the request survive a true page unload. */
+  const flushPendingSave = useCallback(
+    (keepalive: boolean): void => {
+      if (!canFlushRef.current) return;
+      const current = latestDocRef.current;
+      const serialized = stringifyDocument(current);
+      if (
+        serialized === lastSyncedDocJsonRef.current ||
+        serialized === blockedConflictDocJsonRef.current
+      ) {
+        return;
+      }
+      if (pendingAutosaveTimerRef.current !== null) {
+        window.clearTimeout(pendingAutosaveTimerRef.current);
+        pendingAutosaveTimerRef.current = null;
+      }
+      /* Mark synced optimistically so the debounce/flush can't double-send; on
+       * failure, clear it so the next edit (or remount) retries. */
+      lastSyncedDocJsonRef.current = serialized;
+      lastSyncedEditSeqRef.current = localEditSeqRef.current;
+      void applicantPortalService
+        .saveAcquaintanceDoc(applicantId, withDocumentVersion(current, latestVersionRef.current), { keepalive })
+        .catch(() => {
+          if (lastSyncedDocJsonRef.current === serialized) {
+            lastSyncedDocJsonRef.current = null;
+          }
+        });
+    },
+    [applicantId],
+  );
+
+  useEffect(() => {
+    const onPageHide = (): void => flushPendingSave(true);
+    const onVisibilityChange = (): void => {
+      if (document.visibilityState === 'hidden') flushPendingSave(true);
+    };
+    window.addEventListener('pagehide', onPageHide);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('pagehide', onPageHide);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      /* SPA navigation / logout: the page survives, so a normal request is
+       * fine (no `keepalive` 64KB body cap). */
+      flushPendingSave(false);
+    };
+  }, [flushPendingSave]);
 
   const [expanded, setExpanded] = useState<GroupKey>('personal');
   const [completed, setCompleted] = useState<Record<GroupKey, boolean>>(() =>
