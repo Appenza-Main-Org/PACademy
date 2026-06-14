@@ -2599,7 +2599,33 @@ public sealed class DataExchangeService(
         // exam_id/exam_name from, so the two sheets never disagree. The per-category
         // breakdown lives on the ExamSchedules sheet (which carries `category`).
         rows.AddRange(await LoadCuratedPlanExamsAsync(cycleId, seen, ct));
+
+        // No Question-Bank exams and no saved exam plan for this cycle → fall back to
+        // the same default the admission-setup wizard shows (active `tests` lookup,
+        // required, ordered) so the Exams sheet is never empty for a cycle whose plan
+        // was viewed in the wizard but not explicitly saved.
+        if (rows.Count == 0)
+            rows.AddRange(await LoadDefaultPlanExamsAsync(cycleId, ct));
         return rows;
+    }
+
+    private async Task<IReadOnlyList<CuratedRow>> LoadDefaultPlanExamsAsync(string? cycleId, CancellationToken ct)
+    {
+        var tests = await db.LookupRows.AsNoTracking()
+            .Where(x => x.LookupKey == "tests" && x.IsActive)
+            .ToListAsync(ct);
+        return tests
+            .Select(x => (x.Code, x.Name, Payload: ParseObject(x.PayloadJson)))
+            // Mirror DefaultExamEntriesAsync: required tests (absent flag ⇒ required), in order.
+            .Where(x => !string.Equals(x.Payload["required"]?.ToString(), "false", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(x => int.TryParse(x.Payload["order"]?.ToString(), out var o) ? o : int.MaxValue)
+            .ThenBy(x => x.Code, StringComparer.Ordinal)
+            .Select(x => new CuratedRow(Cells(
+                ("exam_id", x.Code),
+                ("exam_name", x.Name),
+                ("cycle_id", cycleId),
+                ("status", "active")), default, default, null))
+            .ToList();
     }
 
     private async Task<IReadOnlyList<CuratedRow>> LoadCuratedPlanExamsAsync(

@@ -916,6 +916,25 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
+    public async Task Snapshot_export_falls_back_to_default_tests_when_no_plan_saved()
+    {
+        // A cycle with no Question-Bank exams and no saved examPlans must still export
+        // the wizard's default plan (active `tests` lookup) — not an empty Exams sheet.
+        var (svc, db) = Create();
+        await SeedCycleAsync(db, "CYC-ACTIVE", true);
+        await SeedLookupAsync(db, "tests", "TST-01", "القدرات");
+        await SeedLookupAsync(db, "tests", "TST-02", "اللياقة الرياضية");
+
+        var result = await svc.ExportSnapshotAsync([ExchangeDomain.Exams], "single-workbook", ExportFilter.Default, default);
+        var sheet = result.Sheets.Single(s => s.Domain == "Exams");
+        var examIds = sheet.Rows.Select(r => r["exam_id"]).ToList();
+
+        Assert.Equal(2, examIds.Count);
+        Assert.Contains("TST-01", examIds);
+        Assert.Contains("TST-02", examIds);
+    }
+
+    [Fact]
     public async Task Preview_classifies_unchanged_skipped_edited_changed_new_new()
     {
         var (svc, db) = Create();
