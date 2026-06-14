@@ -2377,7 +2377,7 @@ public sealed class DataExchangeService(
             ["relative_id", "applicant_id", "relation_type", "relation_label", "full_name", "national_id", "gender", "qualification", "occupation", "phone", "governorate", "address"],
             CycleScoped: true, PersonScoped: true),
         new(ExchangeDomain.Exams, "Exams", "اختبارات دورة القبول",
-            ["exam_id", "exam_name", "cycle_id", "scheduled_for", "duration_minutes", "question_count", "status"],
+            ["exam_id", "exam_name", "category", "order", "cycle_id", "scheduled_for", "duration_minutes", "question_count", "status"],
             CycleScoped: true, PersonScoped: false),
         new(ExchangeDomain.ExamSchedules, "ExamSchedules", "جدول مواعيد الاختبارات",
             ["slot_id", "exam_id", "exam_name", "category", "date", "committee_name", "capacity", "reserved"],
@@ -2573,94 +2573,108 @@ public sealed class DataExchangeService(
     private async Task<IReadOnlyList<CuratedRow>> LoadCuratedExamsAsync(string? cycleId, CancellationToken ct)
     {
         var rows = new List<CuratedRow>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // Concrete Question-Bank exam entities, when the cycle has any.
+        // Concrete Question-Bank exam entities, when the cycle has any (cycle-level,
+        // not tied to a category — category/order stay blank).
         var exams = await db.Exams.AsNoTracking()
             .Where(x => string.IsNullOrWhiteSpace(cycleId) || x.CycleId == cycleId)
             .ToListAsync(ct);
         foreach (var x in exams)
-        {
-            if (!string.IsNullOrWhiteSpace(x.Id)) seen.Add(x.Id);
             rows.Add(new CuratedRow(Cells(
                 ("exam_id", x.Id),
                 ("exam_name", x.NameAr),
+                ("category", null),
+                ("order", null),
                 ("cycle_id", x.CycleId),
                 ("scheduled_for", x.ScheduledFor),
                 ("duration_minutes", x.DurationMinutes?.ToString(CultureInfo.InvariantCulture)),
                 ("question_count", x.QuestionCount?.ToString(CultureInfo.InvariantCulture)),
                 ("status", x.Status)), x.CreatedAt, x.UpdatedAt, null));
-        }
 
-        // The cycle's configured exam plan (admission-setup `examPlans`). Cloud
-        // cycles are configured through the wizard, so `db.Exams` is usually empty;
-        // the planned tests are the real exam list. Emit each distinct planned exam
-        // once, in plan order — the same `examPlans` source `ExamSchedules` resolves
-        // exam_id/exam_name from, so the two sheets never disagree. The per-category
-        // breakdown lives on the ExamSchedules sheet (which carries `category`).
-        rows.AddRange(await LoadCuratedPlanExamsAsync(cycleId, seen, ct));
+        // The cycle's configured exam plan (admission-setup `examPlans`) — ONE ROW PER
+        // (category, exam) in that category's order, so each category's plan round-trips
+        // exactly as configured in the wizard. Unique key is (cycle_id, category, exam_id).
+        rows.AddRange(await LoadCuratedPlanExamsAsync(cycleId, ct));
 
-        // No Question-Bank exams and no saved exam plan for this cycle → fall back to
-        // the same default the admission-setup wizard shows (active `tests` lookup,
-        // required, ordered) so the Exams sheet is never empty for a cycle whose plan
-        // was viewed in the wizard but not explicitly saved.
+        // No Question-Bank exams and no saved plan → fall back to the wizard's default
+        // (active `tests` lookup, required, ordered) for each cycle category, so the
+        // Exams sheet is never empty for a cycle whose plan was viewed but not saved.
         if (rows.Count == 0)
             rows.AddRange(await LoadDefaultPlanExamsAsync(cycleId, ct));
         return rows;
     }
 
-    private async Task<IReadOnlyList<CuratedRow>> LoadDefaultPlanExamsAsync(string? cycleId, CancellationToken ct)
-    {
-        var tests = await db.LookupRows.AsNoTracking()
-            .Where(x => x.LookupKey == "tests" && x.IsActive)
-            .ToListAsync(ct);
-        return tests
-            .Select(x => (x.Code, x.Name, Payload: ParseObject(x.PayloadJson)))
-            // Mirror DefaultExamEntriesAsync: required tests (absent flag ⇒ required), in order.
-            .Where(x => !string.Equals(x.Payload["required"]?.ToString(), "false", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(x => int.TryParse(x.Payload["order"]?.ToString(), out var o) ? o : int.MaxValue)
-            .ThenBy(x => x.Code, StringComparer.Ordinal)
-            .Select(x => new CuratedRow(Cells(
-                ("exam_id", x.Code),
-                ("exam_name", x.Name),
-                ("cycle_id", cycleId),
-                ("status", "active")), default, default, null))
-            .ToList();
-    }
-
-    private async Task<IReadOnlyList<CuratedRow>> LoadCuratedPlanExamsAsync(
-        string? cycleId, ISet<string> seen, CancellationToken ct)
+    private async Task<IReadOnlyList<CuratedRow>> LoadCuratedPlanExamsAsync(string? cycleId, CancellationToken ct)
     {
         IReadOnlyList<JsonObject> plans;
         try { plans = await records.ListAsync("examPlans", ct); }
         catch (InvalidOperationException) { return []; }
 
         var nameByCode = await LoadExamNameByCodeAsync(ct);
-        var byCode = new Dictionary<string, (int Order, DateTimeOffset Created, DateTimeOffset Updated)>(StringComparer.OrdinalIgnoreCase);
+        var rows = new List<CuratedRow>();
         foreach (var plan in plans)
         {
             if (AdminRecordJson.IsSoftDeleted(plan)) continue;
             if (!MatchesCycle(FirstString(plan, "cycleId", "admissionCycleId", "cycle_id"), cycleId)) continue;
+            var category = FirstString(plan, "categoryId", "categoryKey");
+            var planCycle = FirstString(plan, "cycleId", "admissionCycleId", "cycle_id") ?? cycleId;
             var (created, updated) = Timestamps(plan);
-            foreach (var node in plan["exams"] as JsonArray ?? [])
+            var fallbackOrder = 0;
+            foreach (var node in (plan["exams"] as JsonArray ?? [])
+                         .OfType<JsonObject>()
+                         .OrderBy(e => int.TryParse(e["order"]?.ToString(), out var o) ? o : int.MaxValue))
             {
-                if (node is not JsonObject exam) continue;
-                var code = FirstString(exam, "examId", "id", "key", "code");
-                if (string.IsNullOrWhiteSpace(code) || seen.Contains(code)) continue;
-                var order = int.TryParse(exam["order"]?.ToString(), out var o) ? o : int.MaxValue;
-                if (!byCode.TryGetValue(code, out var existing) || order < existing.Order)
-                    byCode[code] = (order, created, updated);
+                var code = FirstString(node, "examId", "id", "key", "code");
+                if (string.IsNullOrWhiteSpace(code)) continue;
+                fallbackOrder++;
+                var order = int.TryParse(node["order"]?.ToString(), out var parsed) ? parsed : fallbackOrder;
+                rows.Add(new CuratedRow(Cells(
+                    ("exam_id", code),
+                    ("exam_name", nameByCode.GetValueOrDefault(code) ?? code),
+                    ("category", category),
+                    ("order", order.ToString(CultureInfo.InvariantCulture)),
+                    ("cycle_id", planCycle),
+                    ("status", "active")), created, updated, null));
             }
         }
+        return rows;
+    }
 
-        return byCode
-            .OrderBy(kv => kv.Value.Order)
-            .Select(kv => new CuratedRow(Cells(
-                ("exam_id", kv.Key),
-                ("exam_name", nameByCode.GetValueOrDefault(kv.Key) ?? kv.Key),
-                ("cycle_id", cycleId),
-                ("status", "active")), kv.Value.Created, kv.Value.Updated, null))
+    private async Task<IReadOnlyList<CuratedRow>> LoadDefaultPlanExamsAsync(string? cycleId, CancellationToken ct)
+    {
+        var tests = (await db.LookupRows.AsNoTracking()
+                .Where(x => x.LookupKey == "tests" && x.IsActive)
+                .ToListAsync(ct))
+            .Select(x => (x.Code, x.Name, Payload: ParseObject(x.PayloadJson)))
+            // Mirror DefaultExamEntriesAsync: required tests (absent flag ⇒ required), in order.
+            .Where(x => !string.Equals(x.Payload["required"]?.ToString(), "false", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(x => int.TryParse(x.Payload["order"]?.ToString(), out var o) ? o : int.MaxValue)
+            .ThenBy(x => x.Code, StringComparer.Ordinal)
             .ToList();
+        if (tests.Count == 0) return [];
+
+        var categoryKeys = await LoadCycleCategoryKeysAsync(cycleId, ct);
+        List<string?> categories = categoryKeys is { Count: > 0 }
+            ? categoryKeys.Select(c => (string?)c).ToList()
+            : [null];
+
+        var rows = new List<CuratedRow>();
+        foreach (var category in categories)
+        {
+            var order = 0;
+            foreach (var t in tests)
+            {
+                order++;
+                rows.Add(new CuratedRow(Cells(
+                    ("exam_id", t.Code),
+                    ("exam_name", t.Name),
+                    ("category", category),
+                    ("order", order.ToString(CultureInfo.InvariantCulture)),
+                    ("cycle_id", cycleId),
+                    ("status", "active")), default, default, null));
+            }
+        }
+        return rows;
     }
 
     private async Task<IReadOnlyList<CuratedRow>> LoadCuratedExamSchedulesAsync(string? cycleId, CuratedContext ctx, CancellationToken ct)
