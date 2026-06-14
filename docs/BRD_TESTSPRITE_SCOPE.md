@@ -1,6 +1,6 @@
 # BRD TestSprite Scope
 
-Source BRD: [police_academy_detailed_brd_scope_md.md](/Users/mac/Projects/PACademy/PACademy/docs/police_academy_detailed_brd_scope_md.md)
+Source BRD: [police_academy_detailed_brd_scope_md.md](police_academy_detailed_brd_scope_md.md)
 
 This scope maps the BRD's admin and applicant requirements to the TestSprite frontend plan. Test execution should use Playwright against the local Vite app running with staging backend and database configuration.
 
@@ -10,7 +10,7 @@ This scope maps the BRD's admin and applicant requirements to the TestSprite fro
 - Backend mode: staging API, mocks disabled for admin services
 - Admin API base: `https://admin-staging-api.appenzademo.com`
 - Test runner for browser verification: Playwright
-- TestSprite plan file: [testsprite_frontend_test_plan.json](/Users/mac/Projects/PACademy/PACademy/testsprite_tests/testsprite_frontend_test_plan.json)
+- TestSprite plan file: [testsprite_frontend_test_plan.json](../testsprite_tests/testsprite_frontend_test_plan.json)
 
 ## Admin Test Data
 

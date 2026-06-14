@@ -8,7 +8,9 @@
 
 ## Admin Data Map
 
-> **Normalization in flight (2026-06-10, pending deploy).** Five migrations
+> **⚠️ STALE (as of 2026-06-15): the tables below describe the schema BEFORE the 2026-06-10 normalization migrations, which have since SHIPPED** (see [CLAUDE.md](../CLAUDE.md) §11, "normalization wave 2"). The 13 buckets listed here are now typed Shape-A tables. Regenerate this doc (`backups/gen-schema-md.sh`) against the live DB before relying on exact table shapes.
+>
+> **Normalization (2026-06-10, now deployed).** Five migrations
 > (`NormalizeCommitteeInstances` → `NormalizeWorkflowsCommittees`) convert 13 master-data
 > JSON buckets into typed Shape-A tables: `committee_instances`, `payment_ledger`,
 > `exam_committee_users`, `exam_devices`, `exam_results`, `exam_attempt_results`,
