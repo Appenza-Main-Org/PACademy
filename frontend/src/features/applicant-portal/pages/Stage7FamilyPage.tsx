@@ -1321,6 +1321,9 @@ function buildGuardianFamilyMemberOptions(input: {
   const pushIfNamed = (key: string, label: string, m: FamilyMemberForm): void => {
     const name = formatMemberName(m);
     if (name === '—' || name.trim().length === 0) return;
+    /* A deceased family member (متوفى) can't act as ولي الأمر — keep them
+     * out of the guardian-source picker entirely. */
+    if (m.deceased) return;
     opts.push({ value: key, label: `${label} — ${name}`, member: m });
   };
 
