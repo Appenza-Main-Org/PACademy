@@ -2365,15 +2365,45 @@ public sealed class DataExchangeService(
             errors.Add($"المتقدم غير موجود: {ReservationApplicantLabel(row)}");
             return errors;
         }
-        if (ResolveReservationExam(ctx, row) is null)
+        var exam = ResolveReservationExam(ctx, row);
+        if (exam is null)
         {
             errors.Add($"اختبار غير معروف: {Get(row, "exam_id") ?? Get(row, "exam_name") ?? "—"}");
         }
         if (MatchReservationInstance(ctx, row, applicant) is null)
         {
-            errors.Add($"لا يوجد موعد لجنة مطابق بتاريخ {DateKey(Get(row, "appointment_date")) ?? "—"}");
+            // The committee-instance match is a hard gate only for the exam an
+            // applicant formally books a committee slot for — the category's first
+            // planned exam (القدرات). Later plan stages (المقاس, القوام …) are not
+            // committee-day-booked, so a cross-admin reservation for them is valid
+            // on its appointment date alone (the instance, when present, only
+            // enriches the slot). With neither a matching instance NOR a usable
+            // date there is nothing to anchor the booking to → invalid.
+            if (ReservationRequiresCommitteeInstance(ctx, applicant, exam))
+                errors.Add($"لا يوجد موعد لجنة مطابق بتاريخ {DateKey(Get(row, "appointment_date")) ?? "—"}");
+            else if (DateKey(Get(row, "appointment_date")) is null)
+                errors.Add("تاريخ الحجز مفقود");
         }
         return errors;
+    }
+
+    /// <summary>
+    /// A reservation must match an existing committee appointment only when it is
+    /// for the category's first planned exam — the committee-booked stage whose
+    /// slot the applicant reserves. Later plan exams have no committee instance of
+    /// their own, so a missing instance is not a broken link; the reservation
+    /// rides on its appointment date. Returns false when the exam can't be
+    /// resolved or no plan is configured, leaving the applicant/exam gates to do
+    /// the rejecting.
+    /// </summary>
+    private static bool ReservationRequiresCommitteeInstance(
+        ReservationImportContext ctx, JsonObject applicant, (string ExamId, string? ExamName)? exam)
+    {
+        if (exam is not { } resolved) return false;
+        var category = CategoryKey(applicant);
+        return !string.IsNullOrWhiteSpace(category)
+            && ctx.FirstPlannedByCategory.TryGetValue(category, out var firstExam)
+            && TextEquals(firstExam, resolved.ExamId);
     }
 
     private static JsonObject? ResolveReservationApplicant(
@@ -2559,16 +2589,24 @@ public sealed class DataExchangeService(
             ?? throw Invalid($"المتقدم غير موجود: {ReservationApplicantLabel(row)}");
         var (examId, examName) = ResolveReservationExam(ctx, row)
             ?? throw Invalid($"اختبار غير معروف: {Get(row, "exam_id") ?? Get(row, "exam_name") ?? "—"}");
-        var instance = MatchReservationInstance(ctx, row, applicant)
-            ?? throw Invalid($"لا يوجد موعد لجنة مطابق بتاريخ {DateKey(Get(row, "appointment_date")) ?? "—"}");
+        // The committee instance enriches the booking (slot id, resolved
+        // committee, date/time fallbacks) but is required only for the exam the
+        // applicant formally books a committee slot for — the category's first
+        // planned exam. Later plan stages ride on the row's own appointment data,
+        // so a missing instance there is not an error (mirrors ValidateReservationRow).
+        var instance = MatchReservationInstance(ctx, row, applicant);
+        if (instance is null && ReservationRequiresCommitteeInstance(ctx, applicant, (examId, examName)))
+            throw Invalid($"لا يوجد موعد لجنة مطابق بتاريخ {DateKey(Get(row, "appointment_date")) ?? "—"}");
 
         var date = DateKey(Get(row, "appointment_date"))
-            ?? DateKey(FirstString(instance, "date", "examDate", "scheduledDate"))
+            ?? DateKey(instance is null ? null : FirstString(instance, "date", "examDate", "scheduledDate"))
             ?? throw Invalid("تاريخ الموعد مفقود");
-        var time = Get(row, "appointment_time") ?? FirstString(instance, "time") ?? DefaultExamScheduleTime;
-        var instanceCode = FirstString(instance, "definitionCode", "committeeId", "committeeCode");
+        var time = Get(row, "appointment_time")
+            ?? (instance is null ? null : FirstString(instance, "time"))
+            ?? DefaultExamScheduleTime;
+        var instanceCode = instance is null ? null : FirstString(instance, "definitionCode", "committeeId", "committeeCode");
         var committeeName = (instanceCode is not null ? ctx.CommitteeDirectory.NameByCode.GetValueOrDefault(instanceCode) : null)
-            ?? FirstString(instance, "committeeName", "name")
+            ?? (instance is null ? null : FirstString(instance, "committeeName", "name"))
             ?? Get(row, "committee_name");
 
         var reservation = new JsonObject
@@ -2576,7 +2614,7 @@ public sealed class DataExchangeService(
             ["examId"] = examId,
             ["testCode"] = examId,
             ["examName"] = examName,
-            ["slotId"] = FirstString(instance, "id", "slotId"),
+            ["slotId"] = (instance is null ? null : FirstString(instance, "id", "slotId")) ?? Get(row, "slot_id"),
             ["date"] = date,
             ["time"] = time,
             ["committeeName"] = committeeName,

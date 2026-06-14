@@ -2249,6 +2249,65 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
+    public async Task ExamReservations_import_books_later_stage_exam_without_committee_instance()
+    {
+        // Round-trip regression: Internal Admin added a later-stage exam date
+        // (المقاس / TST-03, plan order 3) for an officers_general applicant who
+        // already had the first exam (القدرات / TST-01). The exported reservation
+        // carries no slot_id and lands on a date (2026-06-28) with no
+        // officers_general committee instance — later plan stages are not
+        // committee-day-booked. External Admin must still import it instead of
+        // dropping it as «لا يوجد موعد لجنة مطابق» and leaving the applicant on one exam.
+        var (svc, db) = Create();
+        await SeedCycleAsync(db, "CYC-1", true);
+        await SeedCommitteeLookupAsync(db, "CMT-OG-01", "اللجنة الأولى قسم عام");
+        await SeedLookupAsync(db, "tests", "TST-01", "القدرات");
+        await SeedLookupAsync(db, "tests", "TST-03", "المقاس");
+        await SeedOperationalAsync(db, "examPlans", "PLAN-OG",
+            """{"id":"PLAN-OG","cycleId":"CYC-1","categoryId":"officers_general","exams":[{"examId":"TST-01","order":1},{"examId":"TST-03","order":3}]}""");
+        // First exam has a committee day; the later exam's date (06-28) carries only
+        // a foreign-category instance, so the officers_general match is empty there.
+        await SeedOperationalAsync(db, "committeeInstances", "CI-OG-0618",
+            """{"id":"CI-OG-0618","cycleId":"CYC-1","categoryKey":"officers_general","definitionCode":"CMT-OG-01","date":"2026-06-18","time":"08:00","capacity":30,"reserved":1}""");
+        await SeedOperationalAsync(db, "committeeInstances", "CI-SO-0628",
+            """{"id":"CI-SO-0628","cycleId":"CYC-1","categoryKey":"specialized_officers","definitionCode":"CMT-SO-01","date":"2026-06-28","time":"08:00","capacity":30,"reserved":0}""");
+        await SeedOperationalAsync(db, "applicants", "APP-OG",
+            """{"id":"APP-OG","nationalId":"30611120179994","fullName":"عمر محمود","cycleId":"CYC-1","categoryKey":"officers_general","status":"exam_scheduled","firstExamDate":"2026-06-18","examSlot":{"slotId":"CI-OG-0618","date":"2026-06-18","time":"08:00"},"testSchedules":[{"examId":"TST-01","testCode":"TST-01","date":"2026-06-18","committeeName":"اللجنة الأولى قسم عام"}]}""");
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new DbAuditSink(db), new OperationalRecordStore(db));
+
+        var rows = new List<Dictionary<string, string?>>
+        {
+            new(StringComparer.Ordinal)
+            {
+                ["applicant_national_id"] = "30611120179994", ["exam_id"] = "TST-01", ["exam_name"] = "القدرات",
+                ["appointment_date"] = "2026-06-18", ["appointment_time"] = "08:00",
+                ["committee_name"] = "اللجنة الأولى قسم عام", ["reservation_status"] = "محجوز",
+            },
+            new(StringComparer.Ordinal)
+            {
+                ["applicant_national_id"] = "30611120179994", ["exam_id"] = "TST-03", ["exam_name"] = "المقاس",
+                ["appointment_date"] = "2026-06-28", ["appointment_time"] = "08:00",
+                ["committee_name"] = "اللجنة الأولى قسم عام", ["reservation_status"] = "محجوز",
+            },
+        };
+
+        var preview = await svc.PreviewAsync(new ImportPreviewRequest([new("ExamReservations", rows)]), default);
+        Assert.Equal(0, preview.Counts["invalid"]);
+
+        var apply = await svc.ApplyAsync(new ImportApplyRequest([new("ExamReservations", rows)], "new-and-changed", false, false), default);
+        Assert.Equal(0, apply.FailedCount);
+
+        var applicant = await records.GetAsync("applicants", "APP-OG", default);
+        var schedules = Assert.IsType<JsonArray>(applicant!["testSchedules"]);
+        var examIds = schedules.OfType<JsonObject>().Select(e => e["examId"]?.ToString()).ToHashSet();
+        Assert.Equal(2, schedules.Count);
+        Assert.Contains("TST-01", examIds);
+        Assert.Contains("TST-03", examIds);
+        var later = schedules.OfType<JsonObject>().Single(e => e["examId"]?.ToString() == "TST-03");
+        Assert.Equal("2026-06-28", later["date"]?.ToString());
+    }
+
+    [Fact]
     public async Task ExamResults_import_mirrors_outcome_into_applicant_follow_up()
     {
         var (svc, db) = Create();
