@@ -70,7 +70,12 @@ interface LookupRowDrawerProps<K extends LookupKey> {
 }
 
 const baseSchema = z.object({
-  code: z.string().min(1, 'الكود مطلوب').max(40),
+  /* Code is auto-generated when blank (see submit handler) and the input is
+   * hidden for every lookup except `governorates` (whose NID code is validated
+   * separately in the submit handler). Requiring it here silently blocked the
+   * «إضافة» action on every code-less lookup — the validation failed on a field
+   * with no visible input, so the form never submitted. */
+  code: z.string().max(40, 'الكود طويل جدًا').optional(),
   name: z.string().trim().min(1, 'الاسم مطلوب').min(2, 'الاسم لا يقل عن حرفين').max(120, 'الاسم طويل جدًا'),
   isActive: z.boolean(),
 });
