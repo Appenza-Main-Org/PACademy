@@ -34,6 +34,10 @@ interface RequestOptions {
   signal?: AbortSignal;
   skipAuth?: boolean;
   responseType?: 'json' | 'blob';
+  /** Keep the request alive through page unload (tab close, navigation away).
+   *  Maps to `fetch`'s `keepalive` flag — required for last-chance autosaves
+   *  fired from `pagehide`/`visibilitychange`. Bodies are capped at 64KB. */
+  keepalive?: boolean;
 }
 
 const READ_RETRY_DELAYS_MS = [300, 900] as const;
@@ -311,6 +315,7 @@ async function request<T>(
     headers,
     body: body2,
     signal: options.signal,
+    keepalive: options.keepalive,
   }, options.signal);
   if (options.responseType === 'blob') {
     if (!res.ok) throw toServiceError(res.status, await parseResponse(res));

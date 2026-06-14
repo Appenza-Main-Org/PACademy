@@ -376,7 +376,8 @@ public sealed class ApplicantsControllerTests
         var records = new OperationalRecordsService(db, new HttpContextAccessor(), new NullAuditSink());
         var eligibility = new ApplicantEligibilityService(db, records);
         var cycles = new CyclesService(db, new NullAuditSink(), records);
-        return new ApplicantsController(records, eligibility, cycles)
+        var acquaintanceDocs = new PACademy.Admin.Api.Modules.AcquaintanceDocs.AcquaintanceDocReadService(db, records);
+        return new ApplicantsController(records, eligibility, acquaintanceDocs, cycles)
         {
             ControllerContext = new ControllerContext
             {
