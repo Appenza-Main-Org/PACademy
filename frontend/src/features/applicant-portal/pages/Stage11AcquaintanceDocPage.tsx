@@ -41,6 +41,7 @@ import {
   type GrandparentsForm,
   type RelativeKind,
 } from '../lib/familyData';
+import { loadProfileSnapshot } from '../lib/profileData';
 import { deriveInitialDocument } from '../lib/vothiqaTaaruf.derive';
 import {
   GROUP_KEYS,
@@ -242,14 +243,23 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
   const isLocked = !backendStatus?.canEdit;
 
   /* Derive a local fallback once, then hydrate it from the backend document. */
-  const [doc, setDoc] = useState<VothiqaTaarufDocument>(() => {
-    const family = loadFamilySnapshot();
-    return deriveInitialDocument({
+  const [doc, setDoc] = useState<VothiqaTaarufDocument>(() =>
+    deriveInitialDocument({
       moiSession,
-      familySnapshot: family,
+      familySnapshot: loadFamilySnapshot(),
+      profileSnapshot: loadProfileSnapshot(),
       admissionYear: '2026',
-    });
-  });
+    }),
+  );
+  /* Identity / personal fields the applicant already submitted during
+   * registration are reused here and must stay read-only — the وثيقة تعارف
+   * is a review-and-complete step, not a re-entry of approved data. The set
+   * is seeded from the local fallback and grows (never shrinks) as the
+   * backend document hydrates, so a field the applicant is mid-typing into
+   * can't suddenly lock itself. */
+  const [submittedPersonalKeys, setSubmittedPersonalKeys] = useState<ReadonlySet<string>>(
+    () => collectSubmittedPersonalKeys(doc),
+  );
   const [docVersion, setDocVersion] = useState<number | null>(null);
   const [hasHydratedBackendDoc, setHasHydratedBackendDoc] = useState(false);
   const lastSyncedDocJsonRef = useRef<string | null>(null);
@@ -270,6 +280,13 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
     }
     forceHydrateFromServerRef.current = false;
     setDoc(next);
+    /* Freeze the locked set to the FIRST authoritative backend snapshot —
+     * that's the submitted-application data. Don't grow it on later
+     * re-hydrations (autosave write-back / conflict refetch), or a personal
+     * field the applicant just filled here would lock itself after saving. */
+    if (!hasHydratedBackendDoc) {
+      setSubmittedPersonalKeys((prev) => unionSets(prev, collectSubmittedPersonalKeys(next)));
+    }
     setDocVersion(incomingVersion);
     lastSyncedDocJsonRef.current = stringifyDocument(next);
     lastSyncedEditSeqRef.current = localEditSeqRef.current;
@@ -526,6 +543,7 @@ export function Stage11AcquaintanceDocPage(): JSX.Element {
           value={doc.personal}
           onChange={(next) => patchSection('personal', next)}
           readOnly={isLocked}
+          submittedKeys={submittedPersonalKeys}
         />
       </AccordionGroup>
 
@@ -759,6 +777,41 @@ function stringifyDocument(doc: VothiqaTaarufDocument): string {
   return JSON.stringify(doc);
 }
 
+/* Cover + نموذج 1 fields are sourced from the applicant's registration.
+ * Any of these that arrives non-empty is "previously submitted" and gets
+ * locked. Housing (نموذج 5) + income (نموذج 6) are NOT here — they're new
+ * data collected for the first time inside the وثيقة تعارف. */
+const SUBMITTED_COVER_FIELDS = [
+  'fullName', 'fileNumber', 'admissionYear', 'committee', 'governorate',
+] as const;
+const SUBMITTED_PERSONAL_FIELDS = [
+  'fullName', 'shuhraName', 'committee', 'dateOfBirth', 'nationality',
+  'governorate', 'birthPlace', 'religion', 'nationalId', 'qualificationOrTrack',
+  'qualificationYear', 'totalGrades', 'gradesPercent', 'homePhone', 'mobile',
+  'maritalStatus', 'address',
+] as const;
+
+/** Dotted keys (`cover.*` / `personal.*`) whose value is already filled —
+ *  i.e. carried over from the submitted application and to be locked. */
+function collectSubmittedPersonalKeys(doc: VothiqaTaarufDocument): Set<string> {
+  const keys = new Set<string>();
+  const cover = doc.personal.cover as unknown as Record<string, string | undefined>;
+  for (const field of SUBMITTED_COVER_FIELDS) {
+    if (isFilled(cover[field])) keys.add(`cover.${field}`);
+  }
+  const personal = doc.personal.personal as unknown as Record<string, string | undefined>;
+  for (const field of SUBMITTED_PERSONAL_FIELDS) {
+    if (isFilled(personal[field])) keys.add(`personal.${field}`);
+  }
+  return keys;
+}
+
+function unionSets(a: ReadonlySet<string>, b: ReadonlySet<string>): Set<string> {
+  const out = new Set(a);
+  for (const value of b) out.add(value);
+  return out;
+}
+
 function withDocumentVersion(
   doc: VothiqaTaarufDocument,
   version: number | null,
@@ -831,9 +884,13 @@ interface PersonalGroupProps {
   value: VothiqaTaarufDocument['personal'];
   onChange: (next: VothiqaTaarufDocument['personal']) => void;
   readOnly?: boolean;
+  /** Dotted keys (`cover.*` / `personal.*`) carried over from the submitted
+   *  application — rendered read-only so previously-approved data can't be
+   *  rewritten here. See {@link collectSubmittedPersonalKeys}. */
+  submittedKeys: ReadonlySet<string>;
 }
 
-function PersonalGroup({ value, onChange, readOnly }: PersonalGroupProps): JSX.Element {
+function PersonalGroup({ value, onChange, readOnly, submittedKeys }: PersonalGroupProps): JSX.Element {
   const setPersonal = (patch: Partial<VothiqaTaarufDocument['personal']['personal']>): void =>
     onChange({ ...value, personal: { ...value.personal, ...patch } });
   const setCover = (patch: Partial<VothiqaTaarufDocument['personal']['cover']>): void =>
@@ -842,33 +899,37 @@ function PersonalGroup({ value, onChange, readOnly }: PersonalGroupProps): JSX.E
     onChange({ ...value, housing: { ...value.housing, ...patch } });
   const setIncome = (patch: Partial<VothiqaTaarufDocument['personal']['income']>): void =>
     onChange({ ...value, income: { ...value.income, ...patch } });
+  /* Cover + نموذج 1 fields lock when the edit window closes (readOnly) OR the
+   * field was carried over from the submitted application (submittedKeys). */
+  const lockCover = (field: string): boolean => Boolean(readOnly) || submittedKeys.has(`cover.${field}`);
+  const lockPersonal = (field: string): boolean => Boolean(readOnly) || submittedKeys.has(`personal.${field}`);
 
   return (
     <>
       <RecordGrid formNumber="غلاف" title="الغلاف — بيانات التعريف" hint="تظهر هذه البيانات على صفحة الغلاف للنسخة المطبوعة." cols={2}>
-        <Cell label="اسم الطالب" required value={value.cover.fullName} onChange={(v) => setCover({ fullName: v })} disabled={readOnly} colSpan={2} />
-        <Cell label="رقم الملف" required value={value.cover.fileNumber} onChange={(v) => setCover({ fileNumber: v })} disabled={readOnly} dir="ltr" />
-        <Cell label="سنة التقدم للالتحاق" required value={value.cover.admissionYear} onChange={(v) => setCover({ admissionYear: v })} disabled={readOnly} dir="ltr" />
-        <Cell label="اللجنة" required value={value.cover.committee} onChange={(v) => setCover({ committee: v })} disabled={readOnly} />
-        <Cell label="المحافظة" required value={value.cover.governorate} onChange={(v) => setCover({ governorate: v })} disabled={readOnly} />
+        <Cell label="اسم الطالب" required value={value.cover.fullName} onChange={(v) => setCover({ fullName: v })} disabled={lockCover('fullName')} colSpan={2} />
+        <Cell label="رقم الملف" required value={value.cover.fileNumber} onChange={(v) => setCover({ fileNumber: v })} disabled={lockCover('fileNumber')} dir="ltr" />
+        <Cell label="سنة التقدم للالتحاق" required value={value.cover.admissionYear} onChange={(v) => setCover({ admissionYear: v })} disabled={lockCover('admissionYear')} dir="ltr" />
+        <Cell label="اللجنة" required value={value.cover.committee} onChange={(v) => setCover({ committee: v })} disabled={lockCover('committee')} />
+        <Cell label="المحافظة" required value={value.cover.governorate} onChange={(v) => setCover({ governorate: v })} disabled={lockCover('governorate')} />
       </RecordGrid>
 
-      <RecordGrid formNumber="نموذج 1" title="بيانات الطالب الشخصية" cols={2}>
-        <Cell label="اسم الطالب" required value={value.personal.fullName} onChange={(v) => setPersonal({ fullName: v })} disabled={readOnly} colSpan={2} />
-        <Cell label="اسم الشهرة" value={value.personal.shuhraName} onChange={(v) => setPersonal({ shuhraName: v })} disabled={readOnly} />
-        <Cell label="اللجنة" required value={value.personal.committee} onChange={(v) => setPersonal({ committee: v })} disabled={readOnly} />
-        <Cell label="تاريخ الميلاد" required type="date" value={value.personal.dateOfBirth} onChange={(v) => setPersonal({ dateOfBirth: v })} disabled={readOnly} />
-        <Cell label="محل الميلاد" required value={value.personal.birthPlace} onChange={(v) => setPersonal({ birthPlace: v })} disabled={readOnly} />
-        <Cell label="الجنسية" required type="select" options={NATIONALITY_OPTIONS} value={value.personal.nationality} onChange={(v) => setPersonal({ nationality: v })} disabled={readOnly} />
-        <Cell label="الديانة" required type="select" options={RELIGION_OPTIONS} value={value.personal.religion} onChange={(v) => setPersonal({ religion: v })} disabled={readOnly} />
-        <Cell label="المحافظة" required type="select" options={GOVERNORATE_OPTIONS} value={value.personal.governorate} onChange={(v) => setPersonal({ governorate: v })} disabled={readOnly} />
-        <Cell label="الرقم القومي" required dir="ltr" value={value.personal.nationalId} onChange={(v) => setPersonal({ nationalId: v })} disabled={readOnly} />
-        <Cell label="المؤهل / الشعبة" required value={value.personal.qualificationOrTrack} onChange={(v) => setPersonal({ qualificationOrTrack: v })} disabled={readOnly} />
-        <Cell label="سنة الحصول على المؤهل" required dir="ltr" value={value.personal.qualificationYear} onChange={(v) => setPersonal({ qualificationYear: v })} disabled={readOnly} />
-        <Cell label="مجموع الدرجات" required dir="ltr" value={value.personal.totalGrades} onChange={(v) => setPersonal({ totalGrades: v })} disabled={readOnly} />
-        <Cell label="النسبة المئوية %" required dir="ltr" value={value.personal.gradesPercent} onChange={(v) => setPersonal({ gradesPercent: v })} disabled={readOnly} />
-        <Cell label="تليفون المنزل" dir="ltr" value={value.personal.homePhone} onChange={(v) => setPersonal({ homePhone: v })} disabled={readOnly} />
-        <Cell label="المحمول" required dir="ltr" value={value.personal.mobile} onChange={(v) => setPersonal({ mobile: v })} disabled={readOnly} />
+      <RecordGrid formNumber="نموذج 1" title="بيانات الطالب الشخصية" hint="البيانات الشخصية مأخوذة من طلب التقدّم ومعروضة للمراجعة فقط — لا يمكن تعديلها هنا." cols={2}>
+        <Cell label="اسم الطالب" required value={value.personal.fullName} onChange={(v) => setPersonal({ fullName: v })} disabled={lockPersonal('fullName')} colSpan={2} />
+        <Cell label="اسم الشهرة" value={value.personal.shuhraName} onChange={(v) => setPersonal({ shuhraName: v })} disabled={lockPersonal('shuhraName')} />
+        <Cell label="اللجنة" required value={value.personal.committee} onChange={(v) => setPersonal({ committee: v })} disabled={lockPersonal('committee')} />
+        <Cell label="تاريخ الميلاد" required type="date" value={value.personal.dateOfBirth} onChange={(v) => setPersonal({ dateOfBirth: v })} disabled={lockPersonal('dateOfBirth')} />
+        <Cell label="محل الميلاد" required value={value.personal.birthPlace} onChange={(v) => setPersonal({ birthPlace: v })} disabled={lockPersonal('birthPlace')} />
+        <Cell label="الجنسية" required type="select" options={NATIONALITY_OPTIONS} value={value.personal.nationality} onChange={(v) => setPersonal({ nationality: v })} disabled={lockPersonal('nationality')} />
+        <Cell label="الديانة" required type="select" options={RELIGION_OPTIONS} value={value.personal.religion} onChange={(v) => setPersonal({ religion: v })} disabled={lockPersonal('religion')} />
+        <Cell label="المحافظة" required type="select" options={GOVERNORATE_OPTIONS} value={value.personal.governorate} onChange={(v) => setPersonal({ governorate: v })} disabled={lockPersonal('governorate')} />
+        <Cell label="الرقم القومي" required dir="ltr" value={value.personal.nationalId} onChange={(v) => setPersonal({ nationalId: v })} disabled={lockPersonal('nationalId')} />
+        <Cell label="المؤهل / الشعبة" required value={value.personal.qualificationOrTrack} onChange={(v) => setPersonal({ qualificationOrTrack: v })} disabled={lockPersonal('qualificationOrTrack')} />
+        <Cell label="سنة الحصول على المؤهل" required dir="ltr" value={value.personal.qualificationYear} onChange={(v) => setPersonal({ qualificationYear: v })} disabled={lockPersonal('qualificationYear')} />
+        <Cell label="مجموع الدرجات" required dir="ltr" value={value.personal.totalGrades} onChange={(v) => setPersonal({ totalGrades: v })} disabled={lockPersonal('totalGrades')} />
+        <Cell label="النسبة المئوية %" required dir="ltr" value={value.personal.gradesPercent} onChange={(v) => setPersonal({ gradesPercent: v })} disabled={lockPersonal('gradesPercent')} />
+        <Cell label="تليفون المنزل" dir="ltr" value={value.personal.homePhone} onChange={(v) => setPersonal({ homePhone: v })} disabled={lockPersonal('homePhone')} />
+        <Cell label="المحمول" required dir="ltr" value={value.personal.mobile} onChange={(v) => setPersonal({ mobile: v })} disabled={lockPersonal('mobile')} />
         <Cell
           label="الحالة الاجتماعية"
           required
@@ -879,9 +940,9 @@ function PersonalGroup({ value, onChange, readOnly }: PersonalGroupProps): JSX.E
             { value: 'single', label: 'أعزب' },
             { value: 'married', label: 'متزوج' },
           ]}
-          disabled={readOnly}
+          disabled={lockPersonal('maritalStatus')}
         />
-        <Cell label="العنوان" required type="textarea" value={value.personal.address} onChange={(v) => setPersonal({ address: v })} disabled={readOnly} colSpan={2} />
+        <Cell label="العنوان" required type="textarea" value={value.personal.address} onChange={(v) => setPersonal({ address: v })} disabled={lockPersonal('address')} colSpan={2} />
       </RecordGrid>
 
       <RecordGrid formNumber="نموذج 5" title="بيانات مسكن الأسرة" cols={3}>

@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
+using PACademy.Admin.Api.Modules.AcquaintanceDocs;
 using PACademy.Admin.Api.Modules.AdminRecords;
 using PACademy.Admin.Api.Modules.Admissions;
 using PACademy.Admin.Api.Modules.Admissions.Eligibility;
@@ -12,6 +13,7 @@ namespace PACademy.Admin.Api.Controllers;
 public sealed class ApplicantsController(
     OperationalRecordsService records,
     ApplicantEligibilityService eligibility,
+    AcquaintanceDocReadService acquaintanceDocs,
     CyclesService cycles) : ControllerBase
 {
     private static readonly ApplicantStatusOption[] StatusOptions =
@@ -85,6 +87,19 @@ public sealed class ApplicantsController(
     {
         var row = await records.GetAsync("applicants", id, ct);
         return row is null ? NotFound() : Ok(row);
+    }
+
+    /// <summary>Submitted acquaintance-document (وثيقة التعارف) data for the
+    /// applicant, read from the normalized acquaintance tables the applicant
+    /// portal writes. Returns a <c>hasDocument: false</c> envelope when the
+    /// applicant has not opened a document, 404 only when the applicant record
+    /// itself is missing.</summary>
+    [HttpGet("api/applicants/{id}/acquaintance-doc")]
+    [HttpGet("api/v1/applicants/{id}/acquaintance-doc")]
+    public async Task<ActionResult<JsonObject>> AcquaintanceDoc(string id, CancellationToken ct)
+    {
+        var doc = await acquaintanceDocs.GetForApplicantAsync(id, ct);
+        return doc is null ? NotFound() : Ok(doc);
     }
 
     [HttpGet("api/applicants/{id}/timeline")]

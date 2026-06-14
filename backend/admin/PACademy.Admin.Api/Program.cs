@@ -76,6 +76,7 @@ builder.Services.AddReportsModule(builder.Configuration);
 builder.Services.AddSettingsModule(builder.Configuration);
 builder.Services.AddDataExchangeAdminModule(builder.Configuration);
 builder.Services.AddScoped<PaymentsLedgerService>();
+builder.Services.AddScoped<PACademy.Admin.Api.Modules.AcquaintanceDocs.AcquaintanceDocReadService>();
 builder.Services.AddSingleton(new ReservationSweepThrottle(TimeSpan.FromSeconds(15)));
 
 /* ── External legacy modules (separate DbContexts + migrations) ─── */

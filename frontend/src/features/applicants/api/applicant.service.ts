@@ -64,6 +64,28 @@ export interface ApplicantStatusOption {
   color: AuditColor;
 }
 
+/**
+ * Admin-side view of an applicant's submitted acquaintance document (وثيقة
+ * التعارف). Read from the normalized acquaintance tables the applicant portal
+ * writes, so the admin profile shows the same source of truth as the portal and
+ * the data-exchange export. `sections` is keyed by the portal section keys
+ * (personal / parents / siblings / …); the admin renderer narrows each section
+ * to its `VothiqaTaaruf*` shape at the consumer site.
+ */
+export interface AdminAcquaintanceDoc {
+  hasDocument: boolean;
+  status: string;
+  cycleId?: string;
+  version?: number;
+  openedAt?: string | null;
+  closedAt?: string | null;
+  lastAutosavedAt?: string | null;
+  revisionCount?: number;
+  lastRevisionKind?: string | null;
+  lastRevisionAt?: string | null;
+  sections: Record<string, unknown>;
+}
+
 const CLIENT_FILTER_PAGE_SIZE = 10_000;
 
 export class ApplicantTransitionError extends Error {
@@ -577,6 +599,16 @@ export const applicantService = {
 
   async getTimeline(id: string): Promise<TimelineEvent[]> {
     return apiClient.get(`/api/applicants/${encodeURIComponent(id)}/timeline`);
+  },
+
+  /**
+   * INTEGRATION CONTRACT: GET /api/applicants/:id/acquaintance-doc
+   * Returns the applicant's submitted acquaintance-document sections, or a
+   * `hasDocument: false` envelope when none has been opened. 404 only when the
+   * applicant record itself is missing.
+   */
+  async getAcquaintanceDoc(id: string): Promise<AdminAcquaintanceDoc> {
+    return apiClient.get(`/api/applicants/${encodeURIComponent(id)}/acquaintance-doc`);
   },
 
   async getDistribution(field: 'governorate' | 'certType' | 'status'): Promise<Array<{ label: string; value: number }>> {
