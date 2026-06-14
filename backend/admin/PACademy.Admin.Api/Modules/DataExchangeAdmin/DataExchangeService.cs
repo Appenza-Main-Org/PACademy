@@ -1897,7 +1897,31 @@ public sealed class DataExchangeService(
         ApplyApplicantSnapshotColumns(payload, row);
         payload["id"] = id;
         payload["sourceSystem"] = ImportSource;
+        await BackfillImportCycleAsync(payload, ct);
         await records.UpsertAsync("applicants", id, payload, ct);
+    }
+
+    /// <summary>An imported applicant belongs to the importing instance's active
+    /// cycle. A blank cycle id is dropped by every cycle-scoped export and makes
+    /// exam re-imports re-classify the applicant's existing bookings as new each
+    /// round (Issue #2: internal↔external sync never converges). Backfill the
+    /// active cycle when the row carries none; a real cycle id is never
+    /// overwritten, so applicants from other cycles stay correctly scoped.</summary>
+    private async Task BackfillImportCycleAsync(JsonObject payload, CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(AdminRecordJson.StringProp(payload, "cycleId"))) return;
+        if (await ResolveActiveCycleIdAsync(ct) is { } activeCycle) payload["cycleId"] = activeCycle;
+    }
+
+    private (bool Resolved, string? Value) activeCycleForImport;
+
+    /// <summary>Active cycle id resolved once per import request (the apply loop
+    /// touches it per applicant row).</summary>
+    private async Task<string?> ResolveActiveCycleIdAsync(CancellationToken ct)
+    {
+        if (!activeCycleForImport.Resolved)
+            activeCycleForImport = (true, await ResolveCycleIdAsync(null, ct));
+        return activeCycleForImport.Value;
     }
 
     private static readonly IReadOnlySet<string> ApplicantPayloadSkipKeys =
