@@ -72,7 +72,11 @@ export function Stage9PrintCardPage(): JSX.Element {
 
   const displayNationalId = moiSession?.nationalId ?? MOI_APPLICANT_SESSION.nationalId;
   const displayFullName = moiSession?.fullName ?? MOI_APPLICANT_SESSION.fullName;
-  const barcodeValue = `${displayNationalId}-${paymentReference}`;
+  /* The barcode is generated and persisted server-side when the committee is
+   * assigned post-payment (format YY BYY MM DD G CC SSSSS). Prefer that stable
+   * value; the legacy composite is only a last-resort fallback for offline /
+   * direct-nav so the card always renders something scannable. */
+  const barcodeValue = draft?.barcode ?? `${displayNationalId}-${paymentReference}`;
 
   return (
     <div

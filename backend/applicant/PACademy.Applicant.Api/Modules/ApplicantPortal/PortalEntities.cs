@@ -135,3 +135,19 @@ public sealed class ApplicantAcquaintanceDocRevisionEntity
     public string ChangedSectionKeysJson { get; set; } = "[]";
     public DateTimeOffset CreatedAt { get; set; }
 }
+
+/// <summary>
+/// Read-write mirror of the admin-owned <c>barcode_sequences</c> table —
+/// the per-(cycle × committee) running counter backing the SSSSS segment of
+/// the applicant barcode. The portal allocates the next number here as part
+/// of exam-date booking.
+/// </summary>
+public sealed class BarcodeSequenceEntity
+{
+    public string CycleId { get; set; } = "";
+    public string CommitteeCode { get; set; } = "";
+    public int NextSequence { get; set; } = 1;
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}

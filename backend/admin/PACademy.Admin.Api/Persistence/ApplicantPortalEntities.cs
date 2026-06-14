@@ -103,3 +103,23 @@ public sealed class ApplicantAcquaintanceDocRevisionEntity
     public string ChangedSectionKeysJson { get; set; } = "[]";
     public DateTimeOffset CreatedAt { get; set; }
 }
+
+/// <summary>
+/// Per-(cycle × committee) running counter backing the SSSSS segment of the
+/// applicant barcode (format YY BYY MM DD G CC SSSSS). One row per committee
+/// per cycle; <see cref="NextSequence"/> is the next free 1-based number.
+/// Allocation is a transactional read-increment-save guarded by RowVersion so
+/// concurrent bookings into the same committee never collide. The number is
+/// never returned to the pool, so a reversed payment cannot reassign it.
+/// Schema owned by the admin backend; the applicant backend reads/writes via
+/// its own PortalDbContext (no migrations assembly).
+/// </summary>
+public sealed class BarcodeSequenceEntity
+{
+    public string CycleId { get; set; } = "";
+    public string CommitteeCode { get; set; } = "";
+    public int NextSequence { get; set; } = 1;
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+    public byte[] RowVersion { get; set; } = [];
+}

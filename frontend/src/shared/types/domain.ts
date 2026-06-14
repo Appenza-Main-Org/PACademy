@@ -1377,6 +1377,13 @@ export interface ApplicantDraft {
     committeeId?: string;
     committeeName?: string;
   };
+  /** Permanent applicant barcode (format YY BYY MM DD G CC SSSSS, 16 digits).
+   *  Generated server-side once a committee is assigned post-payment; immutable
+   *  thereafter. Printed on the Exam Card (بطاقة التردد). */
+  barcode?: string;
+  barcodeGeneratedAt?: number;
+  /** Set true when server-side barcode generation failed and is awaiting retry. */
+  barcodeRetry?: boolean;
   followUp?: Record<string, PipelineState>;
   acquaintance?: Record<string, unknown>;
 }
