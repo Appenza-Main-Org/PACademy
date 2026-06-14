@@ -179,6 +179,11 @@ export interface GrandparentRecord {
   religion: string;
   alive: 'alive' | 'deceased' | '';
   nationalId: string;
+  /** When true, the grandparent has no national ID (e.g. deceased elder /
+   *  born abroad). Mirrors the Stage-7 family escape hatch — the NID input
+   *  is replaced by a reason dropdown. */
+  nidUnavailable: boolean;
+  nidUnavailableReason: '' | 'fallen_record' | 'born_abroad';
   qualification: string;
   profession: string;
   seniorityNumber: string;
@@ -451,6 +456,7 @@ export function emptyGrandparent(): GrandparentRecord {
   return {
     fullName: '', shuhraName: '', dateOfBirth: '', birthPlace: '', governorate: '',
     nationality: 'مصرية', religion: '', alive: '', nationalId: '',
+    nidUnavailable: false, nidUnavailableReason: '',
     qualification: '', profession: '', seniorityNumber: '',
     workplace: '', workNature: '', address: '',
   };

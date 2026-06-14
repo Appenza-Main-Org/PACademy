@@ -33,6 +33,8 @@ function grandparent(
     religion: 'مسلم',
     alive,
     nationalId: alive === 'alive' ? '25001010103456' : '',
+    nidUnavailable: false,
+    nidUnavailableReason: '',
     qualification: 'بكالوريوس تجارة',
     profession: 'متقاعد',
     seniorityNumber: '',

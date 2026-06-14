@@ -586,6 +586,11 @@ function Form6Income({ doc }: { doc: VothiqaTaarufDocument }): JSX.Element {
 
 /* ── Grandparents (نموذج 7-10) ─────────────────────────────────────── */
 
+const NID_UNAVAILABLE_REASON_LABEL: Record<string, string> = {
+  fallen_record: 'ساقط قيد',
+  born_abroad: 'مواليد الخارج',
+};
+
 function GrandparentPage({
   formNumber,
   title,
@@ -615,7 +620,14 @@ function GrandparentPage({
         <FieldBox label="الديانة" value={person.religion} />
         <FieldBox label={aliveLabel} value={person.alive === 'alive'} />
         <FieldBox label={deceasedLabel} value={person.alive === 'deceased'} />
-        <FieldBox label="الرقم القومي" value={person.nationalId} />
+        <FieldBox
+          label="الرقم القومي"
+          value={
+            person.nidUnavailable
+              ? NID_UNAVAILABLE_REASON_LABEL[person.nidUnavailableReason] ?? 'تعذر وجود الرقم القومي'
+              : person.nationalId
+          }
+        />
       </div>
       <div className="grid-2">
         <FieldBox label="المؤهل" value={qualLabel(person.qualification)} />

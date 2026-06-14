@@ -239,6 +239,8 @@ function prefillGrandparent(
     religion: src.religion,
     alive: src.deceased ? 'deceased' : 'alive',
     nationalId: src.nationalId,
+    nidUnavailable: src.nidUnavailable,
+    nidUnavailableReason: src.nidUnavailableReason,
     qualification: src.qualification,
     profession: src.profession,
     seniorityNumber: src.seniorityNumber ?? '',
