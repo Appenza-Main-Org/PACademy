@@ -896,9 +896,9 @@ public sealed class DataExchangeServiceTests
     [Fact]
     public async Task Snapshot_export_lists_configured_exam_plan_in_Exams_sheet()
     {
-        // db.Exams is empty for wizard-configured cycles; the Exams sheet must still
-        // list the cycle's planned tests (from the examPlans bucket) — distinct, in
-        // plan order — instead of coming back empty. Mirrors the ExamSchedules source.
+        // db.Exams is empty for wizard-configured cycles; the Exams sheet must list the
+        // cycle's planned tests (from the examPlans bucket) ONE ROW PER (category, exam),
+        // in each category's own order, instead of coming back empty or deduplicated.
         var (svc, db) = Create();
         await SeedCycleAsync(db, "CYC-ACTIVE", true);
         await SeedOperationalAsync(db, "examPlans", "PLAN-LAW",
@@ -907,12 +907,16 @@ public sealed class DataExchangeServiceTests
             """{"id":"PLAN-OFF","cycleId":"CYC-ACTIVE","categoryId":"officers_general","exams":[{"examId":"TST-01","order":1}]}""");
 
         var result = await svc.ExportSnapshotAsync([ExchangeDomain.Exams], "single-workbook", ExportFilter.Default, default);
-        var sheet = result.Sheets.Single(s => s.Domain == "Exams");
-        var examIds = sheet.Rows.Select(r => r["exam_id"]).ToList();
+        var rows = result.Sheets.Single(s => s.Domain == "Exams").Rows;
 
-        Assert.Equal(2, examIds.Count);          // TST-01 deduped across the two categories
-        Assert.Equal("TST-01", examIds[0]);      // plan order (order=1) wins
-        Assert.Equal("TST-02", examIds[1]);
+        Assert.Equal(3, rows.Count);                 // law_bachelor has 2, officers_general has 1
+        var law = rows.Where(r => r["category"] == "law_bachelor").ToList();
+        Assert.Equal("TST-01", law[0]["exam_id"]);   // each category emitted in its own plan order
+        Assert.Equal("1", law[0]["order"]);
+        Assert.Equal("TST-02", law[1]["exam_id"]);
+        Assert.Equal("2", law[1]["order"]);
+        var off = rows.Where(r => r["category"] == "officers_general").ToList();
+        Assert.Equal("TST-01", Assert.Single(off)["exam_id"]);
     }
 
     [Fact]
