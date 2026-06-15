@@ -514,7 +514,7 @@ public sealed class PortalService(PortalDbContext db, ILogger<PortalService> log
         try
         {
             var sequence = await AllocateSequenceAsync(cycleId, committeeCode, ct);
-            patch["barcode"] = FormatBarcode(IntakeYearDigits(cycleId), byy, mm, dd, g, cc, sequence);
+            patch["barcode"] = FormatBarcode(IntakeYearDigits(), byy, mm, dd, g, cc, sequence);
             patch["barcodeGeneratedAt"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             patch["barcodeRetry"] = false;
         }
@@ -577,13 +577,15 @@ public sealed class PortalService(PortalDbContext db, ILogger<PortalService> log
         }
     }
 
-    private static string IntakeYearDigits(string? cycleId)
-    {
-        // "CYC-2026-M" → "26". Fall back to the current Gregorian year.
-        var match = Regex.Match(cycleId ?? "", @"\d{4}");
-        var year = match.Success ? int.Parse(match.Value, CultureInfo.InvariantCulture) : DateTimeOffset.UtcNow.Year;
-        return (year % 100).ToString("D2", CultureInfo.InvariantCulture);
-    }
+    /// <summary>
+    /// Two-digit intake year for the barcode's YY segment — always the current
+    /// Gregorian year (e.g. 2026 → "26"). Deliberately independent of the cycle
+    /// id: admin-created cycles use a timestamp-based id (<c>CYC-{unixMillis}</c>)
+    /// with no year in the string, and the barcode is issued at booking time, so
+    /// "now" is the intake year by definition.
+    /// </summary>
+    private static string IntakeYearDigits() =>
+        (DateTimeOffset.UtcNow.Year % 100).ToString("D2", CultureInfo.InvariantCulture);
 
     private static bool TryBuildBirthSegments(string? dob, out string byy, out string mm, out string dd)
     {

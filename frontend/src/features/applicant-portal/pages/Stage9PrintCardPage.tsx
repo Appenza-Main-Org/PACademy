@@ -154,15 +154,14 @@ export function Stage9PrintCardPage(): JSX.Element {
         generatedAt={fmtDate(Date.now(), 'short')}
         className="attendance-card-print"
       >
-        <div className="mb-6 grid grid-cols-[140px_1fr_auto] gap-5 rounded-lg border-2 border-teal-500 bg-teal-50/40 p-4">
-          {/* Barcode column (PDF p.12 left) */}
-          <div className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed border-teal-300 bg-surface-card p-2">
-            <Code128Barcode value={barcodeValue} height={56} moduleWidth={2} showText={false} />
-            <p className="font-mono text-2xs tracking-widest text-ink-500" dir="ltr">
+        <div className="mb-6 flex flex-col gap-4 rounded-lg border-2 border-teal-500 bg-teal-50/40 p-4">
+          {/* Barcode band (PDF p.12). Rendered full-width so the Code 128 keeps a
+              scannable module size — a 16-digit symbol is ~460px wide at moduleWidth=2
+              and is unreadable to scanners if squeezed into a narrow column. */}
+          <div className="flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed border-teal-300 bg-surface-card px-4 py-3">
+            <Code128Barcode value={barcodeValue} height={64} moduleWidth={2} showText={false} />
+            <p className="font-mono text-xs tracking-widest text-ink-600" dir="ltr">
               {barcodeValue}
-            </p>
-            <p className="text-2xs text-ink-500">
-              رقم الملف: <span className="font-mono" dir="ltr">{fileNumber}</span>
             </p>
           </div>
 
