@@ -444,8 +444,9 @@ public sealed class ApplicantPortalPersistenceTests
         var draft = await service.GetOrCreateDraftAsync(applicantId, TestContext.Current.CancellationToken);
         var barcode = draft["barcode"]?.GetValue<string>();
 
-        // YY=26 BYY=06 MM=07 DD=13 G=1(male) CC=12(CMT-12) SSSSS=00001.
-        Assert.Equal("26" + "06" + "07" + "13" + "1" + "12" + "00001", barcode);
+        // YY=current year (intake), BYY=06 MM=07 DD=13 G=1(male) CC=12(CMT-12) SSSSS=00001.
+        var yy = (DateTimeOffset.UtcNow.Year % 100).ToString("D2");
+        Assert.Equal(yy + "06" + "07" + "13" + "1" + "12" + "00001", barcode);
         Assert.Matches("^[0-9]{16}$", barcode!);
         Assert.False(draft["barcodeRetry"]?.GetValue<bool>() ?? false);
 
