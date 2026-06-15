@@ -2,8 +2,10 @@ import { Outlet } from 'react-router-dom';
 import {
   Activity,
   ClipboardCheck,
+  Cpu,
   DoorOpen,
   History,
+  LayoutGrid,
   MapPin,
   ScrollText,
   Search,
@@ -15,6 +17,13 @@ import type { SidebarSection } from '@/app/layouts/Sidebar';
 import { ROUTES } from '@/config/routes';
 
 const SIDEBAR: SidebarSection[] = [
+  {
+    label: 'منظومة ZKBioTime',
+    items: [
+      { key: 'zkDirectory', label: 'الأجهزة والأفراد', icon: <Cpu size={18} />, to: ROUTES.biometric.zkDirectory },
+      { key: 'zkGates', label: 'الأجهزة والبوابات', icon: <LayoutGrid size={18} />, to: ROUTES.biometric.zkGates },
+    ],
+  },
   {
     label: 'الاستعلام والتحقق',
     items: [
