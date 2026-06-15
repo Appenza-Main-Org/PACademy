@@ -2409,12 +2409,27 @@ public sealed class DataExchangeService(
             var nid = ApplicantNationalId(normalized);
             if (string.IsNullOrWhiteSpace(nid)) continue;
 
+            var workbookId = Get(normalized, "id") ?? Get(normalized, "applicant_id") ?? nid;
+            var displayName = ApplicantDisplayName(normalized);
+            var category = Get(normalized, "categoryKey") ?? Get(normalized, "category");
+            var cycleId = Get(normalized, "cycleId") ?? Get(normalized, "cycle_id");
+            if (applicantsByNid.TryGetValue(nid, out var existingApplicant))
+            {
+                SetJsonIfMissing(existingApplicant, "name", displayName);
+                SetJsonIfMissing(existingApplicant, "fullName", displayName);
+                SetJsonIfMissing(existingApplicant, "categoryKey", category);
+                SetJsonIfMissing(existingApplicant, "cycleId", cycleId);
+                if (!string.IsNullOrWhiteSpace(workbookId)) applicantsById[workbookId] = existingApplicant;
+                applicantsById[nid] = existingApplicant;
+                continue;
+            }
+
             var applicant = new JsonObject { ["nationalId"] = nid };
-            SetJsonIfPresent(applicant, "id", Get(normalized, "id") ?? Get(normalized, "applicant_id") ?? nid);
-            SetJsonIfPresent(applicant, "name", ApplicantDisplayName(normalized));
-            SetJsonIfPresent(applicant, "fullName", ApplicantDisplayName(normalized));
-            SetJsonIfPresent(applicant, "categoryKey", Get(normalized, "categoryKey") ?? Get(normalized, "category"));
-            SetJsonIfPresent(applicant, "cycleId", Get(normalized, "cycleId") ?? Get(normalized, "cycle_id"));
+            SetJsonIfPresent(applicant, "id", workbookId);
+            SetJsonIfPresent(applicant, "name", displayName);
+            SetJsonIfPresent(applicant, "fullName", displayName);
+            SetJsonIfPresent(applicant, "categoryKey", category);
+            SetJsonIfPresent(applicant, "cycleId", cycleId);
             applicantsByNid[nid] = applicant;
             AddApplicantLookup(applicantsById, applicant, "id");
             applicantsById[nid] = applicant;
@@ -2484,6 +2499,12 @@ public sealed class DataExchangeService(
     private static void SetJsonIfPresent(JsonObject target, string key, string? value)
     {
         if (!string.IsNullOrWhiteSpace(value)) target[key] = value;
+    }
+
+    private static void SetJsonIfMissing(JsonObject target, string key, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(AdminRecordJson.StringProp(target, key))) return;
+        SetJsonIfPresent(target, key, value);
     }
 
     private static void AddApplicantLookup(Dictionary<string, JsonObject> applicantsById, JsonObject applicant, string key)

@@ -1350,6 +1350,8 @@ public sealed class DataExchangeServiceTests
     {
         var (svc, db) = Create();
         await SeedCycleAsync(db, "CYC-1", true);
+        await SeedOperationalAsync(db, "applicants", "APP-REAL-4571",
+            """{"id":"APP-REAL-4571","nationalId":"29901011234571","fullName":"حسين صلاح وائل الخولي","phoneNumber":"01247109084","categoryKey":"officers_general","cycleId":"CYC-1","status":"under-review"}""");
         db.LookupRows.Add(new LookupRowEntity
         {
             LookupKey = "test-results", Code = "RES-01", Name = "ناجح", IsActive = true,
@@ -1461,7 +1463,8 @@ public sealed class DataExchangeServiceTests
         Assert.Equal(0, preview.Counts["invalid"]);
         Assert.Equal(0, apply.FailedCount);
         var records = new OperationalRecordsService(db, new HttpContextAccessor(), new DbAuditSink(db), new OperationalRecordStore(db));
-        var applicant = await records.GetAsync("applicants", "29901011234571", default);
+        var applicant = await records.GetAsync("applicants", "APP-REAL-4571", default);
+        Assert.Null(await records.GetAsync("applicants", "29901011234571", default));
         var schedules = Assert.IsType<JsonArray>(applicant!["testSchedules"]);
         var examIds = schedules.OfType<JsonObject>().Select(e => e["examId"]?.ToString()).ToHashSet();
         Assert.Equal(2, schedules.Count);
