@@ -844,7 +844,16 @@ public sealed class DataExchangeService(
             if (!dbByKey.TryGetValue(bk, out var matches) || matches.Count == 0)
             { outcomes.Add(Outcome(spec, i, bk, ImportRowClass.New)); continue; }
             if (matches.Count > 1)
-            { outcomes.Add(Outcome(spec, i, bk, ImportRowClass.Conflict, "المفتاح يطابق أكثر من صف")); continue; }
+            {
+                var resolvedMatch = ResolveDuplicateApplicantMatch(spec, row, matches);
+                if (resolvedMatch is null)
+                {
+                    outcomes.Add(Outcome(spec, i, bk, ImportRowClass.Conflict, "المفتاح يطابق أكثر من صف"));
+                    continue;
+                }
+                matches = [resolvedMatch];
+                dbByKey[bk] = matches;
+            }
 
             var dbRow = matches[0];
             var dbChecksum = ChecksumOf(dbRow, checksumColumns);
@@ -870,6 +879,39 @@ public sealed class DataExchangeService(
 
     private static object? ValueFor(string column, string businessKey, IReadOnlyDictionary<string, string?> row)
         => column == "business_key" ? businessKey : (row.TryGetValue(column, out var v) ? v : null);
+
+    private static LoadedRow? ResolveDuplicateApplicantMatch(
+        DomainSpec spec,
+        IReadOnlyDictionary<string, string?> importRow,
+        IReadOnlyList<LoadedRow> matches)
+    {
+        if (spec.Domain != ExchangeDomain.Applicants) return null;
+        var linkedMatches = matches.Where(IsLinkedApplicantRow).ToList();
+        if (linkedMatches.Count == 0) return null;
+
+        var phoneKey = PhoneLookupKey(Get(importRow, "phoneNumber") ?? Get(importRow, "phone_number"));
+        if (phoneKey.Length > 0)
+        {
+            var phoneMatches = linkedMatches
+                .Where(row => PhoneLookupKey(FirstDataValue(row, "phoneNumber", "phone_number", "mobile", "phone")) == phoneKey)
+                .ToList();
+            return phoneMatches.Count == 1 ? phoneMatches[0] : null;
+        }
+
+        return linkedMatches.Count == 1 ? linkedMatches[0] : null;
+    }
+
+    private static bool IsLinkedApplicantRow(LoadedRow row)
+        => !string.IsNullOrWhiteSpace(FirstDataValue(row, "applicantTableId"));
+
+    private static string? FirstDataValue(LoadedRow row, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            if (row.Data.TryGetValue(key, out var text) && !string.IsNullOrWhiteSpace(text)) return text;
+        }
+        return null;
+    }
 
     private static string ChecksumOf(LoadedRow row, IReadOnlyList<string> checksumColumns)
         => RowChecksum.Compute(checksumColumns.Select(c =>
@@ -2355,6 +2397,7 @@ public sealed class DataExchangeService(
         catch (InvalidOperationException) { applicants = []; }
         var byNid = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
         var byId = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
+        var byPhone = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
         foreach (var payload in applicants)
         {
             if (AdminRecordJson.IsSoftDeleted(payload)) continue;
@@ -2364,8 +2407,9 @@ public sealed class DataExchangeService(
             AddApplicantLookup(byId, payload, "applicantId");
             AddApplicantLookup(byId, payload, "applicantTableId");
             AddApplicantLookup(byId, payload, "adminRecordId");
+            AddApplicantPhoneLookup(byPhone, payload);
         }
-        AddWorkbookApplicants(workbookSheets, byNid, byId);
+        AddWorkbookApplicants(workbookSheets, byNid, byId, byPhone);
 
         var liveInstances = (await LoadCommitteeInstancesAsync(ct))
             .Where(x => !AdminRecordJson.IsSoftDeleted(x));
@@ -2401,7 +2445,8 @@ public sealed class DataExchangeService(
     private static void AddWorkbookApplicants(
         IReadOnlyList<ImportSheetInput>? sheets,
         Dictionary<string, JsonObject> applicantsByNid,
-        Dictionary<string, JsonObject> applicantsById)
+        Dictionary<string, JsonObject> applicantsById,
+        Dictionary<string, JsonObject> applicantsByPhone)
     {
         foreach (var row in WorkbookRows(sheets, "Applicants"))
         {
@@ -2413,14 +2458,17 @@ public sealed class DataExchangeService(
             var displayName = ApplicantDisplayName(normalized);
             var category = Get(normalized, "categoryKey") ?? Get(normalized, "category");
             var cycleId = Get(normalized, "cycleId") ?? Get(normalized, "cycle_id");
+            var phone = Get(normalized, "phoneNumber") ?? Get(normalized, "phone_number");
             if (applicantsByNid.TryGetValue(nid, out var existingApplicant))
             {
-                SetJsonIfMissing(existingApplicant, "name", displayName);
-                SetJsonIfMissing(existingApplicant, "fullName", displayName);
-                SetJsonIfMissing(existingApplicant, "categoryKey", category);
-                SetJsonIfMissing(existingApplicant, "cycleId", cycleId);
-                if (!string.IsNullOrWhiteSpace(workbookId)) applicantsById[workbookId] = existingApplicant;
-                applicantsById[nid] = existingApplicant;
+                var resolvedApplicant = PreferredWorkbookApplicant(existingApplicant, applicantsByPhone, phone, nid);
+                SetJsonIfMissing(resolvedApplicant, "name", displayName);
+                SetJsonIfMissing(resolvedApplicant, "fullName", displayName);
+                SetJsonIfMissing(resolvedApplicant, "categoryKey", category);
+                SetJsonIfMissing(resolvedApplicant, "cycleId", cycleId);
+                SetJsonIfMissing(resolvedApplicant, "phoneNumber", phone);
+                applicantsByNid[nid] = resolvedApplicant;
+                AddWorkbookApplicantAliases(applicantsById, resolvedApplicant, workbookId, nid);
                 continue;
             }
 
@@ -2430,9 +2478,11 @@ public sealed class DataExchangeService(
             SetJsonIfPresent(applicant, "fullName", displayName);
             SetJsonIfPresent(applicant, "categoryKey", category);
             SetJsonIfPresent(applicant, "cycleId", cycleId);
+            SetJsonIfPresent(applicant, "phoneNumber", phone);
             applicantsByNid[nid] = applicant;
             AddApplicantLookup(applicantsById, applicant, "id");
             applicantsById[nid] = applicant;
+            AddApplicantPhoneLookup(applicantsByPhone, applicant);
         }
     }
 
@@ -2507,11 +2557,61 @@ public sealed class DataExchangeService(
         SetJsonIfPresent(target, key, value);
     }
 
+    private static JsonObject PreferredWorkbookApplicant(
+        JsonObject applicantByNid,
+        IReadOnlyDictionary<string, JsonObject> applicantsByPhone,
+        string? workbookPhone,
+        string workbookNid)
+    {
+        if (HasApplicantIdentityLink(applicantByNid)) return applicantByNid;
+        var phoneKey = PhoneLookupKey(workbookPhone);
+        if (phoneKey.Length == 0 || !applicantsByPhone.TryGetValue(phoneKey, out var byPhone)) return applicantByNid;
+
+        var phoneApplicantNid = FirstString(byPhone, "nationalId", "national_id", "nid");
+        return HasApplicantIdentityLink(byPhone)
+            && (string.IsNullOrWhiteSpace(phoneApplicantNid) || TextEquals(phoneApplicantNid, workbookNid))
+            ? byPhone
+            : applicantByNid;
+    }
+
+    private static void AddWorkbookApplicantAliases(
+        Dictionary<string, JsonObject> applicantsById,
+        JsonObject applicant,
+        string? workbookId,
+        string nid)
+    {
+        if (!string.IsNullOrWhiteSpace(workbookId)) applicantsById[workbookId] = applicant;
+        applicantsById[nid] = applicant;
+    }
+
     private static void AddApplicantLookup(Dictionary<string, JsonObject> applicantsById, JsonObject applicant, string key)
     {
         var identifier = AdminRecordJson.StringProp(applicant, key);
         if (!string.IsNullOrWhiteSpace(identifier)) applicantsById[identifier] = applicant;
     }
+
+    private static void AddApplicantPhoneLookup(Dictionary<string, JsonObject> applicantsByPhone, JsonObject applicant)
+    {
+        var phoneKey = PhoneLookupKey(ApplicantPhone(applicant));
+        if (phoneKey.Length == 0) return;
+        if (applicantsByPhone.TryGetValue(phoneKey, out var existing)
+            && HasApplicantIdentityLink(existing)
+            && !HasApplicantIdentityLink(applicant))
+        {
+            return;
+        }
+        applicantsByPhone[phoneKey] = applicant;
+    }
+
+    private static string? ApplicantPhone(JsonObject applicant)
+        => FirstString(applicant, "phoneNumber", "phone_number", "mobile", "phone", "mobilePhone")
+            ?? FirstNested(applicant, "contact", "mobilePhone");
+
+    private static bool HasApplicantIdentityLink(JsonObject applicant)
+        => !string.IsNullOrWhiteSpace(AdminRecordJson.StringProp(applicant, "applicantTableId"));
+
+    private static string PhoneLookupKey(string? phone)
+        => string.IsNullOrWhiteSpace(phone) ? "" : new string(phone.Where(char.IsDigit).ToArray());
 
     /// <summary>Downgrades reservation rows that fail the operational checks —
     /// applicant must exist, the exam must resolve, and a matching committee

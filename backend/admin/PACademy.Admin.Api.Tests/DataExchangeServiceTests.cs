@@ -1346,12 +1346,14 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
-    public async Task Return_workbook_reservations_use_workbook_context_sheets()
+    public async Task Return_workbook_reservations_use_linked_applicant_when_placeholder_shares_nid()
     {
         var (svc, db) = Create();
         await SeedCycleAsync(db, "CYC-1", true);
         await SeedOperationalAsync(db, "applicants", "APP-REAL-4571",
-            """{"id":"APP-REAL-4571","nationalId":"29901011234571","fullName":"حسين صلاح وائل الخولي","phoneNumber":"01247109084","categoryKey":"officers_general","cycleId":"CYC-1","status":"under-review"}""");
+            """{"id":"APP-REAL-4571","applicantTableId":"APP-GUID-4571","nationalId":"29901011234571","fullName":"حسين صلاح وائل الخولي","phoneNumber":"01247109084","categoryKey":"officers_general","cycleId":"CYC-1","status":"under-review"}""");
+        await SeedOperationalAsync(db, "applicants", "ZZZ-PLACEHOLDER-4571",
+            """{"id":"ZZZ-PLACEHOLDER-4571","nationalId":"29901011234571","fullName":"حسين صلاح وائل الخولي","phoneNumber":"01247109084","categoryKey":"officers_general","cycleId":"CYC-1","status":"under-review"}""");
         db.LookupRows.Add(new LookupRowEntity
         {
             LookupKey = "test-results", Code = "RES-01", Name = "ناجح", IsActive = true,
@@ -1369,6 +1371,7 @@ public sealed class DataExchangeServiceTests
                     ["applicant_id"] = "29901011234571",
                     ["national_id"] = "29901011234571",
                     ["full_name"] = "حسين صلاح وائل الخولي",
+                    ["phone_number"] = "01247109084",
                     ["category"] = "officers_general",
                     ["cycle_id"] = "CYC-1",
                     ["status"] = "under-review",
@@ -1461,7 +1464,9 @@ public sealed class DataExchangeServiceTests
         var apply = await svc.ApplyAsync(new ImportApplyRequest(sheets, "new-and-changed", false, false), default);
 
         Assert.Equal(0, preview.Counts["invalid"]);
-        Assert.Equal(0, apply.FailedCount);
+        Assert.True(
+            apply.FailedCount == 0,
+            string.Join("; ", apply.FailedRows.Select(row => $"{row.SheetName}[{row.RowIndex}]: {string.Join(", ", row.Errors)}")));
         var records = new OperationalRecordsService(db, new HttpContextAccessor(), new DbAuditSink(db), new OperationalRecordStore(db));
         var applicant = await records.GetAsync("applicants", "APP-REAL-4571", default);
         Assert.Null(await records.GetAsync("applicants", "29901011234571", default));
@@ -1474,6 +1479,8 @@ public sealed class DataExchangeServiceTests
         Assert.Equal("2026-06-18", applicant["firstExamDate"]?.ToString());
         var followUp = Assert.IsType<JsonObject>(applicant["followUp"]);
         Assert.Equal("passed", followUp["TST-01"]?.ToString());
+        var placeholder = await records.GetAsync("applicants", "ZZZ-PLACEHOLDER-4571", default);
+        Assert.False(placeholder?["testSchedules"] is JsonArray);
     }
 
     [Fact]
