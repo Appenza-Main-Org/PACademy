@@ -36,6 +36,10 @@ interface BuildFollowUpRowsInput {
   exams: readonly FollowUpExam[];
   followUp: Record<string, FollowUpPipelineState> | null | undefined;
   firstExamDate: string | null;
+  /** Per-exam booked dates keyed by cycle test code (from the draft's
+   *  testSchedules). When a row has its own date it wins over firstExamDate, so
+   *  later stages settled through the data-exchange hub show their own date. */
+  scheduleDates?: Record<string, string | null | undefined>;
 }
 
 const RESULT_TONE: Record<FollowUpPipelineState, FollowUpResultRow['result']> = {
@@ -76,6 +80,7 @@ export function buildFollowUpRows({
   exams,
   followUp,
   firstExamDate,
+  scheduleDates,
 }: BuildFollowUpRowsInput): FollowUpResultRow[] {
   if (!plan) return [];
 
@@ -92,10 +97,11 @@ export function buildFollowUpRows({
     .sort((a, b) => a.order - b.order)
     .map((entry, index) => {
       const exam = examById.get(entry.examId)!;
+      const bookedDate = scheduleDates?.[exam.id] ?? scheduleDates?.[exam.key];
       return {
         serial: index + 1,
         testLabel: exam.nameAr,
-        date: index === 0 ? firstExamDate : null,
+        date: bookedDate ?? (index === 0 ? firstExamDate : null),
         result: resultForExam(followUp, exam),
         notes: entry.isRequired ? '—' : 'اختبار تكميلي',
       };

@@ -1497,7 +1497,12 @@ public sealed class DataExchangeServiceTests
         Assert.Equal(2, schedules.Count);
         Assert.Contains("TST-01", examIds);
         Assert.Contains("TST-03", examIds);
-        Assert.Equal("2026-06-18", Assert.IsType<JsonObject>(applicant["examSlot"])["date"]?.ToString());
+        // القدرات (TST-01) is already passed, so the current appointment advances
+        // to the upcoming المقاس (TST-03, 17/06) even though its date is earlier;
+        // the first-exam date stays on القدرات.
+        var examSlot = Assert.IsType<JsonObject>(applicant["examSlot"]);
+        Assert.Equal("TST-03", examSlot["examId"]?.ToString());
+        Assert.Equal("2026-06-17", examSlot["date"]?.ToString());
         Assert.Equal("2026-06-18", applicant["firstExamDate"]?.ToString());
         var followUp = Assert.IsType<JsonObject>(applicant["followUp"]);
         Assert.Equal("passed", followUp["TST-01"]?.ToString());
@@ -2383,9 +2388,50 @@ public sealed class DataExchangeServiceTests
         var applicant = await records.GetAsync("applicants", "APP-1", default);
         var schedules = Assert.IsType<JsonArray>(applicant!["testSchedules"]);
         Assert.Equal(2, schedules.Count);
-        // Current appointment = the later round; first-exam date stays on the plan's first exam.
-        Assert.Equal("2026-07-05", Assert.IsType<JsonObject>(applicant["examSlot"])["date"]?.ToString());
+        // Current appointment = the next exam not yet taken (earliest pending, here
+        // the plan's first exam); first-exam date stays on the plan's first exam.
+        Assert.Equal("2026-06-20", Assert.IsType<JsonObject>(applicant["examSlot"])["date"]?.ToString());
         Assert.Equal("2026-06-20", applicant["firstExamDate"]?.ToString());
+    }
+
+    [Fact]
+    public async Task ExamReservations_import_advances_current_slot_past_a_passed_exam()
+    {
+        // Round-trip regression (the live 29901011234571 case): the applicant
+        // already PASSED the first exam (القدرات / TST-01, booked 18/06). Internal
+        // Admin then settles a later stage (المقاس / TST-03) on an EARLIER date
+        // (17/06). The current appointment (examSlot) must advance to المقاس — a
+        // finished exam must not stay the "current" exam just because its date is
+        // later — while القدرات stays recorded in testSchedules.
+        var (svc, db) = Create();
+        await SeedCycleAsync(db, "CYC-1", true);
+        await SeedLookupAsync(db, "tests", "TST-01", "القدرات");
+        await SeedLookupAsync(db, "tests", "TST-03", "المقاس");
+        await SeedOperationalAsync(db, "examPlans", "PLAN-OG",
+            """{"id":"PLAN-OG","cycleId":"CYC-1","categoryId":"officers_general","exams":[{"examId":"TST-01","order":1},{"examId":"TST-03","order":3}]}""");
+        await SeedOperationalAsync(db, "applicants", "APP-OG",
+            """{"id":"APP-OG","nationalId":"30611120179994","fullName":"عمر محمود","cycleId":"CYC-1","categoryKey":"officers_general","status":"exam_scheduled","firstExamDate":"2026-06-18","followUp":{"TST-01":"passed"},"examSlot":{"slotId":"CI-OG-0618","date":"2026-06-18","time":"08:00","committeeName":"اللجنة الأولى قسم عام"},"testSchedules":[{"examId":"TST-01","testCode":"TST-01","date":"2026-06-18","committeeName":"اللجنة الأولى قسم عام"}]}""");
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new DbAuditSink(db), new OperationalRecordStore(db));
+
+        var rows = new List<Dictionary<string, string?>>
+        {
+            new(StringComparer.Ordinal)
+            {
+                ["applicant_national_id"] = "30611120179994", ["exam_id"] = "TST-03", ["exam_name"] = "المقاس",
+                ["appointment_date"] = "2026-06-17", ["appointment_time"] = "08:00",
+                ["committee_name"] = "اللجنة الأولى قسم عام", ["reservation_status"] = "محجوز",
+            },
+        };
+        var apply = await svc.ApplyAsync(new ImportApplyRequest([new("ExamReservations", rows)], "new-and-changed", false, false), default);
+        Assert.Equal(0, apply.FailedCount);
+
+        var applicant = await records.GetAsync("applicants", "APP-OG", default);
+        var examSlot = Assert.IsType<JsonObject>(applicant!["examSlot"]);
+        Assert.Equal("TST-03", examSlot["examId"]?.ToString());
+        Assert.Equal("2026-06-17", examSlot["date"]?.ToString());
+        // القدرات still recorded; first-exam date untouched.
+        Assert.Equal(2, Assert.IsType<JsonArray>(applicant["testSchedules"]).Count);
+        Assert.Equal("2026-06-18", applicant["firstExamDate"]?.ToString());
     }
 
     [Fact]

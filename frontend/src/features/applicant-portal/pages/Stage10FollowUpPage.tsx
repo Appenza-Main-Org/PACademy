@@ -44,13 +44,19 @@ export function Stage10FollowUpPage(): JSX.Element {
 
   const rows: readonly FollowUpResultRow[] = useMemo(() => {
     const examDate = firstExamDate ?? draft?.examSlot?.date ?? null;
+    const scheduleDates: Record<string, string | null | undefined> = {};
+    for (const schedule of draft?.testSchedules ?? []) {
+      const code = schedule.examId ?? schedule.testCode;
+      if (code && schedule.date && !(code in scheduleDates)) scheduleDates[code] = schedule.date;
+    }
     return buildFollowUpRows({
       plan: examPlanQuery.data?.plan,
       exams: examPlanQuery.data?.exams ?? [],
       followUp: followUp ?? null,
       firstExamDate: examDate,
+      scheduleDates,
     });
-  }, [examPlanQuery.data, followUp, firstExamDate, draft?.examSlot?.date]);
+  }, [examPlanQuery.data, followUp, firstExamDate, draft?.examSlot?.date, draft?.testSchedules]);
 
   const columns: DataTableColumn<FollowUpResultRow>[] = useMemo(
     () => [
