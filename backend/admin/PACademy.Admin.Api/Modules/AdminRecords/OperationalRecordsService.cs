@@ -3081,7 +3081,7 @@ public sealed class OperationalRecordsService(
     /// </summary>
     public async Task<JsonObject?> GetApplicantFollowUpAsync(string id, CancellationToken ct)
     {
-        var applicant = await GetNormalizedAsync("applicants", id, ct);
+        var applicant = await ResolveApplicantForFollowUpAsync(id, ct);
         if (applicant is null) return null;
 
         var applicantGuid = AdminRecordJson.StringProp(applicant, "applicantTableId");
@@ -3112,7 +3112,7 @@ public sealed class OperationalRecordsService(
     /// </summary>
     public async Task<JsonObject?> UpdateApplicantFollowUpAsync(string id, JsonObject patch, CancellationToken ct)
     {
-        var applicant = await GetNormalizedAsync("applicants", id, ct);
+        var applicant = await ResolveApplicantForFollowUpAsync(id, ct);
         if (applicant is null) return null;
 
         var applicantGuid = AdminRecordJson.StringProp(applicant, "applicantTableId");
@@ -3144,24 +3144,50 @@ public sealed class OperationalRecordsService(
         var now = DateTimeOffset.UtcNow;
         var fullPayload = payload.ToJsonString(AdminRecordJson.Options);
 
-        await ExecuteNormalizedNonQueryAsync(
-            $"""
-            MERGE {AdminDbContext.QualifiedTableName("applicant_portal_records")} WITH (HOLDLOCK) AS target
-            USING (SELECT N'draft' AS [type], @guid AS [record_id]) AS source
-                ON target.[type] = source.[type] AND target.[record_id] = source.[record_id]
-            WHEN MATCHED THEN
-                UPDATE SET [payload_json] = @payload, [updated_at] = @now
-            WHEN NOT MATCHED THEN
-                INSERT ([type], [record_id], [applicant_id], [payload_json], [created_at], [updated_at])
-                VALUES (N'draft', @guid, @guid, @payload, @now, @now);
-            """,
-            command =>
+        if (db is AdminDbContext adminDb && !adminDb.Database.IsRelational())
+        {
+            var record = await adminDb.ApplicantPortalRecords
+                .FirstOrDefaultAsync(x => x.Type == "draft" && x.RecordId == applicantGuid, ct);
+            if (record is null)
             {
-                AddParameter(command, "@guid", applicantGuid);
-                AddParameter(command, "@payload", fullPayload);
-                AddParameter(command, "@now", now);
-            },
-            ct);
+                adminDb.ApplicantPortalRecords.Add(new ApplicantPortalRecordEntity
+                {
+                    Type = "draft",
+                    RecordId = applicantGuid,
+                    ApplicantId = applicantGuid,
+                    PayloadJson = fullPayload,
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                });
+            }
+            else
+            {
+                record.PayloadJson = fullPayload;
+                record.UpdatedAt = now;
+            }
+            await adminDb.SaveChangesAsync(ct);
+        }
+        else
+        {
+            await ExecuteNormalizedNonQueryAsync(
+                $"""
+                MERGE {AdminDbContext.QualifiedTableName("applicant_portal_records")} WITH (HOLDLOCK) AS target
+                USING (SELECT N'draft' AS [type], @guid AS [record_id]) AS source
+                    ON target.[type] = source.[type] AND target.[record_id] = source.[record_id]
+                WHEN MATCHED THEN
+                    UPDATE SET [payload_json] = @payload, [updated_at] = @now
+                WHEN NOT MATCHED THEN
+                    INSERT ([type], [record_id], [applicant_id], [payload_json], [created_at], [updated_at])
+                    VALUES (N'draft', @guid, @guid, @payload, @now, @now);
+                """,
+                command =>
+                {
+                    AddParameter(command, "@guid", applicantGuid);
+                    AddParameter(command, "@payload", fullPayload);
+                    AddParameter(command, "@now", now);
+                },
+                ct);
+        }
 
         await EmitAuditAsync(
             "applicants",
@@ -3172,6 +3198,13 @@ public sealed class OperationalRecordsService(
             ct);
 
         return await GetApplicantFollowUpAsync(id, ct);
+    }
+
+    private async Task<JsonObject?> ResolveApplicantForFollowUpAsync(string id, CancellationToken ct)
+    {
+        return db is DbContext context && context.Database.IsRelational()
+            ? await GetNormalizedAsync("applicants", id, ct)
+            : await GetAsync("applicants", id, ct);
     }
 
     // ── Portal exam reservations (imported via Data Exchange) ────────────────
@@ -3332,6 +3365,14 @@ public sealed class OperationalRecordsService(
 
     private async Task<string?> ReadDraftPayloadAsync(string applicantGuid, CancellationToken ct)
     {
+        if (db is AdminDbContext adminDb && !adminDb.Database.IsRelational())
+        {
+            return await adminDb.ApplicantPortalRecords
+                .Where(x => x.Type == "draft" && (x.ApplicantId == applicantGuid || x.RecordId == applicantGuid))
+                .Select(x => x.PayloadJson)
+                .FirstOrDefaultAsync(ct);
+        }
+
         var rows = await ExecuteNormalizedQueryAsync(
             $"SELECT TOP (1) [payload_json] FROM {AdminDbContext.QualifiedTableName("applicant_portal_records")} WHERE [type] = N'draft' AND [applicant_id] = @guid",
             command => AddParameter(command, "@guid", applicantGuid),

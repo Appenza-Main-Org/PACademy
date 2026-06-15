@@ -273,7 +273,17 @@ public sealed class DataExchangeServiceTests
         });
         await db.SaveChangesAsync();
         await SeedOperationalAsync(db, "applicants", "APP-3",
-            """{"id":"APP-3","nationalId":"29901011234571","status":"exam_scheduled","examSlot":{"date":"2026-06-20"}}""");
+            """{"id":"APP-3","applicantTableId":"APP-GUID-4571","nationalId":"29901011234571","status":"exam_scheduled","examSlot":{"date":"2026-06-20"}}""");
+        db.ApplicantPortalRecords.Add(new ApplicantPortalRecordEntity
+        {
+            Type = "draft",
+            RecordId = "APP-GUID-4571",
+            ApplicantId = "APP-GUID-4571",
+            PayloadJson = """{"applicantId":"APP-GUID-4571","followUp":{"TST-01":"pending"}}""",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
 
         var sheet = new ImportSheetInput("Applicants", new List<Dictionary<string, string?>>
             {
@@ -287,9 +297,13 @@ public sealed class DataExchangeServiceTests
         var applicant = await records.GetAsync("applicants", "APP-3", default);
 
         Assert.Empty(preview.Rows[0].Writeback!.Errors);
+        Assert.True(commit.FailedRows.Count == 0, string.Join(" | ", commit.FailedRows.SelectMany(r => r.Errors)));
         Assert.Equal(1, commit.WritebacksAppliedCount);
         Assert.Equal("passed", Assert.IsType<JsonObject>(applicant!["followUp"])["TST-01"]?.ToString());
         Assert.Equal("2026-06-20", Assert.IsType<JsonObject>(applicant["examSlot"])["date"]?.ToString());
+        var portalPayload = db.ApplicantPortalRecords.Single(x => x.RecordId == "APP-GUID-4571").PayloadJson;
+        var portalDraft = JsonNode.Parse(portalPayload)!.AsObject();
+        Assert.Equal("passed", Assert.IsType<JsonObject>(portalDraft["followUp"])["TST-01"]?.ToString());
     }
 
     [Fact]
