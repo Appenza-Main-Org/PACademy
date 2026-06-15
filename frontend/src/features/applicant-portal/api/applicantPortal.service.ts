@@ -173,10 +173,21 @@ export type AcquaintanceDocSaveInput = Partial<VothiqaTaarufDocument> & {
  *  admin API, whereas the applicant API only accepts applicant JWTs, so the admin must
  *  go through the admin backend (which reads/writes the shared portal draft row).
  *  `hasPortalRecord` is false when the applicant has no portal draft yet. */
+/** Per-exam booked appointment summary, keyed by cycle test code (e.g. TST-03),
+ *  projected from the portal draft's `testSchedules`. Lets each exam surface its
+ *  own date instead of every row sharing the single first-exam date. */
+export interface ExamScheduleSummary {
+  date: string | null;
+  time: string | null;
+  committeeName: string | null;
+  status: string | null;
+}
+
 export interface AdminPortalStatus {
   applicantId: string | null;
   hasPortalRecord: boolean;
   followUp: Record<string, import('@/shared/types/domain').PipelineState>;
+  schedules: Record<string, ExamScheduleSummary>;
 }
 
 function metadataString(row: TestLookupRow, key: string): string | undefined {
@@ -426,7 +437,7 @@ export const applicantPortalService = {
   /** Admin-only: read an applicant's portal exam follow-up by admin route id
    *  (GUID / national id / admin record id).
    *  INTEGRATION CONTRACT: GET /api/applicants/:id/follow-up (admin API)
-   *    → { applicantId, hasPortalRecord, followUp } */
+   *    → { applicantId, hasPortalRecord, followUp, schedules } */
   async getAdminPortalStatus(id: string): Promise<AdminPortalStatus> {
     if (isBackendEnabled()) {
       return adminApiClient.get<AdminPortalStatus>(
@@ -438,6 +449,7 @@ export const applicantPortalService = {
       applicantId: id,
       hasPortalRecord: true,
       followUp: { ...(DRAFT.followUp ?? MOCK.sampleApplicantDraft.followUp!) },
+      schedules: {},
     };
   },
 

@@ -3092,6 +3092,7 @@ public sealed class OperationalRecordsService(
                 ["applicantId"] = null,
                 ["hasPortalRecord"] = false,
                 ["followUp"] = new JsonObject(),
+                ["schedules"] = new JsonObject(),
             };
         }
 
@@ -3101,6 +3102,7 @@ public sealed class OperationalRecordsService(
             ["applicantId"] = applicantGuid,
             ["hasPortalRecord"] = payloadJson is not null,
             ["followUp"] = ExtractFollowUp(payloadJson),
+            ["schedules"] = ExtractSchedules(payloadJson),
         };
     }
 
@@ -3280,14 +3282,15 @@ public sealed class OperationalRecordsService(
     /// <summary>
     /// Merges one reservation into an applicant payload: upserts the matching
     /// `testSchedules` entry (keyed by exam code — the array the applicant API
-    /// already consults for per-test dates) and points `examSlot` /
-    /// `firstExamDate` at the appointment so the booking surfaces on the admin
-    /// list/detail and the portal follow-up screen. The current appointment
-    /// (`examSlot`) advances only when the applicant has none yet or the
-    /// reservation date is the same or newer — historical rounds stay in
-    /// `testSchedules` only. The decision reads THIS payload (the freshly
-    /// loaded record), so several rows for one applicant in a single import
-    /// converge on the latest round regardless of file order.
+    /// already consults for per-test dates) and recomputes `examSlot` /
+    /// `firstExamDate` so the booking surfaces on the admin list/detail and the
+    /// portal follow-up screen. The current appointment (`examSlot`) is the
+    /// earliest-dated booked exam the applicant has NOT yet completed
+    /// (passed/failed); when every booked exam is done it falls back to the
+    /// latest-dated one. This keeps a finished exam (e.g. a passed القدرات) from
+    /// masking a newly-booked upcoming exam whose calendar date is earlier, and
+    /// it reads THIS payload (the freshly loaded record), so several rows for one
+    /// applicant in a single import converge regardless of file order.
     /// </summary>
     private static void MergeExamReservation(
         JsonObject payload,
@@ -3298,12 +3301,6 @@ public sealed class OperationalRecordsService(
         var examId = AdminRecordJson.StringProp(reservation, "examId")
             ?? AdminRecordJson.StringProp(reservation, "testCode")
             ?? "";
-        var reservationDate = DateOnlyKey(AdminRecordJson.StringProp(reservation, "date"));
-        var currentDate = DateOnlyKey(
-            (payload["examSlot"] is JsonObject currentSlot ? AdminRecordJson.StringProp(currentSlot, "date") : null)
-            ?? AdminRecordJson.StringProp(payload, "firstExamDate"));
-        var setAsCurrentSlot = reservationDate is not null
-            && (currentDate is null || string.CompareOrdinal(reservationDate, currentDate) >= 0);
         var setFirstExamDate = isFirstPlanExam
             || string.IsNullOrWhiteSpace(AdminRecordJson.StringProp(payload, "firstExamDate"));
 
@@ -3339,25 +3336,98 @@ public sealed class OperationalRecordsService(
         }
         if (!replaced) schedules.Add(entry);
 
-        if (setAsCurrentSlot)
-        {
-            if (payload["examSlot"] is not JsonObject slot)
-            {
-                slot = new JsonObject();
-                payload["examSlot"] = slot;
-            }
-            foreach (var (sourceKey, targetKey) in new[] { ("slotId", "slotId"), ("date", "date"), ("time", "time"), ("committeeName", "committeeName") })
-            {
-                var value = AdminRecordJson.StringProp(reservation, sourceKey);
-                if (!string.IsNullOrWhiteSpace(value)) slot[targetKey] = value;
-            }
-        }
+        // Recompute the "current appointment" from the full schedule rather than
+        // promoting whichever row carries the newest date — see the method summary.
+        UpdateCurrentExamSlot(payload, schedules);
 
         if (setFirstExamDate && AdminRecordJson.StringProp(reservation, "date") is { } date)
         {
             payload["firstExamDate"] = date;
         }
     }
+
+    /// <summary>
+    /// Points <c>examSlot</c> at the applicant's current appointment: the
+    /// earliest-dated booked exam they have NOT yet completed (passed/failed),
+    /// falling back to the latest-dated exam when every booking is done. Venue
+    /// details (location/committeeId/slotId) carry over from the previous slot
+    /// when the appointment stays in the same committee, because the imported
+    /// schedule rows carry the committee name but not the physical location.
+    /// </summary>
+    private static void UpdateCurrentExamSlot(JsonObject payload, JsonArray schedules)
+    {
+        var followUp = payload["followUp"] as JsonObject;
+        JsonObject? best = null;
+        string? bestDate = null;
+        var bestPending = false;
+        foreach (var node in schedules)
+        {
+            if (node is not JsonObject candidate) continue;
+            var date = DateOnlyKey(AdminRecordJson.StringProp(candidate, "date"));
+            if (date is null) continue;
+            var candidateExamId = AdminRecordJson.StringProp(candidate, "examId")
+                ?? AdminRecordJson.StringProp(candidate, "testCode");
+            var pending = !IsCompletedOutcome(followUp, candidateExamId);
+            if (best is null)
+            {
+                (best, bestDate, bestPending) = (candidate, date, pending);
+                continue;
+            }
+            // A pending exam always outranks a completed one; among exams of the
+            // same kind, prefer the earliest pending (the next to attend) and the
+            // latest completed (the most recent finished round).
+            if (pending != bestPending)
+            {
+                if (pending) (best, bestDate, bestPending) = (candidate, date, true);
+                continue;
+            }
+            var comparison = string.CompareOrdinal(date, bestDate);
+            if ((pending && comparison < 0) || (!pending && comparison > 0))
+            {
+                (best, bestDate) = (candidate, date);
+            }
+        }
+        if (best is null) return;
+
+        var previous = payload["examSlot"] as JsonObject;
+        var slot = new JsonObject
+        {
+            ["examId"] = AdminRecordJson.StringProp(best, "examId")
+                ?? AdminRecordJson.StringProp(best, "testCode"),
+        };
+        foreach (var key in new[] { "slotId", "date", "time", "committeeName" })
+        {
+            var value = AdminRecordJson.StringProp(best, key);
+            if (!string.IsNullOrWhiteSpace(value)) slot[key] = value;
+        }
+
+        if (previous is not null
+            && SameCommitteeName(AdminRecordJson.StringProp(previous, "committeeName"), AdminRecordJson.StringProp(slot, "committeeName")))
+        {
+            foreach (var key in new[] { "slotId", "time", "location", "committeeId" })
+            {
+                if (AdminRecordJson.StringProp(slot, key) is null
+                    && AdminRecordJson.StringProp(previous, key) is { } carried)
+                {
+                    slot[key] = carried;
+                }
+            }
+        }
+        payload["examSlot"] = slot;
+    }
+
+    private static bool IsCompletedOutcome(JsonObject? followUp, string? examId)
+    {
+        if (followUp is null || string.IsNullOrWhiteSpace(examId)) return false;
+        var outcome = AdminRecordJson.StringProp(followUp, examId);
+        return string.Equals(outcome, "passed", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(outcome, "failed", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool SameCommitteeName(string? left, string? right)
+        => !string.IsNullOrWhiteSpace(left)
+            && !string.IsNullOrWhiteSpace(right)
+            && string.Equals(left.Trim(), right.Trim(), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>First 10 chars of an ISO date(-time) string — ordinal-comparable day key.</summary>
     private static string? DateOnlyKey(string? raw)
@@ -3401,4 +3471,47 @@ public sealed class OperationalRecordsService(
         }
         return new JsonObject();
     }
+
+    /// <summary>
+    /// Per-exam appointment metadata from the draft's <c>testSchedules</c>, keyed
+    /// by cycle test code (e.g. TST-03 → { date, time, committeeName, status }).
+    /// The admin and portal follow-up screens read this so every booked exam —
+    /// including later plan stages imported through the data-exchange hub — shows
+    /// its own date instead of the single first-exam date.
+    /// </summary>
+    private static JsonObject ExtractSchedules(string? payloadJson)
+    {
+        var result = new JsonObject();
+        if (string.IsNullOrWhiteSpace(payloadJson)) return result;
+        try
+        {
+            if (JsonNode.Parse(payloadJson) is JsonObject payload
+                && payload["testSchedules"] is JsonArray schedules)
+            {
+                foreach (var node in schedules)
+                {
+                    if (node is not JsonObject schedule) continue;
+                    var examId = AdminRecordJson.StringProp(schedule, "examId")
+                        ?? AdminRecordJson.StringProp(schedule, "testCode");
+                    var date = AdminRecordJson.StringProp(schedule, "date");
+                    if (string.IsNullOrWhiteSpace(examId) || string.IsNullOrWhiteSpace(date)) continue;
+                    if (result.ContainsKey(examId)) continue;
+                    result[examId] = ScheduleSummary(date, schedule);
+                }
+            }
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            // Malformed draft payload — treat as no recorded schedules.
+        }
+        return result;
+    }
+
+    private static JsonObject ScheduleSummary(string date, JsonObject source) => new()
+    {
+        ["date"] = date,
+        ["time"] = AdminRecordJson.StringProp(source, "time"),
+        ["committeeName"] = AdminRecordJson.StringProp(source, "committeeName"),
+        ["status"] = AdminRecordJson.StringProp(source, "status"),
+    };
 }

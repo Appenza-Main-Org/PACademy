@@ -5,8 +5,12 @@
  * keyed by the cycle test CODE (TST-01 … TST-15 — the same codes Stage 10 and the
  * وثيقة التعارف gate read). The admin frontend is authenticated against the ADMIN API
  * (not the applicant API), so this card reads/writes through the admin backend:
- *   GET  /api/applicants/:id/follow-up  → { applicantId, hasPortalRecord, followUp }
+ *   GET  /api/applicants/:id/follow-up  → { applicantId, hasPortalRecord, followUp, schedules }
  *   PUT  /api/applicants/:id/follow-up  → merges the supplied { code: outcome } map.
+ *
+ * `schedules` carries each booked exam's own appointment date (from the draft's
+ * testSchedules), so a later stage settled through the data-exchange hub shows
+ * its date here instead of every row sharing the single first-exam date.
  *
  * The exam that opens «وثيقة التعارف» is whichever test the admission settings name as
  * the entry test (acquaintanceDocumentsEntryResponsibleTestCode); that row is flagged,
@@ -36,6 +40,7 @@ import {
   useUpdateFollowUpMutation,
 } from '@/features/applicant-portal';
 import { useAdminSettings } from '../../api/settings.queries';
+import { date as fmtDate } from '@/shared/lib/format';
 import type { ApplicantCategoryKey, PipelineState } from '@/shared/types/domain';
 
 const OUTCOME_OPTIONS: ReadonlyArray<{ value: PipelineState; label: string }> = [
@@ -196,6 +201,10 @@ export function ApplicantPortalExamsCard({
               {exams.map(({ exam, isRequired }) => {
                 const isGate = exam.id === openingTestCode || exam.key === openingTestCode;
                 const savedOutcome = outcomeOf(saved, exam);
+                const scheduleDate =
+                  statusQuery.data?.schedules?.[exam.id]?.date ??
+                  statusQuery.data?.schedules?.[exam.key]?.date ??
+                  null;
                 return (
                   <div
                     key={exam.id}
@@ -204,6 +213,11 @@ export function ApplicantPortalExamsCard({
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-medium text-ink-900">{exam.nameAr}</span>
+                      {scheduleDate && (
+                        <span className="font-numeric tnum text-2xs text-ink-500" dir="ltr">
+                          {fmtDate(scheduleDate, 'short')}
+                        </span>
+                      )}
                       {isGate && <Badge tone="info">يفتح وثيقة التعارف</Badge>}
                       {!isRequired && <Badge tone="neutral">تكميلي</Badge>}
                       <Badge tone={OUTCOME_TONE[savedOutcome]}>{outcomeLabel(savedOutcome)}</Badge>

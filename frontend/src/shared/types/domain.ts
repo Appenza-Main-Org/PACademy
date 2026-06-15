@@ -1376,7 +1376,22 @@ export interface ApplicantDraft {
     location: string;
     committeeId?: string;
     committeeName?: string;
+    /** Cycle test code of the exam this appointment is for — set when the slot is
+     *  the current/next un-passed exam (a passed exam never stays current). */
+    examId?: string;
   };
+  /** Per-exam appointments (one per booked exam, including later stages settled
+   *  through the data-exchange hub). Each row carries its own date so the
+   *  follow-up screen shows the booked date per exam, not just the first one. */
+  testSchedules?: Array<{
+    examId?: string;
+    testCode?: string;
+    examName?: string;
+    date?: string | null;
+    time?: string | null;
+    committeeName?: string | null;
+    status?: string | null;
+  }>;
   /** Permanent applicant barcode (format YY BYY MM DD G CC SSSSS, 16 digits).
    *  Generated server-side once a committee is assigned post-payment; immutable
    *  thereafter. Printed on the Exam Card (بطاقة التردد). */
