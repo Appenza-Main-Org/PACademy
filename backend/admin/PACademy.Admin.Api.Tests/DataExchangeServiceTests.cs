@@ -1346,6 +1346,134 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
+    public async Task Return_workbook_reservations_use_workbook_context_sheets()
+    {
+        var (svc, db) = Create();
+        await SeedCycleAsync(db, "CYC-1", true);
+        db.LookupRows.Add(new LookupRowEntity
+        {
+            LookupKey = "test-results", Code = "RES-01", Name = "ناجح", IsActive = true,
+            PayloadJson = """{"code":"RES-01","name":"ناجح","outcome":"pass"}""",
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+
+        var sheets = new List<ImportSheetInput>
+        {
+            new("Applicants",
+            [
+                new(StringComparer.Ordinal)
+                {
+                    ["applicant_id"] = "29901011234571",
+                    ["national_id"] = "29901011234571",
+                    ["full_name"] = "حسين صلاح وائل الخولي",
+                    ["category"] = "officers_general",
+                    ["cycle_id"] = "CYC-1",
+                    ["status"] = "under-review",
+                },
+            ]),
+            new("Exams",
+            [
+                new(StringComparer.Ordinal)
+                {
+                    ["exam_id"] = "TST-01",
+                    ["exam_name"] = "القدرات",
+                    ["category"] = "officers_general",
+                    ["order"] = "1",
+                    ["cycle_id"] = "CYC-1",
+                },
+                new(StringComparer.Ordinal)
+                {
+                    ["exam_id"] = "TST-03",
+                    ["exam_name"] = "المقاس",
+                    ["category"] = "officers_general",
+                    ["order"] = "3",
+                    ["cycle_id"] = "CYC-1",
+                },
+            ]),
+            new("ExamSchedules",
+            [
+                new(StringComparer.Ordinal)
+                {
+                    ["slot_id"] = "CI-OG-0618",
+                    ["exam_id"] = "TST-01",
+                    ["exam_name"] = "القدرات",
+                    ["category"] = "officers_general",
+                    ["date"] = "2026-06-18",
+                    ["committee_name"] = "اللجنة الأولى قسم عام",
+                    ["capacity"] = "15",
+                    ["reserved"] = "1",
+                },
+            ]),
+            new("ExamReservations",
+            [
+                new(StringComparer.Ordinal)
+                {
+                    ["applicant_national_id"] = "29901011234571",
+                    ["applicant_name"] = "حسين صلاح وائل الخولي",
+                    ["exam_id"] = "TST-03",
+                    ["exam_name"] = "المقاس",
+                    ["appointment_date"] = "2026-06-17",
+                    ["appointment_time"] = "08:00",
+                    ["committee_name"] = "اللجنة الأولى قسم عام",
+                    ["reservation_status"] = "محجوز",
+                },
+                new(StringComparer.Ordinal)
+                {
+                    ["applicant_national_id"] = "29901011234571",
+                    ["applicant_name"] = "حسين صلاح وائل الخولي",
+                    ["exam_id"] = "TST-01",
+                    ["exam_name"] = "القدرات",
+                    ["appointment_date"] = "2026-06-18",
+                    ["appointment_time"] = "08:00",
+                    ["committee_name"] = "اللجنة الأولى قسم عام",
+                    ["reservation_status"] = "محجوز",
+                },
+            ]),
+            new("ExamResults",
+            [
+                new(StringComparer.Ordinal)
+                {
+                    ["result_id"] = "29901011234571:TST-01",
+                    ["applicant_id"] = "29901011234571",
+                    ["exam_id"] = "TST-01",
+                    ["exam_name"] = "القدرات",
+                    ["result"] = "passed",
+                    ["exam_date"] = "2026-06-18",
+                },
+            ]),
+            new("LookupRows",
+            [
+                new(StringComparer.Ordinal)
+                {
+                    ["lookup_row_id"] = "tests:TST-01",
+                    ["lookup_key"] = "tests",
+                    ["code"] = "TST-01",
+                    ["name"] = "القدرات",
+                    ["is_active"] = "true",
+                },
+            ]),
+        };
+
+        var preview = await svc.PreviewAsync(new ImportPreviewRequest(sheets), default);
+        var apply = await svc.ApplyAsync(new ImportApplyRequest(sheets, "new-and-changed", false, false), default);
+
+        Assert.Equal(0, preview.Counts["invalid"]);
+        Assert.Equal(0, apply.FailedCount);
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new DbAuditSink(db), new OperationalRecordStore(db));
+        var applicant = await records.GetAsync("applicants", "29901011234571", default);
+        var schedules = Assert.IsType<JsonArray>(applicant!["testSchedules"]);
+        var examIds = schedules.OfType<JsonObject>().Select(e => e["examId"]?.ToString()).ToHashSet();
+        Assert.Equal(2, schedules.Count);
+        Assert.Contains("TST-01", examIds);
+        Assert.Contains("TST-03", examIds);
+        Assert.Equal("2026-06-18", Assert.IsType<JsonObject>(applicant["examSlot"])["date"]?.ToString());
+        Assert.Equal("2026-06-18", applicant["firstExamDate"]?.ToString());
+        var followUp = Assert.IsType<JsonObject>(applicant["followUp"]);
+        Assert.Equal("passed", followUp["TST-01"]?.ToString());
+    }
+
+    [Fact]
     public async Task Apply_new_only_skips_changed_rows()
     {
         var (svc, db) = Create();
@@ -1509,7 +1637,7 @@ public sealed class DataExchangeServiceTests
                 "applicant_id", "national_id", "full_name", "gender", "phone_number", "email", "date_of_birth", "birth_governorate",
                 "qualification_type", "university", "faculty", "specialization", "graduation_year", "grade", "percentage",
                 "school_name", "school_category", "secondary_total_score", "secondary_percentage", "secondary_graduation_year",
-                "category", "cycle_id", "status",
+                "category", "cycle_id", "status", "barcode",
             },
             sheet.Columns);
         var row = Assert.Single(sheet.Rows); // draft withheld by the booked gate

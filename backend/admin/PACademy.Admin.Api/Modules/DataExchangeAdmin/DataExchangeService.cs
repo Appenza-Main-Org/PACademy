@@ -784,21 +784,31 @@ public sealed class DataExchangeService(
         var outcomes = new List<ImportRowOutcome>();
         var sheetIssues = new List<SheetIssue>();
         var isReturnWorkbook = IsReturnWorkbook(request.Sheets);
+        var previousReservationContext = activeReservationImportContext;
+        if (UsesReservationImportContext(request.Sheets))
+            activeReservationImportContext = await BuildReservationImportContextAsync(request.Sheets, ct);
 
-        foreach (var sheet in request.Sheets)
+        try
         {
-            if (!DataExchangeRegistry.BySheetName.TryGetValue(sheet.SheetName, out var spec))
+            foreach (var sheet in request.Sheets)
             {
-                sheetIssues.Add(new SheetIssue(sheet.SheetName, "DATA_EXCHANGE_INVALID_WORKBOOK",
-                    $"اسم جدول غير معروف: {sheet.SheetName}"));
-                continue;
+                if (!DataExchangeRegistry.BySheetName.TryGetValue(sheet.SheetName, out var spec))
+                {
+                    sheetIssues.Add(new SheetIssue(sheet.SheetName, "DATA_EXCHANGE_INVALID_WORKBOOK",
+                        $"اسم جدول غير معروف: {sheet.SheetName}"));
+                    continue;
+                }
+                if (isReturnWorkbook && !ReturnWorkbookWritableDomains.Contains(spec.Domain))
+                {
+                    outcomes.AddRange(SkippedReturnSheetOutcomes(spec, sheet));
+                    continue;
+                }
+                outcomes.AddRange((await ClassifySheetAsync(spec, NormalizeSheetForImport(spec, sheet), ct)).Outcomes);
             }
-            if (isReturnWorkbook && !ReturnWorkbookWritableDomains.Contains(spec.Domain))
-            {
-                outcomes.AddRange(SkippedReturnSheetOutcomes(spec, sheet));
-                continue;
-            }
-            outcomes.AddRange((await ClassifySheetAsync(spec, NormalizeSheetForImport(spec, sheet), ct)).Outcomes);
+        }
+        finally
+        {
+            activeReservationImportContext = previousReservationContext;
         }
 
         var counts = Enum.GetValues<ImportRowClass>().ToDictionary(Camel, c => outcomes.Count(o => o.Class == Camel(c)));
@@ -992,6 +1002,9 @@ public sealed class DataExchangeService(
         var applyChanged = string.Equals(request.Mode, "new-and-changed", StringComparison.OrdinalIgnoreCase);
         var attempted = 0; var inserted = 0; var updated = 0; var skipped = 0;
         var failed = new List<ImportFailedRow>();
+        var previousReservationContext = activeReservationImportContext;
+        if (UsesReservationImportContext(request.Sheets))
+            activeReservationImportContext = await BuildReservationImportContextAsync(request.Sheets, ct);
 
         await using var tx = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(ct) : null;
         try
@@ -1064,6 +1077,10 @@ public sealed class DataExchangeService(
             if (tx is not null) await tx.RollbackAsync(ct);
             throw;
         }
+        finally
+        {
+            activeReservationImportContext = previousReservationContext;
+        }
 
         await EmitAuditAsync("import", $"استيراد · {inserted} إضافة · {updated} تحديث", attempted, inserted, updated, skipped, failed.Count, ct);
         return new ImportApplyResult(attempted, inserted + updated, inserted, updated, skipped, failed.Count, failed);
@@ -1077,6 +1094,11 @@ public sealed class DataExchangeService(
         => sheets.Any(sheet =>
             DataExchangeRegistry.BySheetName.TryGetValue(sheet.SheetName, out var spec) &&
             spec.Storage == ExchangeStorage.ReadOnlyExport);
+
+    private static bool UsesReservationImportContext(IReadOnlyList<ImportSheetInput> sheets)
+        => sheets.Any(sheet =>
+            DataExchangeRegistry.BySheetName.TryGetValue(sheet.SheetName, out var spec) &&
+            (spec.Storage == ExchangeStorage.ExamReservations || spec.Domain == ExchangeDomain.ExamResults));
 
     private static IEnumerable<ImportRowOutcome> SkippedReturnSheetOutcomes(DomainSpec spec, ImportSheetInput sheet)
     {
@@ -2315,11 +2337,19 @@ public sealed class DataExchangeService(
         CommitteeDirectory CommitteeDirectory);
 
     private ReservationImportContext? reservationImportContext;
+    private ReservationImportContext? activeReservationImportContext;
 
     private async Task<ReservationImportContext> GetReservationImportContextAsync(CancellationToken ct)
     {
+        if (activeReservationImportContext is not null) return activeReservationImportContext;
         if (reservationImportContext is not null) return reservationImportContext;
+        return reservationImportContext = await BuildReservationImportContextAsync(null, ct);
+    }
 
+    private async Task<ReservationImportContext> BuildReservationImportContextAsync(
+        IReadOnlyList<ImportSheetInput>? workbookSheets,
+        CancellationToken ct)
+    {
         IReadOnlyList<JsonObject> applicants;
         try { applicants = await records.ListAsync("applicants", enrichApplicantCommitteeNames: false, ct); }
         catch (InvalidOperationException) { applicants = []; }
@@ -2335,22 +2365,125 @@ public sealed class DataExchangeService(
             AddApplicantLookup(byId, payload, "applicantTableId");
             AddApplicantLookup(byId, payload, "adminRecordId");
         }
+        AddWorkbookApplicants(workbookSheets, byNid, byId);
 
-        var instances = (await LoadCommitteeInstancesAsync(ct))
-            .Where(x => !AdminRecordJson.IsSoftDeleted(x))
+        var liveInstances = (await LoadCommitteeInstancesAsync(ct))
+            .Where(x => !AdminRecordJson.IsSoftDeleted(x));
+        var instances = ImportedScheduleInstances(workbookSheets)
+            .Concat(liveInstances)
             .ToList();
-        var examNameByCode = await LoadExamNameByCodeAsync(ct);
+        var examNameByCode = new Dictionary<string, string>(
+            await LoadExamNameByCodeAsync(ct),
+            StringComparer.Ordinal);
         var examCodeByName = new Dictionary<string, string>(StringComparer.Ordinal);
+        AddWorkbookExamNames(workbookSheets, examNameByCode);
         foreach (var (code, name) in examNameByCode)
         {
             if (!string.IsNullOrWhiteSpace(name)) examCodeByName.TryAdd(name.Trim(), code);
         }
         var cycleId = await ResolveCycleIdAsync(null, ct);
-        var firstPlanned = await LoadFirstPlannedExamByCategoryAsync(cycleId, ct);
+        var firstPlanned = new Dictionary<string, string>(
+            await LoadFirstPlannedExamByCategoryAsync(cycleId, ct),
+            StringComparer.Ordinal);
+        AddWorkbookFirstPlannedExams(workbookSheets, firstPlanned);
         var directory = await records.LoadCommitteeDirectoryAsync(ct);
 
-        return reservationImportContext = new ReservationImportContext(
+        return new ReservationImportContext(
             byNid, byId, instances, examNameByCode, examCodeByName, firstPlanned, directory);
+    }
+
+    private static IEnumerable<IReadOnlyDictionary<string, string?>> WorkbookRows(
+        IReadOnlyList<ImportSheetInput>? sheets,
+        string sheetName)
+        => sheets?.FirstOrDefault(s => string.Equals(s.SheetName, sheetName, StringComparison.Ordinal))?.Rows
+            ?? [];
+
+    private static void AddWorkbookApplicants(
+        IReadOnlyList<ImportSheetInput>? sheets,
+        Dictionary<string, JsonObject> applicantsByNid,
+        Dictionary<string, JsonObject> applicantsById)
+    {
+        foreach (var row in WorkbookRows(sheets, "Applicants"))
+        {
+            var normalized = NormalizeRowForImport(DataExchangeRegistry.ByDomain[ExchangeDomain.Applicants], row);
+            var nid = ApplicantNationalId(normalized);
+            if (string.IsNullOrWhiteSpace(nid)) continue;
+
+            var applicant = new JsonObject { ["nationalId"] = nid };
+            SetJsonIfPresent(applicant, "id", Get(normalized, "id") ?? Get(normalized, "applicant_id") ?? nid);
+            SetJsonIfPresent(applicant, "name", ApplicantDisplayName(normalized));
+            SetJsonIfPresent(applicant, "fullName", ApplicantDisplayName(normalized));
+            SetJsonIfPresent(applicant, "categoryKey", Get(normalized, "categoryKey") ?? Get(normalized, "category"));
+            SetJsonIfPresent(applicant, "cycleId", Get(normalized, "cycleId") ?? Get(normalized, "cycle_id"));
+            applicantsByNid[nid] = applicant;
+            AddApplicantLookup(applicantsById, applicant, "id");
+            applicantsById[nid] = applicant;
+        }
+    }
+
+    private static IEnumerable<JsonObject> ImportedScheduleInstances(IReadOnlyList<ImportSheetInput>? sheets)
+    {
+        foreach (var row in WorkbookRows(sheets, "ExamSchedules"))
+        {
+            var slotId = Get(row, "slot_id") ?? Get(row, "id") ?? Get(row, "slotId");
+            var examId = Get(row, "exam_id") ?? Get(row, "examPlanId") ?? Get(row, "examId") ?? Get(row, "testCode");
+            var examName = Get(row, "exam_name") ?? Get(row, "examPlanName") ?? Get(row, "examName") ?? Get(row, "testName");
+            var date = Get(row, "date") ?? Get(row, "examDate") ?? Get(row, "scheduledDate");
+            if (string.IsNullOrWhiteSpace(slotId) && string.IsNullOrWhiteSpace(date)) continue;
+
+            var instance = new JsonObject();
+            SetJsonIfPresent(instance, "id", slotId);
+            SetJsonIfPresent(instance, "slotId", slotId);
+            SetJsonIfPresent(instance, "definitionCode", Get(row, "definitionCode"));
+            SetJsonIfPresent(instance, "committeeId", Get(row, "committeeId"));
+            SetJsonIfPresent(instance, "committeeCode", Get(row, "committeeCode"));
+            SetJsonIfPresent(instance, "examPlanId", examId);
+            SetJsonIfPresent(instance, "examId", examId);
+            SetJsonIfPresent(instance, "testCode", examId);
+            SetJsonIfPresent(instance, "examPlanName", examName);
+            SetJsonIfPresent(instance, "examName", examName);
+            SetJsonIfPresent(instance, "testName", examName);
+            SetJsonIfPresent(instance, "categoryKey", Get(row, "category") ?? Get(row, "categoryKey") ?? Get(row, "categoryId"));
+            SetJsonIfPresent(instance, "date", date);
+            SetJsonIfPresent(instance, "time", Get(row, "time") ?? Get(row, "appointment_time") ?? Get(row, "appointmentTime"));
+            SetJsonIfPresent(instance, "committeeName", Get(row, "committee_name") ?? Get(row, "committeeName"));
+            SetJsonIfPresent(instance, "name", Get(row, "committee_name") ?? Get(row, "committeeName") ?? Get(row, "name"));
+            yield return instance;
+        }
+    }
+
+    private static void AddWorkbookExamNames(
+        IReadOnlyList<ImportSheetInput>? sheets,
+        Dictionary<string, string> examNameByCode)
+    {
+        foreach (var row in WorkbookRows(sheets, "Exams").Concat(WorkbookRows(sheets, "ExamSchedules")))
+        {
+            var code = Get(row, "exam_id") ?? Get(row, "id") ?? Get(row, "examPlanId") ?? Get(row, "examId") ?? Get(row, "testCode") ?? Get(row, "code");
+            var name = Get(row, "exam_name") ?? Get(row, "name_ar") ?? Get(row, "name") ?? Get(row, "examPlanName") ?? Get(row, "examName") ?? Get(row, "testName");
+            if (!string.IsNullOrWhiteSpace(code) && !string.IsNullOrWhiteSpace(name)) examNameByCode[code] = name;
+        }
+    }
+
+    private static void AddWorkbookFirstPlannedExams(
+        IReadOnlyList<ImportSheetInput>? sheets,
+        Dictionary<string, string> firstPlannedByCategory)
+    {
+        var bestByCategory = new Dictionary<string, (int Order, string ExamId)>(StringComparer.Ordinal);
+        foreach (var row in WorkbookRows(sheets, "Exams"))
+        {
+            var category = Get(row, "category") ?? Get(row, "categoryKey") ?? Get(row, "categoryId");
+            var examId = Get(row, "exam_id") ?? Get(row, "id") ?? Get(row, "examId") ?? Get(row, "code");
+            var order = ParseInt(Get(row, "order") ?? Get(row, "sortOrder") ?? Get(row, "sequence"));
+            if (string.IsNullOrWhiteSpace(category) || string.IsNullOrWhiteSpace(examId) || order is null) continue;
+            if (!bestByCategory.TryGetValue(category, out var current) || order.Value < current.Order)
+                bestByCategory[category] = (order.Value, examId);
+        }
+        foreach (var (category, firstExam) in bestByCategory) firstPlannedByCategory[category] = firstExam.ExamId;
+    }
+
+    private static void SetJsonIfPresent(JsonObject target, string key, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value)) target[key] = value;
     }
 
     private static void AddApplicantLookup(Dictionary<string, JsonObject> applicantsById, JsonObject applicant, string key)
