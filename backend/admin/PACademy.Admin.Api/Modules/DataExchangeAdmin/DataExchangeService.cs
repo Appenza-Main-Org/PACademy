@@ -12,6 +12,7 @@ using PACademy.Admin.Api.Modules.Lookups;
 using PACademy.Admin.Api.Modules.OperationalRecords;
 using PACademy.Admin.Api.Persistence;
 using PACademy.Shared.Audit;
+using PACademy.Shared.Contracts;
 using PACademy.Shared.Persistence.ChangeTracking;
 
 namespace PACademy.Admin.Api.Modules.DataExchangeAdmin;
@@ -728,10 +729,12 @@ public sealed class DataExchangeService(
             && diff.Writeback?.Outcome is { } outcome
             && !diff.Writeback.Errors.Contains("RESULT_VALUE_UNKNOWN"))
         {
-            var followUp = workingPayload["followUp"] as JsonObject ?? new JsonObject();
             var testCode = diff.Writeback.TestCode ?? "TST-01";
-            followUp[testCode] = outcome;
-            workingPayload["followUp"] = followUp;
+            var applicantId = AdminRecordJson.StringProp(workingPayload, "id")
+                ?? diff.ApplicantId
+                ?? diff.NationalId;
+            SetFollowUpOutcome(workingPayload, testCode, outcome);
+            await TryApplyPortalFollowUpAsync(applicantId, testCode, outcome, ct);
 
             // Passed → schedule the next round's slot date in examSlot.date so
             // the applicant portal Stage-10 follow-up table picks it up.
@@ -751,6 +754,30 @@ public sealed class DataExchangeService(
         workingPayload["sourceSystem"] = ImportSource;
         await records.UpsertAsync("applicants", workingPayload["id"]!.ToString(), workingPayload, ct);
         return (fieldsWritten, writebackApplied);
+    }
+
+    private static void SetFollowUpOutcome(JsonObject payload, string testCode, string outcome)
+    {
+        var followUp = payload["followUp"] as JsonObject ?? new JsonObject();
+        followUp[testCode] = outcome;
+        payload["followUp"] = followUp;
+    }
+
+    private async Task TryApplyPortalFollowUpAsync(
+        string applicantId,
+        string testCode,
+        string outcome,
+        CancellationToken ct)
+    {
+        try
+        {
+            await records.UpdateApplicantFollowUpAsync(applicantId, new JsonObject { [testCode] = outcome }, ct);
+        }
+        catch (ConflictException ex) when (ex.ConflictCode == "NO_PORTAL_RECORD")
+        {
+            // Admin-created applicants do not have a portal draft; the admin
+            // applicant payload still receives the same follow-up outcome.
+        }
     }
 
     /// <summary>Sets a dotted-path key on a JsonObject, creating intermediate
