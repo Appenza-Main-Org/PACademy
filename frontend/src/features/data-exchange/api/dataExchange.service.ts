@@ -357,9 +357,6 @@ function mockParseWriteback(row: ExchangeCellMap): ApplicantWritebackResult {
     errors.push('RESULT_VALUE_UNKNOWN');
     return { resultRaw: raw, outcome: null, testCode, round, nextExamDate, errors };
   }
-  if (outcome === 'passed' && (nextExamDate == null || nextExamDate.trim() === '')) {
-    errors.push('WRITEBACK_NEXT_EXAM_MISSING');
-  }
   return { resultRaw: raw, outcome, testCode, round, nextExamDate, errors };
 }
 

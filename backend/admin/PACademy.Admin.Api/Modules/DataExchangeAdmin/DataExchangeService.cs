@@ -563,14 +563,6 @@ public sealed class DataExchangeService(
             return new ApplicantWritebackResult(raw, null, testCode, round, nextExamDate, errors);
         }
 
-        // Passed applicants must carry a next-exam date (admin-supplied via file)
-        // unless this is the terminal round — leave date-presence enforcement to
-        // the commit endpoint, which knows the cycle's follow-up plan length.
-        if (string.Equals(outcome, "passed", StringComparison.Ordinal)
-            && string.IsNullOrWhiteSpace(nextExamDate))
-        {
-            errors.Add("WRITEBACK_NEXT_EXAM_MISSING");
-        }
         return new ApplicantWritebackResult(raw, outcome, testCode, round, nextExamDate, errors);
     }
 
