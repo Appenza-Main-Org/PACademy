@@ -262,7 +262,7 @@ public sealed class DataExchangeServiceTests
     }
 
     [Fact]
-    public async Task Reconcile_preview_passed_without_next_exam_date_flags_missing()
+    public async Task Reconcile_commit_passed_without_next_exam_date_writes_result_only()
     {
         var (svc, db) = Create();
         db.LookupRows.Add(new LookupRowEntity
@@ -273,15 +273,23 @@ public sealed class DataExchangeServiceTests
         });
         await db.SaveChangesAsync();
         await SeedOperationalAsync(db, "applicants", "APP-3",
-            """{"id":"APP-3","nationalId":"29801011230801","status":"exam_scheduled"}""");
+            """{"id":"APP-3","nationalId":"29901011234571","status":"exam_scheduled","examSlot":{"date":"2026-06-20"}}""");
 
         var sheet = new ImportSheetInput("Applicants", new List<Dictionary<string, string?>>
             {
-                new(StringComparer.Ordinal) { ["nationalId"] = "29801011230801", ["result"] = "ناجح" },
+                new(StringComparer.Ordinal) { ["nationalId"] = "29901011234571", ["result"] = "ناجح", ["test_code"] = "TST-01" },
             });
         var preview = await svc.PreviewApplicantsReconciliationAsync([sheet], default);
+        var commit = await svc.CommitApplicantsReconciliationAsync(new ApplicantReconciliationCommitRequest(
+            [new ApplicantReconciliationDecision("29901011234571", [], true)],
+            [sheet]), default);
+        var records = new OperationalRecordsService(db, new HttpContextAccessor(), new DbAuditSink(db), new OperationalRecordStore(db));
+        var applicant = await records.GetAsync("applicants", "APP-3", default);
 
-        Assert.Contains("WRITEBACK_NEXT_EXAM_MISSING", preview.Rows[0].Writeback!.Errors);
+        Assert.Empty(preview.Rows[0].Writeback!.Errors);
+        Assert.Equal(1, commit.WritebacksAppliedCount);
+        Assert.Equal("passed", Assert.IsType<JsonObject>(applicant!["followUp"])["TST-01"]?.ToString());
+        Assert.Equal("2026-06-20", Assert.IsType<JsonObject>(applicant["examSlot"])["date"]?.ToString());
     }
 
     [Fact]

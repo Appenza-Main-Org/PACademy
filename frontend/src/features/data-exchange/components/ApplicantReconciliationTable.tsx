@@ -48,7 +48,6 @@ const FIELD_LABELS_AR: Record<string, string> = {
 const ERROR_CODE_LABELS: Record<string, { tone: BadgeTone; label: string }> = {
   APPLICANT_NID_UNMATCHED: { tone: 'warning', label: 'رقم قومي غير مطابق' },
   RESULT_VALUE_UNKNOWN: { tone: 'danger', label: 'قيمة نتيجة غير معروفة' },
-  WRITEBACK_NEXT_EXAM_MISSING: { tone: 'warning', label: 'موعد الاختبار التالي مفقود' },
 };
 
 function hasBlockedWriteback(row: ApplicantReconciliationRow): boolean {
@@ -60,7 +59,6 @@ function willApplyWriteback(row: ApplicantReconciliationRow): boolean {
   return (
     wb?.outcome != null
     && !wb.errors.includes('RESULT_VALUE_UNKNOWN')
-    && !wb.errors.includes('WRITEBACK_NEXT_EXAM_MISSING')
   );
 }
 
